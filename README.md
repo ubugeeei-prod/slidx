@@ -36,7 +36,8 @@ stopped being true fails to reproduce instead of quietly misleading.
   <img alt="A slide with a table of linter rules and what each one catches" src="./docs/images/0004-the-linter-checks-the-room-light.png">
 </picture>
 
-The source for those is [examples/deck/slides](./examples/deck/slides). Both
+The source for those is [examples/deck](./examples/deck) — a complete
+project whose entire configuration is `plugins: [slidx()]`. Both
 schemes come from one theme, because the room's lighting is usually unknown
 until the day.
 

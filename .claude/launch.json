@@ -2,6 +2,20 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "deck",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "slidx-example-deck",
+        "exec",
+        "vite",
+        "--port",
+        "5273",
+        "--strictPort"
+      ],
+      "port": 5273
+    },
+    {
       "name": "preview",
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "4173", "--directory", "dist/preview"],

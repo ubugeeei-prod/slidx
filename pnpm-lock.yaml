@@ -15,6 +15,9 @@ catalogs:
     typescript:
       specifier: ^5.9.0
       version: 5.9.3
+    vite:
+      specifier: ^7.3.6
+      version: 7.3.6
     vite-plus:
       specifier: 0.2.6
       version: 0.2.6
@@ -39,7 +42,27 @@ importers:
         specifier: 'catalog:'
         version: 0.2.6(@types/node@24.13.3)(esbuild@0.28.1)(happy-dom@20.11.1)(typescript@5.9.3)(vite@7.3.6(@types/node@24.13.3)(lightningcss@1.33.0))
 
+  examples/deck:
+    devDependencies:
+      '@slidx/vite-plugin':
+        specifier: workspace:*
+        version: link:../../packages/vite-plugin
+      vite:
+        specifier: 'catalog:'
+        version: 7.3.6(@types/node@24.13.3)(lightningcss@1.33.0)
+
   packages/runtime: {}
+
+  packages/vite-plugin:
+    dependencies:
+      '@slidx/wasm':
+        specifier: workspace:*
+        version: link:../wasm
+      vite:
+        specifier: '>=5'
+        version: 7.3.6(@types/node@24.13.3)(lightningcss@1.33.0)
+
+  packages/wasm: {}
 
 packages:
 
