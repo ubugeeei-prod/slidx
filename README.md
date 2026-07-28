@@ -38,7 +38,7 @@ the PDF, and the OG image all consume the same parsed deck. Presentation tools
 fail when those quietly disagree; the only durable fix is to give them one
 parser and one step engine.
 
-**Steps are snapshots, not deltas.** Each stop on a slide is a *complete* state,
+**Steps are snapshots, not deltas.** Each stop on a slide is a _complete_ state,
 compiled ahead of time. Advancing, going back, deep-linking to `?step=7`, and
 printing all index into the same vector, so they cannot drift.
 
@@ -56,16 +56,16 @@ and scripted generation all share one file.
 
 ## Status
 
-| Area | State |
-|---|---|
-| `slidx_core` — deck model, parser, step pipeline | building |
-| `slidx_lint` — contrast, font size, overflow, a11y | planned |
-| `slidx_render` — slide / presenter / print shells, themes | planned |
-| `@slidx/vite-plugin` — dev server, SSG, PDF, OG | planned |
-| Visual editor | planned |
-| Presenter suite — timer, notes, mirroring, A/V check | planned |
-| Publish pipeline — PDF, Speaker Deck, OG, QR | planned |
-| Integrations — Vue / React / Svelte / Angular / Three | planned |
+| Area                                                      | State    |
+| --------------------------------------------------------- | -------- |
+| `slidx_core` — deck model, parser, step pipeline          | building |
+| `slidx_lint` — contrast, font size, overflow, a11y        | planned  |
+| `slidx_render` — slide / presenter / print shells, themes | planned  |
+| `@slidx/vite-plugin` — dev server, SSG, PDF, OG           | planned  |
+| Visual editor                                             | planned  |
+| Presenter suite — timer, notes, mirroring, A/V check      | planned  |
+| Publish pipeline — PDF, Speaker Deck, OG, QR              | planned  |
+| Integrations — Vue / React / Svelte / Angular / Three     | planned  |
 
 See [ROADMAP.md](./ROADMAP.md) for the plan and the open issues for detail.
 
@@ -87,6 +87,7 @@ Open with the outcome, not the agenda.
 -->
 
 ---
+
 autoSteps: list
 budget: 90s
 ---
@@ -104,7 +105,7 @@ the same timeline, so the animation you author is the animation that prints.
 ## Getting started
 
 ```bash
-npm install -D @slidx/vite-plugin
+vp add -D @slidx/vite-plugin
 ```
 
 ```ts
@@ -120,13 +121,25 @@ export default defineConfig({
 Nothing else is required: `slidx()` with no options finds `./slides`, serves the
 visual editor in dev, and emits a static deck, a PDF, and OG images on build.
 
+```bash
+vp build
+```
+
 ## Development
 
+[Vite+](https://voidzero.dev) runs every task in this repository, Rust and
+TypeScript alike:
+
 ```bash
-pnpm install
-cargo test --workspace
-pnpm test
+vp install
 ```
+
+```bash
+vp run workspace:ci
+```
+
+That last command is exactly what CI runs. `vp run` with no argument lists the
+task graph; see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 

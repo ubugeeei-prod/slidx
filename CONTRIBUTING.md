@@ -48,20 +48,45 @@ failure a branch exists to prevent, what an external contract requires.
 
 Not `// set visibility to hidden`.
 
-Module-level docs say what the module is *for* and what would break without
+Module-level docs say what the module is _for_ and what would break without
 it. That context is what makes the file navigable six months later.
 
 ## Checks
 
+[Vite+](https://voidzero.dev) is the task runner for the whole repository —
+Rust and TypeScript alike. One command runs exactly what CI runs:
+
 ```bash
-cargo fmt --all
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
-pnpm test
-pnpm typecheck
+vp run workspace:ci
 ```
 
-All five run in CI on Linux, macOS, and Windows. Warnings are errors.
+The pieces, when you want one of them:
+
+```bash
+vp check
+```
+
+```bash
+vp test
+```
+
+```bash
+vp fmt
+```
+
+Each of those delegates into the task graph, so `vp check` covers `cargo fmt`,
+`clippy`, `oxfmt`, type-aware `oxlint`, and the layout conventions — not just
+the TypeScript half. `vp run` with no argument lists every task.
+
+Narrow a run with a filter or a path:
+
+```bash
+vp run --filter @slidx/runtime test:ts
+```
+
+CI runs `vp run workspace:ci` on Linux, macOS, and Windows and nothing else, so
+a check that exists locally cannot be missing from CI. Warnings are errors.
+The task graph lives in [vite.config.ts](./vite.config.ts).
 
 ## Commits
 

@@ -2,18 +2,15 @@
   "name": "@slidx/runtime",
   "version": "0.0.0",
   "description": "Client runtime for slidx decks: step resolution, navigation, and mirroring",
-  "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ubugeeei-prod/slidx.git",
     "directory": "packages/runtime"
   },
+  "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts"
-  },
-  "sideEffects": false,
-  "scripts": {
-    "test": "vitest run"
   }
 }

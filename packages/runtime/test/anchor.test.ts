@@ -52,7 +52,10 @@ describe("case 1 — an anchor alone in its block", () => {
   });
 
   it("stages a table, an image, or anything else that precedes it", () => {
-    for (const block of ["<table><tbody><tr><td>a</td></tr></tbody></table>", "<blockquote>q</blockquote>"]) {
+    for (const block of [
+      "<table><tbody><tr><td>a</td></tr></tbody></table>",
+      "<blockquote>q</blockquote>",
+    ]) {
       const root = mount(`${block}<p><span ${ANCHOR_ATTRIBUTE}="1" hidden></span></p>`);
       const staged = resolveAnchor(root, anchor(root, 1));
 
@@ -122,7 +125,9 @@ describe("case 3 — an anchor inside ordinary prose", () => {
   });
 
   it("climbs out of inline wrappers", () => {
-    const root = mount(`<p>See <strong>this <span ${ANCHOR_ATTRIBUTE}="1" hidden></span></strong></p>`);
+    const root = mount(
+      `<p>See <strong>this <span ${ANCHOR_ATTRIBUTE}="1" hidden></span></strong></p>`,
+    );
     expect(resolveAnchor(root, anchor(root, 1))?.tagName).toBe("P");
   });
 

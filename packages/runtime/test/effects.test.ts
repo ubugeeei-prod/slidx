@@ -30,12 +30,9 @@ describe("preset coverage", () => {
     expect(css).toContain(`[data-slidx-effect="${preset}"]`);
   });
 
-  it.each(EFFECT_PRESETS.filter((preset) => preset !== "none"))(
-    "`%s` has keyframes",
-    (preset) => {
-      expect(css).toContain(`@keyframes slidx-${preset} {`);
-    },
-  );
+  it.each(EFFECT_PRESETS.filter((preset) => preset !== "none"))("`%s` has keyframes", (preset) => {
+    expect(css).toContain(`@keyframes slidx-${preset} {`);
+  });
 
   it("declares no keyframes nothing references", () => {
     const declared = Array.from(css.matchAll(/@keyframes slidx-([\w-]+)/g), (match) => match[1]!);
@@ -77,7 +74,9 @@ describe("degradation", () => {
     // A venue with no network, or a blocked bundle, must not leave a slide
     // mostly invisible.
     expect(css).toContain("html:not([data-slidx-js]) [data-slidx-hidden]");
-    expect(css).toMatch(/html:not\(\[data-slidx-js\]\) \[data-slidx-hidden\] \{\s*visibility: visible/);
+    expect(css).toMatch(
+      /html:not\(\[data-slidx-js\]\) \[data-slidx-hidden\] \{\s*visibility: visible/,
+    );
   });
 
   it("reserves layout for hidden elements rather than collapsing them", () => {

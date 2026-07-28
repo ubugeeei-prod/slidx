@@ -5,12 +5,13 @@
 //! snapshots, and [`preset`] is the shared animation vocabulary.
 
 pub mod action;
+pub mod parse;
 pub mod preset;
 pub mod timeline;
 
 pub use action::{
-    parse_step_actions, AutoSteps, Effect, StepAction, StepOptions, StepSource, Visibility,
-    DEFAULT_DURATION_MS,
+    AutoSteps, Effect, StepAction, StepOptions, StepSource, Visibility, DEFAULT_DURATION_MS,
 };
+pub use parse::parse_step_actions;
 pub use preset::{Easing, EffectKind, EffectPreset, Origin};
 pub use timeline::{compile_timeline, ElementState, StepFrame, StepTimeline};

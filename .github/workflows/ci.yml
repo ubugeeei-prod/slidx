@@ -13,37 +13,41 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  rust:
-    name: rust / ${{ matrix.os }}
+  # One job per platform running one task. `vp run workspace:ci` is the same
+  # graph a contributor runs locally, so CI cannot drift from the pre-push
+  # check: adding a step here without adding it to vite.config.ts is not
+  # possible, because there are no steps here to add.
+  ci:
+    name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo fmt --all -- --check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace
 
-  node:
-    name: node / ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    steps:
-      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+
       - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
+
       - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm test
+
+      - name: Cache Vite+ task results
+        uses: actions/cache@v4
+        with:
+          path: node_modules/.cache/vite-plus
+          key: vp-${{ matrix.os }}-${{ hashFiles('pnpm-lock.yaml', 'Cargo.lock') }}
+          restore-keys: vp-${{ matrix.os }}-
+
+      - run: pnpm exec vp run workspace:ci

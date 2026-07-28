@@ -3,3 +3,11 @@ packages:
   - "packages/integrations/*"
   - "examples/*"
   - "docs"
+
+# One version of the toolchain across the whole repository. Vite+ ships its own
+# Vite, Vitest, oxlint, and oxfmt, so pinning it pins all of them together.
+catalog:
+  "@types/node": ^24.0.0
+  happy-dom: ^20.11.1
+  typescript: ^5.9.0
+  vite-plus: 0.2.6
