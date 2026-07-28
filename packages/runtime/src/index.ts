@@ -13,6 +13,8 @@
 
 export { ANCHOR_ATTRIBUTE, findAnchors, resolveAnchor } from "./anchor";
 export { createMirror } from "./mirror";
+export { createNavigator, LAST_STEP } from "./navigate";
+export type { Navigator, NavigatorOptions } from "./navigate";
 export type { Mirror, MirrorMessage, MirrorTransport, Position } from "./mirror";
 export { createStage, HIDDEN_ATTRIBUTE, STAGED_ATTRIBUTE } from "./stage";
 export type { Stage } from "./stage";
