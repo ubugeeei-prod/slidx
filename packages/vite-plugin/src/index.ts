@@ -23,6 +23,7 @@ import type { Plugin, ViteDevServer } from "vite";
 import { readDeck } from "./deck";
 import {
   presenterFileName,
+  printFileName,
   resolveOptions,
   runtimeFileName,
   slideFileName,
@@ -94,9 +95,13 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
         if (asked === null) return next();
 
         try {
-          const built = await renderDeck(root, options, asked.presenter);
+          const built = await renderDeck(root, options, asked.presenter, asked.print ?? false);
           const slide = built.slides[asked.index];
-          const html = asked.presenter ? slide?.presenterHtml : slide?.html;
+          const html = asked.print
+            ? built.printHtml
+            : asked.presenter
+              ? slide?.presenterHtml
+              : slide?.html;
 
           if (!html) {
             response.statusCode = 404;
@@ -128,7 +133,7 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
         }
       }
 
-      const built = await renderDeck(root, options, options.presenter);
+      const built = await renderDeck(root, options, options.presenter, options.print);
 
       // No slide files at all is a different situation from a deck that
       // failed to parse: emitting a blank page would look like the deck built
@@ -167,10 +172,18 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
         }
       }
 
-      // The runtime is emitted once and shared by every presenter page. It is
-      // the only JavaScript a deck ships, and only when the presenter view is
-      // built — the audience slides stay at zero.
-      if (options.presenter) {
+      if (built.printHtml) {
+        this.emitFile({
+          type: "asset",
+          fileName: printFileName(options),
+          source: built.printHtml,
+        });
+      }
+
+      // The runtime is emitted once and shared by the presenter and print
+      // pages. It is the only JavaScript a deck ships — the audience slides
+      // stay at zero.
+      if (options.presenter || options.print) {
         this.emitFile({
           type: "asset",
           fileName: runtimeFileName(options),
@@ -185,6 +198,7 @@ async function renderDeck(
   root: string,
   options: ReturnType<typeof resolveOptions>,
   presenter: boolean,
+  print = false,
 ) {
   const { files, source } = await readDeck(
     root,
@@ -197,6 +211,7 @@ async function renderDeck(
     theme: options.theme,
     separator: options.separator,
     presenter,
+    print,
     runtimeSrc: runtimeSrcFor(options),
   });
 
@@ -232,6 +247,8 @@ function readRuntime(): Promise<string> {
 export interface SlideRequest {
   index: number;
   presenter: boolean;
+  /** The whole deck as one printable document, rather than one slide. */
+  print?: boolean;
 }
 
 /**
@@ -251,6 +268,8 @@ export function slideRequestFor(url: string, base: string): SlideRequest | null 
     .replace(/^\//, "")
     .replace(/\/index\.html$/, "");
   if (rest === "index.html") rest = "";
+
+  if (rest === "print") return { index: 0, presenter: false, print: true };
 
   const presenter = rest === "presenter" || rest.endsWith("/presenter");
   if (presenter) rest = rest.replace(/\/?presenter$/, "");

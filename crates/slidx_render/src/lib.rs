@@ -36,8 +36,11 @@ pub mod layout;
 pub mod markdown;
 pub mod presenter;
 pub mod presenter_layout;
+pub mod print;
+pub mod print_layout;
 pub mod shell;
 
 pub use markdown::{render as render_markdown, MarkdownOptions};
 pub use presenter::{render_presenter, PresenterOptions};
+pub use print::{render_print, PrintOptions};
 pub use shell::{render_slide, ShellOptions};

@@ -27,6 +27,13 @@ export interface SlidxOptions {
    */
   presenter?: boolean;
   /**
+   * Build the print shell — one document, one page per stop.
+   *
+   * On by default. It is the fallback a speaker reaches for when the venue
+   * cannot drive their laptop, and it costs one page nobody has to visit.
+   */
+  print?: boolean;
+  /**
    * Fail the build when the linter reports something blocking.
    *
    * On by default: a contrast failure that reaches a projector cannot be fixed
@@ -43,6 +50,7 @@ export interface ResolvedOptions {
   separator: string;
   extensions: string[];
   presenter: boolean;
+  print: boolean;
   failOnDiagnostics: boolean;
 }
 
@@ -54,6 +62,7 @@ export function resolveOptions(options: SlidxOptions = {}): ResolvedOptions {
     separator: options.separator ?? "---",
     extensions: normaliseExtensions(options.extensions ?? [".md"]),
     presenter: options.presenter ?? true,
+    print: options.print ?? true,
     failOnDiagnostics: options.failOnDiagnostics ?? true,
   };
 }
@@ -99,6 +108,11 @@ export function slideFileName(options: ResolvedOptions, index: number): string {
 export function presenterFileName(options: ResolvedOptions, index: number): string {
   const path = index === 0 ? "presenter/index.html" : `${index + 1}/presenter/index.html`;
   return options.base ? `${options.base}/${path}` : path;
+}
+
+/** Where the printable document is written. */
+export function printFileName(options: ResolvedOptions): string {
+  return options.base ? `${options.base}/print/index.html` : "print/index.html";
 }
 
 /** Where the runtime module is written, and imported from. */
