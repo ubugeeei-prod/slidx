@@ -1,0 +1,12 @@
+node_modules/
+dist/
+target/
+*.node
+.DS_Store
+*.tsbuildinfo
+coverage/
+.vitest/
+test-results/
+playwright-report/
+.wrangler/
+.slidx/

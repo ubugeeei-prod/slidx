@@ -1,0 +1,35 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.82"
+license = "MIT"
+repository = "https://github.com/ubugeeei-prod/slidx"
+homepage = "https://github.com/ubugeeei-prod/slidx"
+authors = ["ubugeeei"]
+
+[workspace.dependencies]
+slidx_core = { version = "0.0.0", path = "crates/slidx_core" }
+slidx_lint = { version = "0.0.0", path = "crates/slidx_lint" }
+slidx_render = { version = "0.0.0", path = "crates/slidx_render" }
+slidx_asset = { version = "0.0.0", path = "crates/slidx_asset" }
+slidx_qr = { version = "0.0.0", path = "crates/slidx_qr" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+insta = { version = "1", features = ["json", "yaml"] }
+rayon = "1"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+opt-level = 3
+strip = "symbols"
+panic = "abort"
+
+[profile.bench]
+lto = "thin"

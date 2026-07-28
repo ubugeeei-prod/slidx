@@ -1,0 +1,16 @@
+[package]
+name = "slidx_core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Deck model, Markdown deck parsing, and the declarative slide step pipeline for slidx"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
