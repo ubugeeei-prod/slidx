@@ -1,0 +1,33 @@
+{
+  "name": "@slidx/wasm",
+  "version": "0.0.1",
+  "description": "The slidx deck pipeline compiled to WebAssembly",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ubugeeei-prod/slidx.git",
+    "directory": "packages/wasm"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "types": "./dist/slidx.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/slidx.d.ts",
+      "default": "./dist/slidx.js"
+    },
+    "./slidx_bg.wasm": "./dist/slidx_bg.wasm"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "pack:lib": "node ../../scripts/build-wasm.mjs"
+  }
+}

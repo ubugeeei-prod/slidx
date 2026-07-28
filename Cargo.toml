@@ -16,6 +16,7 @@ slidx_core = { version = "0.0.1", path = "crates/slidx_core" }
 slidx_lint = { version = "0.0.1", path = "crates/slidx_lint" }
 slidx_render = { version = "0.0.1", path = "crates/slidx_render" }
 slidx_theme = { version = "0.0.1", path = "crates/slidx_theme" }
+slidx_wasm = { version = "0.0.1", path = "crates/slidx_wasm" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -32,3 +33,9 @@ panic = "abort"
 
 [profile.bench]
 lto = "thin"
+
+# The wasm artifact ships to every viewer of every deck, so it is optimised for
+# size rather than speed. Deck parsing is microseconds either way; bytes over
+# the wire are not.
+[profile.release.package.slidx_wasm]
+opt-level = "z"

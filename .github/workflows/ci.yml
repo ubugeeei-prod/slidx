@@ -55,6 +55,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+        with:
+          wasm: "true"
       - run: pnpm exec vp run ci:ts
 
   build:
@@ -68,7 +70,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
         with:
-          rust: "true"
+          wasm: "true"
       - run: pnpm exec vp run ci:build
 
   # One check to require on the branch, so adding a job to the matrix above

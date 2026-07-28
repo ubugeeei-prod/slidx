@@ -110,7 +110,7 @@ export default defineConfig({
       "ci:conventions": group(["check:conventions", "check:version"]),
       "ci:rust": group(["fmt:rust-check", "lint:rust", "test:rust"]),
       "ci:ts": group(["fmt:ts-check", "check:ts", "test:ts"]),
-      "ci:build": group(["build:rust"]),
+      "ci:build": group(["build:rust", "build:wasm"]),
 
       "workspace:check": group([
         "check:conventions",
@@ -121,7 +121,7 @@ export default defineConfig({
         "check:ts",
       ]),
       "workspace:test": group(["test:rust", "test:ts"]),
-      "workspace:build": group(["build:rust"]),
+      "workspace:build": group(["build:rust", "build:wasm"]),
       "workspace:fmt": group(["fmt:rust", "fmt:ts"]),
       "workspace:lint": group(["lint:rust", "check:ts"]),
 
@@ -150,8 +150,12 @@ export default defineConfig({
       "build:rust": uncached("cargo build --workspace --release"),
       "doc:rust": uncached("cargo doc --workspace --no-deps"),
 
+      // The wasm package is the boundary every JavaScript consumer goes
+      // through, so nothing on that side can be checked until it exists.
+      "build:wasm": uncached("node scripts/build-wasm.mjs"),
+
       // TypeScript.
-      "check:ts": task(builtin("vp check")),
+      "check:ts": task(builtin("vp check"), { dependsOn: ["build:wasm"] }),
       "fmt:ts": task(builtin("vp fmt")),
       "fmt:ts-check": task(builtin("vp fmt --check")),
 
@@ -160,7 +164,7 @@ export default defineConfig({
       // `node_modules/.vite-temp`, which reads as the task modifying its own
       // input. Marking it explicitly keeps the run summary honest instead of
       // reporting a miss on every run.
-      "test:ts": uncached(builtin("vp test")),
+      "test:ts": uncached(builtin("vp test"), { dependsOn: ["build:wasm"] }),
 
       "check:conventions": task("node scripts/check-conventions.mjs"),
       "check:version": task("node scripts/check-version.mjs"),

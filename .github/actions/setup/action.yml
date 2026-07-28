@@ -5,6 +5,9 @@ inputs:
   rust:
     description: Install the Rust toolchain and its cache. Skip it for jobs that only touch TypeScript.
     default: "false"
+  wasm:
+    description: Also install the wasm32 target and a matching wasm-bindgen. Implies rust.
+    default: "false"
 
 runs:
   using: composite
@@ -16,12 +19,33 @@ runs:
         node-version: 24
         cache: pnpm
 
-    - if: inputs.rust == 'true'
+    - if: inputs.rust == 'true' && inputs.wasm != 'true'
       uses: dtolnay/rust-toolchain@stable
       with:
         components: rustfmt, clippy
 
-    - if: inputs.rust == 'true'
+    - if: inputs.wasm == 'true'
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+        targets: wasm32-unknown-unknown
+
+    # Prebuilt. `cargo install wasm-bindgen-cli` compiles it from source and
+    # would dominate the job. The version has to match the crate exactly, so it
+    # is read from the manifest rather than repeated here.
+    - if: inputs.wasm == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        version=$(grep -oE 'wasm-bindgen = "=([0-9.]+)"' crates/slidx_wasm/Cargo.toml | grep -oE '[0-9.]+')
+        echo "BINDGEN_VERSION=$version" >> "$GITHUB_ENV"
+
+    - if: inputs.wasm == 'true'
+      uses: taiki-e/install-action@v2
+      with:
+        tool: wasm-bindgen-cli@${{ env.BINDGEN_VERSION }}
+
+    - if: inputs.rust == 'true' || inputs.wasm == 'true'
       uses: Swatinem/rust-cache@v2
 
     # Vite+ caches task results by content hash, so a job that changed nothing
