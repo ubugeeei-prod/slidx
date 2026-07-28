@@ -32,7 +32,7 @@ from both Rust and Node, with no panics on adversarial input.
 The minimum a speaker can stand on stage with.
 
 - [ ] `slidx_render`: slide, presenter, and print shells — #3
-- [ ] Theme token system; `minimal`, `editorial`, `terminal`, `contrast` built in — #3
+- [x] Theme token system; `minimal`, `editorial`, `terminal`, `contrast` built in — #3
 - [ ] `@slidx/vite-plugin`: dev server, HMR, MPA static output — #4
 - [ ] Client runtime: navigation, step resolution, transitions, deep links
 - [ ] **Offline guarantee**: build fails if any asset resolves to a remote host — #5

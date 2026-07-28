@@ -15,6 +15,7 @@ authors = ["ubugeeei"]
 slidx_core = { version = "0.0.0", path = "crates/slidx_core" }
 slidx_lint = { version = "0.0.0", path = "crates/slidx_lint" }
 slidx_render = { version = "0.0.0", path = "crates/slidx_render" }
+slidx_theme = { version = "0.0.0", path = "crates/slidx_theme" }
 slidx_asset = { version = "0.0.0", path = "crates/slidx_asset" }
 slidx_qr = { version = "0.0.0", path = "crates/slidx_qr" }
 

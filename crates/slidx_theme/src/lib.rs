@@ -1,0 +1,81 @@
+//! # slidx themes
+//!
+//! Theme tokens, the four built-in themes, and the CSS they compile to.
+//!
+//! ## Themes are linted, not trusted
+//!
+//! Most contrast and legibility problems originate in a theme rather than in a
+//! slide: the author inherits them and never sees a colour value. So a theme
+//! describes itself to the linter as a list of [`slidx_lint::Surface`]s and is
+//! held to the same rules as a deck. Every built-in theme passes those rules in
+//! every room slidx models — that is asserted in [`audit`], and it is a gate,
+//! not a report.
+//!
+//! The same audit runs over third-party theme packages, which is the reason a
+//! theme is described as resolved surfaces rather than as CSS.
+//!
+//! ## Sizes are relative, deliberately
+//!
+//! Sizes come from a modular scale and compile to container-height units, so a
+//! slide scales as one piece. There is no arbitrary pixel value for an author
+//! to reach for, which makes "shrink the text until it fits" — the reflex that
+//! produces unreadable slides — something the system does not offer.
+//!
+//! ```
+//! use slidx_lint::LintOptions;
+//! use slidx_theme::{audit, builtin, css};
+//!
+//! let theme = builtin::contrast();
+//! assert!(audit::audit(&theme, &LintOptions::default()).is_empty());
+//! assert!(css::render(&theme).contains("--slidx-color-text:"));
+//! ```
+
+#![deny(missing_debug_implementations)]
+#![warn(clippy::all)]
+
+pub mod audit;
+pub mod builtin;
+pub mod css;
+pub mod palette;
+pub mod scale;
+pub mod theme;
+
+pub use palette::{Palette, Scheme};
+pub use scale::{TypeScale, REFERENCE_HEIGHT_PX};
+pub use theme::{Spacing, Theme};
+
+/// Resolves a theme by name.
+///
+/// Only built-in ids resolve here; package themes are loaded by the plugin,
+/// which owns module resolution. Returning `None` rather than falling back
+/// silently means a typo in `theme:` is reported instead of producing a deck
+/// that looks subtly wrong.
+pub fn resolve(id: &str) -> Option<Theme> {
+    builtin::find(id)
+}
+
+/// The theme used when a deck names none.
+pub fn default_theme() -> Theme {
+    builtin::minimal()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn built_in_ids_resolve() {
+        assert!(resolve("minimal").is_some());
+        assert!(resolve("contrast").is_some());
+    }
+
+    #[test]
+    fn an_unknown_id_does_not_silently_fall_back() {
+        assert!(resolve("editoral").is_none(), "a typo must be reported, not absorbed");
+    }
+
+    #[test]
+    fn the_default_theme_is_a_built_in() {
+        assert!(resolve(&default_theme().id).is_some());
+    }
+}

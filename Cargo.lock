@@ -248,6 +248,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "slidx_theme"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "slidx_core",
+ "slidx_lint",
+]
+
+[[package]]
 name = "syn"
 version = "3.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
