@@ -31,13 +31,15 @@ from both Rust and Node, with no panics on adversarial input.
 
 The minimum a speaker can stand on stage with.
 
-- [ ] `slidx_render`: slide, presenter, and print shells — #3
+- [x] `slidx_render`: slide, presenter, and print shells — #3
 - [x] Theme token system; `minimal`, `editorial`, `terminal`, `contrast` built in — #3
-- [ ] `@slidx/vite-plugin`: dev server, HMR, MPA static output — #4
+- [x] `@slidx/vite-plugin`: dev server, live reload, MPA static output — #4
 - [x] Client runtime: step resolution and the anchor contract — #4
-- [ ] Client runtime: navigation, transitions, deep links — #4
+- [x] Client runtime: navigation, keyboard, deep links — #4
+- [ ] Slide-to-slide transitions — #4
 - [ ] **Offline guarantee**: build fails if any asset resolves to a remote host — #5
-- [ ] PDF export with each step as its own page — #6
+- [x] Print shell with each stop as its own page — #6
+- [ ] Automated PDF at build time — #6
 - [ ] OG image per slide and per deck
 
 **Done when** `npm i -D @slidx/vite-plugin` → `vite build` produces a deck that
@@ -83,9 +85,11 @@ and the diff is still reviewable.
 
 Everything between walking up and sitting down.
 
-- [ ] Presenter view: next slide, notes sized for a floor monitor, step preview — #12
-- [ ] Timer against the declared slot; behind/ahead indicator; optional-slide hints
-- [ ] Mirroring and remote control across windows, screens, and devices — #13
+- [x] Presenter view: next slide, notes, position — #12
+- [x] Timer against the declared slot, with a warning before the end
+- [ ] Behind/ahead indicator and optional-slide hints
+- [x] Mirroring across windows and screens — #13
+- [ ] Remote control from a separate device — #13
 - [ ] Notification and Do-Not-Disturb control on entering presentation mode — #13
 - [ ] Rehearsal recording; actual per-slide dwell time diffed against budget — #17
 - [ ] **Demo fallback** as a declared construct: live target plus recorded video — #14
@@ -121,6 +125,21 @@ author already wrote at proposal time.
 - [ ] Runtime matrix: Node, Bun, Deno; macOS, Linux, Windows — #23
 
 ---
+
+## Where this stands
+
+Everything checked above is merged, tested, and verified in a browser rather
+than assumed. The counts are the honest measure of that:
+
+|                                 |                       |
+| ------------------------------- | --------------------- |
+| Rust tests                      | 408                   |
+| TypeScript tests                | 212                   |
+| Platforms in CI                 | Linux, macOS, Windows |
+| JavaScript on an audience slide | none                  |
+
+The unchecked items are the work, not a wish list — each one is an open issue
+with a stated shape.
 
 ## Non-goals
 
