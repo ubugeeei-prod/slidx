@@ -1,17 +1,23 @@
 /**
  * The slidx client runtime.
  *
- * Small on purpose. Navigation between slides is the browser's job — a built
- * deck is ordinary multi-page HTML, one URL per slide — so this runtime is
- * responsible for one thing: showing the right *stop* on the slide that is
- * already loaded.
+ * Small on purpose, and split so a page loads only what it uses. Navigation
+ * between slides is the browser's job — a built deck is ordinary multi-page
+ * HTML, one URL per slide — so an audience slide is responsible for one thing:
+ * showing the right *stop* on the slide already loaded. A slide with no steps
+ * loads none of it.
  *
- * A slide with no steps loads none of this.
+ * The presenter view needs more, and is the only thing that pays for it: a
+ * clock, and a channel to keep the projector on the same slide.
  */
 
 export { ANCHOR_ATTRIBUTE, findAnchors, resolveAnchor } from "./anchor";
+export { createMirror } from "./mirror";
+export type { Mirror, MirrorMessage, MirrorTransport, Position } from "./mirror";
 export { createStage, HIDDEN_ATTRIBUTE, STAGED_ATTRIBUTE } from "./stage";
 export type { Stage } from "./stage";
+export { createTimer, formatDuration } from "./timer";
+export type { Timer, TimerState, TimerStatus } from "./timer";
 export type {
   DeckData,
   Easing,

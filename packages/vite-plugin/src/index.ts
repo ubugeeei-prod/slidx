@@ -21,7 +21,7 @@
 import type { Plugin, ViteDevServer } from "vite";
 
 import { readDeck } from "./deck";
-import { resolveOptions, slideFileName, slideRoute, type SlidxOptions } from "./options";
+import { resolveOptions, slideFileName, type SlidxOptions } from "./options";
 import { build as buildDeck } from "./pipeline";
 import { blockingSummary, formatReport, groupFindings } from "./report";
 

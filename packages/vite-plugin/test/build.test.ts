@@ -17,8 +17,6 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { slidx } from "../src/index";
 
-let outDir: string;
-
 async function buildDeck(
   slides: Record<string, string>,
   options: Parameters<typeof slidx>[0] = {},
