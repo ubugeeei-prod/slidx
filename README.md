@@ -50,9 +50,16 @@ leaves a speaker with nothing.
 images, styles, and scripts are bundled. This is enforced at build time, not
 documented as a best practice.
 
-**Markdown is the source of truth.** The visual editor writes back ordinary
-Markdown and frontmatter, so direct manipulation, hand editing, code review,
-and scripted generation all share one file.
+**The canvas and the file are one document.** Not import and export — two
+views. Every gesture a presentation tool offers has a legible textual form, and
+reading that form back reproduces the same visual state. Drag an image, colour
+three words, add an animation: the diff is a line a reviewer can read, and
+editing that line by hand moves the canvas.
+
+That claim is mechanised, not asserted. Serialising is canonical, parsing
+inverts it, and serialising is idempotent — checked as properties over
+generated input, because a bidirectional tool that rewrites lines you did not
+touch is one people stop trusting.
 
 ## Status
 
@@ -101,6 +108,38 @@ budget: 90s
 
 Each `<!-- step -->`, `autoSteps:` mode, or explicit `steps:` list compiles into
 the same timeline, so the animation you author is the animation that prints.
+
+### Addressing part of a line
+
+A _mark_ names a range inside a block — the smallest thing an editor can point
+at, and the reason selecting three words and colouring them has somewhere to go
+in the file:
+
+```md
+The result was [3.2x faster]{#result .accent}.
+```
+
+### Changing something already on screen
+
+Revealing covers "not there yet". For a value that _changes_, write the takes
+next to each other and they become one element with successive states:
+
+```md
+Latency dropped to [120ms]{#latency}[38ms]{#latency}.
+```
+
+One DOM node whose text changes, not two that swap. Stepping backwards shows
+the earlier value again, because each stop is a complete snapshot and the
+runtime keeps no history.
+
+For properties rather than content, say so in the timeline:
+
+```md
+---
+steps:
+  - set: { target: "#latency", color: success }
+---
+```
 
 ## Getting started
 
