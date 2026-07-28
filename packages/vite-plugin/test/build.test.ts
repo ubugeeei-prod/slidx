@@ -93,12 +93,19 @@ describe("building a deck with no configuration", () => {
     expect(slide).not.toContain("<script");
   });
 
+  it("emits one printable document for the whole deck", () => {
+    // One document rather than one per slide: a handout is printed once, and
+    // a browser prints one document at a time.
+    expect(result.files).toContain("slides/print/index.html");
+  });
+
   it("emits nothing else", () => {
     expect(result.files).toEqual([
       "slides/2/index.html",
       "slides/2/presenter/index.html",
       "slides/index.html",
       "slides/presenter/index.html",
+      "slides/print/index.html",
       "slides/runtime.js",
     ]);
   });
@@ -128,12 +135,21 @@ describe("building a deck with no configuration", () => {
 describe("options", () => {
   it("serves the deck at the site root when asked", async () => {
     const { files } = await buildDeck({ "0001.md": "# One\n" }, { base: "/" });
-    expect(files).toEqual(["index.html", "presenter/index.html", "runtime.js"]);
+    expect(files).toEqual(["index.html", "presenter/index.html", "print/index.html", "runtime.js"]);
   }, 60_000);
 
-  it("builds only the audience pages when the presenter view is off", async () => {
-    const { files } = await buildDeck({ "0001.md": "# One\n" }, { presenter: false });
+  it("builds only the audience pages when both extra views are off", async () => {
+    const { files } = await buildDeck({ "0001.md": "# One\n" }, { presenter: false, print: false });
     expect(files).toEqual(["slides/index.html"]);
+  }, 60_000);
+
+  it("keeps the print shell without the presenter view", async () => {
+    // A speaker who only wants a PDF should not pay for pages they will not
+    // open.
+    const { files } = await buildDeck({ "0001.md": "# One\n" }, { presenter: false });
+
+    expect(files).toContain("slides/print/index.html");
+    expect(files).not.toContain("slides/presenter/index.html");
   }, 60_000);
 
   it("reads a directory other than ./slides", async () => {

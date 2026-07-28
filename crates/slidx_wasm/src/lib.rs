@@ -32,7 +32,9 @@ use wasm_bindgen::prelude::*;
 
 use slidx_core::{parse_deck, DeckParseOptions};
 use slidx_lint::{lint, LintInput, LintOptions};
-use slidx_render::{render_presenter, render_slide, PresenterOptions, ShellOptions};
+use slidx_render::{
+    render_presenter, render_print, render_slide, PresenterOptions, PrintOptions, ShellOptions,
+};
 
 /// What a caller can ask for when building a deck.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -50,6 +52,8 @@ pub struct BuildOptions {
     /// Off by default: a deck that is only being built for the web does not
     /// need it, and it doubles the rendering work.
     pub presenter: bool,
+    /// Also render the print shell — one document, one page per stop.
+    pub print: bool,
     /// Module URL the presenter view imports the runtime from.
     pub runtime_src: Option<String>,
 }
@@ -83,6 +87,9 @@ pub struct BuildResult {
     pub diagnostics: Vec<Finding>,
     /// True when something in `diagnostics` should stop a build.
     pub has_blocking: bool,
+    /// The whole deck as one printable document. Absent unless `print` was set.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub print_html: Option<String>,
 }
 
 /// A diagnostic, flattened for the JavaScript side.
@@ -154,12 +161,11 @@ fn build(source: &str, options: &BuildOptions) -> BuildResult {
     let findings = lint(&LintInput::new(&deck, &surfaces), &LintOptions::default());
     diagnostics.extend(findings.iter().map(finding));
 
+    let runtime_src = options.runtime_src.clone().unwrap_or_else(|| "./runtime.js".to_string());
     let shell = ShellOptions { theme: theme.clone(), ..ShellOptions::default() };
-    let presenter = PresenterOptions {
-        theme,
-        runtime_src: options.runtime_src.clone().unwrap_or_else(|| "./runtime.js".to_string()),
-        ..PresenterOptions::default()
-    };
+    let print_theme = theme.clone();
+    let presenter =
+        PresenterOptions { theme, runtime_src: runtime_src.clone(), ..PresenterOptions::default() };
 
     let render = !options.parse_only;
 
@@ -178,12 +184,24 @@ fn build(source: &str, options: &BuildOptions) -> BuildResult {
         })
         .collect();
 
+    let print_html = (render && options.print).then(|| {
+        render_print(
+            &deck,
+            &PrintOptions {
+                theme: print_theme,
+                runtime_src: runtime_src.clone(),
+                ..PrintOptions::default()
+            },
+        )
+    });
+
     BuildResult {
         title: deck.meta.title.clone(),
         description: deck.meta.description.clone(),
         slides,
         diagnostics,
         has_blocking,
+        print_html,
     }
 }
 
@@ -215,6 +233,24 @@ mod tests {
 
         assert_eq!(result.slides.len(), 2);
         assert!(result.slides[0].html.as_ref().unwrap().starts_with("<!doctype html>"));
+    }
+
+    #[test]
+    fn the_print_shell_is_opt_in() {
+        assert!(build("# One\n", &BuildOptions::default()).print_html.is_none());
+
+        let options = BuildOptions { print: true, ..BuildOptions::default() };
+        assert!(build("# One\n", &options).print_html.is_some());
+    }
+
+    #[test]
+    fn the_print_shell_covers_the_whole_deck_in_one_document() {
+        // One document rather than one per slide: a handout is a thing you
+        // print once, and a browser prints one document at a time.
+        let options = BuildOptions { print: true, ..BuildOptions::default() };
+        let html = build("# One\n\n---\n\n# Two\n", &options).print_html.unwrap();
+
+        assert_eq!(html.matches("class=\"slidx-page\"").count(), 2);
     }
 
     #[test]
