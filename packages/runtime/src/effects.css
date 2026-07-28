@@ -1,0 +1,214 @@
+/*
+ * Step animations.
+ *
+ * Every effect the linter calls "compositor-only" animates nothing but
+ * `transform` and `opacity`. That is not a style preference — it is the
+ * difference between smooth and juddering on the eight-year-old machine
+ * driving the projector, and `EffectPreset::is_compositor_only` in
+ * `slidx_core` is the list of presets that keep the promise.
+ *
+ * Timing comes in as custom properties set by the runtime, so the keyframes
+ * are static and the browser can reuse them across every element.
+ */
+
+:root {
+  --slidx-easing-linear: linear;
+  --slidx-easing-ease: ease;
+  --slidx-easing-ease-in: ease-in;
+  --slidx-easing-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --slidx-easing-ease-in-out: ease-in-out;
+  --slidx-easing-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --slidx-effect-duration: 400ms;
+  --slidx-effect-delay: 0ms;
+  --slidx-effect-easing: var(--slidx-easing-ease-out);
+  --slidx-effect-distance: 4rem;
+}
+
+/*
+ * Hiding reserves layout.
+ *
+ * `visibility` rather than `display`, so revealing an element never reflows
+ * the text already on screen. A bullet list that jumps as each point appears
+ * is the most common way staged slides go wrong.
+ */
+[data-slidx-hidden] {
+  visibility: hidden;
+}
+
+/*
+ * Staging only applies once the runtime is alive.
+ *
+ * Without this gate a deck with JavaScript disabled — or one whose script
+ * failed to load in a venue with no network — would show a slide with most of
+ * its content invisible. Showing everything is the correct degradation.
+ */
+html:not([data-slidx-js]) [data-slidx-hidden] {
+  visibility: visible;
+}
+
+[data-slidx-effect] {
+  animation-name: var(--slidx-effect-name, none);
+  animation-duration: var(--slidx-effect-duration);
+  animation-delay: var(--slidx-effect-delay);
+  animation-timing-function: var(--slidx-effect-easing);
+  animation-fill-mode: both;
+}
+
+/* Entrance */
+[data-slidx-effect="fade"] { --slidx-effect-name: slidx-fade; }
+[data-slidx-effect="fly-in"] { --slidx-effect-name: slidx-fly-in; }
+[data-slidx-effect="wipe"] { --slidx-effect-name: slidx-wipe; }
+[data-slidx-effect="zoom"] { --slidx-effect-name: slidx-zoom; }
+[data-slidx-effect="grow"] { --slidx-effect-name: slidx-grow; }
+[data-slidx-effect="float"] { --slidx-effect-name: slidx-float; }
+[data-slidx-effect="split"] { --slidx-effect-name: slidx-split; }
+
+/*
+ * Paint-heavy effects.
+ *
+ * These animate something other than transform and opacity, so they cannot
+ * stay on the compositor. `motion/paint-heavy` warns about every one of them —
+ * they exist because they are occasionally the right choice, not because they
+ * are safe on venue hardware.
+ */
+[data-slidx-effect="typewriter"] { --slidx-effect-name: slidx-typewriter; }
+[data-slidx-effect="draw"] { --slidx-effect-name: slidx-draw; }
+[data-slidx-effect="color-pulse"] { --slidx-effect-name: slidx-color-pulse; }
+[data-slidx-effect="underline"] { --slidx-effect-name: slidx-underline; }
+
+/* No motion at all, kept as an explicit choice rather than an absence. */
+[data-slidx-effect="none"] { --slidx-effect-name: none; }
+
+/* Emphasis */
+[data-slidx-effect="pulse"] { --slidx-effect-name: slidx-pulse; }
+[data-slidx-effect="shake"] { --slidx-effect-name: slidx-shake; }
+[data-slidx-effect="spin"] { --slidx-effect-name: slidx-spin; }
+
+/* Exit */
+[data-slidx-effect="fade-out"] { --slidx-effect-name: slidx-fade-out; }
+[data-slidx-effect="fly-out"] { --slidx-effect-name: slidx-fly-out; }
+[data-slidx-effect="zoom-out"] { --slidx-effect-name: slidx-zoom-out; }
+[data-slidx-effect="wipe-out"] { --slidx-effect-name: slidx-wipe-out; }
+[data-slidx-effect="shrink"] { --slidx-effect-name: slidx-shrink; }
+
+/* Direction, for the effects that travel. */
+[data-slidx-effect-origin="left"] { --slidx-effect-x: calc(var(--slidx-effect-distance) * -1); --slidx-effect-y: 0; }
+[data-slidx-effect-origin="right"] { --slidx-effect-x: var(--slidx-effect-distance); --slidx-effect-y: 0; }
+[data-slidx-effect-origin="top"] { --slidx-effect-x: 0; --slidx-effect-y: calc(var(--slidx-effect-distance) * -1); }
+[data-slidx-effect-origin="bottom"] { --slidx-effect-x: 0; --slidx-effect-y: var(--slidx-effect-distance); }
+
+@keyframes slidx-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slidx-fly-in {
+  from {
+    opacity: 0;
+    transform: translate(var(--slidx-effect-x, 0), var(--slidx-effect-y, 1.5rem));
+  }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes slidx-wipe {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+@keyframes slidx-zoom {
+  from { opacity: 0; transform: scale(0.88); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes slidx-grow {
+  from { transform: scale(0.94); }
+  to { transform: none; }
+}
+
+@keyframes slidx-float {
+  from { opacity: 0; transform: translateY(1rem); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes slidx-split {
+  from { opacity: 0; transform: scaleX(0.2); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes slidx-pulse {
+  0%, 100% { transform: none; }
+  50% { transform: scale(1.06); }
+}
+
+@keyframes slidx-shake {
+  0%, 100% { transform: none; }
+  25% { transform: translateX(-0.4rem); }
+  75% { transform: translateX(0.4rem); }
+}
+
+@keyframes slidx-spin {
+  from { transform: none; }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes slidx-typewriter {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+@keyframes slidx-draw {
+  from { stroke-dashoffset: 1; opacity: 0.4; }
+  to { stroke-dashoffset: 0; opacity: 1; }
+}
+
+@keyframes slidx-color-pulse {
+  0%, 100% { color: inherit; }
+  50% { color: var(--slidx-color-accent); }
+}
+
+@keyframes slidx-underline {
+  from { background-size: 0 var(--slidx-hairline); }
+  to { background-size: 100% var(--slidx-hairline); }
+}
+
+@keyframes slidx-wipe-out {
+  from { clip-path: inset(0 0 0 0); }
+  to { clip-path: inset(0 0 0 100%); }
+}
+
+@keyframes slidx-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes slidx-fly-out {
+  from { opacity: 1; transform: none; }
+  to {
+    opacity: 0;
+    transform: translate(var(--slidx-effect-x, 0), var(--slidx-effect-y, -1.5rem));
+  }
+}
+
+@keyframes slidx-zoom-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: scale(1.12); }
+}
+
+@keyframes slidx-shrink {
+  from { transform: none; }
+  to { transform: scale(0.94); }
+}
+
+/*
+ * A deck must still make sense without motion.
+ *
+ * Effects are decoration on a state change that has already happened, so
+ * removing them costs nothing: the element still appears at the right stop.
+ */
+@media (prefers-reduced-motion: reduce) {
+  [data-slidx-effect] {
+    animation-name: none;
+    animation-duration: 1ms;
+  }
+}

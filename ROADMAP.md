@@ -34,7 +34,8 @@ The minimum a speaker can stand on stage with.
 - [ ] `slidx_render`: slide, presenter, and print shells — #3
 - [x] Theme token system; `minimal`, `editorial`, `terminal`, `contrast` built in — #3
 - [ ] `@slidx/vite-plugin`: dev server, HMR, MPA static output — #4
-- [ ] Client runtime: navigation, step resolution, transitions, deep links
+- [x] Client runtime: step resolution and the anchor contract — #4
+- [ ] Client runtime: navigation, transitions, deep links — #4
 - [ ] **Offline guarantee**: build fails if any asset resolves to a remote host — #5
 - [ ] PDF export with each step as its own page — #6
 - [ ] OG image per slide and per deck

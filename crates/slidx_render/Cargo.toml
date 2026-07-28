@@ -1,0 +1,19 @@
+[package]
+name = "slidx_render"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Markdown rendering and the slide, presenter, and print shells for slidx"
+
+[dependencies]
+slidx_core = { workspace = true }
+slidx_lint = { workspace = true }
+slidx_theme = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+ox_content_allocator = "2.81"
+ox_content_parser = "2.81"
+ox_content_renderer = "2.81"
