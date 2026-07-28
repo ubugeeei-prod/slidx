@@ -165,6 +165,13 @@ export default defineConfig({
       "check:conventions": task("node scripts/check-conventions.mjs"),
       "check:version": task("node scripts/check-version.mjs"),
 
+      // The README images are output of the pipeline, not artwork. Kept as a
+      // task so regenerating them is one command and never a manual crop.
+      "preview:deck": uncached(
+        "cargo run -p slidx_render --example preview -- examples/deck/slides dist/preview",
+      ),
+      screenshots: uncached("node scripts/screenshot.mjs", { dependsOn: ["preview:deck"] }),
+
       // Benchmarks measure wall-clock time, so a cached result is a wrong one.
       "bench:rust": uncached("cargo bench --workspace"),
     },

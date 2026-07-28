@@ -32,6 +32,9 @@
 #![deny(missing_debug_implementations)]
 #![warn(clippy::all)]
 
+pub mod layout;
 pub mod markdown;
+pub mod shell;
 
 pub use markdown::{render as render_markdown, MarkdownOptions};
+pub use shell::{render_slide, ShellOptions};

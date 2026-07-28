@@ -15,6 +15,7 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "happy-dom": "catalog:",
+    "playwright": "^1.62.0",
     "typescript": "catalog:",
     "vite-plus": "catalog:"
   },

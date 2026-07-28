@@ -15,6 +15,31 @@
 > the [Ox Content](https://github.com/ubugeeei-prod/ox-content) Markdown engine.
 > It is pre-alpha: the surface below is the target, not a changelog.
 
+## What it looks like
+
+Rendered by the pipeline in this repository — parse, lint, theme, render — not
+drawn. `node scripts/screenshot.mjs` regenerates them, so a screenshot that
+stopped being true fails to reproduce instead of quietly misleading.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/images/0002-what-actually-goes-wrong-dark.png">
+  <img alt="A slide titled 'What actually goes wrong' listing five stage failures" src="./docs/images/0002-what-actually-goes-wrong-light.png">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/images/0003-steps-are-snapshots-not-deltas-dark.png">
+  <img alt="A slide showing a Rust snippet and prose about the step model" src="./docs/images/0003-steps-are-snapshots-not-deltas-light.png">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/images/0004-the-linter-checks-the-room-dark.png">
+  <img alt="A slide with a table of linter rules and what each one catches" src="./docs/images/0004-the-linter-checks-the-room-light.png">
+</picture>
+
+The source for those is [examples/deck/slides](./examples/deck/slides). Both
+schemes come from one theme, because the room's lighting is usually unknown
+until the day.
+
 ## Why this exists
 
 Slide tools optimise for making slides. Giving a talk is a much longer job, and
