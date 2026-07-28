@@ -1,0 +1,96 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # A tag is not a promise that the tree is good. Everything CI checks is
+  # checked again here, from the same graph, before anything reaches a registry
+  # — because a bad publish cannot be taken back.
+  verify:
+    uses: ./.github/workflows/ci.yml
+
+  crates:
+    name: crates.io
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      # Mints the OIDC token crates.io exchanges for a short-lived publish
+      # token. No registry credential is stored in this repository.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          rust: "true"
+
+      - name: Check the tag matches the workspace
+        run: node scripts/check-version.mjs "${{ github.ref_name }}"
+
+      - uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+
+      # Dependency order, and not in parallel: crates.io has to see each crate
+      # before the one that depends on it can resolve.
+      - name: Publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: |
+          set -euo pipefail
+          for crate in slidx_core slidx_lint slidx_theme slidx_render; do
+            echo "::group::$crate"
+            cargo publish -p "$crate" --no-verify
+            echo "::endgroup::"
+          done
+
+  npm:
+    name: npm
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+
+      - name: Check the tag matches the workspace
+        run: node scripts/check-version.mjs "${{ github.ref_name }}"
+
+      # Trusted publishing needs npm 11.5.1 or later; the version bundled with
+      # the Node runtime is not guaranteed to be new enough.
+      - run: npm install -g npm@latest
+
+      - run: pnpm -r --filter "./packages/**" run pack:lib
+
+      # NODE_AUTH_TOKEN is deliberately unset: if npm finds one it takes the
+      # legacy token path and silently skips OIDC.
+      - name: Publish
+        run: |
+          set -euo pipefail
+          for dir in packages/runtime; do
+            echo "::group::$dir"
+            (cd "$dir" && npm publish --provenance --access public)
+            echo "::endgroup::"
+          done
+
+  github-release:
+    name: github release
+    needs: [crates, npm]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: gh release create "${{ github.ref_name }}" --generate-notes --verify-tag
+        env:
+          GH_TOKEN: ${{ github.token }}

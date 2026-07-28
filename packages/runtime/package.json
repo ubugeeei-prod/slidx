@@ -1,6 +1,6 @@
 {
   "name": "@slidx/runtime",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Client runtime for slidx decks: step resolution, navigation, and mirroring",
   "license": "MIT",
   "repository": {
@@ -8,9 +8,24 @@
     "url": "git+https://github.com/ubugeeei-prod/slidx.git",
     "directory": "packages/runtime"
   },
+  "files": [
+    "dist"
+  ],
   "type": "module",
   "sideEffects": false,
+  "types": "./dist/index.d.mts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./effects.css": "./dist/effects.css"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "pack:lib": "vp pack src/index.ts --dts --out-dir dist && node ../../scripts/copy-assets.mjs src/effects.css dist/effects.css"
   }
 }

@@ -107,13 +107,14 @@ export default defineConfig({
       // than the repository. They are still nodes in this graph rather than
       // steps in a workflow file — a check that exists here cannot go missing
       // from CI, because CI has no steps of its own to forget.
-      "ci:conventions": group(["check:conventions"]),
+      "ci:conventions": group(["check:conventions", "check:version"]),
       "ci:rust": group(["fmt:rust-check", "lint:rust", "test:rust"]),
       "ci:ts": group(["fmt:ts-check", "check:ts", "test:ts"]),
       "ci:build": group(["build:rust"]),
 
       "workspace:check": group([
         "check:conventions",
+        "check:version",
         "fmt:rust-check",
         "fmt:ts-check",
         "lint:rust",
@@ -162,6 +163,7 @@ export default defineConfig({
       "test:ts": uncached(builtin("vp test")),
 
       "check:conventions": task("node scripts/check-conventions.mjs"),
+      "check:version": task("node scripts/check-version.mjs"),
 
       // Benchmarks measure wall-clock time, so a cached result is a wrong one.
       "bench:rust": uncached("cargo bench --workspace"),
