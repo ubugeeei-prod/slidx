@@ -1,0 +1,16 @@
+# Source is stored and checked out with LF everywhere.
+#
+# Without this, a Windows runner checks out CRLF and `cargo fmt --check` fails
+# on `newline_style = "Unix"` — which is exactly how CI broke. Normalising in
+# git rather than relaxing the formatter keeps one answer for what a line
+# ending is, on every machine.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.webp binary
+*.avif binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.node binary

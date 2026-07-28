@@ -1,0 +1,36 @@
+name: Set up slidx
+description: Node, pnpm, and optionally Rust, with the caches each of them wants.
+
+inputs:
+  rust:
+    description: Install the Rust toolchain and its cache. Skip it for jobs that only touch TypeScript.
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+
+    - if: inputs.rust == 'true'
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+
+    - if: inputs.rust == 'true'
+      uses: Swatinem/rust-cache@v2
+
+    # Vite+ caches task results by content hash, so a job that changed nothing
+    # replays instead of re-running.
+    - uses: actions/cache@v4
+      with:
+        path: node_modules/.cache/vite-plus
+        key: vp-${{ runner.os }}-${{ inputs.rust }}-${{ hashFiles('pnpm-lock.yaml', 'Cargo.lock') }}
+        restore-keys: vp-${{ runner.os }}-${{ inputs.rust }}-
+
+    - run: pnpm install --frozen-lockfile
+      shell: bash

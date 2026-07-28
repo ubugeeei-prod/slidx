@@ -4,50 +4,80 @@ on:
   push:
     branches: [main]
   pull_request:
+  merge_group:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # One job per platform running one task. `vp run workspace:ci` is the same
-  # graph a contributor runs locally, so CI cannot drift from the pre-push
-  # check: adding a step here without adding it to vite.config.ts is not
-  # possible, because there are no steps here to add.
-  ci:
-    name: ${{ matrix.os }}
+  # Layout rules are a property of the tree, not of a platform, so one runner
+  # settles them.
+  conventions:
+    name: conventions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm exec vp run ci:conventions
+
+  rust:
+    name: rust / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-
     steps:
       - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/setup
         with:
-          components: rustfmt, clippy
+          rust: "true"
+      - run: pnpm exec vp run ci:rust
 
-      - uses: Swatinem/rust-cache@v2
+  typescript:
+    name: typescript / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm exec vp run ci:ts
 
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
+  build:
+    name: build / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
         with:
-          node-version: 24
-          cache: pnpm
+          rust: "true"
+      - run: pnpm exec vp run ci:build
 
-      - run: pnpm install --frozen-lockfile
-
-      - name: Cache Vite+ task results
-        uses: actions/cache@v4
-        with:
-          path: node_modules/.cache/vite-plus
-          key: vp-${{ matrix.os }}-${{ hashFiles('pnpm-lock.yaml', 'Cargo.lock') }}
-          restore-keys: vp-${{ matrix.os }}-
-
-      - run: pnpm exec vp run workspace:ci
+  # One check to require on the branch, so adding a job to the matrix above
+  # never needs the ruleset edited to match.
+  ci:
+    name: ci
+    if: always()
+    needs: [conventions, rust, typescript, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report
+        run: |
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "::error::a required job did not pass"
+            exit 1
+          fi

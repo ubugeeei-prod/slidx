@@ -100,8 +100,17 @@ export default defineConfig({
     },
 
     tasks: {
-      // What CI runs, and what to type before pushing.
-      "workspace:ci": group(["workspace:check", "workspace:test", "workspace:build"]),
+      // What to type before pushing. Runs everything CI runs.
+      "workspace:ci": group(["ci:conventions", "ci:rust", "ci:ts", "ci:build"]),
+
+      // CI schedules these one per job, so a failure names the area rather
+      // than the repository. They are still nodes in this graph rather than
+      // steps in a workflow file — a check that exists here cannot go missing
+      // from CI, because CI has no steps of its own to forget.
+      "ci:conventions": group(["check:conventions"]),
+      "ci:rust": group(["fmt:rust-check", "lint:rust", "test:rust"]),
+      "ci:ts": group(["fmt:ts-check", "check:ts", "test:ts"]),
+      "ci:build": group(["build:rust"]),
 
       "workspace:check": group([
         "check:conventions",
