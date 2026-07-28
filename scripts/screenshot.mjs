@@ -45,7 +45,8 @@ function pagesIn(directory, prefix = "") {
     else if (entry.name.endsWith(".html")) found.push(path);
   }
 
-  return found.sort();
+  // Explicit collation so page order is the same on every machine.
+  return found.sort((a, b) => a.localeCompare(b, "en"));
 }
 
 const pages = pagesIn(SOURCE);

@@ -110,7 +110,7 @@ export default defineConfig({
       "ci:conventions": group(["check:conventions", "check:version"]),
       "ci:rust": group(["fmt:rust-check", "lint:rust", "test:rust"]),
       "ci:ts": group(["fmt:ts-check", "check:ts", "test:ts"]),
-      "ci:build": group(["build:rust", "build:wasm"]),
+      "ci:build": group(["build:rust", "build:packages"]),
 
       "workspace:check": group([
         "check:conventions",
@@ -121,7 +121,7 @@ export default defineConfig({
         "check:ts",
       ]),
       "workspace:test": group(["test:rust", "test:ts"]),
-      "workspace:build": group(["build:rust", "build:wasm"]),
+      "workspace:build": group(["build:rust", "build:packages"]),
       "workspace:fmt": group(["fmt:rust", "fmt:ts"]),
       "workspace:lint": group(["lint:rust", "check:ts"]),
 
@@ -154,8 +154,17 @@ export default defineConfig({
       // through, so nothing on that side can be checked until it exists.
       "build:wasm": uncached("node scripts/build-wasm.mjs"),
 
+      // The runtime is consumed through its published `exports`, which point
+      // at `dist/`. Importing it from source instead would test a module that
+      // no user ever loads, so it is built before anything reads it. This is
+      // the edge CI caught and a local tree hides: `dist/` is gitignored and
+      // is already there on a machine that has run a build once.
+      "build:runtime": uncached("vp run --filter @slidx/runtime pack:lib"),
+
+      "build:packages": group(["build:wasm", "build:runtime"]),
+
       // TypeScript.
-      "check:ts": task(builtin("vp check"), { dependsOn: ["build:wasm"] }),
+      "check:ts": task(builtin("vp check"), { dependsOn: ["build:packages"] }),
       "fmt:ts": task(builtin("vp fmt")),
       "fmt:ts-check": task(builtin("vp fmt --check")),
 
@@ -164,7 +173,7 @@ export default defineConfig({
       // `node_modules/.vite-temp`, which reads as the task modifying its own
       // input. Marking it explicitly keeps the run summary honest instead of
       // reporting a miss on every run.
-      "test:ts": uncached(builtin("vp test"), { dependsOn: ["build:wasm"] }),
+      "test:ts": uncached(builtin("vp test"), { dependsOn: ["build:packages"] }),
 
       "check:conventions": task("node scripts/check-conventions.mjs"),
       "check:version": task("node scripts/check-version.mjs"),
