@@ -9,7 +9,8 @@
 
 use serde_json::Value as JsonValue;
 
-use super::action::{StepAction, StepOptions};
+use super::action::{Patch, StepAction};
+use super::timing::StepOptions;
 
 /// Parses the `steps:` frontmatter list.
 ///
@@ -47,6 +48,7 @@ fn parse_step_action(value: &JsonValue) -> Result<StepAction, String> {
         "reveal" => build_target_action(body, StepKindTag::Reveal),
         "hide" => build_target_action(body, StepKindTag::Hide),
         "emphasize" | "emphasise" => build_target_action(body, StepKindTag::Emphasize),
+        "set" => build_set_action(body),
         "group" => {
             let (nested, errors) = parse_step_actions(group_body(body));
             if !errors.is_empty() {
@@ -82,12 +84,65 @@ fn build_target_action(body: &JsonValue, tag: StepKindTag) -> Result<StepAction,
         return Err("`target` must not be empty".to_string());
     }
 
+    // `#hero` refers to the mark or block the author can see in the source;
+    // anything already shaped like a selector passes through untouched.
+    let target = crate::mark::resolve_target(&target);
+
     let options = parse_options(body);
     Ok(match tag {
         StepKindTag::Reveal => StepAction::Reveal { target, options },
         StepKindTag::Hide => StepAction::Hide { target, options },
         StepKindTag::Emphasize => StepAction::Emphasize { target, options },
     })
+}
+
+/// Keys `set:` reserves for itself. Everything else becomes a data property,
+/// so a theme can define `weight`, `underline`, or anything else without this
+/// parser needing to know about it.
+const RESERVED: [&str; 7] = ["target", "text", "after", "duration", "preset", "easing", "origin"];
+
+fn build_set_action(body: &JsonValue) -> Result<StepAction, String> {
+    let object = body.as_object().ok_or("`set` expects a mapping with a `target`")?;
+    let target = object
+        .get("target")
+        .and_then(JsonValue::as_str)
+        .ok_or("missing `target`")?
+        .trim()
+        .to_string();
+
+    if target.is_empty() {
+        return Err("`target` must not be empty".to_string());
+    }
+
+    let mut patch = Patch {
+        content: object.get("text").and_then(JsonValue::as_str).map(str::to_string),
+        ..Patch::default()
+    };
+
+    for (name, value) in object {
+        if RESERVED.contains(&name.as_str()) || name == "from" {
+            continue;
+        }
+        patch.properties.insert(name.clone(), scalar(value));
+    }
+
+    if patch.is_empty() {
+        return Err("`set` must change something: give it `text` or a property".to_string());
+    }
+
+    Ok(StepAction::Set {
+        target: crate::mark::resolve_target(&target),
+        patch,
+        options: parse_options(body),
+    })
+}
+
+/// Renders a YAML scalar as the string a data attribute will hold.
+fn scalar(value: &JsonValue) -> String {
+    match value {
+        JsonValue::String(text) => text.clone(),
+        other => other.to_string(),
+    }
 }
 
 fn parse_options(body: &JsonValue) -> StepOptions {

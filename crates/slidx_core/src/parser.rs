@@ -12,6 +12,7 @@ use serde_json::Value as JsonValue;
 
 use crate::diagnostic::{Diagnostic, Diagnostics, Severity, SourceSpan};
 use crate::frontmatter;
+use crate::mark::{compile_marks, find_marks, stage_takes, strip_marks, Mark};
 use crate::markers::{extract_step_markers, inject_auto_steps};
 use crate::model::{Deck, DeckMeta, Slide};
 use crate::notes::extract_notes;
@@ -82,13 +83,21 @@ fn build_slide(
 ) -> Slide {
     let extracted = extract_notes(&segment.body);
     let steps = compile_steps(&extracted.content, &matter, options, index, diagnostics);
-    let title = first_heading(&steps.content);
+
+    // The title is the slide's words without its styling: `Making [decks]{.accent}
+    // fast` is titled "Making decks fast" everywhere it is quoted — the outline,
+    // the OG image, the published description, and the PDF bookmark.
+    let title = first_heading(&strip_marks(&steps.content));
+
+    let marks: Vec<Mark> = find_marks(&steps.content).into_iter().map(|found| found.mark).collect();
+    let mut next_key = 1u32;
 
     Slide {
         id: allocate_id(slugs, title.as_deref(), index),
         index,
         title,
-        content: steps.content,
+        content: compile_marks(&steps.content, &mut next_key),
+        marks,
         notes: extracted.notes,
         layout: frontmatter::string(&matter, "layout"),
         transition: frontmatter::string(&matter, "transition").or_else(|| meta.transition.clone()),
@@ -135,8 +144,28 @@ fn compile_steps(
         None => (staged.content, Vec::new()),
     };
 
+    // Takes are lifted last, so their `Set` steps land after the reveals that
+    // brought the elements on screen in the first place. A slide that needs a
+    // different order should say so with an explicit `steps:` list.
+    let takes = stage_takes(&content);
+    let content = takes.content;
+
+    for key in &takes.ambiguous_keys {
+        diagnostics.push(
+            Diagnostic::warning(
+                "mark/ambiguous-key",
+                format!("`#{key}` is used more than once but the marks are not adjacent"),
+            )
+            .at(SourceSpan::default().on_slide(index))
+            .with_help(
+                "put takes next to each other to mean one changing element,                  or give them different keys",
+            ),
+        );
+    }
+
     let declared = declared_actions(matter, index, diagnostics);
-    let derived: Vec<StepAction> = staged.actions.into_iter().chain(auto_actions).collect();
+    let derived: Vec<StepAction> =
+        staged.actions.into_iter().chain(auto_actions).chain(takes.actions).collect();
 
     let actions = match (declared, derived.is_empty()) {
         (Some(declared), false) => {

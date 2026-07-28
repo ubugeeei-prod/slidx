@@ -14,7 +14,8 @@
  */
 
 import { findAnchors, resolveAnchor } from "./anchor";
-import type { Effect, StepFrame, StepTimeline } from "./types";
+import { setContent, setProperties } from "./patch";
+import type { Effect, ElementState, StepFrame, StepTimeline } from "./types";
 
 /** Present on every element the pipeline controls. */
 export const STAGED_ATTRIBUTE = "data-slidx-staged";
@@ -48,12 +49,17 @@ export function createStage(root: HTMLElement, timeline: StepTimeline): Stage {
   const elements = bind(root, timeline);
   const frames = timeline.frames.length > 0 ? timeline.frames : [{ index: 0, states: [] }];
 
+  // The markup's own text is the value a frame means by "no override", so it
+  // has to be captured before any step has had a chance to change it.
+  const original = new Map<HTMLElement, string>();
+
   for (const element of elements.values()) {
     element.setAttribute(STAGED_ATTRIBUTE, "");
+    original.set(element, element.textContent ?? "");
   }
 
   let current = 0;
-  applyFrame(elements, frames[0]!, { animate: false });
+  applyFrame(elements, original, frames[0]!, { animate: false });
 
   return {
     get stopCount() {
@@ -74,12 +80,12 @@ export function createStage(root: HTMLElement, timeline: StepTimeline): Stage {
       // Effects belong to the moment a stop is reached going forward. Playing
       // them on the way back would re-run an animation the audience already
       // watched, which reads as a mistake rather than as emphasis.
-      applyFrame(elements, frames[next]!, { animate: next > current });
+      applyFrame(elements, original, frames[next]!, { animate: next > current });
       current = next;
       return next;
     },
     applyPrint() {
-      applyFrame(elements, printFrame(frames), { animate: false });
+      applyFrame(elements, original, printFrame(frames), { animate: false });
       current = frames.length - 1;
     },
   };
@@ -126,6 +132,7 @@ function query(root: HTMLElement, selector: string): HTMLElement | null {
 
 function applyFrame(
   elements: Map<string, HTMLElement>,
+  original: Map<HTMLElement, string>,
   frame: StepFrame,
   { animate }: { animate: boolean },
 ): void {
@@ -138,6 +145,8 @@ function applyFrame(
     if (!element) continue;
 
     element.toggleAttribute(HIDDEN_ATTRIBUTE, state.visibility === "hidden");
+    setContent(element, original, state.content);
+    setProperties(element, state.properties);
 
     if (animate && state.effect) {
       setEffect(element, state.effect);
@@ -148,20 +157,41 @@ function applyFrame(
 /**
  * The union of every frame, for print and PDF export.
  *
- * Anything that was ever on screen is shown, because a handout that hides
- * content the audience saw is worse than one that shows a little more. This
- * mirrors `StepTimeline::print_frame` in Rust.
+ * Three different rules, one per kind of state, each matching how that kind is
+ * used:
+ *
+ * - **Visibility accumulates.** Anything that was ever on screen is shown,
+ *   because a handout that hides content the audience saw is worse than one
+ *   that shows a little more.
+ * - **Content replaces.** A changing value has one final answer; stacking the
+ *   intermediate ones would be nonsense.
+ * - **Properties accumulate.** They are independent switches, so the last
+ *   value of each stands.
+ *
+ * Mirrors `StepTimeline::print_frame` in Rust. The two implementations are
+ * checked against each other by the deck fixtures rather than assumed equal.
  */
 function printFrame(frames: StepFrame[]): StepFrame {
-  const states = new Map<string, { target: string; visibility: "hidden" | "visible" }>();
+  const states = new Map<string, ElementState>();
 
   for (const frame of frames) {
     for (const state of frame.states) {
       const existing = states.get(state.target);
+
       if (!existing) {
-        states.set(state.target, { target: state.target, visibility: state.visibility });
-      } else if (state.visibility === "visible") {
-        existing.visibility = "visible";
+        states.set(state.target, {
+          target: state.target,
+          visibility: state.visibility,
+          ...(state.content === undefined ? {} : { content: state.content }),
+          ...(state.properties === undefined ? {} : { properties: { ...state.properties } }),
+        });
+        continue;
+      }
+
+      if (state.visibility === "visible") existing.visibility = "visible";
+      if (state.content !== undefined) existing.content = state.content;
+      if (state.properties) {
+        existing.properties = { ...existing.properties, ...state.properties };
       }
     }
   }

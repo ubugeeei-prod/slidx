@@ -134,6 +134,9 @@ pub struct Slide {
     pub budget_seconds: Option<u32>,
     /// Safe to skip when running behind. Presenter view marks these.
     pub optional: bool,
+    /// Inline marks in source order, so the editor can list what a slide
+    /// addresses without re-parsing it.
+    pub marks: Vec<crate::mark::Mark>,
     pub steps: StepSource,
     pub timeline: StepTimeline,
     /// One-based line in the source file, for diagnostics and editor jumps.

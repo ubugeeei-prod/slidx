@@ -64,10 +64,19 @@ export interface Effect {
  *
  * `effect` is present only on the frame that triggers it, which is what stops
  * an entrance from replaying every time the presenter steps past it.
+ *
+ * `content` and `properties` are how a step changes something already on
+ * screen. Both are absolute rather than incremental — `content: undefined`
+ * means "whatever the markup says", not "unchanged" — which is what lets the
+ * runtime step backwards without remembering anything.
  */
 export interface ElementState {
   target: string;
   visibility: Visibility;
+  /** Text the element shows at this stop, overriding the markup. */
+  content?: string;
+  /** Data properties in force at this stop, as `data-slidx-<name>`. */
+  properties?: Record<string, string>;
   effect?: Effect;
 }
 

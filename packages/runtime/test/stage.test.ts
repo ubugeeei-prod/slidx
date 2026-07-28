@@ -290,3 +290,135 @@ describe("printing", () => {
     expect(items(root)[0]!.hasAttribute(HIDDEN_ATTRIBUTE)).toBe(false);
   });
 });
+
+/**
+ * Changing an element that is already on screen.
+ *
+ * The snapshot model does the work here: `content` and `properties` are
+ * absolute values on each frame, not instructions to mutate. Stepping back is
+ * reading an earlier frame, so the runtime keeps no history at all — and the
+ * value the audience saw two clicks ago comes back exactly.
+ */
+const CHANGING_VALUE: StepTimeline = {
+  frames: [
+    { index: 0, states: [{ target: '[data-slidx-mark="count"]', visibility: "visible" }] },
+    {
+      index: 1,
+      states: [
+        {
+          target: '[data-slidx-mark="count"]',
+          visibility: "visible",
+          content: "42",
+          properties: { color: "success" },
+        },
+      ],
+    },
+  ],
+};
+
+function mountMark(): HTMLElement {
+  const root = document.createElement("div");
+  root.innerHTML = `<p>The answer is <span data-slidx-mark="count">10</span>.</p>`;
+  document.body.replaceChildren(root);
+  return root;
+}
+
+function mark(root: HTMLElement): HTMLElement {
+  return root.querySelector<HTMLElement>("[data-slidx-mark]")!;
+}
+
+describe("changing an element in place", () => {
+  it("starts with the text in the markup", () => {
+    const root = mountMark();
+    createStage(root, CHANGING_VALUE);
+
+    expect(mark(root).textContent).toBe("10");
+  });
+
+  it("writes the text the stop calls for", () => {
+    const root = mountMark();
+    createStage(root, CHANGING_VALUE).apply(1);
+
+    expect(mark(root).textContent).toBe("42");
+  });
+
+  it("changes one element rather than swapping two", () => {
+    // Anything holding a reference to the mark — a step, the editor, a
+    // measurement — must still be pointing at the same node afterwards.
+    const root = mountMark();
+    const before = mark(root);
+    createStage(root, CHANGING_VALUE).apply(1);
+
+    expect(mark(root)).toBe(before);
+    expect(root.querySelectorAll("[data-slidx-mark]")).toHaveLength(1);
+  });
+
+  it("restores the markup's own text on the way back", () => {
+    const root = mountMark();
+    const stage = createStage(root, CHANGING_VALUE);
+
+    stage.apply(1);
+    stage.apply(0);
+
+    expect(mark(root).textContent).toBe("10");
+  });
+
+  it("applies properties as data attributes for the theme to interpret", () => {
+    const root = mountMark();
+    createStage(root, CHANGING_VALUE).apply(1);
+
+    expect(mark(root).getAttribute("data-slidx-color")).toBe("success");
+  });
+
+  it("removes a property when stepping back past the stop that set it", () => {
+    const root = mountMark();
+    const stage = createStage(root, CHANGING_VALUE);
+
+    stage.apply(1);
+    stage.apply(0);
+
+    expect(mark(root).hasAttribute("data-slidx-color")).toBe(false);
+  });
+
+  it("leaves the attributes the pipeline owns alone", () => {
+    const root = mountMark();
+    const stage = createStage(root, CHANGING_VALUE);
+
+    stage.apply(1);
+    stage.apply(0);
+
+    expect(mark(root).getAttribute("data-slidx-mark")).toBe("count");
+    expect(mark(root).hasAttribute("data-slidx-staged")).toBe(true);
+  });
+
+  it("never interprets patched content as markup", () => {
+    // A timeline is data. Letting it inject HTML would turn a deck into a
+    // script vector, which matters as soon as decks are shared or generated.
+    const root = mountMark();
+    createStage(root, {
+      frames: [
+        { index: 0, states: [{ target: '[data-slidx-mark="count"]', visibility: "visible" }] },
+        {
+          index: 1,
+          states: [
+            {
+              target: '[data-slidx-mark="count"]',
+              visibility: "visible",
+              content: "<img src=x onerror=alert(1)>",
+            },
+          ],
+        },
+      ],
+    }).apply(1);
+
+    expect(mark(root).querySelector("img")).toBeNull();
+    expect(mark(root).textContent).toBe("<img src=x onerror=alert(1)>");
+  });
+
+  it("shows the final value when printing", () => {
+    const root = mountMark();
+    createStage(root, CHANGING_VALUE).applyPrint();
+
+    expect(mark(root).textContent).toBe("42");
+  });
+});

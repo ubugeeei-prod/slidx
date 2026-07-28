@@ -48,6 +48,7 @@
 
 pub mod diagnostic;
 pub mod frontmatter;
+pub mod mark;
 pub mod markers;
 pub mod model;
 pub mod notes;
@@ -57,6 +58,7 @@ pub mod slug;
 pub mod steps;
 
 pub use diagnostic::{Diagnostic, Diagnostics, Severity, SourceSpan};
+pub use mark::{compile_marks, find_marks, Mark, MARK_ATTRIBUTE};
 pub use markers::{anchor_selector, StagedContent, ANCHOR_ATTRIBUTE};
 pub use model::{estimate_speaking_seconds, AspectRatio, Deck, DeckMeta, Slide, TalkMeta};
 pub use notes::{extract_notes, ExtractedNotes};
