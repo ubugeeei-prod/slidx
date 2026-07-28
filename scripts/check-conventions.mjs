@@ -12,8 +12,14 @@
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
-/** Past this, a module is usually holding two ideas. A warning, not a gate. */
-const SOFT_LINE_LIMIT = 250;
+/**
+ * Past this, a module is usually holding two ideas.
+ *
+ * A guideline, not a rule: it warns and never fails. The number is a prompt to
+ * look, not a budget to spend — a 300-line file doing two things should still
+ * be split, and a 420-line file doing one thing well should be left alone.
+ */
+const SOFT_LINE_LIMIT = 400;
 
 /** Directories that hold source we wrote. */
 const SOURCE_ROOTS = ["crates", "packages", "scripts"];

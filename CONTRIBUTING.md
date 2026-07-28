@@ -27,8 +27,13 @@ src/parser.rs
 src/parser/segment.rs
 ```
 
-**Files stay under about 250 lines.** When one grows past that, it is usually
-holding two ideas. Split by responsibility, not by line count.
+**Files stay under about 400 lines of implementation.** A guideline rather
+than a rule — `vp check` warns and never fails on it. Past that a module is
+usually holding two ideas, so treat the warning as a prompt to look: split by
+responsibility, and leave a long file that does one thing well alone.
+
+Tests do not count. A test module is a list, not an abstraction, and splitting
+one to hit a number makes it harder to read.
 
 **One reason to exist per module.** `scanner.rs` is the only place that knows
 what a fenced code block is. `markers.rs` is the only place that knows the
