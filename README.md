@@ -1,11 +1,11 @@
 <p align="center">
   <strong>slidx</strong><br>
-  <em>Slide + DX — a presentation framework for developers</em>
+  <em>Slide + DX — Markdown decks that compile to static HTML pages</em>
 </p>
 
 <p align="center">
-  A Rust-powered, framework-agnostic toolkit that covers the whole life of a talk:<br>
-  proposal, authoring, rehearsal, the room, the stage, and everything after it.
+  A visual editor over plain Markdown, a Rust pipeline, and output that is<br>
+  ordinary web pages — one URL per slide, no client router, no framework runtime.
 </p>
 
 ---
@@ -14,6 +14,42 @@
 > slidx is an independent personal project by [ubugeeei](https://github.com/ubugeeei), built on
 > the [Ox Content](https://github.com/ubugeeei-prod/ox-content) Markdown engine.
 > It is pre-alpha: the surface below is the target, not a changelog.
+
+## What a deck is
+
+**Pages, not an application.** `vp build` writes one HTML document per slide.
+Navigation is the browser following a link, so a slide can be shared,
+bookmarked, indexed, opened on a phone, and printed — and it renders before any
+script has run, because there is no script to run.
+
+**No framework in the output.** Nothing is required to view a deck, and nothing
+is required to write one. A slide that wants Vue, React, Svelte, Angular, or
+Three.js opts in for itself; the other slides stay HTML and never pay for it.
+
+**A visual editor over the same file.** The canvas and the Markdown are two
+views of one document, not an import and an export. Colour three words, move a
+block, add an animation — the diff is a line a reviewer can read, and editing
+that line by hand moves the canvas. That is checked as a round-trip property,
+not asserted.
+
+**Fast enough not to think about.** The parser, step compiler, linter, and
+renderer are Rust, reached through one WebAssembly module:
+
+| Deck       | Build      | Per slide |
+| ---------- | ---------- | --------- |
+| 100 slides | **28 ms**  | 0.28 ms   |
+| 500 slides | **133 ms** | 0.27 ms   |
+
+`node scripts/bench-build.mjs` reproduces those, so the number in this table is
+measured rather than remembered.
+
+**Small output.** 7.7 kB per slide, 2.7 kB gzipped, and self-contained: theme
+and layout are inlined and the built-in themes use system font stacks, so a
+slide makes **zero network requests**. A test asserts that directly, because
+"no CDN" is a promise that erodes one convenient import at a time.
+
+A 500-slide deck emits **one** JavaScript file, shared by the presenter pages.
+Audience slides ship none at all.
 
 ## What it looks like
 
@@ -54,8 +90,8 @@ presents.
 
 ## Why this exists
 
-Slide tools optimise for making slides. Giving a talk is a much longer job, and
-almost everything that goes wrong happens outside the editor:
+Making slides is the short part. Giving a talk is the long one, and almost
+everything that goes wrong happens outside the editor:
 
 - the venue Wi-Fi is down and the deck's fonts were on a CDN
 - the body text was 18px and unreadable from row 12

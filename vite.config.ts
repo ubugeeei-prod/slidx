@@ -185,6 +185,12 @@ export default defineConfig({
 
       // Benchmarks measure wall-clock time, so a cached result is a wrong one.
       "bench:rust": uncached("cargo bench --workspace"),
+
+      // Backs the build-time and output-size figures in the README. Run it
+      // before changing anything in the pipeline you expect to be free.
+      "bench:build": uncached("node scripts/bench-build.mjs", {
+        dependsOn: ["build:packages"],
+      }),
     },
   },
 });
