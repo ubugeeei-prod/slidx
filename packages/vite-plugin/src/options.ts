@@ -19,6 +19,14 @@ export interface SlidxOptions {
   /** File extensions treated as slides. Default `[".md"]`. */
   extensions?: string[];
   /**
+   * Build the speaker's view alongside each slide.
+   *
+   * On by default: the presenter view is the reason to use a deck tool rather
+   * than a PDF, and someone who discovers it exists only after their talk has
+   * been failed by the default.
+   */
+  presenter?: boolean;
+  /**
    * Fail the build when the linter reports something blocking.
    *
    * On by default: a contrast failure that reaches a projector cannot be fixed
@@ -34,6 +42,7 @@ export interface ResolvedOptions {
   theme: string | undefined;
   separator: string;
   extensions: string[];
+  presenter: boolean;
   failOnDiagnostics: boolean;
 }
 
@@ -44,6 +53,7 @@ export function resolveOptions(options: SlidxOptions = {}): ResolvedOptions {
     theme: options.theme,
     separator: options.separator ?? "---",
     extensions: normaliseExtensions(options.extensions ?? [".md"]),
+    presenter: options.presenter ?? true,
     failOnDiagnostics: options.failOnDiagnostics ?? true,
   };
 }
@@ -83,4 +93,15 @@ export function slideRoute(options: ResolvedOptions, index: number): string {
 export function slideFileName(options: ResolvedOptions, index: number): string {
   const path = index === 0 ? "index.html" : `${index + 1}/index.html`;
   return options.base ? `${options.base}/${path}` : path;
+}
+
+/** The file a slide's presenter view is written to. */
+export function presenterFileName(options: ResolvedOptions, index: number): string {
+  const path = index === 0 ? "presenter/index.html" : `${index + 1}/presenter/index.html`;
+  return options.base ? `${options.base}/${path}` : path;
+}
+
+/** Where the runtime module is written, and imported from. */
+export function runtimeFileName(options: ResolvedOptions): string {
+  return options.base ? `${options.base}/runtime.js` : "runtime.js";
 }

@@ -55,6 +55,9 @@ importers:
 
   packages/vite-plugin:
     dependencies:
+      '@slidx/runtime':
+        specifier: workspace:*
+        version: link:../runtime
       '@slidx/wasm':
         specifier: workspace:*
         version: link:../wasm

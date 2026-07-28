@@ -18,7 +18,7 @@ import { join, resolve } from "node:path";
 
 import { chromium } from "playwright";
 
-const SOURCE = process.argv[2] ?? "dist/preview";
+const SOURCE = process.argv[2] ?? "examples/deck/dist/slides";
 const OUT = process.argv[3] ?? "docs/images";
 
 /**
@@ -30,12 +30,28 @@ const OUT = process.argv[3] ?? "docs/images";
 const VIEWPORT = { width: 1280, height: 720 };
 const SCALE = 2;
 
-const pages = readdirSync(SOURCE)
-  .filter((name) => name.endsWith(".html"))
-  .sort();
+/**
+ * Every page the build emitted, audience and presenter alike.
+ *
+ * Read from the plugin's own output rather than from a bespoke renderer, so
+ * the images are of the thing people install.
+ */
+function pagesIn(directory, prefix = "") {
+  const found = [];
+
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) found.push(...pagesIn(join(directory, entry.name), path));
+    else if (entry.name.endsWith(".html")) found.push(path);
+  }
+
+  return found.sort();
+}
+
+const pages = pagesIn(SOURCE);
 
 if (pages.length === 0) {
-  process.stderr.write(`no .html files in ${SOURCE} — run the preview example first\n`);
+  process.stderr.write(`no .html files in ${SOURCE} — build the example deck first\n`);
   process.exit(1);
 }
 
@@ -54,13 +70,15 @@ for (const scheme of ["light", "dark"]) {
   for (const name of pages) {
     await page.goto(pathToFileURL(resolve(SOURCE, name)).href);
 
-    // Screenshot the slide itself rather than the viewport: the letterboxing
-    // around it is the browser, not the deck.
-    const slide = page.locator(".slidx-slide");
-    await slide.waitFor();
+    // The slide itself rather than the viewport — the letterboxing around it
+    // is the browser, not the deck. The presenter view *is* the whole window.
+    const presenter = name.includes("presenter");
+    const target = presenter ? page.locator(".slidx-presenter") : page.locator(".slidx-slide");
+    await target.waitFor();
 
-    const out = join(OUT, `${name.replace(/\.html$/, "")}-${scheme}.png`);
-    await slide.screenshot({ path: out });
+    const label = name.replace(/\/?index\.html$/, "").replaceAll("/", "-") || "1";
+    const out = join(OUT, `${label}-${scheme}.png`);
+    await target.screenshot({ path: out });
     process.stdout.write(`  ${out}\n`);
   }
 

@@ -29,6 +29,7 @@
     "pack:lib": "vp pack src/index.ts --dts --out-dir dist"
   },
   "dependencies": {
+    "@slidx/runtime": "workspace:*",
     "@slidx/wasm": "workspace:*"
   },
   "peerDependencies": {

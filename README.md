@@ -17,29 +17,40 @@
 
 ## What it looks like
 
-Rendered by the pipeline in this repository — parse, lint, theme, render — not
-drawn. `node scripts/screenshot.mjs` regenerates them, so a screenshot that
-stopped being true fails to reproduce instead of quietly misleading.
+Emitted by `vp build` in [examples/deck](./examples/deck), whose entire
+configuration is `plugins: [slidx()]`. `node scripts/screenshot.mjs`
+regenerates these, so an image that stopped being true fails to reproduce
+rather than quietly misleading.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./docs/images/0002-what-actually-goes-wrong-dark.png">
-  <img alt="A slide titled 'What actually goes wrong' listing five stage failures" src="./docs/images/0002-what-actually-goes-wrong-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/images/2-dark.png">
+  <img alt="A slide titled 'What actually goes wrong' listing five stage failures" src="./docs/images/2-light.png">
 </picture>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./docs/images/0003-steps-are-snapshots-not-deltas-dark.png">
-  <img alt="A slide showing a Rust snippet and prose about the step model" src="./docs/images/0003-steps-are-snapshots-not-deltas-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/images/4-dark.png">
+  <img alt="A slide with a table of linter rules and what each one catches" src="./docs/images/4-light.png">
 </picture>
+
+Both schemes come from one theme, because the room's lighting is usually
+unknown until the day.
+
+### The speaker's view
+
+Ordered by how urgently a question needs answering mid-sentence, not by how
+much space the answer needs. The clock is the largest thing on the page; the
+notes get more room than the slide, because the slide is already on the wall
+behind you and what you cannot see is what you meant to say about it.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./docs/images/0004-the-linter-checks-the-room-dark.png">
-  <img alt="A slide with a table of linter rules and what each one catches" src="./docs/images/0004-the-linter-checks-the-room-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/images/2-presenter-dark.png">
+  <img alt="The presenter view: a large clock reading 0:00 of 20m, speaker notes, and a preview of the next slide" src="./docs/images/2-presenter-light.png">
 </picture>
 
-The source for those is [examples/deck](./examples/deck) — a complete
-project whose entire configuration is `plugins: [slidx()]`. Both
-schemes come from one theme, because the room's lighting is usually unknown
-until the day.
+It counts past the slot rather than freezing at zero, warns three minutes out,
+and keeps a second window on the same slide over a broadcast channel. Where
+that channel is unavailable, mirroring is simply off and the deck still
+presents.
 
 ## Why this exists
 

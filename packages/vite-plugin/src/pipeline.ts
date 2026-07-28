@@ -34,6 +34,8 @@ export interface BuildDeckOptions {
   theme?: string | undefined;
   separator: string;
   parseOnly?: boolean;
+  presenter?: boolean;
+  runtimeSrc?: string;
 }
 
 /** Parses, lints, and renders a deck. */
@@ -44,5 +46,7 @@ export async function build(source: string, options: BuildDeckOptions): Promise<
     theme: options.theme,
     separator: options.separator,
     parseOnly: options.parseOnly ?? false,
+    presenter: options.presenter ?? false,
+    runtimeSrc: options.runtimeSrc,
   });
 }

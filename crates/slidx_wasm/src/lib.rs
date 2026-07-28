@@ -32,7 +32,7 @@ use wasm_bindgen::prelude::*;
 
 use slidx_core::{parse_deck, DeckParseOptions};
 use slidx_lint::{lint, LintInput, LintOptions};
-use slidx_render::{render_slide, ShellOptions};
+use slidx_render::{render_presenter, render_slide, PresenterOptions, ShellOptions};
 
 /// What a caller can ask for when building a deck.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -45,6 +45,13 @@ pub struct BuildOptions {
     /// Skip rendering and return only the model and diagnostics. The editor
     /// uses this while typing, where the outline matters and the HTML does not.
     pub parse_only: bool,
+    /// Also render the presenter view for each slide.
+    ///
+    /// Off by default: a deck that is only being built for the web does not
+    /// need it, and it doubles the rendering work.
+    pub presenter: bool,
+    /// Module URL the presenter view imports the runtime from.
+    pub runtime_src: Option<String>,
 }
 
 /// One built slide.
@@ -60,6 +67,9 @@ pub struct BuiltSlide {
     /// The complete HTML page. Absent when `parseOnly` was set.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub html: Option<String>,
+    /// The speaker's view of this slide. Absent unless `presenter` was set.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub presenter_html: Option<String>,
 }
 
 /// Everything a build or a preview needs from one call.
@@ -144,7 +154,14 @@ fn build(source: &str, options: &BuildOptions) -> BuildResult {
     let findings = lint(&LintInput::new(&deck, &surfaces), &LintOptions::default());
     diagnostics.extend(findings.iter().map(finding));
 
-    let shell = ShellOptions { theme, ..ShellOptions::default() };
+    let shell = ShellOptions { theme: theme.clone(), ..ShellOptions::default() };
+    let presenter = PresenterOptions {
+        theme,
+        runtime_src: options.runtime_src.clone().unwrap_or_else(|| "./runtime.js".to_string()),
+        ..PresenterOptions::default()
+    };
+
+    let render = !options.parse_only;
 
     let slides = deck
         .slides
@@ -155,7 +172,9 @@ fn build(source: &str, options: &BuildOptions) -> BuildResult {
             title: slide.title.clone(),
             notes: slide.notes.clone(),
             stop_count: slide.timeline.len() as u32,
-            html: (!options.parse_only).then(|| render_slide(&deck, slide, &shell)),
+            html: render.then(|| render_slide(&deck, slide, &shell)),
+            presenter_html: (render && options.presenter)
+                .then(|| render_presenter(&deck, slide, &presenter)),
         })
         .collect();
 
@@ -196,6 +215,26 @@ mod tests {
 
         assert_eq!(result.slides.len(), 2);
         assert!(result.slides[0].html.as_ref().unwrap().starts_with("<!doctype html>"));
+    }
+
+    #[test]
+    fn the_presenter_view_is_opt_in() {
+        // It doubles the rendering work, and a deck built only for the web
+        // never opens it.
+        assert!(build("# One\n", &BuildOptions::default()).slides[0].presenter_html.is_none());
+
+        let options = BuildOptions { presenter: true, ..BuildOptions::default() };
+        assert!(build("# One\n", &options).slides[0].presenter_html.is_some());
+    }
+
+    #[test]
+    fn the_presenter_view_carries_the_notes() {
+        let options = BuildOptions { presenter: true, ..BuildOptions::default() };
+        let result = build("# One\n\n<!-- notes: out loud -->\n", &options);
+
+        let presenter = result.slides[0].presenter_html.as_ref().unwrap();
+        assert!(presenter.contains("out loud"));
+        assert!(!result.slides[0].html.as_ref().unwrap().contains("out loud"));
     }
 
     #[test]

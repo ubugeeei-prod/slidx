@@ -21,7 +21,13 @@
 import type { Plugin, ViteDevServer } from "vite";
 
 import { readDeck } from "./deck";
-import { resolveOptions, slideFileName, type SlidxOptions } from "./options";
+import {
+  presenterFileName,
+  resolveOptions,
+  runtimeFileName,
+  slideFileName,
+  type SlidxOptions,
+} from "./options";
 import { build as buildDeck } from "./pipeline";
 import { blockingSummary, formatReport, groupFindings } from "./report";
 
@@ -30,6 +36,9 @@ export type { SlidxOptions } from "./options";
 /** A virtual module so a deck-only project needs no entry of its own. */
 const ENTRY_ID = "virtual:slidx-entry";
 const RESOLVED_ENTRY_ID = `\0${ENTRY_ID}`;
+
+/** The runtime, resolved as a module rather than served as a file. */
+const RESOLVED_RUNTIME_ID = "\0virtual:slidx-runtime";
 
 export function slidx(userOptions: SlidxOptions = {}): Plugin {
   const options = resolveOptions(userOptions);
@@ -56,25 +65,40 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
       return { build: { rollupOptions: { input: ENTRY_ID } } };
     },
 
+    /**
+     * The runtime is a module Vite resolves, not a file the middleware serves.
+     *
+     * Serving it from middleware alone works in a browser and fails in Vite's
+     * import analysis, which resolves a presenter page's imports against the
+     * module graph and rejects what it cannot find. Resolving it here means
+     * dev and build agree about what `/slides/runtime.js` is.
+     */
     resolveId(id) {
-      return id === ENTRY_ID ? RESOLVED_ENTRY_ID : undefined;
+      if (id === ENTRY_ID) return RESOLVED_ENTRY_ID;
+      if (id === `/${runtimeFileName(options)}`) return RESOLVED_RUNTIME_ID;
+      return undefined;
     },
 
-    load(id) {
-      return id === RESOLVED_ENTRY_ID ? "export default null;" : undefined;
+    async load(id) {
+      if (id === RESOLVED_ENTRY_ID) return "export default null;";
+      if (id === RESOLVED_RUNTIME_ID) return readRuntime();
+      return undefined;
     },
 
     configureServer(server) {
       watchSlides(server, root, options.srcDir);
       server.middlewares.use(async (request, response, next) => {
-        const index = slideIndexFor(request.url ?? "/", options.base);
-        if (index === null) return next();
+        const url = request.url ?? "/";
+
+        const asked = slideRequestFor(url, options.base);
+        if (asked === null) return next();
 
         try {
-          const built = await renderDeck(root, options);
-          const slide = built.slides[index];
+          const built = await renderDeck(root, options, asked.presenter);
+          const slide = built.slides[asked.index];
+          const html = asked.presenter ? slide?.presenterHtml : slide?.html;
 
-          if (!slide?.html) {
+          if (!html) {
             response.statusCode = 404;
             response.setHeader("content-type", "text/plain; charset=utf-8");
             response.end(emptyDeckMessage(built.slides.length, options.srcDir));
@@ -87,7 +111,7 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
           // A deck is edited constantly; a cached slide is a slide that does
           // not change when its file does.
           response.setHeader("cache-control", "no-store");
-          response.end(await server.transformIndexHtml(request.url ?? "/", slide.html));
+          response.end(await server.transformIndexHtml(url, html));
         } catch (error) {
           next(error);
         }
@@ -104,7 +128,7 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
         }
       }
 
-      const built = await renderDeck(root, options);
+      const built = await renderDeck(root, options, options.presenter);
 
       // No slide files at all is a different situation from a deck that
       // failed to parse: emitting a blank page would look like the deck built
@@ -126,18 +150,42 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
       }
 
       for (const [index, slide] of built.slides.entries()) {
-        if (!slide.html) continue;
+        if (slide.html) {
+          this.emitFile({
+            type: "asset",
+            fileName: slideFileName(options, index),
+            source: slide.html,
+          });
+        }
+
+        if (slide.presenterHtml) {
+          this.emitFile({
+            type: "asset",
+            fileName: presenterFileName(options, index),
+            source: slide.presenterHtml,
+          });
+        }
+      }
+
+      // The runtime is emitted once and shared by every presenter page. It is
+      // the only JavaScript a deck ships, and only when the presenter view is
+      // built — the audience slides stay at zero.
+      if (options.presenter) {
         this.emitFile({
           type: "asset",
-          fileName: slideFileName(options, index),
-          source: slide.html,
+          fileName: runtimeFileName(options),
+          source: await readRuntime(),
         });
       }
     },
   };
 }
 
-async function renderDeck(root: string, options: ReturnType<typeof resolveOptions>) {
+async function renderDeck(
+  root: string,
+  options: ReturnType<typeof resolveOptions>,
+  presenter: boolean,
+) {
   const { files, source } = await readDeck(
     root,
     options.srcDir,
@@ -148,9 +196,42 @@ async function renderDeck(root: string, options: ReturnType<typeof resolveOption
   const built = await buildDeck(source, {
     theme: options.theme,
     separator: options.separator,
+    presenter,
+    runtimeSrc: runtimeSrcFor(options),
   });
 
   return { ...built, fileCount: files.length };
+}
+
+/**
+ * Where a presenter page imports the runtime from.
+ *
+ * Absolute, because a presenter page can be one or two directories deep
+ * depending on the slide, and a relative path would have to differ per page.
+ */
+function runtimeSrcFor(options: ReturnType<typeof resolveOptions>): string {
+  return `/${runtimeFileName(options)}`;
+}
+
+/** The built runtime, read once. */
+let runtime: Promise<string> | undefined;
+
+function readRuntime(): Promise<string> {
+  runtime ??= (async () => {
+    const { createRequire } = await import("node:module");
+    const { readFile } = await import("node:fs/promises");
+    const require = createRequire(import.meta.url);
+
+    return readFile(require.resolve("@slidx/runtime"), "utf8");
+  })();
+
+  return runtime;
+}
+
+/** A slide, and which of its two views was asked for. */
+export interface SlideRequest {
+  index: number;
+  presenter: boolean;
 }
 
 /**
@@ -159,21 +240,29 @@ async function renderDeck(root: string, options: ReturnType<typeof resolveOption
  * Returning `null` rather than a 404 lets everything else in the project —
  * assets, other plugins, the dev client — keep working alongside a deck.
  */
-export function slideIndexFor(url: string, base: string): number | null {
+export function slideRequestFor(url: string, base: string): SlideRequest | null {
   const path = url.split("?")[0]!.replace(/\/+$/, "");
   const prefix = base ? `/${base}` : "";
 
   if (!path.startsWith(prefix)) return null;
 
-  const rest = path.slice(prefix.length).replace(/^\//, "");
-  if (rest === "" || rest === "index.html") return 0;
+  let rest = path
+    .slice(prefix.length)
+    .replace(/^\//, "")
+    .replace(/\/index\.html$/, "");
+  if (rest === "index.html") rest = "";
 
-  const match = /^(\d+)(?:\/index\.html)?$/.exec(rest);
+  const presenter = rest === "presenter" || rest.endsWith("/presenter");
+  if (presenter) rest = rest.replace(/\/?presenter$/, "");
+
+  if (rest === "") return { index: 0, presenter };
+
+  const match = /^(\d+)$/.exec(rest);
   if (!match) return null;
 
   // Slides are one-based in a URL because that is how a person counts them.
   const number = Number(match[1]);
-  return number >= 2 ? number - 1 : null;
+  return number >= 2 ? { index: number - 1, presenter } : null;
 }
 
 /**

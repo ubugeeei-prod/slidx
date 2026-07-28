@@ -77,14 +77,38 @@ describe("building a deck with no configuration", () => {
     expect(result.files).toContain("slides/2/index.html");
   });
 
-  it("ships no JavaScript", () => {
-    // The property that makes a deck load instantly on venue Wi-Fi. A stray
-    // empty chunk from the virtual entry would break it silently.
-    expect(result.files.filter((file) => file.endsWith(".js"))).toEqual([]);
+  it("emits a presenter view for each slide", () => {
+    // On by default: the presenter view is the reason to use a deck tool
+    // rather than a PDF, and discovering it exists after the talk is too late.
+    expect(result.files).toContain("slides/presenter/index.html");
+    expect(result.files).toContain("slides/2/presenter/index.html");
   });
 
-  it("emits nothing but the slides", () => {
-    expect(result.files).toEqual(["slides/2/index.html", "slides/index.html"]);
+  it("ships JavaScript only to the presenter, never to the audience", async () => {
+    // The property that makes a deck load instantly on venue Wi-Fi. A stray
+    // empty chunk from the virtual entry would break it silently.
+    expect(result.files.filter((file) => file.endsWith(".js"))).toEqual(["slides/runtime.js"]);
+
+    const slide = await readFile(join(result.root, "dist/slides/index.html"), "utf8");
+    expect(slide).not.toContain("<script");
+  });
+
+  it("emits nothing else", () => {
+    expect(result.files).toEqual([
+      "slides/2/index.html",
+      "slides/2/presenter/index.html",
+      "slides/index.html",
+      "slides/presenter/index.html",
+      "slides/runtime.js",
+    ]);
+  });
+
+  it("shares one runtime between every presenter page", async () => {
+    const presenter = await readFile(
+      join(result.root, "dist/slides/2/presenter/index.html"),
+      "utf8",
+    );
+    expect(presenter).toContain('from "/slides/runtime.js"');
   });
 
   it("writes complete, self-contained documents", async () => {
@@ -104,7 +128,12 @@ describe("building a deck with no configuration", () => {
 describe("options", () => {
   it("serves the deck at the site root when asked", async () => {
     const { files } = await buildDeck({ "0001.md": "# One\n" }, { base: "/" });
-    expect(files).toEqual(["index.html"]);
+    expect(files).toEqual(["index.html", "presenter/index.html", "runtime.js"]);
+  }, 60_000);
+
+  it("builds only the audience pages when the presenter view is off", async () => {
+    const { files } = await buildDeck({ "0001.md": "# One\n" }, { presenter: false });
+    expect(files).toEqual(["slides/index.html"]);
   }, 60_000);
 
   it("reads a directory other than ./slides", async () => {
