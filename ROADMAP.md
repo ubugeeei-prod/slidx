@@ -48,13 +48,13 @@ works with the network cable pulled.
 
 The failures that are invisible on a laptop and fatal on a projector.
 
-- [ ] Contrast: WCAG ratio plus a projector model that simulates washout — #7
-- [ ] Minimum rendered font size, measured after theme scaling
-- [ ] Content overflow and safe-area / caption-strip bleed
+- [x] Contrast: WCAG ratio plus a projector model that simulates washout — #7
+- [x] Minimum rendered font size, by angular size at the back row — #7
+- [ ] Content overflow and safe-area / caption-strip bleed — #7 (needs layout measurement)
 - [ ] Image resolution against the target render size; aspect distortion — #7
-- [ ] Missing alt text, heading order, colour-only encoding
-- [ ] Animation cost: effects that will not stay on the compositor
-- [ ] Time budget: per-slide budgets summed against the slot length — #7
+- [x] Missing alt text, heading order, bullet load, bare-URL links — #7
+- [x] Animation cost: effects that will not stay on the compositor — #7
+- [x] Time budget: per-slide budgets summed against the slot length — #7
 - [ ] `slidx doctor` — display resolution, fonts, network, DND, audio levels — #8
 
 **Done when** every documented stage failure has a rule that catches it before

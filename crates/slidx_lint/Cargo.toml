@@ -1,0 +1,13 @@
+[package]
+name = "slidx_lint"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Build-time checks for the slide failures that are invisible on a laptop and fatal on a projector"
+
+[dependencies]
+slidx_core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
