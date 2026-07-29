@@ -36,11 +36,11 @@ The minimum a speaker can stand on stage with.
 - [x] `@slidx/vite-plugin`: dev server, live reload, MPA static output — #4
 - [x] Client runtime: step resolution and the anchor contract — #4
 - [x] Client runtime: navigation, keyboard, deep links — #4
-- [ ] Slide-to-slide transitions — #4
+- [x] Slide-to-slide transitions — #4
 - [ ] **Offline guarantee**: build fails if any asset resolves to a remote host — #5
 - [x] Print shell with each stop as its own page — #6
 - [x] Automated PDF at build time — #6
-- [ ] OG image per slide and per deck
+- [x] OG image per slide and per deck
 
 **Done when** `npm i -D @slidx/vite-plugin` → `vite build` produces a deck that
 works with the network cable pulled.
@@ -90,7 +90,7 @@ Everything between walking up and sitting down.
 - [ ] Behind/ahead indicator and optional-slide hints
 - [x] Mirroring across windows and screens — #13
 - [ ] Remote control from a separate device — #13
-- [ ] Notification and Do-Not-Disturb control on entering presentation mode — #13
+- [x] Presentation mode: wake lock, fullscreen, and a named DND checklist — #13
 - [ ] Rehearsal recording; actual per-slide dwell time diffed against budget — #17
 - [ ] **Demo fallback** as a declared construct: live target plus recorded video — #14
 - [ ] Audience channel — optional Cloudflare Worker for Q&A and reactions — #16

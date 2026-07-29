@@ -12,8 +12,17 @@
  */
 
 export { ANCHOR_ATTRIBUTE, findAnchors, resolveAnchor } from "./anchor";
+export { createKeymap, DEFAULT_BINDINGS, formatBinding } from "./keymap";
+export type { Binding, Command, Keymap, KeymapOptions } from "./keymap";
 export { createMirror } from "./mirror";
 export { createNavigator, LAST_STEP } from "./navigate";
+export { detectPlatform, enterPresentation, presentationChecklist } from "./presentation";
+export type {
+  ChecklistItem,
+  Platform,
+  PresentationEnvironment,
+  PresentationSession,
+} from "./presentation";
 export type { Navigator, NavigatorOptions } from "./navigate";
 export type { Mirror, MirrorMessage, MirrorTransport, Position } from "./mirror";
 export { createStage, HIDDEN_ATTRIBUTE, STAGED_ATTRIBUTE } from "./stage";

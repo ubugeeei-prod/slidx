@@ -10,7 +10,7 @@
 //! venue Wi-Fi does.
 
 use slidx_core::{Deck, Slide};
-use slidx_theme::{css, Theme};
+use slidx_theme::{css, transition, Theme};
 
 use crate::layout;
 use crate::markdown::{render, MarkdownOptions};
@@ -59,6 +59,7 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
 {description}<style>
 {theme_css}
 {shell_css}
+{transition_css}
 </style>
 </head>
 <body>
@@ -87,6 +88,7 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
             .unwrap_or_default(),
         theme_css = css::render(&options.theme),
         shell_css = layout::STYLESHEET,
+        transition_css = transition_css(deck, slide, &options.theme),
         slide_layout = slide.layout.as_deref().unwrap_or("stack"),
         width = width,
         height = height,
@@ -104,6 +106,21 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
         number = slide.index + 1,
         count = deck.slides.len(),
     )
+}
+
+/// The transition this slide leaves with.
+///
+/// A slide's own `transition:` wins over the deck's, because the interesting
+/// case is one slide that moves differently — a section break, a demo — inside
+/// a deck that otherwise cuts.
+///
+/// An unknown token was already reported when the deck was parsed, so it falls
+/// back silently here rather than reporting the same mistake twice.
+fn transition_css(deck: &Deck, slide: &Slide, theme: &Theme) -> String {
+    let token = slide.transition.as_deref().or(deck.meta.transition.as_deref());
+    let kind = token.and_then(transition::Transition::parse).unwrap_or_default();
+
+    transition::render(theme, kind)
 }
 
 fn escape(text: &str) -> String {
@@ -227,6 +244,38 @@ mod tests {
         let html = shell("```rust\nfn main() {\n    let x = 1;\n}\n```\n");
 
         assert!(html.contains("<code class=\"language-rust\">fn main() {\n    let x = 1;\n}\n"));
+    }
+
+    #[test]
+    fn a_deck_transition_reaches_the_page() {
+        let deck =
+            parse_deck("---\ntransition: fade\n---\n\n# One\n", &DeckParseOptions::default());
+        let html = render_slide(&deck, &deck.slides[0], &ShellOptions::default());
+
+        assert!(html.contains("@view-transition"));
+    }
+
+    #[test]
+    fn a_slide_transition_overrides_the_decks() {
+        // The interesting case is one slide that moves differently — a
+        // section break, a demo — inside a deck that otherwise cuts.
+        let deck = parse_deck(
+            "---\ntransition: none\n---\n\n# One\n\n---\ntransition: fade\n---\n\n# Two\n",
+            &DeckParseOptions::default(),
+        );
+
+        let first = render_slide(&deck, &deck.slides[0], &ShellOptions::default());
+        let second = render_slide(&deck, &deck.slides[1], &ShellOptions::default());
+
+        assert!(!first.contains("@view-transition"));
+        assert!(second.contains("@view-transition"));
+    }
+
+    #[test]
+    fn a_deck_that_asks_for_no_transition_carries_no_transition_css() {
+        // The opt-in itself costs the browser two page snapshots, so `none`
+        // has to mean absent rather than a zero-duration animation.
+        assert!(!shell("# One\n").contains("@view-transition"));
     }
 
     #[test]
