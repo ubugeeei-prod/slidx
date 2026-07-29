@@ -184,6 +184,32 @@ a keypress there is nobody to press.",
         ],
     ),
     leaf(
+        "tui",
+        "walk a deck's structure in the terminal",
+        "tui [path] [options]",
+        "\
+Steps through a deck in the terminal, one stop at a time, drawn inside a box
+at the deck's own aspect ratio. Navigation uses the same keys the deck itself
+does, so what you learn here works on stage.
+
+This shows STRUCTURE AND FLOW, and nothing about appearance. How many stops a
+slide has, what each one reveals, how the deck reads end to end, whether the
+bullets are eight when you thought they were four.
+
+It cannot tell you whether text fits, what the contrast is, or how the layout
+lands — a terminal row is not a line of 40pt type. Content fitting inside the
+box here is not evidence it fits the slide. `slidx lint` checks the room, and
+a browser shows the deck.
+
+Piped, it prints one stop and exits rather than waiting for a keypress there
+is nobody to press.",
+        &[
+            Flag::taking("slide", "<number>", "Open on this slide, counting from one"),
+            Flag::taking("stop", "<number>", "Open on this stop, counting from one"),
+            Flag::taking("separator", "<text>", "Slide separator in a single-file deck"),
+        ],
+    ),
+    leaf(
         "completions",
         "print a completion script for your shell",
         "completions <shell>",

@@ -121,7 +121,7 @@ mod tests {
     fn the_top_level_offers_every_command_and_the_root_flags() {
         let text = script();
 
-        assert!(text.contains("doctor lint open completions preview version"), "{text}");
+        assert!(text.contains("doctor lint open tui completions preview version"), "{text}");
         assert!(text.contains("--help --version"), "{text}");
     }
 

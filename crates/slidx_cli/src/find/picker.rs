@@ -6,25 +6,10 @@
 //! the failure mode of this file is somebody's shell left in raw mode, with no
 //! echo and no line editing, which looks exactly like a hung machine.
 //!
-//! ## Restoring the terminal is the contract
-//!
-//! [`RawMode`] saves the terminal's settings before it changes them and puts
-//! them back in `Drop`. `Drop` runs on the normal path, on `?`, and while a
-//! panic unwinds, so the only ways out that could skip it are a signal that
-//! kills the process outright and an abort. That is why the settings are saved
-//! rather than reconstructed: `stty sane` would restore *a* working terminal
-//! rather than the one somebody had.
-//!
-//! ## Why `stty` and not a crate
-//!
-//! `termios` is not in `std`, so raw mode means either a dependency or the
-//! program that every POSIX system already ships for exactly this. slidx is a
-//! binary people are asked to pipe into a shell, and a terminal-handling crate
-//! and its transitive tree is a large thing to add for one screen.
-//!
-//! Where `stty` is not there — Windows, a stripped container — this reports
-//! [`Outcome::Unavailable`] and the caller prints a list instead. A picker is
-//! an enhancement; the command works without it.
+//! Raw mode, restoring the terminal, and decoding a keypress all live in
+//! [`crate::terminal`], which the TUI preview uses too. An escape-sequence
+//! decoder in two files is two decoders, and the second one is always the one
+//! missing the terminal that sends `\x1bOA` for an up arrow.
 //!
 //! ## Keys
 //!
@@ -33,20 +18,12 @@
 //! used with hands on the home row, and the arrows are there because not
 //! everybody knows that.
 
-use std::fs::File;
-use std::io::{Read, Write};
-use std::process::{Command, Stdio};
+use std::io::Write;
 
 use super::screen::Screen;
 use crate::index::Entry;
 use crate::style::Style;
-
-/// The terminal, by name rather than by inherited handle.
-///
-/// Standard input may be a pipe — `slidx open < /dev/null` — while the terminal
-/// is still there and usable. Opening it directly is also what lets the chosen
-/// path go to standard output without the interface following it.
-const TTY: &str = "/dev/tty";
+use crate::terminal::{self, RawMode};
 
 /// How the picker ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,7 +37,7 @@ pub enum Outcome {
 
 /// Runs the picker until something is chosen or given up on.
 pub fn choose(entries: &[&Entry], query: &str, style: &Style) -> Outcome {
-    let Ok(mut tty) = File::options().read(true).write(true).open(TTY) else {
+    let Some(mut tty) = terminal::open() else {
         return Outcome::Unavailable;
     };
 
@@ -77,25 +54,26 @@ pub fn choose(entries: &[&Entry], query: &str, style: &Style) -> Outcome {
         let _ = write!(tty, "{frame}");
         let _ = tty.flush();
 
-        let key = read_key(&mut tty);
+        let key = act(terminal::read_key(&mut tty));
         // Erased before the next frame, and before returning, so the picker
         // leaves the scrollback as it found it rather than a column of
         // half-finished searches.
         erase(&mut tty, frame.lines().count());
 
         match key {
-            Key::Up => state.up(),
-            Key::Down => state.down(),
-            Key::Backspace => state.backspace(),
-            Key::Char(character) => state.push(character),
-            Key::Enter => {
+            Act::Up => state.up(),
+            Act::Down => state.down(),
+            Act::Backspace => state.backspace(),
+            Act::Narrow(character) => state.push(character),
+            Act::Nothing => {}
+            Act::Choose => {
                 let _ = tty.flush();
                 return match state.chosen() {
                     Some(index) => Outcome::Chose(index),
                     None => Outcome::Cancelled,
                 };
             }
-            Key::Cancel => {
+            Act::Cancel => {
                 let _ = tty.flush();
                 return Outcome::Cancelled;
             }
@@ -163,61 +141,11 @@ impl<'a> State<'a> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Key {
-    Up,
-    Down,
-    Enter,
-    Backspace,
-    Cancel,
-    Char(char),
-}
-
-/// Reads one keypress.
+/// Moves back over `lines` and clears them, so the next frame draws in place.
 ///
-/// Bytes rather than lines, because raw mode is exactly the absence of lines.
-/// An escape sequence for an arrow key arrives as three bytes and is read as
-/// three, which is why a bare Escape is only a cancel when nothing follows it.
-fn read_key(tty: &mut File) -> Key {
-    let mut byte = [0u8; 1];
-
-    if tty.read(&mut byte).unwrap_or(0) == 0 {
-        // The terminal went away mid-picker: a closed session, a killed
-        // parent. Giving up is the only thing left.
-        return Key::Cancel;
-    }
-
-    match byte[0] {
-        b'\r' | b'\n' => Key::Enter,
-        0x7f | 0x08 => Key::Backspace,
-        0x03 | 0x04 => Key::Cancel,
-        0x0e => Key::Down,
-        0x10 => Key::Up,
-        0x1b => escape(tty),
-        byte if byte.is_ascii_graphic() || byte == b' ' => Key::Char(byte as char),
-        // Anything else — a control code nobody pressed on purpose, or the
-        // first byte of a multi-byte character. Ignored rather than guessed at.
-        _ => Key::Char('\0'),
-    }
-}
-
-/// An escape byte: an arrow key, or somebody pressing Escape.
-fn escape(tty: &mut File) -> Key {
-    let mut rest = [0u8; 2];
-
-    if tty.read(&mut rest).unwrap_or(0) < 2 {
-        return Key::Cancel;
-    }
-
-    match (rest[0], rest[1]) {
-        (b'[', b'A') | (b'O', b'A') => Key::Up,
-        (b'[', b'B') | (b'O', b'B') => Key::Down,
-        _ => Key::Cancel,
-    }
-}
-
-/// Moves back over `lines` and clears them.
-fn erase(tty: &mut File, lines: usize) {
+/// The picker leaves the scrollback as it found it rather than a column of
+/// half-finished searches.
+fn erase(tty: &mut std::fs::File, lines: usize) {
     for _ in 0..lines {
         // Up one, then clear to the end of the line. Clearing without moving
         // would leave the frame and write the next one under it.
@@ -228,51 +156,34 @@ fn erase(tty: &mut File, lines: usize) {
     let _ = tty.flush();
 }
 
-/// Raw mode, and putting it back.
+/// Maps a keypress onto what the picker does with it.
 ///
-/// The saved settings are the ones this terminal actually had. `stty sane`
-/// would restore *a* working terminal rather than somebody's.
-struct RawMode {
-    saved: String,
-}
-
-impl RawMode {
-    fn enter() -> Option<Self> {
-        let saved = stty(&["-g"])?;
-
-        // -echo so typing does not appear twice; -icanon so a keypress arrives
-        // without waiting for Enter; the rest keeps Ctrl-C reaching us as a
-        // byte rather than as a signal that would skip the restore.
-        stty(&["-echo", "-icanon", "-isig", "min", "1", "time", "0"])?;
-
-        Some(Self { saved: saved.trim().to_string() })
+/// A subset of [`terminal::Key`]: the picker has nothing to do with Home, End
+/// or the page keys, and a key with no command behind it is inert rather than
+/// an error — the same rule `packages/runtime/src/keymap.ts` follows.
+fn act(key: terminal::Key) -> Act {
+    match key {
+        terminal::Key::Up => Act::Up,
+        terminal::Key::Down => Act::Down,
+        terminal::Key::Enter => Act::Choose,
+        terminal::Key::Backspace => Act::Backspace,
+        terminal::Key::Escape | terminal::Key::Interrupt => Act::Cancel,
+        terminal::Key::Space => Act::Narrow(' '),
+        terminal::Key::Char(character) => Act::Narrow(character),
+        _ => Act::Nothing,
     }
 }
 
-impl Drop for RawMode {
-    fn drop(&mut self) {
-        // Runs on the normal path, on an early return, and while a panic
-        // unwinds. Leaving a shell with no echo looks exactly like a hung
-        // machine, so this is the one thing here that must not be skipped.
-        let _ = stty(&[self.saved.as_str()]);
-    }
-}
-
-/// Runs `stty` against the terminal, returning its output.
-///
-/// Standard input is the terminal by name, not whatever this process inherited:
-/// `stty` acts on its own stdin, and in a pipeline that would be the pipe.
-fn stty(arguments: &[&str]) -> Option<String> {
-    let tty = File::open(TTY).ok()?;
-
-    let output = Command::new("stty")
-        .args(arguments)
-        .stdin(Stdio::from(tty))
-        .stderr(Stdio::null())
-        .output()
-        .ok()?;
-
-    output.status.success().then(|| String::from_utf8_lossy(&output.stdout).into_owned())
+/// What the picker does about one keypress.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Act {
+    Up,
+    Down,
+    Choose,
+    Backspace,
+    Cancel,
+    Narrow(char),
+    Nothing,
 }
 
 #[cfg(test)]
@@ -403,60 +314,32 @@ mod tests {
 
     #[test]
     fn the_keys_the_browser_runtime_uses_move_the_cursor_the_same_way_here() {
-        // Muscle memory transfers or it does not. Ctrl-N/Ctrl-P for hands on
-        // the home row, arrows for everybody else.
-        assert_eq!(key_of(&[0x0e]), Key::Down);
-        assert_eq!(key_of(&[0x10]), Key::Up);
-        assert_eq!(key_of(&[0x1b, b'[', b'B']), Key::Down);
-        assert_eq!(key_of(&[0x1b, b'[', b'A']), Key::Up);
-        // An application-cursor terminal sends O instead of [. Same key.
-        assert_eq!(key_of(&[0x1b, b'O', b'A']), Key::Up);
+        // Muscle memory transfers or it does not. The decoding itself lives in
+        // crate::terminal and is tested there; this is the mapping onto what
+        // the picker does about it.
+        assert_eq!(act(terminal::Key::Up), Act::Up);
+        assert_eq!(act(terminal::Key::Down), Act::Down);
     }
 
     #[test]
     fn enter_chooses_and_both_ways_of_giving_up_cancel() {
-        assert_eq!(key_of(b"\r"), Key::Enter);
-        assert_eq!(key_of(b"\n"), Key::Enter);
-        assert_eq!(key_of(&[0x03]), Key::Cancel);
-        assert_eq!(key_of(&[0x1b, b'x', b'x']), Key::Cancel);
+        assert_eq!(act(terminal::Key::Enter), Act::Choose);
+        assert_eq!(act(terminal::Key::Escape), Act::Cancel);
+        assert_eq!(act(terminal::Key::Interrupt), Act::Cancel);
     }
 
     #[test]
-    fn both_spellings_of_backspace_delete_a_character() {
-        // Terminals disagree about which one they send, and a backspace that
-        // does nothing is the most infuriating possible bug in a search box.
-        assert_eq!(key_of(&[0x7f]), Key::Backspace);
-        assert_eq!(key_of(&[0x08]), Key::Backspace);
+    fn backspace_widens_the_query() {
+        assert_eq!(act(terminal::Key::Backspace), Act::Backspace);
     }
 
     #[test]
-    fn a_printable_character_narrows_and_a_stray_control_code_does_not() {
-        assert_eq!(key_of(b"v"), Key::Char('v'));
-        assert_eq!(key_of(b" "), Key::Char(' '));
-        assert_eq!(key_of(&[0x01]), Key::Char('\0'));
-    }
-
-    #[test]
-    fn a_terminal_that_goes_away_mid_picker_cancels_rather_than_spinning() {
-        // A closed session or a killed parent. Reading zero bytes forever is
-        // the difference between exiting and pinning a core.
-        assert_eq!(key_of(&[]), Key::Cancel);
-    }
-
-    /// Feeds bytes through the key reader using a real file, because the reader
-    /// takes a `File` — the same path the terminal goes down.
-    fn key_of(bytes: &[u8]) -> Key {
-        let path = std::env::temp_dir().join(format!(
-            "slidx-keys-{}-{:p}",
-            std::process::id(),
-            bytes.as_ptr()
-        ));
-        std::fs::write(&path, bytes).expect("write");
-
-        let mut file = File::open(&path).expect("open");
-        let key = read_key(&mut file);
-        let _ = std::fs::remove_file(&path);
-
-        key
+    fn a_printable_character_narrows_and_a_key_with_no_command_does_nothing() {
+        // A key the picker has nothing to do with is inert rather than an
+        // error, which is the rule the runtime's keymap follows too.
+        assert_eq!(act(terminal::Key::Char('v')), Act::Narrow('v'));
+        assert_eq!(act(terminal::Key::Space), Act::Narrow(' '));
+        assert_eq!(act(terminal::Key::Home), Act::Nothing);
+        assert_eq!(act(terminal::Key::Ignored), Act::Nothing);
     }
 }
