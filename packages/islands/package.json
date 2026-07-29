@@ -1,0 +1,70 @@
+{
+  "name": "@slidx/islands",
+  "version": "0.0.1",
+  "description": "Opt-in framework islands for slidx decks: the contract, the loader, and thin adapters",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ubugeeei-prod/slidx.git",
+    "directory": "packages/islands"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./vue": {
+      "types": "./dist/adapters/vue.d.mts",
+      "default": "./dist/adapters/vue.mjs"
+    },
+    "./react": {
+      "types": "./dist/adapters/react.d.mts",
+      "default": "./dist/adapters/react.mjs"
+    },
+    "./svelte": {
+      "types": "./dist/adapters/svelte.d.mts",
+      "default": "./dist/adapters/svelte.mjs"
+    },
+    "./three": {
+      "types": "./dist/adapters/three.d.mts",
+      "default": "./dist/adapters/three.mjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "pack:lib": "vp pack src/index.ts src/adapters/vue.ts src/adapters/react.ts src/adapters/svelte.ts src/adapters/three.ts --dts --out-dir dist"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0",
+    "svelte": "^5.0.0",
+    "three": ">=0.150.0",
+    "vue": "^3.4.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    },
+    "svelte": {
+      "optional": true
+    },
+    "three": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
+  }
+}
