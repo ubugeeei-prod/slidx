@@ -37,7 +37,7 @@ impl Default for ShellOptions {
 
 /// Renders one slide as a complete HTML document.
 pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> String {
-    let body = render(&slide.content, &options.markdown);
+    let body = render(&crate::snippet::stage(deck, slide, &options.theme), &options.markdown);
     let (width, height) = deck.meta.aspect.dimensions();
 
     let title = match (&slide.title, &deck.meta.title) {
