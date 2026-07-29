@@ -27,6 +27,16 @@ export { createMirror } from "./mirror";
 export { createPairing, createRemoteTransport, pairingUrl, readPairing } from "./remote";
 export type { Pairing, PairingOptions, RemoteOptions, RemoteSocket } from "./remote";
 export { createNavigator, LAST_STEP } from "./navigate";
+export { assessPace, describePace } from "./pace";
+export type {
+  Pace,
+  PaceBasis,
+  PaceInput,
+  PaceOptions,
+  PaceSlide,
+  PaceState,
+  SkippableSlide,
+} from "./pace";
 export {
   browserPresentationEnvironment,
   detectPlatform,

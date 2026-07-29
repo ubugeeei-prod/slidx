@@ -20,18 +20,25 @@
  * one, in the right proportion. A browser without working container queries
  * passes every other check and fails that one.
  *
- * These run over `file://` deliberately: an audience slide has no script, no
- * import, and no fetch, so there is nothing a server would add except a way
- * for the test to pass on a deck that would fail off a USB stick.
+ * Most of these run over `file://` deliberately: a slide with no steps has no
+ * script, no import, and no fetch, so there is nothing a server would add
+ * except a way for the test to pass on a deck that would fail off a USB stick.
+ *
+ * The staged-slide block at the end is the exception, and the exception is
+ * informative. A slide *with* steps imports the runtime as a module, and a
+ * module import from a `file://` page is refused as cross-origin from a null
+ * origin — so that block gets a server, and the contrast between the two is
+ * the honest shape of the format.
  */
 
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { createServer, type Server } from "node:http";
+import { readFile, mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { extname, join, normalize } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { build } from "vite";
-import { describe, expect, it, beforeAll } from "vite-plus/test";
+import { describe, expect, it, afterAll, beforeAll } from "vite-plus/test";
 
 import { slidx } from "../src/index";
 
@@ -73,13 +80,76 @@ if (missing.length > 0) {
   );
 }
 
+const CONTENT_TYPES: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".svg": "image/svg+xml",
+};
+
+let server: Server | undefined;
+
+/**
+ * A static server for the one thing `file://` cannot do.
+ *
+ * A staged slide imports the runtime as a module, and a module import from a
+ * `file://` page is a cross-origin request from a null origin whatever the
+ * path says — the browser refuses it. That is a real property of the format,
+ * not of this test, and it is why the print shell inlines its runtime instead.
+ *
+ * Everything else in this file stays on `file://` on purpose. Serving them
+ * would let a deck that fails off a USB stick pass.
+ */
+async function serve(root: string): Promise<string> {
+  server = createServer((request, response) => {
+    // Normalised and re-rooted: a test server is still a server, and `..` in a
+    // request path should not reach the machine's filesystem.
+    const path = decodeURIComponent(new URL(request.url ?? "/", "http://localhost").pathname);
+    // `index.html` is appended before normalising, not after: on Windows
+    // `normalize` rewrites the separators, so a directory request arrives as
+    // `\slides\` and there is no trailing `/` left to notice.
+    const requested = path.endsWith("/") ? `${path}index.html` : path;
+    const relative = normalize(requested).replace(/^(\.\.[/\\])+/, "");
+    const file = join(root, relative);
+
+    readFile(file).then(
+      (body) => {
+        response.writeHead(200, {
+          "content-type": CONTENT_TYPES[extname(file)] ?? "application/octet-stream",
+        });
+        response.end(body);
+      },
+      () => {
+        response.writeHead(404);
+        response.end();
+      },
+    );
+  });
+
+  await new Promise<void>((resolve) => server?.listen(0, "127.0.0.1", resolve));
+
+  const address = server.address();
+  const port = typeof address === "object" && address !== null ? address.port : 0;
+
+  return `http://127.0.0.1:${port}`;
+}
+
+async function stopServing(): Promise<void> {
+  await new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve()));
+}
+
 /** A deck with a heading, built once and read by every engine. */
 let page: string;
 
-beforeAll(async () => {
-  const root = await mkdtemp(join(tmpdir(), "slidx-browser-"));
+/** Where the staged deck is served from, because a module needs an origin. */
+let served: string;
+
+async function buildDeck(name: string, slides: Record<string, string>): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), `slidx-${name}-`));
   await mkdir(join(root, "slides"), { recursive: true });
-  await writeFile(join(root, "slides", "0001.md"), "# Making Decks Fast\n\nA framework.\n");
+
+  for (const [file, source] of Object.entries(slides)) {
+    await writeFile(join(root, "slides", file), source);
+  }
 
   await build({
     root,
@@ -88,8 +158,25 @@ beforeAll(async () => {
     build: { outDir: join(root, "dist") },
   });
 
-  page = pathToFileURL(join(root, "dist", "slides", "index.html")).href;
-}, 120_000);
+  return join(root, "dist");
+}
+
+beforeAll(async () => {
+  const [plain, staged] = await Promise.all([
+    buildDeck("browser", { "0001.md": "# Making Decks Fast\n\nA framework.\n" }),
+    buildDeck("staged", {
+      "0001.md": "# Latency\n\nDropped to [120ms]{#latency}[38ms]{#latency}.\n",
+      "0002.md": "# After\n",
+    }),
+  ]);
+
+  page = pathToFileURL(join(plain, "slides", "index.html")).href;
+  served = await serve(staged);
+}, 180_000);
+
+afterAll(async () => {
+  await stopServing();
+});
 
 /** One engine, one page, measured at a given viewport. */
 async function measure(engine: Engine, width: number, height: number) {
@@ -184,6 +271,108 @@ describe.each(ENGINES)("%s", (engine) => {
       expect(scripts).toBe(0);
       expect(errors).toEqual([]);
       expect(text).toBe("Making Decks Fast");
+    },
+    120_000,
+  );
+});
+
+/**
+ * The compiled step pipeline, on the screen the audience actually watches.
+ *
+ * This is the deck's central feature and the easiest one to ship broken,
+ * because every *other* way of reading a stop keeps working when the projector
+ * does not: the PDF has a page per stop, the print shell walks them, and the
+ * presenter view steps happily on the speaker's own laptop. A deck can pass
+ * all of that and still be frozen on stop one in the room.
+ *
+ * The mark under test is a *take* — two adjacent marks sharing one key, which
+ * compile to one element whose text changes. It is the case that cannot be
+ * faked with CSS, so if this advances, the pipeline is genuinely running.
+ */
+describe.each(ENGINES)("%s, on a slide with steps", (engine) => {
+  const runs = it.skipIf(!available[engine]);
+
+  async function open(path: string) {
+    const playwright = await import("playwright");
+    const browser = await playwright[engine].launch();
+    const tab = await (
+      await browser.newContext({ viewport: { width: 1280, height: 800 } })
+    ).newPage();
+
+    const errors: string[] = [];
+    tab.on("pageerror", (error) => errors.push(error.message));
+
+    await tab.goto(`${served}${path}`);
+    await tab.waitForFunction(() => document.querySelector("[data-slidx-staged]") !== null);
+
+    const take = () => tab.textContent("[data-slidx-mark='latency']");
+
+    return { browser, tab, errors, take };
+  }
+
+  runs(
+    "changes an element that was already on screen",
+    async () => {
+      const { browser, tab, errors, take } = await open("/slides/");
+
+      try {
+        expect(await take()).toBe("120ms");
+
+        await tab.keyboard.press("ArrowRight");
+        await tab.waitForFunction(
+          () => document.querySelector("[data-slidx-mark='latency']")?.textContent === "38ms",
+        );
+
+        // The URL carries the stop, so what is on screen can be linked to.
+        expect(new URL(tab.url()).search).toBe("?step=1");
+
+        await tab.keyboard.press("ArrowLeft");
+        await tab.waitForFunction(
+          () => document.querySelector("[data-slidx-mark='latency']")?.textContent === "120ms",
+        );
+
+        // `?step=0` is noise in a URL somebody is about to share.
+        expect(new URL(tab.url()).search).toBe("");
+        expect(errors).toEqual([]);
+      } finally {
+        await browser.close();
+      }
+    },
+    120_000,
+  );
+
+  runs(
+    "opens at the stop a link names",
+    async () => {
+      // A link to a build is a link to what was on screen when it was shared.
+      const { browser, take } = await open("/slides/?step=1");
+
+      try {
+        expect(await take()).toBe("38ms");
+      } finally {
+        await browser.close();
+      }
+    },
+    120_000,
+  );
+
+  runs(
+    "leaves a slide with no steps alone",
+    async () => {
+      // Served from the same origin as the staged slide, so this is not
+      // passing because a module happened to be unreachable. The second slide
+      // has one stop, and a finished slide ships nothing.
+      const playwright = await import("playwright");
+      const browser = await playwright[engine].launch();
+
+      try {
+        const tab = await browser.newPage();
+        await tab.goto(`${served}/slides/2/`);
+
+        expect(await tab.evaluate(() => document.scripts.length)).toBe(0);
+      } finally {
+        await browser.close();
+      }
     },
     120_000,
   );

@@ -45,7 +45,7 @@ impl Flag {
     }
 }
 
-/// One subcommand.
+/// One command, and — where it has them — the commands under it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Command {
     pub name: &'static str,
@@ -58,6 +58,15 @@ pub struct Command {
     /// by someone deciding whether this is the thing they want.
     pub about: &'static str,
     pub flags: &'static [Flag],
+    /// Commands under this one, as `version list` sits under `version`.
+    ///
+    /// Empty for a leaf. A command with children is not itself runnable except
+    /// through [`Command::default_subcommand`] — `slidx version` on its own has
+    /// to mean something, and "print the help" is a worse answer than the
+    /// obvious one when there is an obvious one.
+    pub subcommands: &'static [Command],
+    /// What a parent command does when given no subcommand.
+    pub default_subcommand: Option<&'static str>,
 }
 
 impl Command {
@@ -68,6 +77,26 @@ impl Command {
                 || flag.short.is_some_and(|short| token.len() == 1 && token.starts_with(short))
         })
     }
+
+    /// One of this command's children, by name.
+    pub fn subcommand(&self, name: &str) -> Option<&'static Command> {
+        self.subcommands.iter().find(|candidate| candidate.name == name)
+    }
+
+    pub fn has_subcommands(&self) -> bool {
+        !self.subcommands.is_empty()
+    }
+}
+
+/// A leaf command with no children, which is most of them.
+const fn leaf(
+    name: &'static str,
+    summary: &'static str,
+    usage: &'static str,
+    about: &'static str,
+    flags: &'static [Flag],
+) -> Command {
+    Command { name, summary, usage, about, flags, subcommands: &[], default_subcommand: None }
 }
 
 /// Accepted by every command, so they are not repeated in each table.
@@ -80,29 +109,29 @@ pub const ROOT: &[Flag] = &[
 ];
 
 pub const ALL: &[Command] = &[
-    Command {
-        name: "doctor",
-        summary: "check this machine before you speak",
-        usage: "doctor [options]",
-        about: "\
+    leaf(
+        "doctor",
+        "check this machine before you speak",
+        "doctor [options]",
+        "\
 Reads power, disk, clock, fonts, running applications and the network, and
 says what to do about each one. Everything it looks at is something that goes
 wrong on stage and never at a desk, so it is worth the ten seconds in the room
 even when it was clean this morning.
 
 A reading that could not be taken is reported as unknown, never as a pass.",
-        flags: &[
+        &[
             Flag::taking("dir", "<path>", "Directory whose volume the disk check measures"),
             Flag::switch("offline", "Take no network readings, and say so in the report"),
             Flag::switch("explain", "Add what each check exists to catch"),
             Flag::switch("json", "Print the findings as JSON"),
         ],
-    },
-    Command {
-        name: "lint",
-        summary: "check a deck for what a room will do to it",
-        usage: "lint [path] [options]",
-        about: "\
+    ),
+    leaf(
+        "lint",
+        "check a deck for what a room will do to it",
+        "lint [path] [options]",
+        "\
 Runs every slidx rule over a deck on disk: projector contrast, rendered font
 size at the back row, offline assets, heading order, animation cost, and the
 time budget against the declared slot.
@@ -110,19 +139,19 @@ time budget against the declared slot.
 Exits non-zero when something blocking is found, which is what makes it usable
 in CI. `path` is a deck file or a directory of slide files, and defaults to
 ./slides — the same layout @slidx/vite-plugin builds.",
-        flags: &[
+        &[
             Flag::taking("theme", "<name>", "Theme to resolve colours against"),
             Flag::taking("separator", "<text>", "Slide separator in a single-file deck"),
             Flag::taking("allow", "<code>", "Suppress a rule or a whole group").repeatable(),
             Flag::switch("strict", "Also report advisory findings"),
             Flag::switch("json", "Print the diagnostics as JSON"),
         ],
-    },
-    Command {
-        name: "open",
-        summary: "find a deck this machine has seen",
-        usage: "open [query] [options]",
-        about: "\
+    ),
+    leaf(
+        "open",
+        "find a deck this machine has seen",
+        "open [query] [options]",
+        "\
 Fuzzy-searches the decks slidx has seen and prints the path of the one you
 pick. The index fills itself — running any command on a deck is what puts it
 in the list — and a project that has been deleted or moved simply stops
@@ -134,9 +163,87 @@ Only the chosen path goes to standard output, so this composes:
 
 Piped, or with --list, it prints every match and exits rather than waiting for
 a keypress there is nobody to press.",
-        flags: &[
+        &[
             Flag::switch("list", "Print every match and exit, without the picker"),
             Flag::switch("json", "Print the matches as JSON"),
+        ],
+    ),
+    Command {
+        name: "version",
+        summary: "install and switch between slidx versions",
+        usage: "version [<command>] [options]",
+        about: "\
+Keeps several slidx versions side by side under ~/.slidx/versions and points
+~/.slidx/bin/slidx at the one in use, so a talk can be rehearsed and given
+against the version it was built with.
+
+A project pins its version in a .slidx-version file, found by walking up from
+wherever you are — so any command run inside a repository picks up the pin at
+its root. Failing that, `slidx version use` sets the default for the machine.
+
+With no command it reports what is running and where that binary came from,
+which is `slidx version current`.",
+        flags: &[],
+        default_subcommand: Some("current"),
+        subcommands: &[
+            leaf(
+                "current",
+                "say what is running, and who is in charge of it",
+                "version current [options]",
+                "\
+Reports the running binary, the file it actually is, and which install channel
+put it there — then says plainly whether `slidx version use` can change it.
+
+That last part is the point. `npm i -g slidx` earlier on your PATH will win
+over a managed install and nothing else will ever mention it, so a version
+manager that cannot tell you it is not in charge is worse than none.",
+                &[Flag::switch("json", "Print the report as JSON")],
+            ),
+            leaf(
+                "list",
+                "show the versions installed on this machine",
+                "version list [options]",
+                "\
+Every version under ~/.slidx/versions, newest first, marking the one in use and
+the one currently running. A directory with no binary in it is a half-finished
+install and is not listed.",
+                &[Flag::switch("json", "Print the list as JSON")],
+            ),
+            leaf(
+                "install",
+                "download a version and verify it",
+                "version install <version> [options]",
+                "\
+Downloads the release archive for this machine's target and checks it against
+the SHA256SUMS published with that release — the same file `install.sh` reads.
+A mismatch, or an archive the checksum file does not mention, installs nothing.
+
+Verification is not optional and has no fallback: slidx computes the digest
+itself rather than looking for sha256sum on the machine.
+
+Does not change which version is in use. `--use` does that in the same breath.",
+                &[
+                    Flag::switch("use", "Switch to it once it is installed"),
+                    Flag::switch("force", "Download again even if it is already installed"),
+                ],
+            ),
+            leaf(
+                "use",
+                "switch to an installed version",
+                "version use <version>",
+                "\
+Points ~/.slidx/bin/slidx at an installed version and records the choice in
+~/.slidx/version. A project's .slidx-version still wins over this inside that
+project — the default is what applies everywhere else.",
+                &[],
+            ),
+            leaf(
+                "remove",
+                "delete an installed version",
+                "version remove <version>",
+                "Deletes a version from ~/.slidx/versions. Refuses to remove the one in use.",
+                &[],
+            ),
         ],
     },
 ];

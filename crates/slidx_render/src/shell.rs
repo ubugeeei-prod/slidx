@@ -20,6 +20,8 @@ use crate::markdown::{render, MarkdownOptions};
 pub struct ShellOptions {
     pub theme: Theme,
     pub markdown: MarkdownOptions,
+    /// Module URL a slide with steps imports the runtime from.
+    pub runtime_src: String,
     /// Emitted into the page so the runtime can resolve steps. Omitted for
     /// slides with a single stop, which need no runtime at all.
     pub include_runtime: bool,
@@ -30,6 +32,7 @@ impl Default for ShellOptions {
         Self {
             theme: slidx_theme::default_theme(),
             markdown: MarkdownOptions::default(),
+            runtime_src: "./runtime.js".to_string(),
             include_runtime: true,
         }
     }
@@ -74,7 +77,7 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
     </footer>
   </article>
 </main>
-</body>
+{script}</body>
 </html>
 "#,
         lang = "en",
@@ -105,6 +108,78 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
                 .as_str()
         ),
         number = slide.index + 1,
+        count = deck.slides.len(),
+        script = stage_script(deck, slide, options),
+    )
+}
+
+/// The wiring that makes a slide's stops reachable, or nothing at all.
+///
+/// Nothing at all is the common case and the one the front page claims: a
+/// slide with one stop is finished markup, and shipping a module to it would
+/// buy an author nothing and cost every audience a request on venue Wi-Fi.
+///
+/// A slide with steps is the other case, and it needs exactly this much. The
+/// compiled timeline travels *in* the document rather than being fetched, so a
+/// staged slide costs one request for the shared runtime module and nothing
+/// per slide — and so the timeline cannot be a version behind the markup it
+/// stages.
+///
+/// The script is written inline for the same reason the presenter's is: it is
+/// a few lines of wiring around a runtime that is already tested, and a
+/// bundled entry point would be a second thing to keep in step with it.
+///
+/// **A module import does not resolve over `file://`.** The request is
+/// cross-origin from a null origin whatever the path says, so a staged slide
+/// opened straight off a USB stick shows its first stop and stops there. That
+/// case belongs to the print shell, which inlines the runtime for exactly this
+/// reason; a slide is served, and serving it is what the plugin does.
+fn stage_script(deck: &Deck, slide: &Slide, options: &ShellOptions) -> String {
+    if !options.include_runtime || slide.timeline.frames().len() < 2 {
+        return String::new();
+    }
+
+    let timeline =
+        serde_json::to_string(&slide.timeline).unwrap_or_else(|_| r#"{"frames":[]}"#.to_string());
+
+    format!(
+        r#"<script type="module">
+import {{ createStage, createNavigator, createMirror, LAST_STEP }} from "{runtime_src}";
+
+const stage = createStage(document.querySelector(".slidx-slide"), {timeline});
+
+// Slide one lives at the deck root and the rest live one directory down, so
+// what "up" means depends on which slide is asking.
+const up = {index} === 0 ? "./" : "../";
+const hrefFor = (slide, step) => {{
+  const path = slide === 0 ? up : `${{up}}${{slide + 1}}/`;
+  return step === undefined ? path : `${{path}}?step=${{step}}`;
+}};
+
+const opening = new URLSearchParams(location.search).get("step");
+
+const deck = createNavigator({{
+  stage,
+  slide: {index},
+  slideCount: {count},
+  step: opening === null ? undefined : opening === "last" ? LAST_STEP : Number(opening),
+  hrefFor,
+}});
+
+// The projector window has its own keyboard, and a clicker sends keys to
+// whichever window is focused — usually this one.
+addEventListener("keydown", (event) => deck.handleKey(event));
+
+// And the presenter view drives it from the other screen. `show` deliberately
+// does not announce, so two windows cannot volley one move forever.
+const mirror = createMirror();
+mirror.subscribe((position) => deck.show(position));
+deck.subscribe((position) => mirror.send(position));
+</script>
+"#,
+        runtime_src = options.runtime_src,
+        timeline = timeline,
+        index = slide.index,
         count = deck.slides.len(),
     )
 }
@@ -244,6 +319,59 @@ mod tests {
         assert!(html.trim_end().ends_with("</html>"));
     }
 
+    /// A slide with two stops: one element whose text changes on the way.
+    const STAGED: &str = "# Latency\n\nDropped to [120ms]{#latency}[38ms]{#latency}.\n";
+
+    #[test]
+    fn a_slide_with_one_stop_carries_no_script() {
+        // The claim on the front page. A finished slide is finished markup, and
+        // a module on it would cost every audience a request for nothing.
+        assert!(!shell("# Hello\n\n- one\n").contains("<script"));
+    }
+
+    #[test]
+    fn a_slide_with_steps_loads_the_runtime() {
+        // Without this the compiled timeline is unreachable: the stops exist,
+        // the PDF has a page for each, the presenter view can walk them — and
+        // the projector, which is the only screen the audience sees, is stuck
+        // on the first one forever.
+        let html = shell(STAGED);
+
+        assert!(html.contains("<script type=\"module\">"), "no runtime on a staged slide:\n{html}");
+        assert!(html.contains("createStage"));
+        assert!(html.contains("./runtime.js"));
+    }
+
+    #[test]
+    fn the_timeline_travels_with_the_document() {
+        // Fetched rather than inlined would break the one case this has to
+        // survive: a deck opened from a USB stick over `file://`, which is
+        // where a speaker ends up when everything else has failed.
+        let html = shell(STAGED);
+
+        assert!(html.contains("\"frames\""), "the timeline is not in the page:\n{html}");
+        assert!(!html.contains("fetch("));
+    }
+
+    #[test]
+    fn the_runtime_url_is_the_one_the_caller_asked_for() {
+        let deck = parse_deck(STAGED, &DeckParseOptions::default());
+        let options =
+            ShellOptions { runtime_src: "/assets/slidx.js".to_string(), ..ShellOptions::default() };
+
+        assert!(render_slide(&deck, &deck.slides[0], &options).contains("\"/assets/slidx.js\""));
+    }
+
+    #[test]
+    fn a_caller_can_refuse_the_runtime_entirely() {
+        // The print shell renders every stop at once and drives them itself, so
+        // it wants the markup without the wiring.
+        let deck = parse_deck(STAGED, &DeckParseOptions::default());
+        let options = ShellOptions { include_runtime: false, ..ShellOptions::default() };
+
+        assert!(!render_slide(&deck, &deck.slides[0], &options).contains("<script"));
+    }
+
     #[test]
     fn nothing_in_the_shell_is_remote() {
         // The offline guarantee, at the smallest scale it can be checked.
@@ -322,8 +450,18 @@ mod tests {
 
     #[test]
     fn step_anchors_survive_into_the_page() {
-        let html = shell("- one <!-- step -->\n- two <!-- step -->\n");
-        assert_eq!(html.matches("data-slidx-step=").count(), 2);
+        // Counted in the markup alone. The embedded timeline names the same
+        // anchors as selectors, and a count over the whole document would be
+        // measuring the wiring rather than the page.
+        let deck =
+            parse_deck("- one <!-- step -->\n- two <!-- step -->\n", &DeckParseOptions::default());
+        let markup = render_slide(
+            &deck,
+            &deck.slides[0],
+            &ShellOptions { include_runtime: false, ..ShellOptions::default() },
+        );
+
+        assert_eq!(markup.matches("data-slidx-step=").count(), 2);
     }
 
     #[test]
