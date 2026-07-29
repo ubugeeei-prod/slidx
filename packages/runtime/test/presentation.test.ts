@@ -97,6 +97,26 @@ describe("what the browser can actually do", () => {
     expect(session.fullscreen).toBe(true);
   });
 
+  it("releases the lock when the browser leaves fullscreen on its own", async () => {
+    // Escape and the browser's own control never call exit(), and a wake lock
+    // nobody released keeps a laptop awake in a bag.
+    let leave = () => {};
+    const unsubscribe = vi.fn();
+    const env = environment({
+      subscribeFullscreenExit: vi.fn((listener: () => void) => {
+        leave = listener;
+        return unsubscribe;
+      }),
+    });
+
+    const session = await enterPresentation(env);
+    leave();
+    await session.exit();
+
+    expect(env.released).toHaveBeenCalledTimes(1);
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
   it("is safe to exit twice", async () => {
     const env = environment();
     const session = await enterPresentation(env);
