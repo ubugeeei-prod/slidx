@@ -7,12 +7,13 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use super::preset::{EffectPreset, Origin};
 use super::timing::StepOptions;
 
 /// Whether an element is painted in a given frame.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 pub enum Visibility {
     /// Present in the layout but not painted, so revealing never reflows.

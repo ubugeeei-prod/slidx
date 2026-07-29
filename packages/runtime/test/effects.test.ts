@@ -6,9 +6,11 @@
  * but the animation the author asked for never plays. Nobody notices until
  * they are on stage. This is the cheapest place to catch it.
  *
- * The same list exists three times — as a Rust enum, as a TypeScript union,
- * and as CSS rules — so the seams between them are checked rather than
- * trusted. `crates/slidx_core/src/steps/preset.rs` owns the source of truth.
+ * The list exists twice — as a Rust enum, and as CSS rules — and this file is
+ * the seam. The names are read out of the generated declarations rather than
+ * restated here, because a third hand-written copy would be one more thing
+ * that can be right about the wrong version.
+ * `crates/slidx_core/src/steps/preset.rs` owns the source of truth.
  */
 
 import { readFileSync } from "node:fs";
@@ -16,11 +18,24 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { EFFECT_PRESETS } from "../src/types";
-
 // `import.meta.dirname` rather than `new URL(...)`: the DOM environment
 // replaces the global URL, and its instances are not accepted by node:url.
 const css = readFileSync(join(import.meta.dirname, "../src/effects.css"), "utf8");
+
+const declarations = readFileSync(
+  join(import.meta.dirname, "../../../crates/slidx_wasm/deck.d.ts"),
+  "utf8",
+);
+
+/** The members of one generated union, in the order Rust declares them. */
+function union(name: string): string[] {
+  const declaration = new RegExp(`export type ${name} =([^;]+);`).exec(declarations);
+  expect(declaration, `no generated declaration for ${name}`).not.toBeNull();
+
+  return Array.from(declaration![1]!.matchAll(/"([^"]+)"/g), (match) => match[1]!);
+}
+
+const EFFECT_PRESETS = union("EffectPreset");
 
 /** Presets that deliberately animate more than transform and opacity. */
 const PAINT_HEAVY = new Set(["typewriter", "draw", "color-pulse", "underline"]);
@@ -91,7 +106,7 @@ describe("degradation", () => {
   });
 
   it("defines every easing the model can name", () => {
-    for (const easing of ["linear", "ease", "ease-in", "ease-out", "ease-in-out", "spring"]) {
+    for (const easing of union("Easing")) {
       expect(css).toContain(`--slidx-easing-${easing}:`);
     }
   });

@@ -353,7 +353,7 @@ function watchSlides(server: ViteDevServer, root: string, srcDir: string): void 
 function report(
   server: ViteDevServer,
   findings: Parameters<typeof groupFindings>[0],
-  slides: { title?: string | undefined }[],
+  slides: readonly { title: string | null }[],
 ): void {
   if (findings.length === 0) return;
 

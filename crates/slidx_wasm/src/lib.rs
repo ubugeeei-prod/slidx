@@ -27,7 +27,10 @@
 #![deny(missing_debug_implementations)]
 #![warn(clippy::all)]
 
+pub mod declarations;
+
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use wasm_bindgen::prelude::*;
 
 use slidx_core::{parse_deck, DeckParseOptions};
@@ -38,7 +41,7 @@ use slidx_render::{
 };
 
 /// What a caller can ask for when building a deck.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", default)]
 pub struct BuildOptions {
     /// Theme name. Falls back to the deck's own `theme:`, then the default.
@@ -69,7 +72,7 @@ pub struct BuildOptions {
 }
 
 /// One built slide.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct BuiltSlide {
     pub id: String,
@@ -79,18 +82,21 @@ pub struct BuiltSlide {
     /// Stops on this slide, including the resting frame. Always at least one.
     pub stop_count: u32,
     /// The complete HTML page. Absent when `parseOnly` was set.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub html: Option<String>,
     /// This slide's social card, as SVG. Absent unless `og` was set.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub og_svg: Option<String>,
     /// The speaker's view of this slide. Absent unless `presenter` was set.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub presenter_html: Option<String>,
 }
 
 /// Everything a build or a preview needs from one call.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildResult {
     pub title: Option<String>,
@@ -101,23 +107,27 @@ pub struct BuildResult {
     /// True when something in `diagnostics` should stop a build.
     pub has_blocking: bool,
     /// The whole deck as one printable document. Absent unless `print` was set.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub print_html: Option<String>,
     /// The deck's own social card, as SVG. Absent unless `og` was set.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub og_svg: Option<String>,
 }
 
 /// A diagnostic, flattened for the JavaScript side.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct Finding {
     pub severity: String,
     pub code: String,
     pub message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub help: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub slide_index: Option<u32>,
 }
 
@@ -126,8 +136,16 @@ pub struct Finding {
 /// Never returns an error for bad *content*: a deck edited minutes before a
 /// talk has to render something. Problems come back in `diagnostics`, and only
 /// a malformed options object is an actual error.
-#[wasm_bindgen(js_name = buildDeck)]
-pub fn build_deck(source: &str, options: JsValue) -> Result<JsValue, JsError> {
+///
+/// The options reach TypeScript as `BuildDeckOptions` rather than as
+/// `BuildOptions`: the struct is `#[serde(default)]`, so every field may be
+/// left out, and someone who wants one option should not have to restate the
+/// other seven to get it.
+#[wasm_bindgen(js_name = buildDeck, unchecked_return_type = "BuildResult")]
+pub fn build_deck(
+    source: &str,
+    #[wasm_bindgen(unchecked_optional_param_type = "BuildDeckOptions")] options: JsValue,
+) -> Result<JsValue, JsError> {
     let options: BuildOptions = if options.is_undefined() || options.is_null() {
         BuildOptions::default()
     } else {
