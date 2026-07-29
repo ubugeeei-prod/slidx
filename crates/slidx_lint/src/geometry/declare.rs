@@ -96,13 +96,14 @@ pub fn share(text: &str, extent_px: f64) -> Option<f64> {
 
     let parsed = if let Some(number) = text.strip_suffix('%') {
         number.trim().parse::<f64>().ok()? / 100.0
-    } else if let Some(number) = text.strip_suffix("px") {
+    } else {
+        // Anything that is not a percentage has to be pixels, and pixels only
+        // mean something against an extent that exists to divide by.
+        let number = text.strip_suffix("px")?;
         if extent_px <= 0.0 {
             return None;
         }
         number.trim().parse::<f64>().ok()? / extent_px
-    } else {
-        return None;
     };
 
     // A negative band is not a smaller one, and a band larger than the slide
