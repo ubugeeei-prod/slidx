@@ -10,6 +10,7 @@
 
 pub mod budget;
 pub mod contrast;
+pub mod demo;
 pub mod legibility;
 pub mod motion;
 pub mod offline;
@@ -39,6 +40,7 @@ pub const ALL: &[(&str, RuleFn)] = &[
     ("contrast", contrast::check),
     ("motion", motion::check),
     ("budget", budget::check),
+    ("demo", demo::check),
     ("budget-slides", budget::check_slides),
 ];
 

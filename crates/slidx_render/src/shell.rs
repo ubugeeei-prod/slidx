@@ -9,7 +9,7 @@
 //! a shell that references anything remote is a shell that goes blank when the
 //! venue Wi-Fi does.
 
-use slidx_core::{Deck, Slide};
+use slidx_core::{Deck, Slide, DEMO_ATTRIBUTE};
 use slidx_theme::{css, transition, Theme};
 
 use crate::layout;
@@ -67,7 +67,7 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
   <article class="slidx-slide" data-slidx-layout="{slide_layout}" style="--slidx-slide-width: {width}; --slidx-slide-height: {height}">
     <div class="slidx-slide-body">
 {body}
-    </div>
+{demo}    </div>
     <footer class="slidx-slide-footer">
       <span class="slidx-slide-brand">{brand}</span>
       <span class="slidx-slide-number">{number} / {count}</span>
@@ -93,6 +93,7 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
         width = width,
         height = height,
         body = body,
+        demo = demo_markup(slide),
         brand = escape(
             deck.meta
                 .talk
@@ -123,6 +124,49 @@ fn transition_css(deck: &Deck, slide: &Slide, theme: &Theme) -> String {
     transition::render(theme, kind)
 }
 
+/// The declared demo, as markup that is complete before any script runs.
+///
+/// Both sides ship in the document and CSS paints one of them, so switching
+/// costs one attribute write. The alternative — creating the video when the
+/// demo fails — asks the network for a file at the exact moment the network is
+/// the thing that died.
+///
+/// `muted` is not a preference. Browsers refuse to autoplay audio, so an
+/// unmuted recording would sit on a first frame until someone found the play
+/// button, which is the two minutes of fumbling this feature exists to delete.
+/// The speaker is narrating over it live regardless.
+///
+/// The live side is the one place a shell is allowed to name a remote URL. A
+/// demo that is not remote is not a demo, and the offline guarantee is about
+/// the deck still working when that URL is gone — which is the fallback's job.
+fn demo_markup(slide: &Slide) -> String {
+    let Some(demo) = &slide.demo else { return String::new() };
+
+    let live = format!(
+        "      <iframe class=\"slidx-demo-live\" src=\"{}\" title=\"Live demo\"></iframe>\n",
+        escape(&demo.live)
+    );
+
+    // A demo with no recording still renders its live side. The linter has
+    // already reported the missing fallback; dropping the demo here would
+    // punish the author on stage for a warning they read at their desk.
+    let recording = match demo.fallback.as_deref().filter(|path| !path.trim().is_empty()) {
+        Some(path) => format!(
+            "      <video class=\"slidx-demo-fallback\" src=\"{}\"{} preload=\"auto\" muted playsinline controls></video>\n",
+            escape(path),
+            demo.poster
+                .as_deref()
+                .map(|poster| format!(" poster=\"{}\"", escape(poster)))
+                .unwrap_or_default(),
+        ),
+        None => String::new(),
+    };
+
+    format!(
+        "      <figure class=\"slidx-demo\" {DEMO_ATTRIBUTE}=\"live\">\n{live}{recording}      </figure>\n"
+    )
+}
+
 fn escape(text: &str) -> String {
     text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
 }
@@ -135,6 +179,60 @@ mod tests {
     fn shell(source: &str) -> String {
         let deck = parse_deck(source, &DeckParseOptions::default());
         render_slide(&deck, &deck.slides[0], &ShellOptions::default())
+    }
+
+    const DEMO: &str =
+        "---\ndemo:\n  live: https://app.example.com\n  fallback: ./checkout.mp4\n---\n\n# Live\n";
+
+    #[test]
+    fn a_declared_demo_puts_both_sides_in_the_document() {
+        // Both sides ship in the markup so that switching is an attribute
+        // write rather than a fetch. A fallback that has to be loaded when the
+        // demo dies is not a fallback.
+        let html = shell(DEMO);
+
+        assert!(html.contains("src=\"https://app.example.com\""));
+        assert!(html.contains("src=\"./checkout.mp4\""));
+    }
+
+    #[test]
+    fn a_deck_with_no_script_still_shows_the_live_demo() {
+        assert!(shell(DEMO).contains("data-slidx-demo=\"live\""));
+    }
+
+    #[test]
+    fn the_recording_is_told_to_load_before_it_is_needed() {
+        assert!(shell(DEMO).contains("preload=\"auto\""));
+    }
+
+    #[test]
+    fn a_slide_with_no_demo_renders_no_demo_markup() {
+        // Asserted on the element, not the attribute: the inlined stylesheet
+        // names the attribute on every page whether or not a demo exists.
+        assert!(!shell("# Ordinary\n").contains("<figure class=\"slidx-demo\""));
+    }
+
+    #[test]
+    fn a_demo_with_no_recording_still_renders_its_live_side() {
+        // The linter has already said so. Dropping the demo entirely would
+        // punish the author on stage for a warning they saw at their desk.
+        let html = shell("---\ndemo: https://app.example.com\n---\n\n# Live\n");
+
+        assert!(html.contains("src=\"https://app.example.com\""));
+        assert!(!html.contains("<video"));
+    }
+
+    #[test]
+    fn a_demo_url_containing_markup_is_escaped() {
+        let html = shell("---\ndemo:\n  live: \"https://x.test/?a=1&b=2\"\n---\n\n# Live\n");
+
+        assert!(html.contains("a=1&amp;b=2"), "got: {html}");
+    }
+
+    #[test]
+    fn a_poster_frame_is_used_when_the_deck_declares_one() {
+        let source = "---\ndemo:\n  live: https://app.example.com\n  fallback: ./c.mp4\n  poster: ./c.png\n---\n\n# Live\n";
+        assert!(shell(source).contains("poster=\"./c.png\""));
     }
 
     #[test]
