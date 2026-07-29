@@ -16,6 +16,16 @@ export { createKeymap, DEFAULT_BINDINGS, formatBinding } from "./keymap";
 export type { Binding, Command, Keymap, KeymapOptions } from "./keymap";
 export { createMirror } from "./mirror";
 export { createNavigator, LAST_STEP } from "./navigate";
+export { assessPace, describePace } from "./pace";
+export type {
+  Pace,
+  PaceBasis,
+  PaceInput,
+  PaceOptions,
+  PaceSlide,
+  PaceState,
+  SkippableSlide,
+} from "./pace";
 export { detectPlatform, enterPresentation, presentationChecklist } from "./presentation";
 export type {
   ChecklistItem,
