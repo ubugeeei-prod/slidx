@@ -17,7 +17,10 @@ import { join } from "node:path";
 
 import { rasterise } from "./og";
 import type { ResolvedOptions } from "./options";
+import { measureOverflow } from "./overflow";
 import { renderPdf } from "./pdf";
+import { lintMeasured } from "./pipeline";
+import { formatReport } from "./report";
 import { printFileName } from "./options";
 
 /** Just enough of the Rollup context to report, so tests need no plugin. */
@@ -92,4 +95,51 @@ export async function exportPdf(
   } catch (error) {
     context.warn(`PDF export failed — the deck built anyway.\n${(error as Error).message}`);
   }
+}
+
+/**
+ * Measures the built pages and reports anything the design box cut off.
+ *
+ * This runs against written files rather than the model, so it necessarily
+ * happens after the bundle exists — which is also why it warns rather than
+ * failing the build. Stopping here would leave a written `dist` beside a red
+ * build, and a speaker who then has neither a passing build nor a reason to
+ * trust the deck sitting in the directory.
+ *
+ * A missing browser is reported as *unchecked*, not as clean. Those are
+ * opposite answers, and only one of them means the deck is fine.
+ */
+export async function reportOverflow(
+  context: Reporter,
+  directory: string,
+  options: ResolvedOptions,
+  source: string,
+  titles: (string | undefined)[],
+): Promise<void> {
+  if (!options.overflow || !options.print) return;
+
+  let findings;
+  try {
+    const measured = await measureOverflow(join(directory, printFileName(options)));
+
+    if (measured === null) {
+      context.info(
+        "Content overflow unchecked: no browser to measure the built pages with.\n" +
+          "  vp add -D playwright && vp exec playwright install chromium",
+      );
+      return;
+    }
+
+    findings = await lintMeasured(source, measured, {
+      separator: options.separator,
+      theme: options.theme,
+    });
+  } catch (error) {
+    context.warn(
+      `Content overflow unchecked — the deck built anyway.\n${(error as Error).message}`,
+    );
+    return;
+  }
+
+  if (findings.length > 0) context.warn(`\n${formatReport(findings, titles)}`);
 }

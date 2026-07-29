@@ -1,0 +1,30 @@
+{
+  "name": "@slidx/rehearsal",
+  "version": "0.0.1",
+  "description": "Per-slide dwell time from a real rehearsal, diffed against the budget the deck declares",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ubugeeei-prod/slidx.git",
+    "directory": "packages/rehearsal"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "pack:lib": "vp pack src/index.ts --dts --out-dir dist"
+  }
+}

@@ -27,5 +27,8 @@
   },
   "scripts": {
     "pack:lib": "vp pack src/index.ts --dts --out-dir dist && node ../../scripts/copy-assets.mjs src/effects.css dist/effects.css"
+  },
+  "devDependencies": {
+    "@slidx/wasm": "workspace:*"
   }
 }

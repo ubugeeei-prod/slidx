@@ -148,6 +148,22 @@ pre {
 
 pre code { font-size: inherit; }
 
+/*
+ * Syntax highlighting, decided at build time.
+ *
+ * Six classes and nothing else — no italics, no weight changes. A projector
+ * loses a slanted stem before it loses a hue, and code that mixes weights sets
+ * a different amount of ink per line, which reads as ragged from row fifteen.
+ * The colours are the theme's, and every one of them is held to the same
+ * contrast rules as body text.
+ */
+.slidx-code-comment { color: var(--slidx-color-code-comment); }
+.slidx-code-string { color: var(--slidx-color-code-string); }
+.slidx-code-number { color: var(--slidx-color-code-number); }
+.slidx-code-keyword { color: var(--slidx-color-code-keyword); }
+.slidx-code-type { color: var(--slidx-color-code-type); }
+.slidx-code-punctuation { color: var(--slidx-color-code-punctuation); }
+
 p > code, li > code {
   padding: 0.1em 0.3em;
   background: var(--slidx-color-code-surface);
@@ -232,6 +248,36 @@ hr {
   font-family: var(--slidx-font-mono);
 }
 
+/*
+ * A demo and its recording, stacked.
+ *
+ * Both sides are laid out at the same size and one is hidden, so switching
+ * changes nothing about the geometry — the recording appears exactly where the
+ * live demo was, with no reflow for the audience to notice. `display: none` is
+ * deliberate over `visibility`: a hidden iframe that still lays out is a hidden
+ * iframe still running whatever the demo was doing.
+ */
+.slidx-demo {
+  margin: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
+.slidx-demo > * {
+  flex: 1 1 auto;
+  width: 100%;
+  border: 0;
+  border-radius: var(--slidx-radius);
+  background: var(--slidx-color-code-surface);
+  object-fit: contain;
+}
+
+[data-slidx-demo="live"] > .slidx-demo-fallback,
+[data-slidx-demo="fallback"] > .slidx-demo-live {
+  display: none;
+}
+
 /* Anchors are addresses, never content. */
 [data-slidx-step] { display: none; }
 
@@ -276,6 +322,26 @@ mod tests {
     }
 
     #[test]
+    fn only_one_side_of_a_demo_is_painted_at_a_time() {
+        // The switch is one attribute write and nothing else. If the stylesheet
+        // stopped hiding the other side, both would show and the "instant"
+        // switch would become a layout change the audience watches happen.
+        assert!(STYLESHEET.contains("[data-slidx-demo=\"live\"] > .slidx-demo-fallback"));
+        assert!(STYLESHEET.contains("[data-slidx-demo=\"fallback\"] > .slidx-demo-live"));
+    }
+
+    #[test]
+    fn a_hidden_demo_side_stops_rather_than_lurks() {
+        // `visibility: hidden` would leave the live iframe running its demo
+        // behind the recording, still holding the network it lost.
+        let rules = declarations();
+        let at = rules.find("[data-slidx-demo=").expect("the demo switch has no rule");
+        assert!(rules[at..].starts_with(
+            "[data-slidx-demo=\"live\"] > .slidx-demo-fallback,\n[data-slidx-demo=\"fallback\"] > .slidx-demo-live {\n  display: none;\n}"
+        ), "got: {}", &rules[at..at + 120]);
+    }
+
+    #[test]
     fn nothing_relies_on_a_scale_transform() {
         // `calc()` cannot divide a length by a length, so a computed scale
         // factor silently evaluates to nothing and the slide renders at its
@@ -301,6 +367,38 @@ mod tests {
 
         out.push_str(rest);
         out
+    }
+
+    #[test]
+    fn every_token_the_highlighter_emits_has_a_rule_to_colour_it() {
+        // The seam between two crates that never see each other: the scanner
+        // writes a class, the theme defines a property, and this is the only
+        // place they meet. A missing rule renders that token in the inherited
+        // colour, which looks like the scanner failed to recognise it.
+        for token in slidx_highlight::Token::COLOURED {
+            let class = token.class().unwrap();
+            assert!(STYLESHEET.contains(&format!(".{class} {{")), "no rule for {class}");
+            assert!(
+                STYLESHEET.contains(&format!("var(--slidx-color-code-{})", token.as_token())),
+                "{class} does not read the theme's colour"
+            );
+        }
+    }
+
+    #[test]
+    fn highlighting_changes_colour_and_nothing_else() {
+        // A projector loses a slanted stem before it loses a hue, and mixed
+        // weights put a different amount of ink on each line, which reads as
+        // ragged from the back of a room.
+        for token in slidx_highlight::Token::COLOURED {
+            let class = token.class().unwrap();
+            let at = STYLESHEET.find(&format!(".{class} {{")).unwrap();
+            let rest = &STYLESHEET[at..];
+            let rule = &rest[..rest.find('}').unwrap()];
+
+            assert_eq!(rule.matches(':').count(), 1, "{class} declares more than a colour");
+            assert!(rule.contains("color:"), "{class} declares something other than a colour");
+        }
     }
 
     #[test]

@@ -29,6 +29,11 @@ pub enum AspectRatio {
 }
 
 impl AspectRatio {
+    /// Every ratio, in the order they are offered to an author.
+    ///
+    /// Editor tooling completes from here rather than restating the tokens.
+    pub const ALL: [Self; 3] = [Self::Wide, Self::Golden, Self::Classic];
+
     /// Reference pixel size used for layout, PDF pages, and OG rendering.
     ///
     /// Fixed at 1920×1080-class dimensions because published decks are graded
@@ -134,6 +139,9 @@ pub struct Slide {
     pub budget_seconds: Option<u32>,
     /// Safe to skip when running behind. Presenter view marks these.
     pub optional: bool,
+    /// A live demo and the recording that stands in for it when it dies.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub demo: Option<crate::demo::Demo>,
     /// Inline marks in source order, so the editor can list what a slide
     /// addresses without re-parsing it.
     pub marks: Vec<crate::mark::Mark>,
@@ -241,7 +249,7 @@ mod tests {
 
     #[test]
     fn aspect_ratios_round_trip_through_their_tokens() {
-        for aspect in [AspectRatio::Wide, AspectRatio::Golden, AspectRatio::Classic] {
+        for aspect in AspectRatio::ALL {
             assert_eq!(AspectRatio::parse(aspect.as_token()), Some(aspect));
         }
     }
@@ -254,7 +262,7 @@ mod tests {
 
     #[test]
     fn every_aspect_renders_at_publication_resolution() {
-        for aspect in [AspectRatio::Wide, AspectRatio::Golden, AspectRatio::Classic] {
+        for aspect in AspectRatio::ALL {
             let (width, height) = aspect.dimensions();
             assert!(
                 width >= 1440 && height >= 1080,

@@ -45,15 +45,82 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
         run: |
           set -euo pipefail
-          for crate in slidx_core slidx_lint slidx_theme slidx_render; do
+          for crate in slidx_core slidx_lint slidx_theme slidx_render slidx_doctor slidx_cli; do
             echo "::group::$crate"
             cargo publish -p "$crate" --no-verify
             echo "::endgroup::"
           done
 
+  # One prebuilt `slidx` per platform, for both install channels: these become
+  # the npm platform packages and the release assets install.sh downloads.
+  #
+  # Native runners wherever GitHub has one, so nothing is cross-compiled that
+  # does not have to be. The two exceptions are deliberate: an Apple-silicon
+  # runner builds the Intel binary because Apple's toolchain does that
+  # perfectly, and there is no Windows-on-ARM runner so that platform is not
+  # published at all rather than published untested.
+  binaries:
+    name: binary / ${{ matrix.target }}
+    needs: verify
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            runner: macos-latest
+          - target: x86_64-apple-darwin
+            runner: macos-latest
+          # Both Linux targets are static musl builds. A glibc binary carries
+          # the glibc of whatever built it and fails on anything older with a
+          # message about GLIBC_2.34 that says nothing about slidx; a static
+          # musl one runs on every distribution, Alpine included.
+          - target: x86_64-unknown-linux-musl
+            runner: ubuntu-latest
+          - target: aarch64-unknown-linux-musl
+            runner: ubuntu-24.04-arm
+          - target: x86_64-pc-windows-msvc
+            runner: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          rust: "true"
+
+      - run: rustup target add ${{ matrix.target }}
+        shell: bash
+
+      # musl-gcc is the linker for the musl targets. slidx_cli has no C
+      # dependencies, so this is all the cross toolchain either of them needs.
+      - if: contains(matrix.target, 'musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+        shell: bash
+
+      - name: Build
+        run: cargo build --release --locked -p slidx_cli --bin slidx --target ${{ matrix.target }}
+        shell: bash
+
+      # tar.gz everywhere but Windows, where a zip is what a user can open
+      # without installing anything.
+      - name: Archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.target }}" = "x86_64-pc-windows-msvc" ]; then
+            7z a "slidx-${{ matrix.target }}.zip" "./target/${{ matrix.target }}/release/slidx.exe"
+          else
+            tar -czf "slidx-${{ matrix.target }}.tar.gz" -C "target/${{ matrix.target }}/release" slidx
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: slidx-${{ matrix.target }}
+          path: slidx-${{ matrix.target }}.*
+          if-no-files-found: error
+
   npm:
     name: npm
-    needs: verify
+    needs: [verify, binaries]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -72,12 +139,38 @@ jobs:
 
       - run: pnpm -r --filter "./packages/**" run pack:lib
 
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: slidx-*
+          path: archives
+
+      # Unpacked into one directory per target, which is the layout the
+      # generator expects and the only place the two agree on a shape.
+      - name: Unpack the binaries
+        run: |
+          set -euo pipefail
+          for archive in archives/*/slidx-*; do
+            target=$(basename "$archive" | sed -E 's/^slidx-(.*)\.(tar\.gz|zip)$/\1/')
+            mkdir -p "binaries/$target"
+            case "$archive" in
+              *.zip) unzip -q -o "$archive" -d "binaries/$target" ;;
+              *) tar -xzf "$archive" -C "binaries/$target" ;;
+            esac
+          done
+
+      - run: node scripts/build-platform-packages.mjs binaries
+
       # NODE_AUTH_TOKEN is deliberately unset: if npm finds one it takes the
       # legacy token path and silently skips OIDC.
+      #
+      # The platform packages go first and the `slidx` wrapper last, for the
+      # same reason the crates publish in dependency order — a wrapper on the
+      # registry whose optional dependencies are not there yet installs without
+      # a binary, and npm reports that as a success.
       - name: Publish
         run: |
           set -euo pipefail
-          for dir in packages/wasm packages/runtime; do
+          for dir in packages/wasm packages/runtime packages/cli/dist/* packages/cli; do
             echo "::group::$dir"
             (cd "$dir" && npm publish --provenance --access public)
             echo "::endgroup::"
@@ -89,10 +182,45 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # Signs the binaries into Sigstore's transparency log, so anyone can check
+      # that an asset came from this workflow at this commit:
+      #
+      #   gh attestation verify slidx-<target>.tar.gz --repo ubugeeei-prod/slidx
+      #
+      # That is the half a checksum cannot cover: the hashes and the archives
+      # are served from the same place, so they prove a download arrived intact
+      # and unswapped, not that the account was not compromised.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - run: gh release create "${{ github.ref_name }}" --generate-notes --verify-tag
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: slidx-*
+          path: archives
+          merge-multiple: true
+
+      # One file, in `sha256sum -c` format, so verifying is a line of shell in
+      # install.sh rather than a parser. The name has no version in it: a
+      # downloader that knows the tag can build the URL without asking the API
+      # what the assets are called, which is what keeps install.sh free of a
+      # GitHub API call and its rate limit.
+      - name: Checksums
+        working-directory: archives
+        run: sha256sum slidx-* | tee SHA256SUMS
+
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: archives/slidx-*
+
+      # The installer is published with the release as well as served from the
+      # default branch, so `--version v0.1.0` can be paired with the installer
+      # that shipped alongside it.
+      - run: cp install.sh archives/install.sh
+
+      - run: gh release create "${{ github.ref_name }}" --generate-notes --verify-tag archives/*
         env:
           GH_TOKEN: ${{ github.token }}

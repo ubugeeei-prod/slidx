@@ -441,6 +441,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
+name = "slidx_cli"
+version = "0.0.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "slidx_core",
+ "slidx_doctor",
+ "slidx_lint",
+ "slidx_theme",
+]
+
+[[package]]
 name = "slidx_core"
 version = "0.0.1"
 dependencies = [
@@ -448,6 +460,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "ts-rs",
 ]
 
 [[package]]
@@ -459,12 +472,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "slidx_highlight"
+version = "0.0.1"
+
+[[package]]
 name = "slidx_lint"
 version = "0.0.1"
 dependencies = [
  "serde",
  "serde_json",
  "slidx_core",
+]
+
+[[package]]
+name = "slidx_lsp"
+version = "0.0.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "slidx_core",
+ "slidx_lint",
+ "slidx_theme",
 ]
 
 [[package]]
@@ -485,6 +513,7 @@ dependencies = [
  "serde",
  "serde_json",
  "slidx_core",
+ "slidx_highlight",
  "slidx_lint",
  "slidx_qr",
  "slidx_theme",
@@ -497,6 +526,7 @@ dependencies = [
  "serde",
  "serde_json",
  "slidx_core",
+ "slidx_highlight",
  "slidx_lint",
 ]
 
@@ -511,6 +541,7 @@ dependencies = [
  "slidx_lint",
  "slidx_render",
  "slidx_theme",
+ "ts-rs",
  "wasm-bindgen",
 ]
 
@@ -562,6 +593,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "termcolor"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
+dependencies = [
+ "winapi-util",
+]
+
+[[package]]
 name = "thiserror"
 version = "2.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -579,6 +619,28 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.3",
+]
+
+[[package]]
+name = "ts-rs"
+version = "12.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "756050066659291d47a554a9f558125db17428b073c5ffce1daf5dcb0f7231d8"
+dependencies = [
+ "thiserror",
+ "ts-rs-macros",
+]
+
+[[package]]
+name = "ts-rs-macros"
+version = "12.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38d90eea51bc7988ef9e674bf80a85ba6804739e535e9cab48e4bb34a8b652aa"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+ "termcolor",
 ]
 
 [[package]]
@@ -636,6 +698,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4e0100b01e9f0d03189a92b96772a1fb998639d981193d7dbab487302513441"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "winapi-util"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
+dependencies = [
+ "windows-sys",
 ]
 
 [[package]]

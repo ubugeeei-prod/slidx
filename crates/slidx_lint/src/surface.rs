@@ -33,6 +33,44 @@ impl RenderTarget {
     }
 }
 
+/// What a browser found when it laid one stop out for real.
+///
+/// The other half of this contract describes what a renderer *intends*. This
+/// one describes what actually happened, and it exists because one question in
+/// the rule set cannot be answered any other way: whether a slide's content
+/// fits its box depends on line breaking, and line breaking depends on font
+/// metrics no build-time model has.
+///
+/// Shares of the box rather than pixel counts, because the measuring browser
+/// laid the page out at whatever size it chose. A ratio survives that; a pixel
+/// figure would be true only at the width it was taken at.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Measurement {
+    pub slide_index: u32,
+    /// Which stop of the slide was measured, zero-based. A slide with no steps
+    /// has one, and a slide that only overflows on its last reveal is the whole
+    /// reason this is per stop rather than per slide.
+    pub stop: u32,
+    /// How far the content exceeded the box downwards, as a share of the box.
+    /// Zero when it fitted.
+    pub over_height: f64,
+    /// The same across.
+    pub over_width: f64,
+}
+
+impl Measurement {
+    pub fn new(slide_index: u32, stop: u32) -> Self {
+        Self { slide_index, stop, over_height: 0.0, over_width: 0.0 }
+    }
+
+    pub fn over(mut self, height: f64, width: f64) -> Self {
+        self.over_height = height;
+        self.over_width = width;
+        self
+    }
+}
+
 /// One piece of text, already resolved to a colour and a size.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

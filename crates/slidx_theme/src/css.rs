@@ -11,6 +11,8 @@
 
 use std::fmt::Write as _;
 
+use slidx_highlight::Token;
+
 use crate::palette::{Palette, Scheme};
 use crate::scale::REFERENCE_HEIGHT_PX;
 use crate::theme::Theme;
@@ -75,6 +77,19 @@ fn colors(palette: &Palette) -> String {
         let _ = writeln!(css, "  --slidx-color-{name}: {};", value.to_hex());
     }
 
+    // Driven off the highlighter's own token list rather than a second list
+    // here. A token the scanner emits and the theme never names would be a
+    // class with no colour, which is invisible in review and obvious on stage.
+    let syntax = palette.syntax();
+    for token in Token::COLOURED {
+        let _ = writeln!(
+            css,
+            "  --slidx-color-code-{}: {};",
+            token.as_token(),
+            syntax.get(token).to_hex()
+        );
+    }
+
     css
 }
 
@@ -121,6 +136,39 @@ mod tests {
         // 32px on a 1080 canvas is 2.963% of the height.
         let css = render(&builtin::minimal());
         assert!(css.contains("--slidx-size-body: 2.9630cqh;"), "got:\n{css}");
+    }
+
+    #[test]
+    fn every_token_the_highlighter_can_emit_has_a_colour() {
+        // A class the scanner writes and the theme never names is invisible in
+        // review and obvious on stage: that code renders in the inherited
+        // colour and the highlighting silently does nothing.
+        let css = render(&builtin::terminal());
+
+        for token in Token::COLOURED {
+            assert!(
+                css.contains(&format!("--slidx-color-code-{}:", token.as_token())),
+                "no colour for {}",
+                token.as_token()
+            );
+        }
+    }
+
+    #[test]
+    fn a_theme_with_no_syntax_colours_still_defines_every_property() {
+        // Otherwise a deck on an older theme package gets a stylesheet with
+        // undefined custom properties, and `var()` with no fallback inherits.
+        let mut theme = builtin::minimal();
+        theme.light.syntax = None;
+        theme.dark.syntax = None;
+
+        let css = render(&theme);
+
+        for token in Token::COLOURED {
+            assert!(css.contains(&format!("--slidx-color-code-{}:", token.as_token())));
+        }
+        assert!(css
+            .contains(&format!("--slidx-color-code-comment: {}", theme.light.code_text.to_hex())));
     }
 
     #[test]

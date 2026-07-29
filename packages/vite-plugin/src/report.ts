@@ -27,7 +27,7 @@ export function groupFindings(findings: Finding[]): Report {
  * The slide number comes first because it is what a person acts on: they open
  * that slide. The rule code comes last, for looking up or suppressing.
  */
-export function formatFinding(finding: Finding, titles: (string | undefined)[]): string {
+export function formatFinding(finding: Finding, titles: readonly (string | null)[]): string {
   const where =
     finding.slideIndex === undefined
       ? "deck"
@@ -37,12 +37,12 @@ export function formatFinding(finding: Finding, titles: (string | undefined)[]):
   return finding.help ? `${head}\n        ${finding.help}` : head;
 }
 
-function title(value: string | undefined): string {
+function title(value: string | null | undefined): string {
   return value ? ` (${value})` : "";
 }
 
 /** The whole report, for a terminal. */
-export function formatReport(findings: Finding[], titles: (string | undefined)[]): string {
+export function formatReport(findings: Finding[], titles: readonly (string | null)[]): string {
   return findings.map((finding) => formatFinding(finding, titles)).join("\n");
 }
 

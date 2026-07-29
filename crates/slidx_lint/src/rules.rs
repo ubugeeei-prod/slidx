@@ -10,9 +10,12 @@
 
 pub mod budget;
 pub mod contrast;
+pub mod demo;
 pub mod legibility;
 pub mod motion;
 pub mod offline;
+pub mod overflow;
+pub mod resolution;
 pub mod structure;
 
 use slidx_core::Diagnostics;
@@ -31,10 +34,22 @@ pub const ALL: &[(&str, RuleFn)] = &[
     // Also read from the Markdown body, and cheapest to fix at the moment a
     // remote URL is pasted rather than at the venue where it fails.
     ("offline", offline::check),
+    // Also a content rule, and reported after `offline` because a reference
+    // that has to be bundled first has no file to measure yet.
+    ("resolution", resolution::check),
     ("legibility", legibility::check),
     ("contrast", contrast::check),
+    // Reported after the type rules because the fix for a slide the room eats
+    // into is usually to move content, and moving content is cheapest once the
+    // type it is set in has stopped changing.
+    ("overflow", overflow::check),
+    // Registered apart from the geometry it shares a group with because it is
+    // the only rule in the set whose evidence comes from a browser, and it is
+    // the only one that reports nothing at all where none ran.
+    ("overflow-clipped", overflow::check_measured),
     ("motion", motion::check),
     ("budget", budget::check),
+    ("demo", demo::check),
     ("budget-slides", budget::check_slides),
 ];
 

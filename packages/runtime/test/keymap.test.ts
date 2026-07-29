@@ -164,6 +164,31 @@ describe("what it refuses to claim", () => {
 });
 
 describe("the table itself", () => {
+  it("reaches the demo fallback with a single unmodified key", () => {
+    // The whole feature is "one key". A chord, or anything needing a modifier,
+    // is a thing to remember at the moment the speaker has nothing spare.
+    const binding = DEFAULT_BINDINGS.find((entry) => entry.command === "toggleDemo");
+
+    expect(binding).toBeDefined();
+    expect(binding?.keys.every((key) => key.length === 1)).toBe(true);
+  });
+
+  it("runs the demo switch when its key is pressed", () => {
+    const { keymap, ran } = keymapWith();
+    const key = DEFAULT_BINDINGS.find((entry) => entry.command === "toggleDemo")?.keys[0] as string;
+
+    press(keymap, key);
+    expect(ran).toEqual(["toggleDemo"]);
+  });
+
+  it("leaves the demo key alone on a slide with no demo", () => {
+    // Bound to nothing, the key would be swallowed from the browser and give
+    // nothing back.
+    const keymap = createKeymap({ commands: { next: () => undefined } });
+
+    expect(keymap.bindings().some((entry) => entry.command === "toggleDemo")).toBe(false);
+  });
+
   it("binds no key to two commands", () => {
     // A conflict is silent — one command simply never runs — and nobody finds
     // out until the stage.

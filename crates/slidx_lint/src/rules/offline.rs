@@ -22,9 +22,9 @@
 //! So the element and the attribute together decide, not the URL: `href` on
 //! `<link>` is a fetch and `href` on `<a>` is a promise to someone else.
 
-use slidx_core::scanner::FenceTracker;
 use slidx_core::{Diagnostic, Diagnostics, Severity, Slide, SourceSpan};
 
+use crate::markup::{self, attribute, scannable, tag_name, Attribute};
 use crate::{LintInput, LintOptions};
 
 pub fn check(input: &LintInput<'_>, _options: &LintOptions, sink: &mut Diagnostics) {
@@ -99,7 +99,7 @@ impl Kind {
 }
 
 fn report(slide: &Slide, content: &str, reference: &Reference<'_>) -> Diagnostic {
-    let line = content.as_bytes()[..reference.offset].iter().filter(|&&b| b == b'\n').count();
+    let line = markup::line_at(content, reference.offset);
 
     Diagnostic::new(
         reference.kind.code(),
@@ -113,32 +113,8 @@ fn report(slide: &Slide, content: &str, reference: &Reference<'_>) -> Diagnostic
             reference.url
         ),
     )
-    .at(SourceSpan::line(slide.source_line + line as u32).on_slide(slide.index))
+    .at(SourceSpan::line(slide.source_line + line).on_slide(slide.index))
     .with_help(reference.kind.help())
-}
-
-/// The slide body with fenced code blanked out.
-///
-/// Blanking rather than deleting keeps every byte where it was, so an offset
-/// still resolves to the line it came from. Fences are blanked because a fence
-/// is displayed, not fetched: a talk about CDNs has to be able to show
-/// `<img src="https://…">` on a slide without failing its own build.
-fn scannable(slide: &Slide) -> String {
-    let mut fences = FenceTracker::new();
-    let mut scannable = String::with_capacity(slide.content.len());
-
-    for line in slide.content.split_inclusive('\n') {
-        let body = line.strip_suffix('\n').unwrap_or(line);
-
-        if fences.feed(body) {
-            scannable.push_str(line);
-        } else {
-            scannable.push_str(&" ".repeat(body.len()));
-            scannable.push_str(&line[body.len()..]);
-        }
-    }
-
-    scannable
 }
 
 /// Collects `![alt](url)`.
@@ -156,21 +132,12 @@ fn markdown_images<'a>(content: &'a str, found: &mut Vec<Reference<'a>>) {
         let Some(end) = destination.find(')') else { continue };
 
         let offset = start + 2 + close + 2;
-        found.push(Reference { url: target(&destination[1..end]), offset, kind: Kind::Image });
+        let url = markup::markdown_target(&destination[1..end]);
+        found.push(Reference { url, offset, kind: Kind::Image });
     }
 }
 
-/// The URL of a Markdown destination, without its `"title"` or `<>` wrapper.
-fn target(destination: &str) -> &str {
-    let url = destination.split_whitespace().next().unwrap_or("");
-    url.trim_start_matches('<').trim_end_matches('>')
-}
-
 /// Walks HTML tags and reports the attributes that cause a fetch.
-///
-/// Not an HTML parser and does not need to be. It needs the element name, the
-/// attributes, and quoted values to stay opaque so that a `>` inside alt text
-/// cannot end a tag early and hide the `src` that follows it.
 fn html<'a>(content: &'a str, found: &mut Vec<Reference<'a>>) {
     let mut at = 0;
 
@@ -196,80 +163,6 @@ fn html<'a>(content: &'a str, found: &mut Vec<Reference<'a>>) {
             at = end;
         }
     }
-}
-
-/// The element name just past a `<`, and the offset after it.
-fn tag_name(content: &str, start: usize) -> Option<(&str, usize)> {
-    let rest = &content[start..];
-    if !rest.starts_with(|c: char| c.is_ascii_alphabetic()) {
-        return None;
-    }
-
-    let len = rest.find(|c: char| !c.is_ascii_alphanumeric()).unwrap_or(rest.len());
-    Some((&rest[..len], start + len))
-}
-
-/// One attribute inside an open tag.
-#[derive(Debug, Clone, Copy)]
-struct Attribute<'a> {
-    name: &'a str,
-    value: &'a str,
-    /// Byte offset of the value, so a multi-line tag reports the right line.
-    offset: usize,
-    /// Where the scanner resumes.
-    next: usize,
-}
-
-/// The next attribute inside an open tag.
-///
-/// `None` means the element is finished — at its `>`, at the end of the slide,
-/// or at the start of the next tag when the author never closed this one.
-fn attribute(content: &str, at: usize) -> Option<Attribute<'_>> {
-    // A `/` here belongs to `<br />` rather than to a name.
-    let start = skip_while(content, at, |c| c.is_whitespace() || c == '/');
-    let rest = &content[start..];
-    if rest.is_empty() || rest.starts_with(['>', '<']) {
-        return None;
-    }
-
-    let len = rest
-        .find(|c: char| c.is_whitespace() || matches!(c, '=' | '>' | '<' | '/'))
-        .unwrap_or(rest.len());
-    if len == 0 {
-        return None;
-    }
-
-    let name = &rest[..len];
-    let after_name = skip_while(content, start + len, char::is_whitespace);
-    if !content[after_name..].starts_with('=') {
-        // A valueless attribute such as `controls`.
-        return Some(Attribute { name, value: "", offset: start, next: start + len });
-    }
-
-    let offset = skip_while(content, after_name + 1, char::is_whitespace);
-    let (value, next) = attribute_value(content, offset);
-    Some(Attribute { name, value, offset, next })
-}
-
-/// An attribute value: quoted, or a bare token up to whitespace or `>`.
-fn attribute_value(content: &str, at: usize) -> (&str, usize) {
-    let rest = &content[at..];
-
-    for quote in ['"', '\''] {
-        if let Some(body) = rest.strip_prefix(quote) {
-            let end = body.find(quote).unwrap_or(body.len());
-            return (&body[..end], (at + end + 2).min(content.len()));
-        }
-    }
-
-    let end =
-        rest.find(|c: char| c.is_whitespace() || matches!(c, '>' | '<')).unwrap_or(rest.len());
-    (&rest[..end], at + end)
-}
-
-/// Offset of the first character at or after `at` that `skip` rejects.
-fn skip_while(content: &str, at: usize, skip: impl Fn(char) -> bool) -> usize {
-    content.len() - content[at..].trim_start_matches(skip).len()
 }
 
 /// Records the fetch an attribute causes, if it causes one.
@@ -372,7 +265,7 @@ fn quoted(value: &str) -> Option<&str> {
 /// itself. Anything on `http` or `https` is a request whoever the host is —
 /// `localhost` included, because the machine that builds a deck is not the
 /// machine that shows it.
-fn is_remote(url: &str) -> bool {
+pub(crate) fn is_remote(url: &str) -> bool {
     let url = url.trim();
 
     // `//cdn.example.com/x` is a URL with the scheme left off, not a path: the
@@ -381,21 +274,9 @@ fn is_remote(url: &str) -> bool {
         return true;
     }
 
-    scheme(url).is_some_and(|scheme| {
+    markup::scheme(url).is_some_and(|scheme| {
         scheme.eq_ignore_ascii_case("http") || scheme.eq_ignore_ascii_case("https")
     })
-}
-
-/// The URL scheme, or `None` for a relative reference.
-fn scheme(url: &str) -> Option<&str> {
-    let (scheme, _) = url.split_once(':')?;
-
-    // A scheme starts with a letter and continues with letters, digits, `+`,
-    // `-`, or `.`. Anything else means the colon belongs to a path segment.
-    let valid = scheme.starts_with(|c: char| c.is_ascii_alphabetic())
-        && scheme.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'));
-
-    valid.then_some(scheme)
 }
 
 #[cfg(test)]

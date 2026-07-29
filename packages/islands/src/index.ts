@@ -8,15 +8,17 @@
  * honours it — not five frameworks in a trench coat.
  *
  * The adapters are separate entry points (`@slidx/islands/vue`,
- * `/react`, `/svelte`, `/three`) so importing one does not pull the others,
- * and every framework is an *optional* peer dependency: React must not be in
- * the install path of a deck that never mentions React.
+ * `/react`, `/svelte`, `/three`, `/angular`) so importing one does not pull the
+ * others, and every framework is an *optional* peer dependency: React must not
+ * be in the install path of a deck that never mentions React.
  *
- * There is deliberately no Angular adapter. Angular components have to be
- * compiled by Angular's own toolchain and bootstrapped through an application
- * ref with a change-detection provider, which is a build-time requirement none
- * of the others impose on a deck. Half an Angular adapter — one that works
- * only for a hand-written, pre-compiled component — would be worse than none.
+ * Angular is the one that costs a deck more than an import. Its components have
+ * to be compiled by Angular's own toolchain, so a deck with an Angular island
+ * adds Angular's compiler to its own Vite config, and it runs zoneless because
+ * zone.js is a page-wide patch rather than an island-sized one. Neither is true
+ * of the other four. The cost stops at the deck that opted in — nothing in
+ * `@slidx/*` knows Angular exists — and `adapters/angular.ts` states it in
+ * full.
  */
 
 export type { IslandDefinition, IslandHandle, IslandProps, IslandState } from "./contract";

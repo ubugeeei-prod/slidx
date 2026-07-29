@@ -41,16 +41,24 @@
 #![warn(clippy::all)]
 
 pub mod color;
+pub mod geometry;
+pub mod image;
 pub mod rules;
 pub mod surface;
 pub mod typography;
+
+mod markup;
 
 #[cfg(test)]
 mod test_support;
 
 pub use color::{contrast_ratio, projected_contrast_ratio, ProjectorProfile, Rgba};
-pub use surface::{RenderTarget, Surface, TextSample};
+pub use geometry::{Insets, Side};
+pub use image::{Intrinsic, Tolerance as ImageTolerance};
+pub use surface::{Measurement, RenderTarget, Surface, TextSample};
 pub use typography::{min_font_px, Legibility, TextRole, ViewingProfile};
+
+use std::path::Path;
 
 use slidx_core::{Deck, Diagnostics};
 
@@ -61,6 +69,26 @@ pub struct LintInput<'a> {
     /// Resolved backgrounds and text, produced by whatever rendered the deck.
     pub surfaces: &'a [Surface],
     pub target: RenderTarget,
+    /// Directory the deck's relative asset paths resolve against.
+    ///
+    /// `None` switches off every check that has to open a file. That is the
+    /// editor as the author types, and the browser, where there is no
+    /// filesystem to read — a rule with nothing to measure says nothing rather
+    /// than guessing.
+    pub assets: Option<&'a Path>,
+    /// The padding the renderer keeps content inside — the safe area it
+    /// guarantees.
+    ///
+    /// `None` the same way `assets` is: the editor has rendered nothing yet, so
+    /// there is no safe area to measure a room against, and a padding invented
+    /// here would report bleed on a theme that has none.
+    pub padding: Option<Insets>,
+    /// What a browser found when it laid the built pages out.
+    ///
+    /// Empty everywhere no browser ran, which is most places. The rules that
+    /// read it report nothing rather than approximating what it would have
+    /// said.
+    pub measured: &'a [Measurement],
 }
 
 impl<'a> LintInput<'a> {
@@ -70,11 +98,34 @@ impl<'a> LintInput<'a> {
             deck,
             surfaces,
             target: RenderTarget::from_dimensions(deck.meta.aspect.dimensions()),
+            assets: None,
+            padding: None,
+            measured: &[],
         }
     }
 
     pub fn with_target(mut self, target: RenderTarget) -> Self {
         self.target = target;
+        self
+    }
+
+    pub fn with_assets(mut self, root: &'a Path) -> Self {
+        self.assets = Some(root);
+        self
+    }
+
+    /// States the renderer's padding as a share of the slide's height.
+    ///
+    /// One number rather than four because a renderer that scales the slide as
+    /// one piece has one: the shell resolves `--slidx-space-padding` in `cqh`
+    /// and applies it to every side at once.
+    pub fn with_padding(mut self, share_of_height: f64) -> Self {
+        self.padding = Some(Insets::from_padding(share_of_height, self.target));
+        self
+    }
+
+    pub fn with_measurements(mut self, measured: &'a [Measurement]) -> Self {
+        self.measured = measured;
         self
     }
 }
@@ -86,6 +137,13 @@ pub struct LintOptions {
     pub projector: ProjectorProfile,
     /// How far away the back row is.
     pub viewing: ViewingProfile,
+    /// How soft and how stretched an image may be before it is worth saying so.
+    pub images: ImageTolerance,
+    /// What the room takes off the projected image, when the caller knows.
+    ///
+    /// Overrides the deck's own `safeArea:`, because whoever passes this is
+    /// standing in the room and the deck was written before anyone had seen it.
+    pub safe_area: Option<Insets>,
     /// Codes to suppress. A group name suppresses everything under it, so
     /// `"contrast"` covers `contrast/too-low` and `contrast/projector` alike.
     pub allow: Vec<String>,
@@ -111,6 +169,26 @@ pub fn lint(input: &LintInput<'_>, options: &LintOptions) -> Diagnostics {
         rule(input, options, &mut sink);
     }
 
+    surviving(sink, options)
+}
+
+/// Runs only the rules whose evidence is a browser measurement.
+///
+/// A separate entry point because a measurement arrives *after* the build that
+/// already called [`lint`] — the pages have to exist before anything can open
+/// them — and re-running the whole set there would report every other finding a
+/// second time.
+pub fn lint_measured(deck: &Deck, measured: &[Measurement], options: &LintOptions) -> Diagnostics {
+    let surfaces: [Surface; 0] = [];
+    let input = LintInput::new(deck, &surfaces).with_measurements(measured);
+
+    let mut sink = Diagnostics::default();
+    rules::overflow::check_measured(&input, options, &mut sink);
+
+    surviving(sink, options)
+}
+
+fn surviving(sink: Diagnostics, options: &LintOptions) -> Diagnostics {
     if options.allow.is_empty() {
         return sink;
     }
@@ -178,6 +256,27 @@ mod tests {
             .with_target(RenderTarget { width_px: 960.0, height_px: 540.0 });
 
         assert_eq!(input.target.height_px, 540.0);
+    }
+
+    #[test]
+    fn a_measurement_pass_reports_only_what_it_measured() {
+        // It runs after a build that already linted everything else, so a
+        // second copy of those findings is the failure to avoid.
+        let deck = deck_with_problems();
+        let measured = [Measurement::new(0, 0).over(0.2, 0.0)];
+        let found = lint_measured(&deck, &measured, &LintOptions::default());
+
+        assert!(found.iter().all(|d| d.code == "overflow/clipped"), "got: {found:?}");
+        assert_eq!(found.len(), 1);
+    }
+
+    #[test]
+    fn a_measurement_pass_honours_the_same_suppression_as_a_build() {
+        let deck = deck_with_problems();
+        let measured = [Measurement::new(0, 0).over(0.2, 0.0)];
+        let options = LintOptions { allow: vec!["overflow".into()], ..LintOptions::default() };
+
+        assert!(lint_measured(&deck, &measured, &options).is_empty());
     }
 
     #[test]

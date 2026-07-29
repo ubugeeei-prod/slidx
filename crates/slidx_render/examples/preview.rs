@@ -29,7 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .and_then(slidx_theme::resolve)
         .unwrap_or_else(slidx_theme::default_theme);
 
-    report(&deck, &theme);
+    report(&deck, &theme, &source_dir);
 
     fs::create_dir_all(&out_dir)?;
     let options = ShellOptions { theme, ..ShellOptions::default() };
@@ -81,9 +81,15 @@ fn read_deck(dir: &Path) -> Result<Deck, Box<dyn std::error::Error>> {
 }
 
 /// Prints the deck's diagnostics the way a build should.
-fn report(deck: &Deck, theme: &slidx_theme::Theme) {
+///
+/// `assets` is the slide directory, because that is what a relative image path
+/// in a slide is relative to. Without it the rules that open a file have
+/// nothing to open and stay quiet, which is the right behaviour in an editor
+/// and the wrong one here.
+fn report(deck: &Deck, theme: &slidx_theme::Theme, assets: &Path) {
     let surfaces = theme.surfaces();
-    let findings = lint(&LintInput::new(deck, &surfaces), &LintOptions::default());
+    let findings =
+        lint(&LintInput::new(deck, &surfaces).with_assets(assets), &LintOptions::default());
 
     for diagnostic in deck.diagnostics.iter().chain(findings.iter()) {
         println!("{}", format_diagnostic(diagnostic, deck));
