@@ -18,4 +18,5 @@ slidx_core = { workspace = true }
 slidx_doctor = { workspace = true }
 slidx_lint = { workspace = true }
 slidx_theme = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
