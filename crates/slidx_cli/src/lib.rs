@@ -58,6 +58,7 @@ pub mod help;
 pub mod home;
 pub mod index;
 pub mod lint;
+pub mod preview;
 pub mod report;
 pub mod sha256;
 pub mod style;
@@ -118,6 +119,7 @@ pub fn run(argv: &[String], style: &Style) -> Outcome {
             (None, "doctor") => doctor::run(&matches, style),
             (None, "lint") => lint::run(&matches, style),
             (None, "open") => find::run(&matches, style),
+            (None, "preview") => preview::run(&matches, style),
             (Some("version"), action) => version::run(action, &matches, style),
             // Unreachable while the table and this match agree, which the
             // suite asserts. A panic here would be a crash in front of a room.
