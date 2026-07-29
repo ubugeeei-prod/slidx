@@ -12,6 +12,7 @@ pub mod budget;
 pub mod contrast;
 pub mod legibility;
 pub mod motion;
+pub mod offline;
 pub mod structure;
 
 use slidx_core::Diagnostics;
@@ -27,6 +28,9 @@ pub type RuleFn = fn(&LintInput<'_>, &LintOptions, &mut Diagnostics);
 /// shape first, then legibility, then presentation-day concerns.
 pub const ALL: &[(&str, RuleFn)] = &[
     ("structure", structure::check),
+    // Also read from the Markdown body, and cheapest to fix at the moment a
+    // remote URL is pasted rather than at the venue where it fails.
+    ("offline", offline::check),
     ("legibility", legibility::check),
     ("contrast", contrast::check),
     ("motion", motion::check),
