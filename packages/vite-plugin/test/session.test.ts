@@ -103,7 +103,12 @@ async function open(): Promise<Session> {
     root,
     logLevel: "silent",
     plugins: [slidx()],
-    server: { port: 0 },
+    // No watcher and no HMR socket. This test posts operations and reads the
+    // files back; it never needs either — and on Windows both hold handles
+    // that outlive `server.close()`, which crashes the worker *after* every
+    // test in the run has passed. A green suite that fails at teardown is the
+    // worst shape of failure to debug, so the handles are never opened.
+    server: { port: 0, watch: null, hmr: false },
   });
   await server.listen();
 
