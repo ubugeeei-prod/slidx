@@ -9,7 +9,15 @@
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 
-import init, { buildDeck, type BuildDeckOptions, type BuildResult } from "@slidx/wasm";
+import init, {
+  buildDeck,
+  lintMeasured as lintMeasuredDeck,
+  type BuildDeckOptions,
+  type BuildResult,
+  type Finding,
+} from "@slidx/wasm";
+
+import type { Measurement } from "./overflow";
 
 let ready: Promise<void> | undefined;
 
@@ -45,4 +53,24 @@ export async function build(source: string, options: BuildDeckOptions): Promise<
   await ensureReady();
 
   return buildDeck(source, options);
+}
+
+/**
+ * Turns what a browser measured into findings.
+ *
+ * The judgement stays in Rust with every other rule: what counts as clipped,
+ * what is browser rounding, and how a clipped slide is worded are one set of
+ * decisions, and a copy of them here would be a second set that drifts.
+ */
+export async function lintMeasured(
+  source: string,
+  measured: Measurement[],
+  options: Pick<BuildDeckOptions, "separator" | "theme">,
+): Promise<Finding[]> {
+  await ensureReady();
+
+  return lintMeasuredDeck(source, measured, {
+    theme: options.theme,
+    separator: options.separator,
+  });
 }

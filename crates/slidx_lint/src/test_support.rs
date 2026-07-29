@@ -21,6 +21,36 @@ pub fn lint_deck(source: &str) -> Diagnostics {
     lint(&LintInput::new(&deck, &surfaces), &LintOptions::default())
 }
 
+/// Lints a deck the way a renderer would, having stated its padding.
+///
+/// `padding` is a share of the slide's height, matching what a theme resolves
+/// `--slidx-space-padding` to.
+pub fn lint_deck_rendered(source: &str, padding: f64) -> Diagnostics {
+    lint_deck_in_room(source, padding, |_| {})
+}
+
+/// The same, with the room configured.
+pub fn lint_deck_in_room(
+    source: &str,
+    padding: f64,
+    configure: impl FnOnce(&mut LintOptions),
+) -> Diagnostics {
+    let deck = parse_deck(source, &DeckParseOptions::default());
+    let surfaces: Vec<Surface> = Vec::new();
+    let mut options = LintOptions::default();
+    configure(&mut options);
+
+    lint(&LintInput::new(&deck, &surfaces).with_padding(padding), &options)
+}
+
+/// Lints a deck against what a browser measured of the built pages.
+pub fn lint_deck_measured(source: &str, measured: &[crate::Measurement]) -> Diagnostics {
+    let deck = parse_deck(source, &DeckParseOptions::default());
+    let surfaces: Vec<Surface> = Vec::new();
+
+    lint(&LintInput::new(&deck, &surfaces).with_measurements(measured), &LintOptions::default())
+}
+
 /// Lints surfaces against an empty deck, at the default render target.
 pub fn lint_surfaces(
     surfaces: Vec<Surface>,
