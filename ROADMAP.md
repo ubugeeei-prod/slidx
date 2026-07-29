@@ -74,7 +74,8 @@ Editor-first authoring that still writes reviewable Markdown.
 - [ ] Direct manipulation with snapping, guides, and layout tokens
 - [ ] **Animation timeline** — the PowerPoint-shaped surface over `steps:` — #10
 - [ ] Live diagnostics from the linter, inline
-- [ ] Media: video and audio embeds with level metering and loudness check — #11
+- [x] Media: level metering, loudness normalisation, and a report — #11
+- [ ] Media: editor surface for placing a clip — #11
 - [ ] Storyboard mode: edit at the level of one message per slide
 
 **Done when** an author can build a staged, animated slide without typing YAML,

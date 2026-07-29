@@ -41,16 +41,22 @@
 #![warn(clippy::all)]
 
 pub mod color;
+pub mod image;
 pub mod rules;
 pub mod surface;
 pub mod typography;
+
+mod markup;
 
 #[cfg(test)]
 mod test_support;
 
 pub use color::{contrast_ratio, projected_contrast_ratio, ProjectorProfile, Rgba};
+pub use image::{Intrinsic, Tolerance as ImageTolerance};
 pub use surface::{RenderTarget, Surface, TextSample};
 pub use typography::{min_font_px, Legibility, TextRole, ViewingProfile};
+
+use std::path::Path;
 
 use slidx_core::{Deck, Diagnostics};
 
@@ -61,6 +67,13 @@ pub struct LintInput<'a> {
     /// Resolved backgrounds and text, produced by whatever rendered the deck.
     pub surfaces: &'a [Surface],
     pub target: RenderTarget,
+    /// Directory the deck's relative asset paths resolve against.
+    ///
+    /// `None` switches off every check that has to open a file. That is the
+    /// editor as the author types, and the browser, where there is no
+    /// filesystem to read — a rule with nothing to measure says nothing rather
+    /// than guessing.
+    pub assets: Option<&'a Path>,
 }
 
 impl<'a> LintInput<'a> {
@@ -70,11 +83,17 @@ impl<'a> LintInput<'a> {
             deck,
             surfaces,
             target: RenderTarget::from_dimensions(deck.meta.aspect.dimensions()),
+            assets: None,
         }
     }
 
     pub fn with_target(mut self, target: RenderTarget) -> Self {
         self.target = target;
+        self
+    }
+
+    pub fn with_assets(mut self, root: &'a Path) -> Self {
+        self.assets = Some(root);
         self
     }
 }
@@ -86,6 +105,8 @@ pub struct LintOptions {
     pub projector: ProjectorProfile,
     /// How far away the back row is.
     pub viewing: ViewingProfile,
+    /// How soft and how stretched an image may be before it is worth saying so.
+    pub images: ImageTolerance,
     /// Codes to suppress. A group name suppresses everything under it, so
     /// `"contrast"` covers `contrast/too-low` and `contrast/projector` alike.
     pub allow: Vec<String>,

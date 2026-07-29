@@ -78,7 +78,7 @@ mod step;
 pub use edit::{Edit, Splice};
 pub use op::{EditError, EditOp, MarkAttributes, MarkRef, SlideRef};
 
-use slidx_core::DeckParseOptions;
+use slidx_core::{ByteSpan, DeckParseOptions};
 
 use edit::EditBuilder;
 use source::DeckSource;
@@ -119,4 +119,45 @@ pub fn plan(source: &str, options: &DeckParseOptions, op: &EditOp) -> Result<Edi
 /// The source with one operation applied.
 pub fn apply(source: &str, options: &DeckParseOptions, op: &EditOp) -> Result<String, EditError> {
     Ok(plan(source, options, op)?.apply(source))
+}
+
+/// Where each slide's own bytes are, in source order.
+///
+/// A deck is usually stored as one file per slide and edited as one joined
+/// source, so whoever wrote the source back to disk has to know which file each
+/// byte came from. These spans are that map: they are the same ones an
+/// operation splices into, so a caller cutting the result along them is cutting
+/// where the operations already agreed the seams are.
+pub fn slide_spans(source: &str, options: &DeckParseOptions) -> Vec<ByteSpan> {
+    DeckSource::read(source, options).slides.iter().map(|slide| slide.content).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn spans(source: &str) -> Vec<&str> {
+        slide_spans(source, &DeckParseOptions::default())
+            .iter()
+            .map(|span| span.slice(source))
+            .collect()
+    }
+
+    #[test]
+    fn a_slides_span_is_the_bytes_an_operation_would_splice() {
+        assert_eq!(spans("# One\n\n---\n\n# Two\n\nBody.\n"), ["# One", "# Two\n\nBody."]);
+    }
+
+    #[test]
+    fn a_slide_carrying_its_own_frontmatter_spans_the_block_too() {
+        // The `---` opening the block is the same line that ends the slide
+        // before, so a caller cutting on these spans keeps the two apart.
+        let source = "# One\n\n---\nlayout: split\n---\n\n# Two\n";
+        assert_eq!(spans(source), ["# One", "---\nlayout: split\n---\n\n# Two"]);
+    }
+
+    #[test]
+    fn the_decks_own_frontmatter_belongs_to_no_slides_span() {
+        assert_eq!(spans("---\ntitle: T\n---\n\n# One\n"), ["# One"]);
+    }
 }

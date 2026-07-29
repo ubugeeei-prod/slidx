@@ -34,6 +34,10 @@
     "./three": {
       "types": "./dist/adapters/three.d.mts",
       "default": "./dist/adapters/three.mjs"
+    },
+    "./angular": {
+      "types": "./dist/adapters/angular.d.mts",
+      "default": "./dist/adapters/angular.mjs"
     }
   },
   "publishConfig": {
@@ -41,9 +45,11 @@
     "provenance": true
   },
   "scripts": {
-    "pack:lib": "vp pack src/index.ts src/adapters/vue.ts src/adapters/react.ts src/adapters/svelte.ts src/adapters/three.ts --dts --out-dir dist"
+    "pack:lib": "vp pack src/index.ts src/adapters/vue.ts src/adapters/react.ts src/adapters/svelte.ts src/adapters/three.ts src/adapters/angular.ts --dts --out-dir dist"
   },
   "peerDependencies": {
+    "@angular/core": ">=20.0.0",
+    "@angular/platform-browser": ">=20.0.0",
     "react": "^18.0.0 || ^19.0.0",
     "react-dom": "^18.0.0 || ^19.0.0",
     "svelte": "^5.0.0",
@@ -51,6 +57,12 @@
     "vue": "^3.4.0"
   },
   "peerDependenciesMeta": {
+    "@angular/core": {
+      "optional": true
+    },
+    "@angular/platform-browser": {
+      "optional": true
+    },
     "react": {
       "optional": true
     },
