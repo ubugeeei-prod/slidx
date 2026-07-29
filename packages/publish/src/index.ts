@@ -39,6 +39,7 @@ export type {
 } from "./plan";
 
 export {
+  composeArchive,
   composeBlog,
   composeDocswell,
   composeResources,
@@ -47,6 +48,7 @@ export {
   DEFAULT_POST_LIMIT,
 } from "./targets";
 export type {
+  ArchiveRecord,
   BlogScaffold,
   BlogSection,
   DocswellUpload,
@@ -55,6 +57,9 @@ export type {
   SocialPost,
   SpeakerDeckUpload,
 } from "./targets";
+
+export { buildTalkIndex } from "./talks";
+export type { TalkIndex, TalkIndexOptions } from "./talks";
 
 export { collectLinks } from "./links";
 export type { DeckLink } from "./links";

@@ -20,16 +20,19 @@
  */
 
 import {
+  composeArchive,
   composeBlog,
   composeDocswell,
   composeResources,
   composeSocial,
   composeSpeakerDeck,
+  describeArchive,
   describeBlog,
   describeDocswell,
   describeResources,
   describeSocial,
   describeSpeakerDeck,
+  type ArchiveRecord,
   type BlogScaffold,
   type DocswellUpload,
   type ResourcesPage,
@@ -46,8 +49,19 @@ import type { Artifact, BlockedReason, DeckMetadata, DeckSlide, DeckSource } fro
  * URL they produce is what the post links to, and the written pages last. A
  * caller asking for a subset gets it in this order regardless of how they
  * asked, so two people planning the same deck get the same plan.
+ *
+ * `archive` is last because it is the only one that will be run again. It
+ * records what the others produced, and it is re-run months later when the
+ * conference finally publishes the video.
  */
-export const PUBLISH_TARGETS = ["speakerdeck", "docswell", "social", "blog", "resources"] as const;
+export const PUBLISH_TARGETS = [
+  "speakerdeck",
+  "docswell",
+  "social",
+  "blog",
+  "resources",
+  "archive",
+] as const;
 
 export type PublishTarget = (typeof PUBLISH_TARGETS)[number];
 
@@ -57,7 +71,8 @@ export type ReadyStep =
   | ReadyStepOf<"docswell", DocswellUpload>
   | ReadyStepOf<"social", SocialPost>
   | ReadyStepOf<"blog", BlogScaffold>
-  | ReadyStepOf<"resources", ResourcesPage>;
+  | ReadyStepOf<"resources", ResourcesPage>
+  | ReadyStepOf<"archive", ArchiveRecord>;
 
 interface ReadyStepOf<Target extends PublishTarget, Payload> {
   status: "ready";
@@ -162,6 +177,12 @@ function planStep(target: PublishTarget, source: DeckSource, options: PlanOption
             summary: describeResources(result.value),
             payload: result.value,
           }
+        : blockedStep(target, result.reasons);
+    }
+    case "archive": {
+      const result = composeArchive(source);
+      return result.ok
+        ? { status: "ready", target, summary: describeArchive(result.value), payload: result.value }
         : blockedStep(target, result.reasons);
     }
   }

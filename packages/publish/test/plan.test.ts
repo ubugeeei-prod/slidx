@@ -121,7 +121,12 @@ describe("blocked steps", () => {
     const plan = planPublish({ meta: TALK, slides: SLIDES, artifacts: [] });
 
     expect(blockedSteps(plan).map((step) => step.target)).toEqual(["speakerdeck", "docswell"]);
-    expect(readySteps(plan).map((step) => step.target)).toEqual(["social", "blog", "resources"]);
+    expect(readySteps(plan).map((step) => step.target)).toEqual([
+      "social",
+      "blog",
+      "resources",
+      "archive",
+    ]);
   });
 
   it("names the fields to add in its summary", () => {
@@ -198,13 +203,13 @@ describe("printing", () => {
     const lines = formatPlan(complete()).split("\n");
 
     expect(lines[0]).toBe("publish plan: Zero-JavaScript Slides");
-    expect(lines.at(-1)).toBe("5 ready, 0 blocked");
+    expect(lines.at(-1)).toBe("6 ready, 0 blocked");
   });
 
   it("counts what is blocked", () => {
     const plan = planPublish({ meta: TALK, slides: SLIDES, artifacts: [] });
 
-    expect(formatPlan(plan).split("\n").at(-1)).toBe("3 ready, 2 blocked");
+    expect(formatPlan(plan).split("\n").at(-1)).toBe("4 ready, 2 blocked");
   });
 
   it("prints a blocked step's reasons under it", () => {
@@ -242,6 +247,11 @@ describe("options", () => {
   it("plans without any artifacts at all", () => {
     const plan = planPublish({ meta: TALK, slides: SLIDES });
 
-    expect(readySteps(plan).map((step) => step.target)).toEqual(["social", "blog", "resources"]);
+    expect(readySteps(plan).map((step) => step.target)).toEqual([
+      "social",
+      "blog",
+      "resources",
+      "archive",
+    ]);
   });
 });
