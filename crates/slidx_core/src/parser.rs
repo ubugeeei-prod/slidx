@@ -100,7 +100,7 @@ fn build_slide(
         marks,
         notes: extracted.notes,
         layout: frontmatter::string(&matter, "layout"),
-        transition: frontmatter::string(&matter, "transition").or_else(|| meta.transition.clone()),
+        transition: slide_transition(&matter, index, meta, diagnostics),
         budget_seconds: frontmatter::duration_seconds(&matter, "budget"),
         optional: frontmatter::boolean(&matter, "optional").unwrap_or(false),
         timeline: compile_timeline(&steps.source),
@@ -108,6 +108,25 @@ fn build_slide(
         source_line: segment.line,
         frontmatter: matter,
     }
+}
+
+/// The transition one slide arrives with.
+///
+/// A slide that names one decides for itself, including when it says `none`;
+/// only silence inherits the deck's. The first slide is skipped because its
+/// frontmatter *is* the deck's — reading it again would report the same
+/// malformed value twice, at the same line.
+fn slide_transition(
+    matter: &JsonValue,
+    index: u32,
+    meta: &DeckMeta,
+    diagnostics: &mut Diagnostics,
+) -> Option<String> {
+    if index == 0 {
+        return meta.transition.clone();
+    }
+
+    frontmatter::transition(matter, diagnostics).or_else(|| meta.transition.clone())
 }
 
 /// The Markdown body plus the pipeline compiled from it.
@@ -253,6 +272,37 @@ mod tests {
     fn slides_inherit_the_deck_transition() {
         let deck = parse("---\ntransition: fade\n---\n\n# One\n\n---\n\n# Two\n");
         assert_eq!(deck.slides[1].transition.as_deref(), Some("fade"));
+    }
+
+    #[test]
+    fn a_slide_can_override_the_deck_transition() {
+        let deck =
+            parse("---\ntransition: fade\n---\n\n# One\n\n---\ntransition: push\n---\n\n# Two\n");
+
+        assert_eq!(deck.slides[0].transition.as_deref(), Some("fade"));
+        assert_eq!(deck.slides[1].transition.as_deref(), Some("push"));
+    }
+
+    #[test]
+    fn a_slide_can_switch_off_a_deck_wide_transition() {
+        // A slide that has to land without motion — a demo, a video — needs
+        // `none` to win over the deck default rather than fall through to it.
+        let deck =
+            parse("---\ntransition: push\n---\n\n# One\n\n---\ntransition: false\n---\n\n# Two\n");
+
+        assert_eq!(deck.slides[1].transition.as_deref(), Some("none"));
+    }
+
+    #[test]
+    fn a_malformed_deck_transition_is_reported_once_not_once_per_reader() {
+        // The first slide's frontmatter is also the deck's, and reading it
+        // twice would print the same complaint twice at the same line.
+        let deck = parse("---\ntransition: 3\n---\n\n# One\n");
+
+        assert_eq!(
+            deck.diagnostics.iter().filter(|d| d.code == "frontmatter/invalid-transition").count(),
+            1
+        );
     }
 
     #[test]

@@ -155,6 +155,42 @@ pub fn parse_duration(text: &str) -> Option<u32> {
     matched_unit.then_some(total)
 }
 
+/// Reads the `transition:` token, normalised.
+///
+/// The vocabulary itself is not checked here. Which transitions exist is a
+/// theme's business — `slidx_theme::Transition::parse` owns the list and
+/// reports a typo — exactly as `theme:` is kept as a name and resolved by
+/// `slidx_theme::resolve`. This crate records what the author asked for; what
+/// can be honoured is decided where the CSS is written.
+///
+/// `transition: false` is accepted as a spelling of `none` because YAML reads
+/// it as a boolean, and [`string`] drops anything that is not a string. A
+/// slide switching a deck-wide transition off would otherwise read as a slide
+/// that said nothing at all, and inherit the very thing it was turning off —
+/// a silent failure that looks like a transition bug rather than a spelling
+/// one.
+pub fn transition(value: &JsonValue, diagnostics: &mut Diagnostics) -> Option<String> {
+    let field = lookup(value, "transition")?;
+
+    if field == &JsonValue::Bool(false) {
+        return Some("none".to_string());
+    }
+
+    match field.as_str().map(|text| text.trim().to_ascii_lowercase()) {
+        Some(token) if !token.is_empty() => Some(token),
+        _ => {
+            diagnostics.push(
+                Diagnostic::warning(
+                    "frontmatter/invalid-transition",
+                    "`transition` must name a transition",
+                )
+                .with_help("write `transition: fade`, or `transition: none` for an instant cut"),
+            );
+            None
+        }
+    }
+}
+
 /// Builds deck metadata from the first frontmatter block.
 pub fn deck_meta(value: &JsonValue, diagnostics: &mut Diagnostics) -> DeckMeta {
     let aspect = match string(value, "aspect").or_else(|| string(value, "aspectRatio")) {
@@ -176,7 +212,7 @@ pub fn deck_meta(value: &JsonValue, diagnostics: &mut Diagnostics) -> DeckMeta {
         description: string(value, "description"),
         author: string(value, "author"),
         theme: string(value, "theme"),
-        transition: string(value, "transition"),
+        transition: transition(value, diagnostics),
         aspect,
         duration_seconds: duration_seconds(value, "duration"),
         talk: TalkMeta {
@@ -357,6 +393,71 @@ mod tests {
             "declared, and switched off"
         );
         assert_eq!(auto_steps(&json!({ "autoSteps": false }), &mut diagnostics), Some(None));
+        assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn a_transition_is_read_as_a_normalised_token() {
+        let mut diagnostics = Diagnostics::default();
+        assert_eq!(
+            transition(&json!({ "transition": "  Fade " }), &mut diagnostics).as_deref(),
+            Some("fade")
+        );
+        assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn an_unrecognised_transition_reaches_the_theme_rather_than_being_dropped() {
+        // Which transitions exist is the theme's list, not this crate's. A
+        // token filtered out here would be a typo nothing could report.
+        let mut diagnostics = Diagnostics::default();
+        assert_eq!(
+            transition(&json!({ "transition": "cube" }), &mut diagnostics).as_deref(),
+            Some("cube")
+        );
+        assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn an_absent_transition_is_distinguishable_from_one_switched_off() {
+        let mut diagnostics = Diagnostics::default();
+        assert_eq!(transition(&json!({}), &mut diagnostics), None, "not declared, so it inherits");
+        assert_eq!(
+            transition(&json!({ "transition": "none" }), &mut diagnostics).as_deref(),
+            Some("none"),
+            "declared, and switched off"
+        );
+        assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn a_transition_written_as_a_yaml_boolean_still_switches_it_off() {
+        // `transition: false` reads as a bool, and a slide that lost it would
+        // silently inherit the deck transition it was trying to turn off.
+        let mut diagnostics = Diagnostics::default();
+        assert_eq!(
+            transition(&json!({ "transition": false }), &mut diagnostics).as_deref(),
+            Some("none")
+        );
+        assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn a_transition_that_is_not_a_name_is_reported() {
+        for value in [json!({ "transition": 3 }), json!({ "transition": "" })] {
+            let mut diagnostics = Diagnostics::default();
+            assert_eq!(transition(&value, &mut diagnostics), None);
+            assert_eq!(diagnostics.as_slice()[0].code, "frontmatter/invalid-transition");
+            assert!(!diagnostics.has_blocking(), "the deck still renders");
+        }
+    }
+
+    #[test]
+    fn deck_meta_carries_the_default_transition() {
+        let mut diagnostics = Diagnostics::default();
+        let meta = deck_meta(&json!({ "transition": "Push" }), &mut diagnostics);
+
+        assert_eq!(meta.transition.as_deref(), Some("push"));
         assert!(diagnostics.is_empty());
     }
 

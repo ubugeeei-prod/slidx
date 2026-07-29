@@ -1,6 +1,7 @@
 //! A theme: two palettes, a type scale, and the fonts to draw them with.
 
 use serde::{Deserialize, Serialize};
+use slidx_core::Easing;
 use slidx_lint::{Surface, TextRole, TextSample};
 
 use crate::palette::{Palette, Scheme};
@@ -27,6 +28,49 @@ impl Default for Spacing {
     }
 }
 
+/// Longest a transition may run once the viewer has asked for less motion.
+///
+/// A ceiling rather than a duration: a theme that already moves faster keeps
+/// its own timing. Expressing it this way removes the failure where a theme
+/// sets a leisurely reduced-motion duration and the accessible path ends up
+/// *slower* than the one it replaces.
+pub const REDUCED_MOTION_CEILING_MS: u32 = 120;
+
+/// Motion tokens.
+///
+/// Timing is a theme decision for the same reason type size is: a deck that
+/// hard-codes 300ms cannot be made calmer or snappier without editing every
+/// slide. Nothing downstream writes a duration of its own.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Motion {
+    /// How long a slide-to-slide transition runs, in milliseconds.
+    ///
+    /// Long enough to read as a change of place, short enough that a presenter
+    /// clicking through ten slides does not wait for the tool. Past roughly
+    /// 400ms an audience notices the transition instead of the slide.
+    pub transition_ms: u32,
+    /// Curve the transition runs on.
+    ///
+    /// Shared with the step vocabulary in [`slidx_core`] deliberately: a deck
+    /// whose slide changes ease differently from its reveals reads as two
+    /// tools stapled together.
+    pub transition_easing: Easing,
+}
+
+impl Default for Motion {
+    fn default() -> Self {
+        Self { transition_ms: 240, transition_easing: Easing::EaseOut }
+    }
+}
+
+impl Motion {
+    /// Duration to use when the viewer prefers reduced motion.
+    pub fn reduced_ms(self) -> u32 {
+        self.transition_ms.min(REDUCED_MOTION_CEILING_MS)
+    }
+}
+
 /// Everything that decides how a deck looks.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -41,6 +85,14 @@ pub struct Theme {
     pub dark: Palette,
     pub scale: TypeScale,
     pub spacing: Spacing,
+    /// Timing for slide-to-slide transitions.
+    ///
+    /// Defaulted on read so a theme package published before transitions
+    /// existed keeps loading. A third-party theme is a JSON file someone else
+    /// owns; adding a required field to it would break decks that never asked
+    /// for the feature.
+    #[serde(default)]
+    pub motion: Motion,
     /// Font stack for prose. Must resolve locally: a theme that names a font
     /// only available from a CDN fails the offline check at build time.
     pub font_sans: String,
@@ -166,5 +218,28 @@ mod tests {
         let theme = builtin::minimal();
         assert_eq!(theme.palette(Scheme::Light), &theme.light);
         assert_eq!(theme.palette(Scheme::Dark), &theme.dark);
+    }
+
+    #[test]
+    fn the_reduced_duration_only_ever_shortens() {
+        // The accessible path must never be the slower one.
+        let brisk = Motion { transition_ms: 80, transition_easing: Easing::EaseOut };
+        assert_eq!(brisk.reduced_ms(), 80, "a theme already under the ceiling keeps its timing");
+
+        let leisurely = Motion { transition_ms: 600, transition_easing: Easing::EaseOut };
+        assert_eq!(leisurely.reduced_ms(), REDUCED_MOTION_CEILING_MS);
+    }
+
+    #[test]
+    fn a_theme_package_written_before_transitions_still_loads() {
+        // Third-party themes are JSON files someone else owns and does not
+        // republish. A required field here would break decks that never asked
+        // for motion.
+        let json = serde_json::to_value(builtin::minimal()).unwrap();
+        let mut without_motion = json.as_object().unwrap().clone();
+        without_motion.remove("motion");
+
+        let loaded: Theme = serde_json::from_value(without_motion.into()).unwrap();
+        assert_eq!(loaded.motion, Motion::default());
     }
 }
