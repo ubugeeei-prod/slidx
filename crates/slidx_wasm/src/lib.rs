@@ -28,6 +28,7 @@
 #![warn(clippy::all)]
 
 pub mod declarations;
+pub mod publish;
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;

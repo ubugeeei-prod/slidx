@@ -15,6 +15,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 slidx_core = { workspace = true }
 slidx_lint = { workspace = true }
+slidx_publish = { workspace = true }
 slidx_render = { workspace = true }
 slidx_theme = { workspace = true }
 serde = { workspace = true }

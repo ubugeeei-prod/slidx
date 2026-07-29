@@ -496,6 +496,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "slidx_publish"
+version = "0.0.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "ts-rs",
+]
+
+[[package]]
 name = "slidx_qr"
 version = "0.0.1"
 dependencies = [
@@ -539,6 +548,7 @@ dependencies = [
  "serde_json",
  "slidx_core",
  "slidx_lint",
+ "slidx_publish",
  "slidx_render",
  "slidx_theme",
  "ts-rs",
