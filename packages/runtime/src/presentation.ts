@@ -40,7 +40,58 @@ export interface PresentationEnvironment {
   requestWakeLock?: () => Promise<{ release: () => void }>;
   requestFullscreen?: () => Promise<void>;
   exitFullscreen?: () => Promise<void>;
+  /**
+   * Called when the browser leaves fullscreen without being asked (Escape, or
+   * the browser's own control). Returns an unsubscribe.
+   */
+  subscribeFullscreenExit?: (listener: () => void) => () => void;
   platform?: Platform;
+}
+
+interface WakeLockSentinelLike {
+  release: () => void;
+}
+
+/**
+ * The real browser, for callers that are not a test.
+ *
+ * A hook is left off rather than stubbed when the API is missing, so
+ * `enterPresentation` reports the capability as absent instead of claiming it.
+ */
+export function browserPresentationEnvironment(
+  view: Window = globalThis.window,
+): PresentationEnvironment {
+  const page = view.document;
+  const root = page.documentElement;
+  const wakeLock = (
+    view.navigator as Navigator & {
+      wakeLock?: { request: (type: "screen") => Promise<WakeLockSentinelLike> };
+    }
+  ).wakeLock;
+
+  return {
+    requestWakeLock: wakeLock ? () => wakeLock.request("screen") : undefined,
+    requestFullscreen: root.requestFullscreen ? () => root.requestFullscreen() : undefined,
+    exitFullscreen: page.exitFullscreen ? () => page.exitFullscreen() : undefined,
+
+    subscribeFullscreenExit: (listener) => {
+      // The event fires for entering too, and says nothing about which; the
+      // document is the only thing that knows.
+      const handler = () => {
+        if (!page.fullscreenElement) listener();
+      };
+
+      page.addEventListener("fullscreenchange", handler);
+      return () => page.removeEventListener("fullscreenchange", handler);
+    },
+
+    platform: detectPlatform(view.navigator.userAgent),
+  };
+}
+
+/** The browser when there is one, and nothing at all when there is not. */
+function defaultEnvironment(): PresentationEnvironment {
+  return typeof globalThis.window === "undefined" ? {} : browserPresentationEnvironment();
 }
 
 /**
@@ -51,27 +102,41 @@ export interface PresentationEnvironment {
  * a thrown error costs the talk.
  */
 export async function enterPresentation(
-  environment: PresentationEnvironment = {},
+  environment: PresentationEnvironment = defaultEnvironment(),
 ): Promise<PresentationSession> {
-  const lock = await attempt(environment.requestWakeLock);
-  const fullscreen = (await attempt(environment.requestFullscreen)) !== null;
+  // Both are asked for before either is awaited: fullscreen needs the user
+  // gesture that is still live, and awaiting the wake lock first can outlast
+  // it.
+  const [lock, fullscreen] = await Promise.all([
+    attempt(environment.requestWakeLock),
+    attempt(environment.requestFullscreen),
+  ]);
 
   let exited = false;
+  let unsubscribe: (() => void) | undefined;
 
-  return {
+  const session: PresentationSession = {
     wakeLock: lock !== null,
-    fullscreen,
+    fullscreen: fullscreen !== null,
 
     async exit() {
-      // Exiting twice is normal: a keyboard shortcut and the browser's own
-      // fullscreen exit both land here. Releasing a lock twice throws.
+      // Exiting twice is normal: a keyboard shortcut, Escape, and the
+      // browser's own fullscreen control all land here. Releasing a lock
+      // twice throws.
       if (exited) return;
       exited = true;
 
+      unsubscribe?.();
       lock?.release();
       await attempt(environment.exitFullscreen);
     },
   };
+
+  // Escape leaves fullscreen without telling us, and a wake lock nobody
+  // released keeps a laptop awake in a bag.
+  unsubscribe = environment.subscribeFullscreenExit?.(() => void session.exit());
+
+  return session;
 }
 
 /** Runs a capability that may not exist, and reports absence as `null`. */
