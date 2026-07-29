@@ -89,6 +89,8 @@ importers:
 
   packages/publish: {}
 
+  packages/rehearsal: {}
+
   packages/runtime: {}
 
   packages/vite-plugin:
