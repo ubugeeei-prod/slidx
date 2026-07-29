@@ -12,6 +12,8 @@
  */
 
 export { ANCHOR_ATTRIBUTE, findAnchors, resolveAnchor } from "./anchor";
+export { createKeymap, DEFAULT_BINDINGS, formatBinding } from "./keymap";
+export type { Binding, Command, Keymap, KeymapOptions } from "./keymap";
 export { createMirror } from "./mirror";
 export { createNavigator, LAST_STEP } from "./navigate";
 export { detectPlatform, enterPresentation, presentationChecklist } from "./presentation";
