@@ -10,7 +10,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { ANCHOR_ATTRIBUTE } from "../src/anchor";
-import { createStage, HIDDEN_ATTRIBUTE, STAGED_ATTRIBUTE } from "../src/stage";
+import { createStage, createStopCursor, HIDDEN_ATTRIBUTE, STAGED_ATTRIBUTE } from "../src/stage";
 import type { StepTimeline } from "../src/types";
 
 /** Mirrors what `compile_timeline` emits for two sequential reveals. */
@@ -420,5 +420,58 @@ describe("changing an element in place", () => {
     createStage(root, CHANGING_VALUE).applyPrint();
 
     expect(mark(root).textContent).toBe("42");
+  });
+});
+
+/**
+ * The stage the presenter view drives.
+ *
+ * A clicker sends its keys to whichever window is focused, and that is the
+ * speaker's own screen rather than the projector. But the presenter page does
+ * not render the slide, so there is nothing for a frame to apply to.
+ *
+ * A cursor rather than a second idea of what "next" means: every rule about
+ * clamping and about when a step becomes a slide change stays in the navigator,
+ * where it is already tested. Two copies of that would eventually disagree
+ * about where a slide ends, and disagree on stage.
+ */
+describe("counting stops with no slide under them", () => {
+  it("starts at the first stop", () => {
+    const cursor = createStopCursor(3);
+
+    expect(cursor.index).toBe(0);
+    expect(cursor.stopCount).toBe(3);
+  });
+
+  it("clamps rather than running off either end", () => {
+    // A link outlives the edit that shortened the slide it points into.
+    const cursor = createStopCursor(3);
+
+    expect(cursor.apply(9)).toBe(2);
+    expect(cursor.apply(-4)).toBe(0);
+  });
+
+  it("reports the stop it moved to", () => {
+    const cursor = createStopCursor(4);
+
+    expect(cursor.apply(2)).toBe(2);
+    expect(cursor.index).toBe(2);
+  });
+
+  it("has a stop even when the caller counted none", () => {
+    // A slide always has its resting frame, so zero is a caller that did not
+    // count rather than a slide with nothing on it — and a stage with no stops
+    // would make `stopCount - 1` a step backwards off the start.
+    const cursor = createStopCursor(0);
+
+    expect(cursor.stopCount).toBe(1);
+    expect(cursor.apply(1)).toBe(0);
+  });
+
+  it("jumps to the end for print, like the stage it stands in for", () => {
+    const cursor = createStopCursor(3);
+    cursor.applyPrint();
+
+    expect(cursor.index).toBe(2);
   });
 });

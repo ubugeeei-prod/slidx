@@ -92,6 +92,43 @@ export function createStage(root: HTMLElement, timeline: StepTimeline): Stage {
 }
 
 /**
+ * A stage with no slide under it.
+ *
+ * The presenter view has to drive the deck — a clicker sends its keys to
+ * whichever window is focused, and that is the speaker's own screen, not the
+ * projector. But the presenter page does not render the slide, so there is
+ * nothing for a frame to be applied to.
+ *
+ * Rather than give the presenter its own idea of what "next" means, it gets a
+ * stage that only counts. Every rule about clamping, about the last stop, and
+ * about when a step becomes a slide change then lives in
+ * [`createNavigator`](./navigate) once, where it is tested — instead of twice,
+ * where the two copies would eventually disagree about the end of a slide.
+ */
+export function createStopCursor(stopCount: number): Stage {
+  // A slide always has a resting frame, so a count of zero is a caller that
+  // has not counted rather than a slide with nothing on it.
+  const stops = Math.max(1, stopCount);
+  let current = 0;
+
+  return {
+    get stopCount() {
+      return stops;
+    },
+    get index() {
+      return current;
+    },
+    apply(index: number): number {
+      current = Math.max(0, Math.min(index, stops - 1));
+      return current;
+    },
+    applyPrint() {
+      current = stops - 1;
+    },
+  };
+}
+
+/**
  * Maps every selector the timeline mentions to the element it stages.
  *
  * Anchor selectors are resolved through the anchor contract; anything else is
