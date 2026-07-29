@@ -13,7 +13,8 @@
 > [!NOTE]
 > slidx is an independent personal project by [ubugeeei](https://github.com/ubugeeei), built on
 > the [Ox Content](https://github.com/ubugeeei-prod/ox-content) Markdown engine.
-> It is pre-alpha: the surface below is the target, not a changelog.
+> It is pre-alpha and **unreleased** — everything below is built and tested, and
+> nothing is on npm or crates.io yet.
 
 ## What a deck is
 
@@ -48,8 +49,9 @@ and layout are inlined and the built-in themes use system font stacks, so a
 slide makes **zero network requests**. A test asserts that directly, because
 "no CDN" is a promise that erodes one convenient import at a time.
 
-A 500-slide deck emits **one** JavaScript file, shared by the presenter pages.
-Audience slides ship none at all.
+A 500-slide deck emits **one** JavaScript file, however many slides import it. A
+slide with steps loads that one module and its own compiled timeline; a slide
+without steps is finished markup and loads nothing at all.
 
 ## What it looks like
 
@@ -136,18 +138,25 @@ touch is one people stop trusting.
 
 ## Status
 
-| Area                                                      | State    |
-| --------------------------------------------------------- | -------- |
-| `slidx_core` — deck model, parser, step pipeline          | building |
-| `slidx_lint` — contrast, font size, overflow, a11y        | planned  |
-| `slidx_render` — slide / presenter / print shells, themes | planned  |
-| `@slidx/vite-plugin` — dev server, SSG, PDF, OG           | planned  |
-| Visual editor                                             | planned  |
-| Presenter suite — timer, notes, mirroring, A/V check      | planned  |
-| Publish pipeline — PDF, Speaker Deck, OG, QR              | planned  |
-| Integrations — Vue / React / Svelte / Angular / Three     | planned  |
+| Area                                                      | State                          |
+| --------------------------------------------------------- | ------------------------------ |
+| `slidx_core` — deck model, parser, step pipeline          | shipped                        |
+| `slidx_lint` — contrast, font size, overflow, a11y        | shipped                        |
+| `slidx_render` — slide / presenter / print shells, themes | shipped                        |
+| `@slidx/vite-plugin` — dev server, SSG, PDF, OG           | shipped                        |
+| `slidx` — doctor, lint, publish, preview, version         | shipped                        |
+| Visual editor — outline, canvas, inspector                | shipped; timeline still to do  |
+| Presenter suite — timer, pace, mirroring, remote, A/V     | shipped                        |
+| Publish pipeline — PDF, Speaker Deck, OG, QR, archive     | shipped                        |
+| Integrations — Vue / React / Svelte / Angular / Three     | shipped                        |
+| Language server                                           | shipped; no editor plugins yet |
 
-See [ROADMAP.md](./ROADMAP.md) for the plan and the open issues for detail.
+Nothing above is released yet: the packages exist and are tested, and the first
+publish to npm and crates.io has not happened.
+
+[ROADMAP.md](./ROADMAP.md) is the honest version — every unchecked line there
+says _why_ it is not done, and it opens with what a checked box is allowed to
+mean.
 
 ## The shape of a deck
 
