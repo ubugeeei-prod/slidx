@@ -37,7 +37,7 @@ The minimum a speaker can stand on stage with.
 - [x] Client runtime: step resolution and the anchor contract — #4
 - [x] Client runtime: navigation, keyboard, deep links — #4
 - [x] Slide-to-slide transitions — #4
-- [ ] **Offline guarantee**: build fails if any asset resolves to a remote host — #5
+- [x] **Offline guarantee**: a remote asset is a lint error — #5
 - [x] Print shell with each stop as its own page — #6
 - [x] Automated PDF at build time — #6
 - [x] OG image per slide and per deck
@@ -58,7 +58,8 @@ The failures that are invisible on a laptop and fatal on a projector.
 - [x] Missing alt text, heading order, bullet load, bare-URL links — #7
 - [x] Animation cost: effects that will not stay on the compositor — #7
 - [x] Time budget: per-slide budgets summed against the slot length — #7
-- [ ] `slidx doctor` — display resolution, fonts, network, DND, audio levels — #8
+- [x] `slidx doctor` — power, disk, clock, fonts, capture, network — #8
+- [ ] Doctor: display resolution, DND state, audio levels (no std-only reading exists) — #8
 
 **Done when** every documented stage failure has a rule that catches it before
 the author leaves their desk.
@@ -73,7 +74,8 @@ Editor-first authoring that still writes reviewable Markdown.
 - [ ] Direct manipulation with snapping, guides, and layout tokens
 - [ ] **Animation timeline** — the PowerPoint-shaped surface over `steps:` — #10
 - [ ] Live diagnostics from the linter, inline
-- [ ] Media: video and audio embeds with level metering and loudness check — #11
+- [x] Media: level metering, loudness normalisation, and a report — #11
+- [ ] Media: editor surface for placing a clip — #11
 - [ ] Storyboard mode: edit at the level of one message per slide
 
 **Done when** an author can build a staged, animated slide without typing YAML,
@@ -93,7 +95,7 @@ Everything between walking up and sitting down.
 - [x] Presentation mode: wake lock, fullscreen, and a named DND checklist — #13
 - [ ] Rehearsal recording; actual per-slide dwell time diffed against budget — #17
 - [ ] **Demo fallback** as a declared construct: live target plus recorded video — #14
-- [ ] Audience channel — optional Cloudflare Worker for Q&A and reactions — #16
+- [x] Audience channel — moderated Q&A and reactions on a Worker — #16
 - [ ] Live code sharing: publish a highlighted snippet, show its QR on screen — #15
 
 **Done when** a speaker can run the whole talk from slidx and recover from a
@@ -105,10 +107,13 @@ dead demo, a dead network, and a forced-mirroring projector.
 
 The chore that is currently done exhausted, and therefore often not done.
 
-- [ ] `slidx publish`: publication-grade PDF, embedded fonts, size checks — #18
-- [ ] Speaker Deck and Docswell upload with slug, description, and tags — #18
-- [ ] Social card, post text, and a blog scaffold generated from notes
-- [ ] Resources page built from every link in the deck, with QR codes — #19
+- [x] Publish planning, payloads, and caps for every target — #18
+- [ ] `slidx publish` CLI that performs a plan — #18
+- [x] Speaker Deck and Docswell payloads with slug, description, and tags — #18
+- [x] Social card, post text, and a blog scaffold generated from notes
+- [x] Resources page built from every link in the deck — #19
+- [x] QR encoder — #19
+- [x] QR codes rendered onto slides — #19
 - [ ] Attach the recording after the fact; archive and talk index — #20
 
 **Done when** publishing everywhere is one command driven by frontmatter the
@@ -118,7 +123,8 @@ author already wrote at proposal time.
 
 ## M6 — Integrations and reach
 
-- [ ] Opt-in islands: Vue, React, Svelte, Angular, Three.js — #21
+- [x] Opt-in islands: Vue, React, Svelte, Three.js — #21
+- [ ] Angular island (needs its compiler and a change-detection provider) — #21
 - [ ] Theme packages distributable on npm — #3
 - [ ] Editor tooling: LSP, VS Code, Zed, Neovim — #23
 - [ ] Browser matrix: Chrome, Firefox, Safari, Edge — verified, not assumed — #23

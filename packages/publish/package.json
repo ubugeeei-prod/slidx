@@ -1,0 +1,30 @@
+{
+  "name": "@slidx/publish",
+  "version": "0.0.1",
+  "description": "Plans and payloads for publishing a finished slidx deck. Performs nothing, needs no credentials",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ubugeeei-prod/slidx.git",
+    "directory": "packages/publish"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "pack:lib": "vp pack src/index.ts --dts --out-dir dist"
+  }
+}

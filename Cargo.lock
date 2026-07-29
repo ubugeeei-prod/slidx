@@ -451,6 +451,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "slidx_doctor"
+version = "0.0.1"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "slidx_lint"
 version = "0.0.1"
 dependencies = [
@@ -478,6 +486,7 @@ dependencies = [
  "serde_json",
  "slidx_core",
  "slidx_lint",
+ "slidx_qr",
  "slidx_theme",
 ]
 
