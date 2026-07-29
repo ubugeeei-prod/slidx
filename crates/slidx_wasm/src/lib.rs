@@ -34,7 +34,7 @@ use ts_rs::TS;
 use wasm_bindgen::prelude::*;
 
 use slidx_core::{parse_deck, DeckParseOptions};
-use slidx_lint::{lint, LintInput, LintOptions};
+use slidx_lint::{lint, LintInput, LintOptions, Measurement};
 use slidx_render::{
     render_deck_card, render_presenter, render_print, render_slide, OgOptions, PresenterOptions,
     PrintOptions, ShellOptions,
@@ -157,6 +157,40 @@ pub fn build_deck(
     serde_wasm_bindgen::to_value(&result).map_err(|error| JsError::new(&error.to_string()))
 }
 
+/// Reports what a browser found when it laid the built pages out.
+///
+/// Separate from [`build_deck`] because the pages have to exist before anything
+/// can open them, so the measurement necessarily arrives after the build that
+/// already linted everything else. It returns only the findings a browser could
+/// produce; the rest were reported once already.
+#[wasm_bindgen(js_name = lintMeasured)]
+pub fn lint_measured(
+    source: &str,
+    measured: JsValue,
+    options: JsValue,
+) -> Result<JsValue, JsError> {
+    let options: BuildOptions = if options.is_undefined() || options.is_null() {
+        BuildOptions::default()
+    } else {
+        serde_wasm_bindgen::from_value(options)
+            .map_err(|error| JsError::new(&format!("invalid options: {error}")))?
+    };
+
+    let measured: Vec<Measurement> = serde_wasm_bindgen::from_value(measured)
+        .map_err(|error| JsError::new(&format!("invalid measurements: {error}")))?;
+
+    let parse_options = DeckParseOptions {
+        separator: options.separator.clone().unwrap_or_else(|| "---".to_string()),
+        ..DeckParseOptions::default()
+    };
+    let deck = parse_deck(source, &parse_options);
+
+    let findings = slidx_lint::lint_measured(&deck, &measured, &LintOptions::default());
+    let findings: Vec<Finding> = findings.iter().map(finding).collect();
+
+    serde_wasm_bindgen::to_value(&findings).map_err(|error| JsError::new(&error.to_string()))
+}
+
 /// The CSS a theme resolves to, for callers that render their own shells.
 #[wasm_bindgen(js_name = themeCss)]
 pub fn theme_css(name: Option<String>) -> String {
@@ -192,7 +226,12 @@ fn build(source: &str, options: &BuildOptions) -> BuildResult {
     let mut diagnostics: Vec<Finding> = deck.diagnostics.iter().map(finding).collect();
     let has_blocking = deck.diagnostics.has_blocking();
 
-    let findings = lint(&LintInput::new(&deck, &surfaces), &LintOptions::default());
+    // The theme's padding is the safe area the shell enforces, and resolving
+    // the theme is the only place that number exists. Without it the linter
+    // cannot say whether a venue's caption strip reaches into content.
+    let padding = theme.spacing.padding_px / theme.reference_height_px();
+    let findings =
+        lint(&LintInput::new(&deck, &surfaces).with_padding(padding), &LintOptions::default());
     diagnostics.extend(findings.iter().map(finding));
 
     let runtime_src = options.runtime_src.clone().unwrap_or_else(|| "./runtime.js".to_string());
@@ -365,6 +404,27 @@ mod tests {
             build("---\nduration: 1m\nbudget: 600s\n---\n\n# One\n", &BuildOptions::default());
 
         assert!(result.diagnostics.iter().any(|finding| finding.code.starts_with("budget/")));
+    }
+
+    #[test]
+    fn the_theme_padding_is_what_a_declared_caption_strip_is_checked_against() {
+        // The safe area is not a second number: it is the padding the shell
+        // already enforces. Resolving the theme is the only place that number
+        // exists, so this is where the linter is told about it.
+        let result =
+            build("---\nsafeArea:\n  bottom: 15%\n---\n\n# One\n", &BuildOptions::default());
+
+        assert!(
+            result.diagnostics.iter().any(|finding| finding.code == "overflow/caption-strip"),
+            "no caption-strip finding: {:?}",
+            result.diagnostics
+        );
+    }
+
+    #[test]
+    fn a_deck_with_no_room_declared_is_not_told_about_its_padding() {
+        let result = build("# One\n", &BuildOptions::default());
+        assert!(result.diagnostics.iter().all(|finding| !finding.code.starts_with("overflow/")));
     }
 
     #[test]
