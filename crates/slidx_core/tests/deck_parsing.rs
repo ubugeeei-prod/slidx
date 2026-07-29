@@ -120,11 +120,11 @@ fn auto_steps_stage_list_items_without_any_markup() {
 #[test]
 fn transitions_default_to_the_deck_setting_and_can_be_overridden_per_slide() {
     let deck =
-        parse("---\ntransition: fade\n---\n\n# One\n\n---\ntransition: slide-left\n---\n\n# Two\n");
+        parse("---\ntransition: fade\n---\n\n# One\n\n---\ntransition: slide\n---\n\n# Two\n");
 
     assert_eq!(deck.meta.transition.as_deref(), Some("fade"));
     assert_eq!(deck.slides[0].transition.as_deref(), Some("fade"));
-    assert_eq!(deck.slides[1].transition.as_deref(), Some("slide-left"));
+    assert_eq!(deck.slides[1].transition.as_deref(), Some("slide"));
 }
 
 #[test]
