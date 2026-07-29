@@ -36,6 +36,7 @@
 //! date come from frontmatter the author already wrote, and those are what make
 //! an entry recognisable.
 
+use std::cmp::Reverse;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -198,7 +199,7 @@ impl Index {
     }
 
     fn sort(&mut self) {
-        self.entries.sort_by(|a, b| b.last_seen.cmp(&a.last_seen));
+        self.entries.sort_by_key(|entry| Reverse(entry.last_seen));
     }
 }
 

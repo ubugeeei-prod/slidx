@@ -27,6 +27,8 @@
 //! Matching is case-insensitive, but an exact-case hit scores higher, so
 //! `VueConf` still beats `vueconf` when both are on screen.
 
+use std::cmp::Reverse;
+
 /// Where a needle matched, and how well.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Match {
@@ -144,7 +146,7 @@ pub fn rank<'a, T>(
         .filter_map(|candidate| score(needle, &text(candidate)).map(|found| (candidate, found)))
         .collect();
 
-    hits.sort_by(|(_, a), (_, b)| b.score.cmp(&a.score));
+    hits.sort_by_key(|(_, hit)| Reverse(hit.score));
     hits
 }
 
