@@ -43,6 +43,16 @@ export interface SlidxOptions {
    */
   pdf?: boolean | { fileName?: string };
   /**
+   * Draw a social card for each slide, and one for the deck.
+   *
+   * On by default. A deck is shared as a URL far more often than it is
+   * presented, and a URL with no card is a grey rectangle in a timeline.
+   *
+   * Cards are emitted as SVG always, and converted to PNG when a browser is
+   * available — most scrapers still refuse SVG.
+   */
+  og?: boolean;
+  /**
    * Fail the build when the linter reports something blocking.
    *
    * On by default: a contrast failure that reaches a projector cannot be fixed
@@ -60,6 +70,7 @@ export interface ResolvedOptions {
   extensions: string[];
   presenter: boolean;
   print: boolean;
+  og: boolean;
   pdf: false | { fileName: string };
   failOnDiagnostics: boolean;
 }
@@ -73,6 +84,7 @@ export function resolveOptions(options: SlidxOptions = {}): ResolvedOptions {
     extensions: normaliseExtensions(options.extensions ?? [".md"]),
     presenter: options.presenter ?? true,
     print: options.print ?? true,
+    og: options.og ?? true,
     pdf: resolvePdf(options.pdf),
     failOnDiagnostics: options.failOnDiagnostics ?? true,
   };
@@ -132,6 +144,12 @@ function resolvePdf(pdf: SlidxOptions["pdf"]): false | { fileName: string } {
   if (pdf === true) return { fileName: "deck.pdf" };
 
   return { fileName: pdf.fileName?.trim() || "deck.pdf" };
+}
+
+/** Where a slide's social card is written, without an extension. */
+export function ogFileBase(options: ResolvedOptions, index: number | "deck"): string {
+  const name = index === "deck" ? "og" : `og-${index + 1}`;
+  return options.base ? `${options.base}/${name}` : name;
 }
 
 /** Where the printable document is written. */

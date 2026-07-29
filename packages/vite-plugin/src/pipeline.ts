@@ -36,6 +36,7 @@ export interface BuildDeckOptions {
   parseOnly?: boolean;
   presenter?: boolean;
   print?: boolean;
+  og?: boolean;
   runtimeSrc?: string;
   printRuntime?: string;
 }
@@ -50,6 +51,7 @@ export async function build(source: string, options: BuildDeckOptions): Promise<
     parseOnly: options.parseOnly ?? false,
     presenter: options.presenter ?? false,
     print: options.print ?? false,
+    og: options.og ?? false,
     runtimeSrc: options.runtimeSrc,
     printRuntime: options.printRuntime,
   });

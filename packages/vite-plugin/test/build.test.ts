@@ -99,8 +99,24 @@ describe("building a deck with no configuration", () => {
     expect(result.files).toContain("slides/print/index.html");
   });
 
+  it("draws a social card for every slide, and one for the deck", () => {
+    // A deck is shared as a URL far more often than it is presented, and a
+    // URL with no card is a grey rectangle in a timeline.
+    expect(result.files).toContain("slides/og-1.svg");
+    expect(result.files).toContain("slides/og-2.svg");
+    expect(result.files).toContain("slides/og.svg");
+  });
+
+  it("converts the cards to PNG where a browser exists", () => {
+    // Almost no platform renders SVG, so the PNG is the one that matters.
+    // Where no browser is installed the SVG stands alone rather than the
+    // build failing, so this only asserts the pair when one was produced.
+    const png = result.files.filter((file) => file.endsWith(".png"));
+    if (png.length > 0) expect(png).toContain("slides/og.png");
+  });
+
   it("emits nothing else", () => {
-    expect(result.files).toEqual([
+    expect(result.files.filter((file) => !file.startsWith("slides/og"))).toEqual([
       "slides/2/index.html",
       "slides/2/presenter/index.html",
       "slides/index.html",
@@ -135,11 +151,19 @@ describe("building a deck with no configuration", () => {
 describe("options", () => {
   it("serves the deck at the site root when asked", async () => {
     const { files } = await buildDeck({ "0001.md": "# One\n" }, { base: "/" });
-    expect(files).toEqual(["index.html", "presenter/index.html", "print/index.html", "runtime.js"]);
+    expect(files.filter((file) => !file.startsWith("og"))).toEqual([
+      "index.html",
+      "presenter/index.html",
+      "print/index.html",
+      "runtime.js",
+    ]);
   }, 60_000);
 
   it("builds only the audience pages when both extra views are off", async () => {
-    const { files } = await buildDeck({ "0001.md": "# One\n" }, { presenter: false, print: false });
+    const { files } = await buildDeck(
+      { "0001.md": "# One\n" },
+      { presenter: false, print: false, og: false },
+    );
     expect(files).toEqual(["slides/index.html"]);
   }, 60_000);
 

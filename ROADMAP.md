@@ -40,7 +40,7 @@ The minimum a speaker can stand on stage with.
 - [ ] **Offline guarantee**: build fails if any asset resolves to a remote host — #5
 - [x] Print shell with each stop as its own page — #6
 - [x] Automated PDF at build time — #6
-- [ ] OG image per slide and per deck
+- [x] OG image per slide and per deck
 
 **Done when** `npm i -D @slidx/vite-plugin` → `vite build` produces a deck that
 works with the network cable pulled.

@@ -18,13 +18,12 @@
  * crawled, and opened on a phone with no JavaScript at all.
  */
 
-import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
-
 import type { Plugin, ViteDevServer } from "vite";
 
 import { readDeck } from "./deck";
+import { exportPdf, rasteriseCards } from "./artifacts";
 import {
+  ogFileBase,
   presenterFileName,
   printFileName,
   resolveOptions,
@@ -33,7 +32,6 @@ import {
   type SlidxOptions,
 } from "./options";
 import { build as buildDeck } from "./pipeline";
-import { renderPdf } from "./pdf";
 import { blockingSummary, formatReport, groupFindings } from "./report";
 
 export type { SlidxOptions } from "./options";
@@ -137,7 +135,7 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
         }
       }
 
-      const built = await renderDeck(root, options, options.presenter, options.print);
+      const built = await renderDeck(root, options, options.presenter, options.print, options.og);
 
       // No slide files at all is a different situation from a deck that
       // failed to parse: emitting a blank page would look like the deck built
@@ -176,6 +174,28 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
         }
       }
 
+      // Cards are emitted as SVG unconditionally and rasterised below, so a
+      // build with no browser still produces something a platform can be
+      // pointed at.
+      if (options.og) {
+        for (const [index, slide] of built.slides.entries()) {
+          if (!slide.ogSvg) continue;
+          this.emitFile({
+            type: "asset",
+            fileName: `${ogFileBase(options, index)}.svg`,
+            source: slide.ogSvg,
+          });
+        }
+
+        if (built.ogSvg) {
+          this.emitFile({
+            type: "asset",
+            fileName: `${ogFileBase(options, "deck")}.svg`,
+            source: built.ogSvg,
+          });
+        }
+      }
+
       if (built.printHtml) {
         this.emitFile({
           type: "asset",
@@ -205,20 +225,10 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
      * by pressing Cmd-P on the same page.
      */
     async writeBundle(output) {
-      if (!options.pdf || !options.print) return;
-
       const directory = output.dir ?? "dist";
-      const shell = join(directory, printFileName(options));
-      const target = join(directory, options.pdf.fileName);
 
-      try {
-        await writeFile(target, await renderPdf(shell));
-        this.info(`exported ${options.pdf.fileName}`);
-      } catch (error) {
-        // A failed export must not destroy a build that otherwise succeeded:
-        // the deck still works, and the person can retry the PDF.
-        this.warn(`PDF export failed — the deck built anyway.\n${(error as Error).message}`);
-      }
+      if (options.og) await rasteriseCards(this, directory, options);
+      await exportPdf(this, directory, options);
     },
   };
 }
@@ -228,6 +238,7 @@ async function renderDeck(
   options: ReturnType<typeof resolveOptions>,
   presenter: boolean,
   print = false,
+  og = false,
 ) {
   const { files, source } = await readDeck(
     root,
@@ -241,6 +252,7 @@ async function renderDeck(
     separator: options.separator,
     presenter,
     print,
+    og,
     runtimeSrc: runtimeSrcFor(options),
     // The print shell carries the runtime rather than importing it, so the
     // one document a speaker falls back to opens from anywhere.
