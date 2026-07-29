@@ -1,0 +1,23 @@
+[package]
+name = "slidx_lsp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Language server that puts slidx's parse diagnostics, lint findings, and vocabulary in the author's editor"
+
+[lib]
+name = "slidx_lsp"
+path = "src/lib.rs"
+
+[[bin]]
+name = "slidx-lsp"
+path = "src/main.rs"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+slidx_core = { workspace = true }
+slidx_lint = { workspace = true }
+slidx_theme = { workspace = true }
