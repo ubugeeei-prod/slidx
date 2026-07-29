@@ -6,7 +6,7 @@
  * and what it does not.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { byteLength, sliceBytes } from "../src/bytes";
 import { locateSelection, occurrenceInRendered } from "../src/selection";

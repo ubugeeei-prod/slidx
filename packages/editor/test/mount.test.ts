@@ -6,7 +6,7 @@
  * built out of the DOM and nothing else.
  */
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { mount } from "../src/index";
 import { deckOf, fakeServer } from "./support";

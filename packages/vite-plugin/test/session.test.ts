@@ -17,7 +17,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 
 import { createServer, type ViteDevServer } from "vite";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { slidx } from "../src/index";
 

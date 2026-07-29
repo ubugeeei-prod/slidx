@@ -6,7 +6,7 @@
  * operation the deck refuses is a line of text rather than a crash.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { createHistory } from "../src/history";
 import { createSession } from "../src/session";

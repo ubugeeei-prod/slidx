@@ -101,7 +101,11 @@ export function createEditSession(root: string, options: ResolvedOptions): EditS
       try {
         if (path === EDITOR_PAGE && request.method === "GET") {
           const deck = await state(joinDeck(await files(), options.separator).source);
-          page(response, editorPage(options.base, deck.deck.title));
+          // The generated deck type says `null` because that is what serde
+          // writes across the boundary; everything on this side of it says
+          // `undefined`. One conversion, here, rather than two vocabularies
+          // for absence leaking through the plugin.
+          page(response, editorPage(options.base, deck.deck.title ?? undefined));
           return true;
         }
 

@@ -18,12 +18,20 @@ import { createHistory, type History } from "./history";
 import type { EditOp, EditRefusal } from "./operations";
 
 /** What is selected, which is what the inspector is about. */
+/**
+ * Where the author is.
+ *
+ * The optional fields are written `| undefined` on purpose. These are patched
+ * rather than replaced, and moving to another slide *clears* the range — so a
+ * caller has to be able to say "this field is now nothing", which is a
+ * different statement from leaving the field out of the patch.
+ */
 export interface Selection {
   slide: number;
   /** A range of the current slide's source body, when text is selected. */
-  range?: { start: number; end: number };
+  range?: { start: number; end: number } | undefined;
   /** The text that range names, for showing back to the author. */
-  text?: string;
+  text?: string | undefined;
 }
 
 export interface EditorState {
@@ -35,9 +43,9 @@ export interface EditorState {
   canUndo: boolean;
   canRedo: boolean;
   /** What the last operation was refused for, cleared by the next one. */
-  refusal?: EditRefusal;
+  refusal?: EditRefusal | undefined;
   /** A message about something that stopped, rather than something refused. */
-  problem?: string;
+  problem?: string | undefined;
 }
 
 export interface Session {

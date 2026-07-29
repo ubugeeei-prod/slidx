@@ -5,7 +5,7 @@
  * document, so it is also where a file can quietly stop being its own slide.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { joinDeck, type DeckFile } from "../src/files";
 

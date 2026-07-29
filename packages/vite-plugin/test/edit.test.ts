@@ -7,7 +7,7 @@
  * and to what", because that is what a reviewer sees.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { applyOperation, revertOperation, type DeckFile } from "../src/edit";
 import { joinDeck } from "../src/files";

@@ -7,7 +7,7 @@
  * project is sold on.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { attachEditing, createCanvas, routeFor } from "../src/canvas";
 import { createDiagnostics } from "../src/diagnostics";

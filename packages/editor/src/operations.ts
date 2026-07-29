@@ -25,9 +25,14 @@ export interface ByteSpan {
 
 /** A mark without its text, which is whatever the author selected. */
 export interface MarkAttributes {
-  key?: string;
-  classes?: string[];
-  properties?: Record<string, string>;
+  /**
+   * Written `| undefined` because the inspector edits these as a patch: an
+   * author removing a mark's key is saying it has none, which a missing field
+   * cannot express.
+   */
+  key?: string | undefined;
+  classes?: string[] | undefined;
+  properties?: Record<string, string> | undefined;
 }
 
 /** One authored intent on a slide's timeline. */
