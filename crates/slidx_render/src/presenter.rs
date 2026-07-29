@@ -69,6 +69,7 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
       </button>
       <button type="button" data-slidx-action="reset" aria-label="Reset the timer">Reset</button>
       <span class="slidx-presenter-position">{number} / {count}</span>
+      <span class="slidx-presenter-stop" data-slidx-stop>{stops}</span>
     </div>
   </header>
 
@@ -95,8 +96,22 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
         count = deck.slides.len(),
         notes = notes_html(slide, options),
         next_preview = next_preview(next, options),
+        stops = stop_label(1, slide.timeline.frames().len()),
         script = script(deck, slide, &options.runtime_src),
     )
+}
+
+/// Where the speaker is inside the slide, or nothing when there is no inside.
+///
+/// A slide with one stop has no build to be partway through, and a counter
+/// reading "1 of 1" is a number that never changes — noise on the one screen a
+/// speaker glances at mid-sentence.
+fn stop_label(stop: usize, stops: usize) -> String {
+    if stops < 2 {
+        return String::new();
+    }
+
+    format!("stop {stop} of {stops}")
 }
 
 /// The slot length, as a speaker reads it before starting.
@@ -152,7 +167,13 @@ fn next_preview(next: Option<&Slide>, options: &PresenterOptions) -> String {
 /// is what a speaker falls back to when everything else has failed.
 fn script(deck: &Deck, slide: &Slide, runtime_src: &str) -> String {
     format!(
-        r#"import {{ createTimer, formatDuration, createMirror }} from "{runtime_src}";
+        r#"import {{
+  createTimer,
+  formatDuration,
+  createMirror,
+  createNavigator,
+  createStopCursor,
+}} from "{runtime_src}";
 
 const budgetMs = {budget};
 const timer = createTimer({{ budgetMs }});
@@ -185,18 +206,55 @@ document
 setInterval(paint, 250);
 paint();
 
-// Keep the projector on this slide, and follow it if it is driven from there.
-mirror.send({{ slide: {index}, step: 0 }});
-
 // Slide one's presenter lives at the deck root and the rest live one directory
 // down, so `slide + 1` is a path for every slide except the first — and the
 // first is the one a speaker reaches for when they need to start over.
 const root = {index} === 0 ? "../" : "../../";
-mirror.subscribe((position) => {{
-  if (position.slide === {index}) return;
-  location.href =
-    position.slide === 0 ? `${{root}}presenter/` : `${{root}}${{position.slide + 1}}/presenter/`;
+const hrefFor = (slide, step) => {{
+  const path = slide === 0 ? `${{root}}presenter/` : `${{root}}${{slide + 1}}/presenter/`;
+  return step === undefined ? path : `${{path}}?step=${{step}}`;
+}};
+
+// The presenter page does not render the slide, so its stage only counts.
+// Every rule about clamping and about when a step becomes a slide change
+// stays in the navigator, where it is already tested.
+const opening = new URLSearchParams(location.search).get("step");
+
+const deck = createNavigator({{
+  stage: createStopCursor({stops}),
+  slide: {index},
+  slideCount: {count},
+  step: opening === null ? undefined : Number(opening),
+  hrefFor,
 }});
+
+// This is the window the speaker is looking at, so this is the window a
+// clicker sends its keys to. Without this the deck can only be driven by
+// focusing the projector, which is on the other screen.
+addEventListener("keydown", (event) => deck.handleKey(event));
+
+const stopLabel = document.querySelector("[data-slidx-stop]");
+const paintStop = () => {{
+  if (stopLabel && {stops} > 1) stopLabel.textContent = `stop ${{deck.step + 1}} of {stops}`;
+}};
+
+deck.subscribe((position) => {{
+  paintStop();
+  mirror.send(position);
+}});
+
+// And follow the projector when it is driven from there instead.
+mirror.subscribe((position) => {{
+  if (position.slide !== {index}) {{
+    location.href = hrefFor(position.slide, position.step === 0 ? undefined : position.step);
+    return;
+  }}
+  deck.show(position);
+  paintStop();
+}});
+
+mirror.send({{ slide: {index}, step: deck.step }});
+paintStop();
 "#,
         runtime_src = runtime_src,
         budget = deck
@@ -205,6 +263,8 @@ mirror.subscribe((position) => {{
             .map(|seconds| (u64::from(seconds) * 1000).to_string())
             .unwrap_or_else(|| "undefined".to_string()),
         index = slide.index,
+        count = deck.slides.len(),
+        stops = slide.timeline.frames().len(),
     )
 }
 
@@ -291,8 +351,45 @@ mod tests {
 
     #[test]
     fn it_mirrors_its_position_to_the_other_window() {
+        // The step is whatever the page opened at rather than a literal zero:
+        // a presenter page reached from a `?step=` link is already partway
+        // into a build, and announcing stop zero would drag the projector back.
         let html = presenter("# One\n\n---\n\n# Two\n", 1);
-        assert!(html.contains("mirror.send({ slide: 1, step: 0 })"));
+
+        assert!(html.contains("mirror.send({ slide: 1, step: deck.step })"));
+        assert!(html.contains("deck.subscribe("), "moves are not announced:\n{html}");
+    }
+
+    #[test]
+    fn the_speaker_can_drive_the_deck_from_the_window_they_are_looking_at() {
+        // A clicker sends its keys to whichever window is focused, and that is
+        // the speaker's own screen. Without this the deck can only be advanced
+        // by focusing the projector, which is on the other machine.
+        let html = presenter("# One\n\n---\n\n# Two\n", 0);
+
+        assert!(html.contains("createNavigator"), "no navigator:\n{html}");
+        assert!(html.contains("deck.handleKey(event)"), "keys are not handled:\n{html}");
+    }
+
+    #[test]
+    fn it_counts_stops_only_when_there_is_a_build_to_be_partway_through() {
+        // "stop 1 of 1" is a number that never changes, on the one screen a
+        // speaker glances at mid-sentence.
+        let staged = presenter("- one <!-- step -->\n- two <!-- step -->\n", 0);
+        let plain = presenter("# One\n", 0);
+
+        assert!(staged.contains("stop 1 of 3"), "no stop counter on a staged slide:\n{staged}");
+        assert!(plain.contains("data-slidx-stop></span>"), "a stop counter for one stop:\n{plain}");
+    }
+
+    #[test]
+    fn going_back_to_the_first_slide_names_the_deck_root() {
+        // Slide one's presenter lives at the root and the rest live one
+        // directory down, so `slide + 1` addresses a directory that does not
+        // exist for exactly the slide a speaker starts over from.
+        let html = presenter("# One\n\n---\n\n# Two\n", 1);
+
+        assert!(html.contains("`${root}presenter/`"), "slide one is unreachable:\n{html}");
     }
 
     #[test]

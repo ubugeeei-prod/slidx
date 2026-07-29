@@ -51,7 +51,7 @@ export type {
 } from "./presentation";
 export type { Navigator, NavigatorOptions } from "./navigate";
 export type { Mirror, MirrorMessage, MirrorTransport, Position } from "./mirror";
-export { createStage, HIDDEN_ATTRIBUTE, STAGED_ATTRIBUTE } from "./stage";
+export { createStage, createStopCursor, HIDDEN_ATTRIBUTE, STAGED_ATTRIBUTE } from "./stage";
 export type { Stage } from "./stage";
 export { createTimer, formatDuration } from "./timer";
 export type { Timer, TimerState, TimerStatus } from "./timer";
