@@ -23,8 +23,12 @@
 //! linked it would make the eventual diff two changes instead of one, and a
 //! diff an author cannot skim is a diff they stop reading.
 
+pub mod read;
+
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
+
+pub use read::read_record;
 
 use crate::targets::yaml_string;
 use crate::text::file_slug;
