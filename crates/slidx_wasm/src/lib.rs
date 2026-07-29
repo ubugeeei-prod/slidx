@@ -29,6 +29,7 @@
 
 pub mod declarations;
 pub mod edit;
+pub mod publish;
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -266,7 +267,11 @@ fn build(source: &str, options: &BuildOptions) -> BuildResult {
     diagnostics.extend(findings.iter().map(finding));
 
     let runtime_src = options.runtime_src.clone().unwrap_or_else(|| "./runtime.js".to_string());
-    let shell = ShellOptions { theme: theme.clone(), ..ShellOptions::default() };
+    let shell = ShellOptions {
+        theme: theme.clone(),
+        runtime_src: runtime_src.clone(),
+        ..ShellOptions::default()
+    };
     let print_theme = theme.clone();
     let og_theme = theme.clone();
     let presenter =

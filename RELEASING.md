@@ -70,6 +70,20 @@ compromised. For that, the release also publishes a Sigstore attestation:
 gh attestation verify slidx-aarch64-apple-darwin.tar.gz --repo ubugeeei-prod/slidx
 ```
 
+### `slidx version`
+
+A third way to get a binary, and the only one that keeps several. It reads the
+same release assets and the same `SHA256SUMS` as `install.sh` — one
+publication, two readers — so a version installed either way is the same file.
+
+It verifies with its own SHA-256 rather than looking for `sha256sum` on the
+machine. That is the one place the binary is strictly better than the shell
+script: there is no detection, no fallback, and no branch that installs without
+checking.
+
+Nothing extra has to be published for it. If a release has archives and a
+checksum file, `slidx version install` can install from it.
+
 ### Adding a platform
 
 Add it to `scripts/platforms.mjs` and to the `binaries` matrix in

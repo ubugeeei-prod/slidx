@@ -19,6 +19,27 @@
  * side effect of being trivially testable and diffable: the same deck plans
  * the same way every time, so `slidx publish --plan` is something you can read
  * before you mean it, and compare against what you did last time.
+ *
+ * ## Where the rules live
+ *
+ * Not here. Every cap, every ordering, and the wording of every reason lives in
+ * `crates/slidx_publish`, and this package is a name for each of them across
+ * the WebAssembly boundary. The `slidx` binary plans from the same crate, so
+ * the plan a CI job prints is the plan the CLI performs — two implementations
+ * of "will Speaker Deck accept this title" is two answers, and the wrong one is
+ * discovered by a platform rejecting an upload at the end of a long day.
+ *
+ * ## Loading
+ *
+ * Every function here is synchronous, because planning is: it reads no clock,
+ * opens no socket, and waits for nothing. The planner is loaded once when the
+ * module is imported, so there is nothing to await and nothing to initialise.
+ *
+ * ```js
+ * import { planPublish } from "@slidx/publish";
+ *
+ * const plan = planPublish({ meta: { title: "Zero-JavaScript Slides" } });
+ * ```
  */
 
 export {

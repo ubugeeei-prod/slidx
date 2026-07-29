@@ -187,8 +187,15 @@ paint();
 
 // Keep the projector on this slide, and follow it if it is driven from there.
 mirror.send({{ slide: {index}, step: 0 }});
+
+// Slide one's presenter lives at the deck root and the rest live one directory
+// down, so `slide + 1` is a path for every slide except the first — and the
+// first is the one a speaker reaches for when they need to start over.
+const root = {index} === 0 ? "../" : "../../";
 mirror.subscribe((position) => {{
-  if (position.slide !== {index}) location.href = `../${{position.slide + 1}}/presenter/`;
+  if (position.slide === {index}) return;
+  location.href =
+    position.slide === 0 ? `${{root}}presenter/` : `${{root}}${{position.slide + 1}}/presenter/`;
 }});
 "#,
         runtime_src = runtime_src,

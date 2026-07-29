@@ -8,6 +8,7 @@
 //! Fixed at 80 columns. A terminal narrower than that is rare; a paragraph
 //! reflowed to a 200-column window is unreadable everywhere.
 
+use crate::args::Route;
 use crate::command::{Command, Flag, ALL, GLOBAL, ROOT};
 use crate::style::{Ink, Style};
 
@@ -46,20 +47,53 @@ pub fn root(style: &Style) -> String {
     text
 }
 
-/// `slidx <command> --help`.
-pub fn command(command: &'static Command, style: &Style) -> String {
+/// `slidx <command> --help`, or `slidx <command> <subcommand> --help`.
+pub fn command(route: &Route, style: &Style) -> String {
+    let entry = route.command;
     let mut text = String::new();
 
     text.push_str(&format!(
         "{} {} — {}\n\n",
         style.paint(Ink::Strong, "slidx"),
-        style.paint(Ink::Strong, command.name),
-        command.summary
+        style.paint(Ink::Strong, route.typed()),
+        entry.summary
     ));
-    text.push_str(&format!("{}  slidx {}\n\n", heading("Usage", style), command.usage));
-    text.push_str(command.about);
+
+    let usage = match route.parent {
+        Some(parent) => format!("{} {}", parent.name, entry.usage),
+        None => entry.usage.to_string(),
+    };
+    text.push_str(&format!("{}  slidx {usage}\n\n", heading("Usage", style)));
+    text.push_str(entry.about);
     text.push_str("\n\n");
-    text.push_str(&options(command.flags, style));
+
+    if entry.has_subcommands() {
+        text.push_str(&subcommands(entry, style));
+        text.push('\n');
+    }
+
+    text.push_str(&options(entry.flags, style));
+
+    text
+}
+
+/// The `Commands:` block under a command that has children.
+fn subcommands(parent: &'static Command, style: &Style) -> String {
+    let width = parent.subcommands.iter().map(|child| child.name.len()).max().unwrap_or(0);
+    let mut text = heading("Commands", style);
+
+    for child in parent.subcommands {
+        // The default is marked, so `slidx version` on its own is not a
+        // mystery somebody has to run to find out about.
+        let note = if parent.default_subcommand == Some(child.name) { "  (default)" } else { "" };
+
+        text.push_str(&format!(
+            "  {}  {}{}\n",
+            style.pad(Ink::Strong, child.name, width),
+            child.summary,
+            style.paint(Ink::Faint, note)
+        ));
+    }
 
     text
 }
@@ -130,7 +164,7 @@ mod tests {
         // The drift this file exists to prevent, asserted in the direction it
         // actually happens: a flag added to the table and not to the docs.
         for entry in ALL {
-            let text = command(entry, &Style::plain());
+            let text = command(&Route::to(entry), &Style::plain());
 
             for flag in entry.flags {
                 assert!(
@@ -152,13 +186,14 @@ mod tests {
     #[test]
     fn every_command_help_offers_help_itself() {
         for entry in ALL {
-            assert!(command(entry, &Style::plain()).contains("--help"));
+            assert!(command(&Route::to(entry), &Style::plain()).contains("--help"));
         }
     }
 
     #[test]
     fn a_flag_that_takes_a_value_shows_the_placeholder_next_to_it() {
-        let text = command(command::find("lint").expect("lint exists"), &Style::plain());
+        let text =
+            command(&Route::to(command::find("lint").expect("lint exists")), &Style::plain());
 
         assert!(text.contains("--theme <name>"), "{text}");
     }
@@ -167,7 +202,8 @@ mod tests {
     fn the_lint_help_says_what_the_exit_code_means() {
         // The reason anyone puts this in CI. If it is not in the help, it is
         // discovered by accident or not at all.
-        let text = command(command::find("lint").expect("lint exists"), &Style::plain());
+        let text =
+            command(&Route::to(command::find("lint").expect("lint exists")), &Style::plain());
 
         assert!(text.contains("non-zero"), "{text}");
     }
@@ -177,7 +213,7 @@ mod tests {
         // Help is the text most likely to end up in a README, an issue, or a
         // `--help | head` in a pipe.
         let mut pages = vec![root(&Style::plain())];
-        pages.extend(ALL.iter().map(|entry| command(entry, &Style::plain())));
+        pages.extend(ALL.iter().map(|entry| command(&Route::to(entry), &Style::plain())));
 
         for page in pages {
             assert!(!page.contains('\u{1b}'), "{page}");
@@ -189,7 +225,7 @@ mod tests {
         // Wrapped help reads as broken. The limit is checked rather than
         // trusted, because it is only ever violated by an edit to a summary.
         let mut pages = vec![root(&Style::plain())];
-        pages.extend(ALL.iter().map(|entry| command(entry, &Style::plain())));
+        pages.extend(ALL.iter().map(|entry| command(&Route::to(entry), &Style::plain())));
 
         for page in pages {
             for line in page.lines() {
