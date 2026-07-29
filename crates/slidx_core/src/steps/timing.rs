@@ -41,6 +41,35 @@ impl Default for StepOptions {
 }
 
 impl StepOptions {
+    /// The `steps:` keys this timing needs, omitting everything left at its
+    /// default.
+    ///
+    /// Silence is the point: an editor that writes `easing: ease-out` onto
+    /// every action it touches turns a one-word change into a diff across the
+    /// whole slide, and the author stops trusting the tool with their file.
+    pub fn to_fields(&self) -> Vec<(String, String)> {
+        let defaults = Self::default();
+        let mut fields = Vec::new();
+
+        if let Some(after) = self.after {
+            fields.push(("after".to_string(), after.to_string()));
+        }
+        if let Some(preset) = self.preset {
+            fields.push(("preset".to_string(), preset.as_token().to_string()));
+        }
+        if self.duration != defaults.duration {
+            fields.push(("duration".to_string(), self.duration.to_string()));
+        }
+        if self.easing != defaults.easing {
+            fields.push(("easing".to_string(), self.easing.as_token().to_string()));
+        }
+        if let Some(origin) = self.origin {
+            fields.push(("origin".to_string(), origin.as_token().to_string()));
+        }
+
+        fields
+    }
+
     /// Resolves the effect this action contributes to a frame.
     pub fn resolve(&self, kind: EffectKind) -> Effect {
         Effect {

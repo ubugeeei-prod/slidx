@@ -142,7 +142,18 @@ pub fn list_item_indent(line: &str) -> Option<usize> {
 
 /// The text of an ATX heading, or `None` for other lines.
 pub fn heading_text(line: &str) -> Option<&str> {
-    let trimmed = line.trim_start();
+    heading_span(line).map(|span| &line[span])
+}
+
+/// Byte range of an ATX heading's text within its line, or `None`.
+///
+/// The editor retitles a slide by replacing exactly this range. Everything
+/// outside it — the heading level, the spacing, a closing run of hashes — is
+/// the author's formatting, and rewriting it would turn a one-word change into
+/// a diff about style.
+pub fn heading_span(line: &str) -> Option<std::ops::Range<usize>> {
+    let indent = line.len() - line.trim_start().len();
+    let trimmed = &line[indent..];
     let level = trimmed.chars().take_while(|&c| c == '#').count();
     if level == 0 || level > 6 {
         return None;
@@ -153,7 +164,12 @@ pub fn heading_text(line: &str) -> Option<&str> {
         return None;
     }
 
-    Some(rest.trim().trim_end_matches('#').trim())
+    // A closing run of hashes is decoration, and the space before it is part of
+    // that decoration rather than part of the title.
+    let start = indent + level + (rest.len() - rest.trim_start().len());
+    let text = rest.trim().trim_end_matches('#').trim_end();
+
+    Some(start..start + text.len())
 }
 
 #[cfg(test)]
@@ -251,5 +267,21 @@ mod tests {
         assert_eq!(heading_text("#no-space"), None);
         assert_eq!(heading_text("####### too deep"), None);
         assert_eq!(heading_text("text"), None);
+    }
+
+    #[test]
+    fn a_heading_span_names_only_the_words() {
+        // Retitling a slide must not restyle it: the level, the padding, and a
+        // closing run of hashes all belong to the author, not to the edit.
+        for line in ["# One", "###   Deep  ", "## Closed ##", "  # Indented"] {
+            let span = heading_span(line).unwrap();
+            assert_eq!(&line[span], heading_text(line).unwrap());
+        }
+    }
+
+    #[test]
+    fn an_empty_heading_spans_the_insertion_point_after_the_hashes() {
+        let span = heading_span("## ").unwrap();
+        assert_eq!(span, 3..3);
     }
 }

@@ -147,6 +147,18 @@ pub enum Easing {
 }
 
 impl Easing {
+    /// Stable token, and the spelling `steps:` uses.
+    pub fn as_token(self) -> &'static str {
+        match self {
+            Self::Linear => "linear",
+            Self::Ease => "ease",
+            Self::EaseIn => "ease-in",
+            Self::EaseOut => "ease-out",
+            Self::EaseInOut => "ease-in-out",
+            Self::Spring => "spring",
+        }
+    }
+
     /// CSS timing function. `spring` is approximated with a cubic-bezier so the
     /// runtime never needs a physics loop on the presentation hot path.
     pub fn as_css(self) -> &'static str {
@@ -164,6 +176,23 @@ impl Easing {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_easing_token_is_the_spelling_the_parser_reads() {
+        // The token is written into `steps:` and read back through serde. If
+        // the two spellings drift, a deck loses its timing on being saved.
+        for easing in [
+            Easing::Linear,
+            Easing::Ease,
+            Easing::EaseIn,
+            Easing::EaseOut,
+            Easing::EaseInOut,
+            Easing::Spring,
+        ] {
+            let token = serde_json::Value::String(easing.as_token().to_string());
+            assert_eq!(serde_json::from_value::<Easing>(token).unwrap(), easing);
+        }
+    }
 
     #[test]
     fn presets_report_their_natural_phase() {

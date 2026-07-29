@@ -5,11 +5,27 @@
 //! from the public body before it ever reaches a renderer, which means a
 //! forgotten "don't mention the outage" can never ship to the audience.
 
+use crate::span::ByteSpan;
+
 /// A slide body with its notes removed.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ExtractedNotes {
     pub content: String,
     pub notes: Vec<String>,
+}
+
+/// One notes comment, located in the text it was found in.
+///
+/// The editor writes notes back into the file, and the two ranges are what
+/// lets it choose between retyping a note and removing it — replacing the
+/// whole comment when it only meant to change the words would be a diff the
+/// author did not ask for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FoundNote {
+    /// The whole `<!-- notes: … -->`.
+    pub span: ByteSpan,
+    /// The note itself, after the keyword and without surrounding blanks.
+    pub text_span: ByteSpan,
 }
 
 const OPEN: &str = "<!--";
@@ -54,29 +70,70 @@ pub fn extract_notes(content: &str) -> ExtractedNotes {
     ExtractedNotes { content: collapse_blank_runs(body.trim()), notes }
 }
 
+/// Locates every notes comment in a slide body.
+///
+/// The counterpart of [`extract_notes`], for callers that have to change the
+/// source rather than read past it.
+pub fn find_notes(content: &str) -> Vec<FoundNote> {
+    let mut found = Vec::new();
+    let mut cursor = 0usize;
+
+    while let Some(open_at) = content[cursor..].find(OPEN).map(|at| cursor + at) {
+        let inner_at = open_at + OPEN.len();
+        let Some(close_at) = content[inner_at..].find(CLOSE).map(|at| inner_at + at) else {
+            // An unterminated comment is the author's problem to fix. It is not
+            // a note until it is closed, because its extent is unknown.
+            break;
+        };
+
+        let inner = &content[inner_at..close_at];
+        if let Some(keyword) = note_keyword_len(inner.trim()) {
+            let leading = inner.len() - inner.trim_start().len();
+            let text_at = inner_at + leading + keyword;
+            let text = &content[text_at..inner_at + leading + inner.trim().len()];
+
+            found.push(FoundNote {
+                span: ByteSpan::new(open_at, close_at + CLOSE.len()),
+                text_span: ByteSpan::new(
+                    text_at + (text.len() - text.trim_start().len()),
+                    text_at + text.trim_end().len(),
+                ),
+            });
+        }
+
+        cursor = close_at + CLOSE.len();
+    }
+
+    found
+}
+
 /// Returns the note text if the comment is a notes comment.
 fn note_body(inner: &str) -> Option<String> {
     let trimmed = inner.trim();
+    let remainder = &trimmed[note_keyword_len(trimmed)?..];
+
+    // Dedent before trimming: trimming first would strip the first line's
+    // indentation and make the block look ragged.
+    Some(dedent(remainder).trim().to_string())
+}
+
+/// Length of the notes keyword opening a comment, or `None` if it has none.
+///
+/// The one definition of what makes a comment a note; both the reader and the
+/// editor's locator go through it, so they cannot disagree about which
+/// comments belong to the audience and which belong to the speaker.
+fn note_keyword_len(trimmed: &str) -> Option<usize> {
     let lowered = trimmed.to_ascii_lowercase();
 
-    for prefix in NOTE_PREFIXES {
-        if !lowered.starts_with(prefix) {
-            continue;
-        }
-
-        let remainder = &trimmed[prefix.len()..];
+    NOTE_PREFIXES.into_iter().find_map(|prefix| {
+        let remainder = lowered.strip_prefix(prefix)?;
         // `notes:` and `notes` match, but `notesomething` must not.
-        if prefix.ends_with(':')
+        let recognised = prefix.ends_with(':')
             || remainder.is_empty()
-            || remainder.starts_with(char::is_whitespace)
-        {
-            // Dedent before trimming: trimming first would strip the first
-            // line's indentation and make the block look ragged.
-            return Some(dedent(remainder).trim().to_string());
-        }
-    }
+            || remainder.starts_with(char::is_whitespace);
 
-    None
+        recognised.then_some(prefix.len())
+    })
 }
 
 /// Removes the common leading indentation from a multi-line note.
@@ -190,6 +247,51 @@ mod tests {
     fn removing_a_note_does_not_leave_a_gap() {
         let result = extract_notes("# One\n\n<!-- notes: hidden -->\n\nAfter.");
         assert_eq!(result.content, "# One\n\nAfter.");
+    }
+
+    #[test]
+    fn a_note_reports_the_bytes_it_occupies_and_the_bytes_it_says() {
+        // Rewriting notes has to leave the comment markers alone, so the two
+        // ranges are separate: one to delete a note, one to retype it.
+        let body = "# One\n\n<!-- notes: remember the demo -->\n";
+        let found = find_notes(body);
+
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].span.slice(body), "<!-- notes: remember the demo -->");
+        assert_eq!(found[0].text_span.slice(body), "remember the demo");
+    }
+
+    #[test]
+    fn every_note_is_found_and_comments_that_are_not_notes_are_skipped() {
+        let body = "<!-- note: a -->\n# One\n<!-- step -->\n<!-- notes: b -->";
+        let found = find_notes(body);
+
+        assert_eq!(
+            found.iter().map(|note| note.text_span.slice(body)).collect::<Vec<_>>(),
+            vec!["a", "b"]
+        );
+    }
+
+    #[test]
+    fn the_text_span_of_an_empty_note_is_where_the_text_would_go() {
+        let body = "<!-- notes: -->";
+        let found = find_notes(body);
+
+        assert_eq!(found[0].text_span.slice(body), "");
+        assert!(found[0].span.contains(found[0].text_span));
+    }
+
+    #[test]
+    fn a_multiline_note_spans_from_its_first_word_to_its_last() {
+        let body = "<!-- notes:\n  first line\n  second line\n-->";
+        let found = find_notes(body);
+
+        assert_eq!(found[0].text_span.slice(body), "first line\n  second line");
+    }
+
+    #[test]
+    fn an_unterminated_comment_is_not_a_note_and_does_not_hang() {
+        assert!(find_notes("# One\n\n<!-- notes: oops\n\nstill here").is_empty());
     }
 
     #[test]
