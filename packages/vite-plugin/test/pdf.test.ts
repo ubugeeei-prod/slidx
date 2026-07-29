@@ -21,6 +21,35 @@ import { describe, expect, it } from "vitest";
 import { countPdfPages } from "../src/pdf";
 import { slidx } from "../src/index";
 
+/**
+ * Whether a browser is actually installed.
+ *
+ * Playwright being a dependency does not mean Chromium is on the machine —
+ * the binaries are a separate download. Rather than fail on every machine and
+ * every CI job that has not run `playwright install`, these skip and CI runs
+ * them in one job that has. Skipping is honest here in a way it usually is
+ * not: there is no way to check PDF output without a browser, and a mocked
+ * exporter would only prove the mock works.
+ */
+async function browserAvailable(): Promise<boolean> {
+  try {
+    const { chromium } = await import("playwright");
+    const browser = await chromium.launch();
+    await browser.close();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const hasBrowser = await browserAvailable();
+
+if (!hasBrowser) {
+  process.stdout.write(
+    "\nPDF tests skipped: no browser. `vp exec playwright install chromium` to run them.\n",
+  );
+}
+
 async function buildDeck(slides: Record<string, string>, options: Parameters<typeof slidx>[0]) {
   const root = await mkdtemp(join(tmpdir(), "slidx-pdf-"));
   await mkdir(join(root, "slides"), { recursive: true });
@@ -39,7 +68,7 @@ async function buildDeck(slides: Record<string, string>, options: Parameters<typ
   return root;
 }
 
-describe("exporting", () => {
+describe.skipIf(!hasBrowser)("exporting", () => {
   it("writes one page per stop, not per slide", async () => {
     // Two slides, five stops: a resting frame plus two reveals on the second.
     const root = await buildDeck(
