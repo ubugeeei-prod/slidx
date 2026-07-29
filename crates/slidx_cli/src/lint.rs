@@ -30,12 +30,14 @@
 
 pub mod source;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use slidx_core::{parse_deck, Deck, DeckParseOptions, Diagnostic, Severity};
 use slidx_lint::{lint, LintInput, LintOptions};
 
 use crate::args::Matches;
+use crate::home::Home;
+use crate::index::{self, Entry};
 use crate::report;
 use crate::style::{Ink, Style};
 use crate::{Outcome, FOUND, OK};
@@ -71,6 +73,13 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
         &DeckParseOptions { separator, ..DeckParseOptions::default() },
     );
 
+    // The index fills itself: running a command on a deck is what puts it in
+    // the list, so nobody has to remember to register anything. Best-effort in
+    // the strongest sense — see `index::remember`.
+    if let Some(root) = project_root(&path) {
+        index::remember(&Home::discover().index(), Entry::new(root).describing(&deck));
+    }
+
     let diagnostics = collect(&deck, matches);
 
     let text = if matches.is_set("json") {
@@ -85,6 +94,29 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
     };
 
     Outcome::out(text).with_code(exit_code(&diagnostics))
+}
+
+/// The directory the index should remember, given the path that was linted.
+///
+/// The *project*, not the slides folder inside it: `slidx lint ./slides` in
+/// `~/talks/vueconf` should record `~/talks/vueconf`, because that is the
+/// directory somebody wants to open a year later — the one with the git
+/// repository, the vite config and the deck in it.
+///
+/// Absolute, so an entry recorded from one working directory still means
+/// something read from another. A path that will not canonicalise is not
+/// recorded at all rather than stored as a relative fragment that resolves to
+/// somewhere else later.
+fn project_root(linted: &Path) -> Option<PathBuf> {
+    let full = linted.canonicalize().ok()?;
+    let directory = if full.is_dir() { full } else { full.parent()?.to_path_buf() };
+
+    // `./slides` is the conventional layout, so its parent is the project. A
+    // deck kept anywhere else is its own project.
+    match directory.file_name().and_then(|name| name.to_str()) {
+        Some(source::DEFAULT_DIR) => directory.parent().map(Path::to_path_buf),
+        _ => Some(directory),
+    }
 }
 
 /// Parse diagnostics and lint findings, in that order.
@@ -474,6 +506,56 @@ mod tests {
 
         assert!(render(&deck, std::slice::from_ref(&diagnostic), "slides", &Style::plain())
             .contains("[contrast/projector]"));
+    }
+
+    #[test]
+    fn the_project_recorded_is_the_directory_above_a_conventional_slides_folder() {
+        // `slidx lint ./slides` in ~/talks/vueconf has to remember
+        // ~/talks/vueconf. That is the directory with the git repository and
+        // the vite config in it — the one somebody wants to open again.
+        let scratch = std::env::temp_dir().join(format!("slidx-root-{}", std::process::id()));
+        let slides = scratch.join("slides");
+        std::fs::create_dir_all(&slides).expect("scratch");
+
+        let root = project_root(&slides).expect("a project");
+        assert_eq!(root.canonicalize().ok(), scratch.canonicalize().ok());
+
+        let _ = std::fs::remove_dir_all(&scratch);
+    }
+
+    #[test]
+    fn a_deck_kept_somewhere_other_than_slides_is_its_own_project() {
+        let scratch = std::env::temp_dir().join(format!("slidx-root-own-{}", std::process::id()));
+        std::fs::create_dir_all(&scratch).expect("scratch");
+
+        assert_eq!(
+            project_root(&scratch).and_then(|path| path.canonicalize().ok()),
+            scratch.canonicalize().ok()
+        );
+
+        let _ = std::fs::remove_dir_all(&scratch);
+    }
+
+    #[test]
+    fn a_single_file_deck_records_the_directory_it_sits_in() {
+        let scratch = std::env::temp_dir().join(format!("slidx-root-file-{}", std::process::id()));
+        std::fs::create_dir_all(&scratch).expect("scratch");
+        let file = scratch.join("talk.md");
+        std::fs::write(&file, "# One\n").expect("write");
+
+        assert_eq!(
+            project_root(&file).and_then(|path| path.canonicalize().ok()),
+            scratch.canonicalize().ok()
+        );
+
+        let _ = std::fs::remove_dir_all(&scratch);
+    }
+
+    #[test]
+    fn a_path_that_does_not_exist_is_not_recorded_at_all() {
+        // Rather than stored as a relative fragment that would resolve to
+        // somewhere else entirely when it is read back.
+        assert!(project_root(Path::new("/nowhere/at/all")).is_none());
     }
 
     #[test]

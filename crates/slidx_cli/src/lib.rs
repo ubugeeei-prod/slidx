@@ -53,7 +53,10 @@
 pub mod args;
 pub mod command;
 pub mod doctor;
+pub mod find;
 pub mod help;
+pub mod home;
+pub mod index;
 pub mod lint;
 pub mod report;
 pub mod style;
@@ -110,6 +113,7 @@ pub fn run(argv: &[String], style: &Style) -> Outcome {
         Invocation::Run(command, matches) => match command.name {
             "doctor" => doctor::run(&matches, style),
             "lint" => lint::run(&matches, style),
+            "open" => find::run(&matches, style),
             // Unreachable while the table and this match agree, which the
             // suite asserts. A panic here would be a crash in front of a room.
             other => Outcome::misuse(format!("`{other}` is declared but not wired up.\n")),

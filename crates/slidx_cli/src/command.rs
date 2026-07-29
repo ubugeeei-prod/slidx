@@ -118,6 +118,27 @@ in CI. `path` is a deck file or a directory of slide files, and defaults to
             Flag::switch("json", "Print the diagnostics as JSON"),
         ],
     },
+    Command {
+        name: "open",
+        summary: "find a deck this machine has seen",
+        usage: "open [query] [options]",
+        about: "\
+Fuzzy-searches the decks slidx has seen and prints the path of the one you
+pick. The index fills itself — running any command on a deck is what puts it
+in the list — and a project that has been deleted or moved simply stops
+appearing.
+
+Only the chosen path goes to standard output, so this composes:
+
+    cd \"$(slidx open vueconf)\"
+
+Piped, or with --list, it prints every match and exits rather than waiting for
+a keypress there is nobody to press.",
+        flags: &[
+            Flag::switch("list", "Print every match and exit, without the picker"),
+            Flag::switch("json", "Print the matches as JSON"),
+        ],
+    },
 ];
 
 /// Commands slidx deliberately does not have, and where the work actually is.
