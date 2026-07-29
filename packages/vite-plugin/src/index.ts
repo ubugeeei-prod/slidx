@@ -18,6 +18,9 @@
  * crawled, and opened on a phone with no JavaScript at all.
  */
 
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import type { Plugin, ViteDevServer } from "vite";
 
 import { readDeck } from "./deck";
@@ -30,6 +33,7 @@ import {
   type SlidxOptions,
 } from "./options";
 import { build as buildDeck } from "./pipeline";
+import { renderPdf } from "./pdf";
 import { blockingSummary, formatReport, groupFindings } from "./report";
 
 export type { SlidxOptions } from "./options";
@@ -191,6 +195,31 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
         });
       }
     },
+
+    /**
+     * The PDF is made after the files exist, not instead of them.
+     *
+     * `writeBundle` rather than `generateBundle`: the exporter opens the
+     * emitted print shell over `file://`, so it has to be on disk. Printing
+     * the artifact is also what guarantees the PDF matches what a person gets
+     * by pressing Cmd-P on the same page.
+     */
+    async writeBundle(output) {
+      if (!options.pdf || !options.print) return;
+
+      const directory = output.dir ?? "dist";
+      const shell = join(directory, printFileName(options));
+      const target = join(directory, options.pdf.fileName);
+
+      try {
+        await writeFile(target, await renderPdf(shell));
+        this.info(`exported ${options.pdf.fileName}`);
+      } catch (error) {
+        // A failed export must not destroy a build that otherwise succeeded:
+        // the deck still works, and the person can retry the PDF.
+        this.warn(`PDF export failed — the deck built anyway.\n${(error as Error).message}`);
+      }
+    },
   };
 }
 
@@ -213,6 +242,9 @@ async function renderDeck(
     presenter,
     print,
     runtimeSrc: runtimeSrcFor(options),
+    // The print shell carries the runtime rather than importing it, so the
+    // one document a speaker falls back to opens from anywhere.
+    printRuntime: print ? await readRuntime() : undefined,
   });
 
   return { ...built, fileCount: files.length };

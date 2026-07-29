@@ -24,6 +24,14 @@ pub struct PrintOptions {
     pub markdown: MarkdownOptions,
     /// Module URL of the runtime, which expands the stops.
     pub runtime_src: String,
+    /// The runtime's source, inlined instead of imported.
+    ///
+    /// A browser refuses to resolve a module import over `file://` — it is a
+    /// cross-origin request from a null origin, whatever the path says. So the
+    /// document a person opens from a USB stick, an email attachment, or a PDF
+    /// exporter has to carry its own script. Twelve kilobytes buys a file that
+    /// works anywhere, which is the entire point of a printable fallback.
+    pub inline_runtime: Option<String>,
     /// Page size, as CSS. Defaults to the deck's aspect ratio at 10in wide.
     pub page_size: Option<String>,
 }
@@ -34,6 +42,7 @@ impl Default for PrintOptions {
             theme: slidx_theme::default_theme(),
             markdown: MarkdownOptions::default(),
             runtime_src: "./runtime.js".to_string(),
+            inline_runtime: None,
             page_size: None,
         }
     }
@@ -111,7 +120,7 @@ pub fn render_print(deck: &Deck, options: &PrintOptions) -> String {
                 inches(10.0 * f64::from(height) / f64::from(width))
             )),
         sections = sections,
-        script = script(deck, &options.runtime_src),
+        script = script(deck, options),
     )
 }
 
@@ -138,13 +147,22 @@ fn brand(deck: &Deck) -> String {
 /// Every page is a clone with one frame applied, which is only correct because
 /// frames are complete snapshots: page *n* does not depend on page *n-1*
 /// having been rendered first.
-fn script(deck: &Deck, runtime_src: &str) -> String {
+fn script(deck: &Deck, options: &PrintOptions) -> String {
     let timelines =
         serde_json::to_string(&deck.slides.iter().map(|slide| &slide.timeline).collect::<Vec<_>>())
             .unwrap_or_else(|_| "[]".to_string());
 
+    // Inlined source lands in the same module scope, so its exports are
+    // already in scope and there is nothing to import.
+    let preamble = match &options.inline_runtime {
+        Some(source) => source.clone(),
+        None => {
+            format!("import {{ createStage, markScriptEnabled }} from \"{}\";", options.runtime_src)
+        }
+    };
+
     format!(
-        r#"import {{ createStage, markScriptEnabled }} from "{runtime_src}";
+        r#"{preamble}
 
 markScriptEnabled(document);
 
@@ -178,7 +196,7 @@ for (const page of [...document.querySelectorAll(".slidx-page")]) {{
 
 document.documentElement.dataset.slidxPrintReady = "";
 "#,
-        runtime_src = runtime_src,
+        preamble = preamble,
         timelines = timelines,
     )
 }
@@ -249,6 +267,24 @@ mod tests {
         let html = print("# One\n\n---\n\n# Two\n");
         assert!(html.contains(">1</span>"));
         assert!(html.contains(">2</span>"));
+    }
+
+    #[test]
+    fn an_inlined_runtime_replaces_the_import() {
+        // A module import fails over `file://` whatever the path says: it is
+        // a cross-origin request from a null origin. The document a speaker
+        // opens from a USB stick has to carry its own script.
+        let deck = parse_deck("# One\n", &DeckParseOptions::default());
+        let html = render_print(
+            &deck,
+            &PrintOptions {
+                inline_runtime: Some("function createStage() {}".to_string()),
+                ..PrintOptions::default()
+            },
+        );
+
+        assert!(html.contains("function createStage() {}"));
+        assert!(!html.contains("import {"));
     }
 
     #[test]
