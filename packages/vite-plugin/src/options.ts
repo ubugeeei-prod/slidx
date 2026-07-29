@@ -34,6 +34,15 @@ export interface SlidxOptions {
    */
   print?: boolean;
   /**
+   * Export the deck to PDF at the end of a build.
+   *
+   * Off by default, and deliberately: it needs Playwright and a browser
+   * download, which is a strange price to put in front of every install for
+   * something a deck may never need. `pdf: true` turns it on, and the error
+   * when Playwright is absent says exactly what to run.
+   */
+  pdf?: boolean | { fileName?: string };
+  /**
    * Fail the build when the linter reports something blocking.
    *
    * On by default: a contrast failure that reaches a projector cannot be fixed
@@ -51,6 +60,7 @@ export interface ResolvedOptions {
   extensions: string[];
   presenter: boolean;
   print: boolean;
+  pdf: false | { fileName: string };
   failOnDiagnostics: boolean;
 }
 
@@ -63,6 +73,7 @@ export function resolveOptions(options: SlidxOptions = {}): ResolvedOptions {
     extensions: normaliseExtensions(options.extensions ?? [".md"]),
     presenter: options.presenter ?? true,
     print: options.print ?? true,
+    pdf: resolvePdf(options.pdf),
     failOnDiagnostics: options.failOnDiagnostics ?? true,
   };
 }
@@ -108,6 +119,19 @@ export function slideFileName(options: ResolvedOptions, index: number): string {
 export function presenterFileName(options: ResolvedOptions, index: number): string {
   const path = index === 0 ? "presenter/index.html" : `${index + 1}/presenter/index.html`;
   return options.base ? `${options.base}/${path}` : path;
+}
+
+/**
+ * PDF export, normalised.
+ *
+ * `true` is the common case and has to mean something sensible without a file
+ * name, so it becomes the deck's default name rather than a required field.
+ */
+function resolvePdf(pdf: SlidxOptions["pdf"]): false | { fileName: string } {
+  if (!pdf) return false;
+  if (pdf === true) return { fileName: "deck.pdf" };
+
+  return { fileName: pdf.fileName?.trim() || "deck.pdf" };
 }
 
 /** Where the printable document is written. */

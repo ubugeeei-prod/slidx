@@ -33,6 +33,12 @@
     "@slidx/wasm": "workspace:*"
   },
   "peerDependencies": {
+    "playwright": ">=1.40",
     "vite": ">=5"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    }
   }
 }

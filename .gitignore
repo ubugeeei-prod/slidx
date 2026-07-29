@@ -15,3 +15,6 @@ packages/wasm/dist/
 packages/wasm/LICENSE
 packages/wasm/README.md
 examples/deck/dist/
+
+# Scratch worktrees for parallel agents.
+.claude/worktrees/

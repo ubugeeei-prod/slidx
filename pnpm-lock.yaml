@@ -67,6 +67,9 @@ importers:
       '@slidx/wasm':
         specifier: workspace:*
         version: link:../wasm
+      playwright:
+        specifier: '>=1.40'
+        version: 1.62.0
       vite:
         specifier: '>=5'
         version: 7.3.6(@types/node@24.13.3)(lightningcss@1.33.0)

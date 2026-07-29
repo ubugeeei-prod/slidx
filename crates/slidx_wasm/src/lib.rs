@@ -56,6 +56,13 @@ pub struct BuildOptions {
     pub print: bool,
     /// Module URL the presenter view imports the runtime from.
     pub runtime_src: Option<String>,
+    /// The runtime's source, inlined into the print shell.
+    ///
+    /// The print shell is opened over `file://` — by the PDF exporter, from a
+    /// USB stick, out of an email attachment — and a browser refuses to
+    /// resolve a module import from a null origin whatever the path says. So
+    /// that document carries its own script rather than referencing one.
+    pub print_runtime: Option<String>,
 }
 
 /// One built slide.
@@ -189,7 +196,7 @@ fn build(source: &str, options: &BuildOptions) -> BuildResult {
             &deck,
             &PrintOptions {
                 theme: print_theme,
-                runtime_src: runtime_src.clone(),
+                inline_runtime: options.print_runtime.clone(),
                 ..PrintOptions::default()
             },
         )
@@ -233,6 +240,22 @@ mod tests {
 
         assert_eq!(result.slides.len(), 2);
         assert!(result.slides[0].html.as_ref().unwrap().starts_with("<!doctype html>"));
+    }
+
+    #[test]
+    fn the_print_shell_carries_its_own_runtime() {
+        // A module import fails over `file://` whatever the path says — it is
+        // a cross-origin request from a null origin — and the page then never
+        // finishes expanding, silently.
+        let options = BuildOptions {
+            print: true,
+            print_runtime: Some("const marker = 1;".to_string()),
+            ..BuildOptions::default()
+        };
+        let html = build("# One\n", &options).print_html.unwrap();
+
+        assert!(html.contains("const marker = 1;"));
+        assert!(!html.contains("import {"));
     }
 
     #[test]

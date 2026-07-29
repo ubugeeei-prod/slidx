@@ -37,6 +37,7 @@ export interface BuildDeckOptions {
   presenter?: boolean;
   print?: boolean;
   runtimeSrc?: string;
+  printRuntime?: string;
 }
 
 /** Parses, lints, and renders a deck. */
@@ -50,5 +51,6 @@ export async function build(source: string, options: BuildDeckOptions): Promise<
     presenter: options.presenter ?? false,
     print: options.print ?? false,
     runtimeSrc: options.runtimeSrc,
+    printRuntime: options.printRuntime,
   });
 }
