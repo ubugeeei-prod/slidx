@@ -22,9 +22,9 @@ use crate::command::{self, Command, Flag, ROOT};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Invocation {
     /// `slidx` with nothing, `--help`, or `slidx <command> --help`.
-    Help(Option<&'static Command>),
+    Help(Option<Route>),
     Version,
-    Run(&'static Command, Matches),
+    Run(Route, Matches),
     /// A command slidx deliberately does not have. Carries the redirect.
     Declined {
         name: String,
@@ -32,6 +32,48 @@ pub enum Invocation {
     },
     /// Nothing could be run. The string is addressed to the person who typed it.
     Misuse(String),
+}
+
+/// Which command was named, and — for a nested one — what it sits under.
+///
+/// The parent is kept rather than flattened because two commands under
+/// different parents may share a name. `list` alone says nothing; `version
+/// list` says everything, and it is what the dispatch and the help both key on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Route {
+    pub command: &'static Command,
+    pub parent: Option<&'static Command>,
+}
+
+impl Route {
+    pub fn to(command: &'static Command) -> Self {
+        Self { command, parent: None }
+    }
+
+    pub fn under(parent: &'static Command, command: &'static Command) -> Self {
+        Self { command, parent: Some(parent) }
+    }
+
+    /// The pair the dispatch matches on, allocating nothing.
+    pub fn key(&self) -> (Option<&'static str>, &'static str) {
+        (self.parent.map(|parent| parent.name), self.command.name)
+    }
+
+    /// How somebody would have typed it: `lint`, or `version use`.
+    pub fn typed(&self) -> String {
+        match self.parent {
+            Some(parent) => format!("{} {}", parent.name, self.command.name),
+            None => self.command.name.to_string(),
+        }
+    }
+}
+
+impl std::ops::Deref for Route {
+    type Target = Command;
+
+    fn deref(&self) -> &Self::Target {
+        self.command
+    }
 }
 
 /// The flags and positionals one command was given.
@@ -102,11 +144,63 @@ pub fn parse(argv: &[String]) -> Invocation {
         };
     };
 
-    match collect(found, rest.as_slice()) {
-        Ok(matches) if matches.is_set("help") => Invocation::Help(Some(found)),
-        Ok(matches) => Invocation::Run(found, matches),
+    let (route, remaining) = descend(found, rest.as_slice());
+    let Some(route) = route else {
+        return Invocation::Misuse(unknown_subcommand(found, &remaining[0]));
+    };
+
+    match collect(route.command, remaining) {
+        Ok(matches) if matches.is_set("help") => Invocation::Help(Some(route)),
+        Ok(matches) => Invocation::Run(route, matches),
         Err(message) => Invocation::Misuse(message),
     }
+}
+
+/// Resolves `version use` to its leaf, leaving the rest of the line alone.
+///
+/// A parent with no subcommand named falls back to its default — `slidx
+/// version` means `slidx version current`, because the obvious reading of a
+/// bare command is better than printing its help at somebody. A parent with no
+/// default and no subcommand keeps itself as the route, so `--help` still
+/// lands on the page listing what it has.
+///
+/// Returns `None` for a first argument that looks like a subcommand and is not
+/// one; the caller turns that into a message naming the ones that exist.
+fn descend<'a>(parent: &'static Command, argv: &'a [String]) -> (Option<Route>, &'a [String]) {
+    if !parent.has_subcommands() {
+        return (Some(Route::to(parent)), argv);
+    }
+
+    match argv.first() {
+        // A flag, or nothing at all: no subcommand was named.
+        None => (Some(default_route(parent)), argv),
+        Some(first) if long_or_short(first).is_some() => {
+            // `--help` belongs to the parent so it can list the children;
+            // anything else falls through to the default subcommand, so
+            // `slidx version --json` still means `current --json`.
+            if is_help(first) {
+                (Some(Route::to(parent)), argv)
+            } else {
+                (Some(default_route(parent)), argv)
+            }
+        }
+        Some(first) => match parent.subcommand(first) {
+            Some(child) => (Some(Route::under(parent, child)), &argv[1..]),
+            None => (None, argv),
+        },
+    }
+}
+
+fn default_route(parent: &'static Command) -> Route {
+    parent
+        .default_subcommand
+        .and_then(|name| parent.subcommand(name))
+        .map(|child| Route::under(parent, child))
+        .unwrap_or_else(|| Route::to(parent))
+}
+
+fn is_help(argument: &str) -> bool {
+    matches!(long_or_short(argument), Some("help") | Some("h"))
 }
 
 /// Walks one command's arguments against its own flag table.
@@ -195,6 +289,17 @@ fn unknown_root_flag(argument: &str) -> String {
 
 fn unknown_command(name: &str) -> String {
     format!("`{name}` is not a slidx command.\n\n{}", suggest(&command::names()))
+}
+
+fn unknown_subcommand(parent: &'static Command, name: &str) -> String {
+    let known: Vec<&str> = parent.subcommands.iter().map(|child| child.name).collect();
+
+    format!(
+        "`{name}` is not something `slidx {}` does.\n\nIt has: {}\n\nTry: slidx {} --help",
+        parent.name,
+        known.join(", "),
+        parent.name
+    )
 }
 
 fn unknown_flag(command: &'static Command, argument: &str) -> String {
@@ -384,6 +489,98 @@ mod tests {
 
         assert_eq!(name, "build");
         assert!(reason.contains("@slidx/vite-plugin"), "{reason}");
+    }
+
+    #[test]
+    fn a_nested_command_is_reached_through_its_parent() {
+        let Invocation::Run(route, _) = parse_line("version use 0.3.0") else {
+            panic!("version use should run");
+        };
+
+        assert_eq!(route.key(), (Some("version"), "use"));
+        assert_eq!(route.typed(), "version use");
+    }
+
+    #[test]
+    fn a_nested_commands_arguments_belong_to_it_and_not_to_its_parent() {
+        assert_eq!(matches_of("version use 0.3.0").first_positional(), Some("0.3.0"));
+        assert!(matches_of("version current --json").is_set("json"));
+    }
+
+    #[test]
+    fn a_parent_with_no_subcommand_falls_back_to_its_obvious_reading() {
+        // `slidx version` has to mean something. Printing the help at somebody
+        // who asked a direct question is a worse answer than answering it.
+        let Invocation::Run(route, _) = parse_line("version") else {
+            panic!("bare version should run something");
+        };
+
+        assert_eq!(route.key(), (Some("version"), "current"));
+    }
+
+    #[test]
+    fn a_flag_after_a_bare_parent_still_reaches_the_default_subcommand() {
+        // `slidx version --json` means `slidx version current --json`, because
+        // that is the only reading that is not a refusal.
+        let Invocation::Run(route, matches) = parse_line("version --json") else {
+            panic!("version --json should run");
+        };
+
+        assert_eq!(route.key(), (Some("version"), "current"));
+        assert!(matches.is_set("json"));
+    }
+
+    #[test]
+    fn help_asked_of_a_parent_describes_the_parent_rather_than_its_default() {
+        // Somebody typing `slidx version --help` wants the list of what it
+        // does, not the page for one of them.
+        let Invocation::Help(Some(route)) = parse_line("version --help") else {
+            panic!("version --help should describe version");
+        };
+
+        assert_eq!(route.key(), (None, "version"));
+    }
+
+    #[test]
+    fn help_asked_of_a_nested_command_describes_that_one() {
+        let Invocation::Help(Some(route)) = parse_line("version install --help") else {
+            panic!("version install --help should describe it");
+        };
+
+        assert_eq!(route.key(), (Some("version"), "install"));
+    }
+
+    #[test]
+    fn an_unknown_subcommand_lists_the_ones_that_exist() {
+        let message = misuse_of("version instal");
+
+        assert!(message.contains("`instal` is not something `slidx version` does"), "{message}");
+        assert!(message.contains("install"), "{message}");
+        assert!(message.contains("current"), "{message}");
+    }
+
+    #[test]
+    fn a_flag_of_a_nested_command_is_not_accepted_by_its_sibling() {
+        // `--use` belongs to `install`. Silently accepting it on `use` would
+        // make a typo look like it worked.
+        assert!(matches!(parse_line("version install --use"), Invocation::Run(..)));
+        assert!(matches!(parse_line("version use --use"), Invocation::Misuse(_)));
+    }
+
+    #[test]
+    fn every_nested_command_in_the_table_parses() {
+        // The same guard as for top-level commands: a subcommand that is
+        // declared and unreachable would only show up here.
+        for parent in command::ALL.iter().filter(|entry| entry.has_subcommands()) {
+            for child in parent.subcommands {
+                let line = format!("{} {}", parent.name, child.name);
+                let Invocation::Run(route, _) = parse_line(&line) else {
+                    panic!("{line} is declared but does not parse");
+                };
+
+                assert_eq!(route.key(), (Some(parent.name), child.name));
+            }
+        }
     }
 
     #[test]
