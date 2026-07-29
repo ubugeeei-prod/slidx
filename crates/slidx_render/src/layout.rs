@@ -203,6 +203,35 @@ hr {
 [data-slidx-color="success"] { color: #067647; }
 [data-slidx-weight="bold"] { font-weight: 700; }
 
+/*
+ * A QR tile.
+ *
+ * Sized as a share of the slide so it scales with everything else, and floored
+ * so it stays scannable: below about a fifth of the slide's height a projected
+ * code is too small to resolve from the back of a room, which is the only
+ * place anyone actually points a phone from.
+ */
+.slidx-qr {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5em;
+  align-self: center;
+}
+
+.slidx-qr svg {
+  width: max(22cqh, 120px);
+  height: auto;
+  border-radius: var(--slidx-radius);
+}
+
+.slidx-qr-caption {
+  color: var(--slidx-color-muted);
+  font-size: var(--slidx-size-caption);
+  font-family: var(--slidx-font-mono);
+}
+
 /* Anchors are addresses, never content. */
 [data-slidx-step] { display: none; }
 

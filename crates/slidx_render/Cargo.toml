@@ -10,6 +10,7 @@ description = "Markdown rendering and the slide, presenter, and print shells for
 [dependencies]
 slidx_core = { workspace = true }
 slidx_lint = { workspace = true }
+slidx_qr = { workspace = true }
 slidx_theme = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -486,6 +486,7 @@ dependencies = [
  "serde_json",
  "slidx_core",
  "slidx_lint",
+ "slidx_qr",
  "slidx_theme",
 ]
 
