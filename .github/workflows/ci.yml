@@ -57,6 +57,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           wasm: "true"
+          browser: "true"
       - run: pnpm exec vp run ci:ts
 
   build:

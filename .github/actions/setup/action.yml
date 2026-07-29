@@ -8,6 +8,9 @@ inputs:
   wasm:
     description: Also install the wasm32 target and a matching wasm-bindgen. Implies rust.
     default: "false"
+  browser:
+    description: Download the Chromium build Playwright drives. Only jobs that export a PDF need it.
+    default: "false"
 
 runs:
   using: composite
@@ -58,3 +61,10 @@ runs:
 
     - run: pnpm install --frozen-lockfile
       shell: bash
+
+    # The npm package is only the driver. pnpm does not run its postinstall,
+    # so the browser it drives has to be fetched on purpose, and the PDF
+    # export is checked against a real one rather than a mock.
+    - if: inputs.browser == 'true'
+      shell: bash
+      run: pnpm exec playwright install --with-deps chromium
