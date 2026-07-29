@@ -60,6 +60,10 @@ function implementationLines(file) {
 
 for (const file of files.filter((file) => /\.(rs|ts|mjs)$/.test(file))) {
   if (/(^|\/)tests?\//.test(file)) continue;
+  // A `.d.ts` describes a boundary rather than implementing one, and the ones
+  // in this repository are generated from Rust. There is no design in them to
+  // split, so a warning about their length is one nobody could ever act on.
+  if (file.endsWith(".d.ts")) continue;
 
   const lines = implementationLines(file);
   if (lines > SOFT_LINE_LIMIT) {

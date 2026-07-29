@@ -107,7 +107,7 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
 /// something read from another. A path that will not canonicalise is not
 /// recorded at all rather than stored as a relative fragment that resolves to
 /// somewhere else later.
-fn project_root(linted: &Path) -> Option<PathBuf> {
+pub fn project_root(linted: &Path) -> Option<PathBuf> {
     let full = linted.canonicalize().ok()?;
     let directory = if full.is_dir() { full } else { full.parent()?.to_path_buf() };
 
