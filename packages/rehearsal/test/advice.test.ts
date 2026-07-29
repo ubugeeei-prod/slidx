@@ -14,7 +14,7 @@
  * staying quiet as there are about speaking up.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { dominantSlides } from "../src/advice";
 import { buildReport } from "../src/report";

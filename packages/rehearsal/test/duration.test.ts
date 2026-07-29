@@ -8,7 +8,7 @@
  * "2m under" are opposite pieces of news that a bare `2m` cannot distinguish.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { formatDelta, formatList, formatSpan } from "../src/duration";
 

@@ -11,7 +11,7 @@
  * a published format and has to be made on both sides at once.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { ISLAND_ATTRIBUTE, PROPS_ATTRIBUTE, STATE_ATTRIBUTE } from "../src/contract";
 

@@ -39,7 +39,7 @@ export interface Reporter {
 export async function rasteriseCards(
   context: Reporter,
   directory: string,
-  options: ReturnType<typeof resolveOptions>,
+  options: ResolvedOptions,
 ): Promise<void> {
   const cardDirectory = options.base ? join(directory, options.base) : directory;
 
@@ -114,7 +114,7 @@ export async function reportOverflow(
   directory: string,
   options: ResolvedOptions,
   source: string,
-  titles: (string | undefined)[],
+  titles: readonly (string | null)[],
 ): Promise<void> {
   if (!options.overflow || !options.print) return;
 

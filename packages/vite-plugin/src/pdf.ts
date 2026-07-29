@@ -58,8 +58,11 @@ export async function renderPdf(printHtmlPath: string, options: PdfOptions = {})
     return await page.pdf({
       // The shell's `@page` sets the size from the deck's aspect ratio.
       preferCSSPageSize: options.width === undefined,
-      width: options.width,
-      height: options.height,
+      // Omitted rather than passed as `undefined`: an explicit `width` is what
+      // turns `preferCSSPageSize` off, so a key that is present and empty is a
+      // different instruction from a key that is absent.
+      ...(options.width === undefined ? {} : { width: options.width }),
+      ...(options.height === undefined ? {} : { height: options.height }),
       printBackground: true,
       margin: { top: "0", right: "0", bottom: "0", left: "0" },
     });

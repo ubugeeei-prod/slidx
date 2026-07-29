@@ -10,7 +10,7 @@
  * slide has to fall through untouched rather than 404.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { slideRequestFor } from "../src/index";
 

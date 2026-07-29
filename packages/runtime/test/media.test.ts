@@ -18,7 +18,7 @@
  * Everything is injected: no real `<video>`, no real AudioContext, no sleeps.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import {
   createMediaController,

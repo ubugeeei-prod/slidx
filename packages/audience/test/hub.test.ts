@@ -17,7 +17,7 @@
  * - A room that ended still holding its connections open.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import type { ServerMessage } from "../src/protocol";
 import { createRoomHub, type Sink } from "../src/worker";

@@ -19,7 +19,7 @@
  * - **A bad frame is not a crash.** This runs on stage.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { createMirror } from "../src/mirror";
 import {

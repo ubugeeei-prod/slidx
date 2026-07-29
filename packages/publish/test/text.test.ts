@@ -12,7 +12,7 @@
  *   on one throws away most of the budget.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import {
   asciiSlug,

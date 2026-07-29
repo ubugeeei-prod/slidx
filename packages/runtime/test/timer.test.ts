@@ -15,7 +15,7 @@
  * sleeps, which makes the suite slow and flaky at once.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { createTimer, formatDuration, type Timer } from "../src/timer";
 
