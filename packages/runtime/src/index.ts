@@ -21,9 +21,16 @@ export { createDemoSwitch, DEMO_ATTRIBUTE } from "./demo";
 export type { DemoSide, DemoSwitch } from "./demo";
 export { createKeymap, DEFAULT_BINDINGS, formatBinding } from "./keymap";
 export type { Binding, Command, Keymap, KeymapOptions } from "./keymap";
+export { createMediaController, describeLevel, LOUDNESS_TARGET_DB } from "./media";
+export type { LevelReport, Levels, LevelStatus, MediaController, MediaElementLike } from "./media";
 export { createMirror } from "./mirror";
 export { createNavigator, LAST_STEP } from "./navigate";
-export { detectPlatform, enterPresentation, presentationChecklist } from "./presentation";
+export {
+  browserPresentationEnvironment,
+  detectPlatform,
+  enterPresentation,
+  presentationChecklist,
+} from "./presentation";
 export type {
   ChecklistItem,
   Platform,
