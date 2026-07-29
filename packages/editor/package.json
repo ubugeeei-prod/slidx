@@ -1,16 +1,15 @@
 {
-  "name": "@slidx/vite-plugin",
+  "name": "@slidx/editor",
   "version": "0.0.1",
-  "description": "Author, preview, and build slidx decks with Vite",
+  "description": "The slidx visual editor: deck outline, slide canvas, and inspector, writing back to Markdown",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ubugeeei-prod/slidx.git",
-    "directory": "packages/vite-plugin"
+    "directory": "packages/editor"
   },
   "files": [
-    "dist",
-    "LICENSE"
+    "dist"
   ],
   "type": "module",
   "sideEffects": false,
@@ -27,19 +26,5 @@
   },
   "scripts": {
     "pack:lib": "vp pack src/index.ts --dts --out-dir dist"
-  },
-  "dependencies": {
-    "@slidx/editor": "workspace:*",
-    "@slidx/runtime": "workspace:*",
-    "@slidx/wasm": "workspace:*"
-  },
-  "peerDependencies": {
-    "playwright": ">=1.40",
-    "vite": ">=5"
-  },
-  "peerDependenciesMeta": {
-    "playwright": {
-      "optional": true
-    }
   }
 }

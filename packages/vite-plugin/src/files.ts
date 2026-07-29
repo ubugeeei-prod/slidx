@@ -20,6 +20,13 @@
  * The bytes before the first slide are the deck's own frontmatter, which
  * belongs to no slide. They follow whichever slide is first, so deleting the
  * opening slide does not take the deck's title with it.
+ *
+ * # Bytes, not characters
+ *
+ * Every offset here is a byte offset, because that is what a splice is measured
+ * in. JavaScript counts UTF-16 code units, so a single em dash in a slide
+ * silently shifts every later offset by two and the write lands in the middle
+ * of a word. Nothing in this module indexes a source with a plain slice.
  */
 
 /** A slide file, as found on disk. */
@@ -52,10 +59,18 @@ export interface FileWrite {
   source: string | null;
 }
 
+/** Where one slide's bytes are, as the pipeline reports them. */
+export interface SlideSpans {
+  /** Everything the slide is, its own frontmatter block included. */
+  readonly content: ByteSpan;
+  /** The Markdown body alone, which is what a mark's range is measured in. */
+  readonly body: ByteSpan;
+}
+
 /** A deck source before or after an edit, with its slides located in it. */
 export interface LocatedSource {
   source: string;
-  slides: readonly ByteSpan[];
+  slides: readonly SlideSpans[];
 }
 
 /**
@@ -86,20 +101,25 @@ export interface LocatedSource {
  */
 export function joinDeck(files: readonly DeckFile[], separator: string): JoinedDeck {
   const spans: ByteSpan[] = [];
-  let source = "";
+  const parts: string[] = [];
+  let at = 0;
 
   for (const file of files) {
     const trimmed = file.source.trim();
 
-    if (trimmed.length > 0 && source.length > 0) {
-      source += opensWithSeparator(trimmed, separator) ? "\n\n" : `\n\n${separator}\n\n`;
+    if (trimmed.length > 0 && at > 0) {
+      const joiner = opensWithSeparator(trimmed, separator) ? "\n\n" : `\n\n${separator}\n\n`;
+      parts.push(joiner);
+      at += joiner.length;
     }
 
-    spans.push({ start: source.length, end: source.length + trimmed.length });
-    source += trimmed;
+    const length = Buffer.byteLength(trimmed, "utf8");
+    spans.push({ start: at, end: at + length });
+    parts.push(trimmed);
+    at += length;
   }
 
-  return { source, spans };
+  return { source: parts.join(""), spans };
 }
 
 /** True when a file's first line is the deck separator and nothing else. */
@@ -123,14 +143,15 @@ export function planFileWrites(
   after: LocatedSource,
 ): FileWrite[] {
   const { spans } = joinDeck(files, separator);
-  const owner = before.slides.map((slide) => ownerOf(files, spans, slide));
+  const owner = before.slides.map((slide) => ownerOf(files, spans, slide.content));
   const assignment = assign(owner, opening(spans, before.slides), texts(before), texts(after));
+  const edited = Buffer.from(after.source, "utf8");
 
   const writes: FileWrite[] = [];
 
   files.forEach((file, index) => {
     const mine = assignment.flatMap((owned, slide) => (owned === index ? [slide] : []));
-    const source = mine.length === 0 ? null : rewrap(file.source, cut(after, mine));
+    const source = mine.length === 0 ? null : rewrap(file.source, cut(edited, after, mine));
 
     // Nothing left, and nothing there: a file this session already emptied.
     if (source === null && file.source.length === 0) return;
@@ -165,8 +186,8 @@ function ownerOf(files: readonly DeckFile[], spans: ByteSpan[], slide: ByteSpan)
  * inserted slide joins the file it pushed down, and a slide restored by an undo
  * finds the file it was removed from still holding its place.
  */
-function opening(spans: ByteSpan[], slides: readonly ByteSpan[]): number[] {
-  return spans.map((span) => slides.filter((slide) => slide.end <= span.start).length);
+function opening(spans: ByteSpan[], slides: readonly SlideSpans[]): number[] {
+  return spans.map((span) => slides.filter((slide) => slide.content.end <= span.start).length);
 }
 
 /**
@@ -226,7 +247,11 @@ function sharedFromEnd(
 }
 
 function texts(located: LocatedSource): string[] {
-  return located.slides.map((slide) => located.source.slice(slide.start, slide.end));
+  const bytes = Buffer.from(located.source, "utf8");
+
+  return located.slides.map((slide) =>
+    bytes.toString("utf8", slide.content.start, slide.content.end),
+  );
 }
 
 /**
@@ -236,11 +261,11 @@ function texts(located: LocatedSource): string[] {
  * because the deck's own frontmatter sits above every slide and belongs to no
  * one of them.
  */
-function cut(after: LocatedSource, slides: number[]): string {
+function cut(bytes: Buffer, after: LocatedSource, slides: number[]): string {
   const first = slides[0]!;
-  const start = first === 0 ? 0 : after.slides[first]!.start;
+  const start = first === 0 ? 0 : after.slides[first]!.content.start;
 
-  return after.source.slice(start, after.slides[slides[slides.length - 1]!]!.end);
+  return bytes.toString("utf8", start, after.slides[slides[slides.length - 1]!]!.content.end);
 }
 
 /**

@@ -141,6 +141,24 @@ describe("writing an edit back to the files it came from", () => {
     );
   });
 
+  it("writes the right file when the deck is not pure ASCII", async () => {
+    // Every span the pipeline reports is a byte offset. An em dash is three
+    // bytes and one JavaScript character, so counting characters puts every
+    // later slide two bytes out and a write lands inside a word. This was
+    // found by opening the example deck, which has one.
+    const files: DeckFile[] = [
+      { path: "/slides/0001.md", label: "slides/0001.md", source: "# One — really\n" },
+      { path: "/slides/0002.md", label: "slides/0002.md", source: "# Two\n" },
+      { path: "/slides/0003.md", label: "slides/0003.md", source: "# 日本語\n" },
+    ];
+
+    const { writes } = await edited(files, { op: "setHeading", slide: 2, text: "Retitled" });
+
+    expect(writes).toEqual([
+      { path: "/slides/0003.md", label: "slides/0003.md", source: "# Retitled\n" },
+    ]);
+  });
+
   it("keeps the other slides of a file that holds more than one", async () => {
     const files: DeckFile[] = [
       { path: "/talk.md", label: "talk.md", source: "# One\n\n---\n\n# Two\n\n---\n\n# Three\n" },
