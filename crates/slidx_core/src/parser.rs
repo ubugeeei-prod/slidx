@@ -103,6 +103,7 @@ fn build_slide(
         transition: slide_transition(&matter, index, meta, diagnostics),
         budget_seconds: frontmatter::duration_seconds(&matter, "budget"),
         optional: frontmatter::boolean(&matter, "optional").unwrap_or(false),
+        demo: crate::demo::parse(&matter),
         timeline: compile_timeline(&steps.source),
         steps: steps.source,
         source_line: segment.line,
@@ -266,6 +267,22 @@ mod tests {
         let deck = parse("---\nbudget: 90s\noptional: true\n---\n\n# Deep Dive\n");
         assert_eq!(deck.slides[0].budget_seconds, Some(90));
         assert!(deck.slides[0].optional);
+    }
+
+    #[test]
+    fn a_slide_carries_the_demo_it_declares() {
+        let deck = parse(
+            "---\ndemo:\n  live: https://app.example.com\n  fallback: ./checkout.mp4\n---\n\n# Live\n",
+        );
+
+        let demo = deck.slides[0].demo.as_ref().unwrap();
+        assert_eq!(demo.live, "https://app.example.com");
+        assert_eq!(demo.fallback.as_deref(), Some("./checkout.mp4"));
+    }
+
+    #[test]
+    fn a_slide_without_a_demo_carries_none() {
+        assert!(parse("# Ordinary\n").slides[0].demo.is_none());
     }
 
     #[test]

@@ -134,6 +134,9 @@ pub struct Slide {
     pub budget_seconds: Option<u32>,
     /// Safe to skip when running behind. Presenter view marks these.
     pub optional: bool,
+    /// A live demo and the recording that stands in for it when it dies.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub demo: Option<crate::demo::Demo>,
     /// Inline marks in source order, so the editor can list what a slide
     /// addresses without re-parsing it.
     pub marks: Vec<crate::mark::Mark>,

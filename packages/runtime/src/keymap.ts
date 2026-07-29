@@ -25,6 +25,7 @@ export type Command =
   | "fullscreen"
   | "toggleTimer"
   | "resetTimer"
+  | "toggleDemo"
   | "help";
 
 /** One row of the table. */
@@ -77,6 +78,10 @@ export const DEFAULT_BINDINGS: Binding[] = [
   { command: "fullscreen", keys: ["f"], description: "Fullscreen" },
   { command: "toggleTimer", keys: ["t"], description: "Start or pause the timer" },
   { command: "resetTimer", keys: ["r"], description: "Reset the timer" },
+  // One key, no modifier, and only bound on a slide that declared a demo. It
+  // is pressed exactly once, in front of an audience, by someone whose live
+  // demo has just died — so it cannot be a chord and it cannot need aiming.
+  { command: "toggleDemo", keys: ["d"], description: "Switch the demo for its recording" },
   { command: "help", keys: ["?"], description: "Show these shortcuts" },
 ];
 

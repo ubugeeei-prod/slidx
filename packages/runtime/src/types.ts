@@ -95,6 +95,19 @@ export interface StepTimeline {
   frames: StepFrame[];
 }
 
+/**
+ * A live demo and the recording that stands in for it.
+ *
+ * `live` is expected to be remote — that is what live means — and `fallback` is
+ * expected not to be, because it has to work on the day the network does not.
+ * `slidx_lint` reports a deck that gets either of those backwards.
+ */
+export interface DemoDeclaration {
+  live: string;
+  fallback: string | null;
+  poster: string | null;
+}
+
 /** One slide, as the runtime needs it. */
 export interface SlideData {
   id: string;
@@ -104,6 +117,8 @@ export interface SlideData {
   transition: string | null;
   budgetSeconds: number | null;
   optional: boolean;
+  /** Absent on a slide that declares no demo. */
+  demo?: DemoDeclaration;
   timeline: StepTimeline;
 }
 

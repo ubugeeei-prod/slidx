@@ -232,6 +232,36 @@ hr {
   font-family: var(--slidx-font-mono);
 }
 
+/*
+ * A demo and its recording, stacked.
+ *
+ * Both sides are laid out at the same size and one is hidden, so switching
+ * changes nothing about the geometry — the recording appears exactly where the
+ * live demo was, with no reflow for the audience to notice. `display: none` is
+ * deliberate over `visibility`: a hidden iframe that still lays out is a hidden
+ * iframe still running whatever the demo was doing.
+ */
+.slidx-demo {
+  margin: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
+.slidx-demo > * {
+  flex: 1 1 auto;
+  width: 100%;
+  border: 0;
+  border-radius: var(--slidx-radius);
+  background: var(--slidx-color-code-surface);
+  object-fit: contain;
+}
+
+[data-slidx-demo="live"] > .slidx-demo-fallback,
+[data-slidx-demo="fallback"] > .slidx-demo-live {
+  display: none;
+}
+
 /* Anchors are addresses, never content. */
 [data-slidx-step] { display: none; }
 
@@ -273,6 +303,26 @@ mod tests {
         // slide is a container, so every size inside is a share of it.
         assert!(STYLESHEET.contains("container-type: size"));
         assert!(STYLESHEET.contains("aspect-ratio: var(--slidx-slide-width)"));
+    }
+
+    #[test]
+    fn only_one_side_of_a_demo_is_painted_at_a_time() {
+        // The switch is one attribute write and nothing else. If the stylesheet
+        // stopped hiding the other side, both would show and the "instant"
+        // switch would become a layout change the audience watches happen.
+        assert!(STYLESHEET.contains("[data-slidx-demo=\"live\"] > .slidx-demo-fallback"));
+        assert!(STYLESHEET.contains("[data-slidx-demo=\"fallback\"] > .slidx-demo-live"));
+    }
+
+    #[test]
+    fn a_hidden_demo_side_stops_rather_than_lurks() {
+        // `visibility: hidden` would leave the live iframe running its demo
+        // behind the recording, still holding the network it lost.
+        let rules = declarations();
+        let at = rules.find("[data-slidx-demo=").expect("the demo switch has no rule");
+        assert!(rules[at..].starts_with(
+            "[data-slidx-demo=\"live\"] > .slidx-demo-fallback,\n[data-slidx-demo=\"fallback\"] > .slidx-demo-live {\n  display: none;\n}"
+        ), "got: {}", &rules[at..at + 120]);
     }
 
     #[test]

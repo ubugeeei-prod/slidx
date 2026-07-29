@@ -372,7 +372,7 @@ fn quoted(value: &str) -> Option<&str> {
 /// itself. Anything on `http` or `https` is a request whoever the host is —
 /// `localhost` included, because the machine that builds a deck is not the
 /// machine that shows it.
-fn is_remote(url: &str) -> bool {
+pub(crate) fn is_remote(url: &str) -> bool {
     let url = url.trim();
 
     // `//cdn.example.com/x` is a URL with the scheme left off, not a path: the
