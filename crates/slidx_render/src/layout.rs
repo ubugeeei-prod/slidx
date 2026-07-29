@@ -148,6 +148,22 @@ pre {
 
 pre code { font-size: inherit; }
 
+/*
+ * Syntax highlighting, decided at build time.
+ *
+ * Six classes and nothing else — no italics, no weight changes. A projector
+ * loses a slanted stem before it loses a hue, and code that mixes weights sets
+ * a different amount of ink per line, which reads as ragged from row fifteen.
+ * The colours are the theme's, and every one of them is held to the same
+ * contrast rules as body text.
+ */
+.slidx-code-comment { color: var(--slidx-color-code-comment); }
+.slidx-code-string { color: var(--slidx-color-code-string); }
+.slidx-code-number { color: var(--slidx-color-code-number); }
+.slidx-code-keyword { color: var(--slidx-color-code-keyword); }
+.slidx-code-type { color: var(--slidx-color-code-type); }
+.slidx-code-punctuation { color: var(--slidx-color-code-punctuation); }
+
 p > code, li > code {
   padding: 0.1em 0.3em;
   background: var(--slidx-color-code-surface);
@@ -351,6 +367,38 @@ mod tests {
 
         out.push_str(rest);
         out
+    }
+
+    #[test]
+    fn every_token_the_highlighter_emits_has_a_rule_to_colour_it() {
+        // The seam between two crates that never see each other: the scanner
+        // writes a class, the theme defines a property, and this is the only
+        // place they meet. A missing rule renders that token in the inherited
+        // colour, which looks like the scanner failed to recognise it.
+        for token in slidx_highlight::Token::COLOURED {
+            let class = token.class().unwrap();
+            assert!(STYLESHEET.contains(&format!(".{class} {{")), "no rule for {class}");
+            assert!(
+                STYLESHEET.contains(&format!("var(--slidx-color-code-{})", token.as_token())),
+                "{class} does not read the theme's colour"
+            );
+        }
+    }
+
+    #[test]
+    fn highlighting_changes_colour_and_nothing_else() {
+        // A projector loses a slanted stem before it loses a hue, and mixed
+        // weights put a different amount of ink on each line, which reads as
+        // ragged from the back of a room.
+        for token in slidx_highlight::Token::COLOURED {
+            let class = token.class().unwrap();
+            let at = STYLESHEET.find(&format!(".{class} {{")).unwrap();
+            let rest = &STYLESHEET[at..];
+            let rule = &rest[..rest.find('}').unwrap()];
+
+            assert_eq!(rule.matches(':').count(), 1, "{class} declares more than a colour");
+            assert!(rule.contains("color:"), "{class} declares something other than a colour");
+        }
     }
 
     #[test]

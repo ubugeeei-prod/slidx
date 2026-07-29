@@ -111,13 +111,14 @@ export default defineConfig({
       // than the repository. They are still nodes in this graph rather than
       // steps in a workflow file — a check that exists here cannot go missing
       // from CI, because CI has no steps of its own to forget.
-      "ci:conventions": group(["check:conventions", "check:version"]),
+      "ci:conventions": group(["check:conventions", "check:version", "check:dead-config"]),
       "ci:rust": group(["fmt:rust-check", "lint:rust", "test:rust"]),
       "ci:ts": group(["fmt:ts-check", "check:ts", "test:ts"]),
       "ci:build": group(["build:rust", "build:packages"]),
 
       "workspace:check": group([
         "check:conventions",
+        "check:dead-config",
         "check:version",
         "fmt:rust-check",
         "fmt:ts-check",
@@ -158,6 +159,25 @@ export default defineConfig({
       // through, so nothing on that side can be checked until it exists.
       "build:wasm": uncached("node scripts/build-wasm.mjs"),
 
+      // The TypeScript form of the deck, written out of the Rust types.
+      //
+      // Nothing depends on this task, and that is the point. The generated
+      // file is committed, so `build:wasm` finds it already there and a change
+      // to the boundary arrives in review as a diff rather than as a rebuild
+      // nobody sees. What keeps it honest is `test:rust`, which CI already
+      // runs and which fails the moment the file stops describing the types it
+      // came from. This task is how you fix that failure.
+      "generate:types": uncached("vp fmt crates/slidx_wasm/deck.d.ts", {
+        dependsOn: ["generate:types-raw"],
+      }),
+
+      // Two tasks because two tools have opinions: the generator writes
+      // `ts-rs`'s spelling, and the repository's formatter has the last word
+      // on how a file someone has to read is laid out.
+      "generate:types-raw": uncached(
+        "SLIDX_WRITE_DECK_TYPES=1 cargo test -p slidx_wasm --lib the_committed_declarations",
+      ),
+
       // The runtime is consumed through its published `exports`, which point
       // at `dist/`. Importing it from source instead would test a module that
       // no user ever loads, so it is built before anything reads it. This is
@@ -180,6 +200,7 @@ export default defineConfig({
       "test:ts": uncached(builtin("vp test"), { dependsOn: ["build:packages"] }),
 
       "check:conventions": task("node scripts/check-conventions.mjs"),
+      "check:dead-config": task("node scripts/check-dead-config.mjs"),
       "check:version": task("node scripts/check-version.mjs"),
 
       // The README images are output of the pipeline, not artwork. Kept as a

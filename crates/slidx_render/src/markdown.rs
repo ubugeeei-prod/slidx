@@ -26,11 +26,18 @@ pub struct MarkdownOptions {
     /// On by default: every one of those appears in technical talks, and a
     /// table that renders as raw pipes is a slide nobody can read.
     pub gfm: bool,
+    /// Colour fenced code blocks in the languages slidx scans.
+    ///
+    /// On by default, because the alternative is a wall of one colour that
+    /// nobody in row fifteen can find the shape of. Off is for the deck whose
+    /// code is not code — a grammar, a diff, a log — where the scanner's
+    /// opinion about what a word means is noise.
+    pub highlight: bool,
 }
 
 impl Default for MarkdownOptions {
     fn default() -> Self {
-        Self { gfm: true }
+        Self { gfm: true, highlight: true }
     }
 }
 
@@ -48,7 +55,13 @@ pub fn render(source: &str, options: &MarkdownOptions) -> String {
         return String::new();
     };
 
-    HtmlRenderer::with_options(HtmlRendererOptions::new()).render(&document)
+    let html = HtmlRenderer::with_options(HtmlRendererOptions::new()).render(&document);
+
+    if options.highlight {
+        crate::highlight::highlight_code_blocks(&html)
+    } else {
+        html
+    }
 }
 
 #[cfg(test)]
@@ -84,7 +97,8 @@ mod tests {
 
     #[test]
     fn gfm_can_be_switched_off() {
-        let output = render("| a | b |\n| - | - |\n| 1 | 2 |\n", &MarkdownOptions { gfm: false });
+        let options = MarkdownOptions { gfm: false, ..MarkdownOptions::default() };
+        let output = render("| a | b |\n| - | - |\n| 1 | 2 |\n", &options);
         assert!(!output.contains("<table>"));
     }
 

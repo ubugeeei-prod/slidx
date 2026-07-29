@@ -6,6 +6,7 @@
 //! without touching the other, and so does the editor's timeline panel.
 
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use super::preset::{Easing, EffectKind, EffectPreset, Origin};
 
@@ -55,7 +56,7 @@ impl StepOptions {
 }
 
 /// A resolved animation attached to one element in one frame.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct Effect {
     pub kind: EffectKind,
@@ -63,6 +64,11 @@ pub struct Effect {
     pub duration_ms: u32,
     pub delay_ms: u32,
     pub easing: Easing,
+    /// Omitted rather than written as `null` when unset. A timeline is
+    /// serialised into every page of every deck, and most presets have no
+    /// direction to travel from.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub origin: Option<Origin>,
 }
 
