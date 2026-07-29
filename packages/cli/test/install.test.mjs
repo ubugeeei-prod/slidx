@@ -204,8 +204,12 @@ describe("the promises the script makes about itself", () => {
     // `curl | sh` leaves $0 as `sh` and the script on standard input. Anything
     // that reads its own file prints the wrong thing — and that pipe is how
     // most people will ever run this.
-    const piped = execFileSync("sh", ["-c", `cat ${INSTALLER} | sh -s -- --help`], {
+    // Fed on standard input rather than through `cat <path> | sh`: a Windows
+    // path interpolated into a shell command loses its backslashes, and the
+    // pipeline then exits 0 having run nothing at all.
+    const piped = execFileSync("sh", ["-s", "--", "--help"], {
       encoding: "utf8",
+      input: SOURCE,
     });
 
     expect(piped).toContain("slidx installer");
