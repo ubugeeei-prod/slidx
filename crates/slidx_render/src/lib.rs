@@ -32,6 +32,7 @@
 #![deny(missing_debug_implementations)]
 #![warn(clippy::all)]
 
+pub mod highlight;
 pub mod layout;
 pub mod markdown;
 pub mod og;
@@ -42,6 +43,7 @@ pub mod print_layout;
 pub mod qr;
 pub mod shell;
 
+pub use highlight::highlight_code_blocks;
 pub use markdown::{render as render_markdown, MarkdownOptions};
 pub use og::{render_deck_card, render_slide_card, OgOptions, OG_HEIGHT, OG_WIDTH};
 pub use presenter::{render_presenter, PresenterOptions};
