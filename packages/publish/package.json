@@ -12,7 +12,6 @@
     "dist"
   ],
   "type": "module",
-  "sideEffects": false,
   "types": "./dist/index.d.mts",
   "exports": {
     ".": {
@@ -26,5 +25,8 @@
   },
   "scripts": {
     "pack:lib": "vp pack src/index.ts --dts --out-dir dist"
+  },
+  "dependencies": {
+    "@slidx/wasm": "workspace:*"
   }
 }

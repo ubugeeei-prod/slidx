@@ -1,0 +1,17 @@
+[package]
+name = "slidx_publish"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Plans and payloads for publishing a finished slidx deck. Performs nothing, needs no credentials"
+
+# No HTTP client, and nothing that could grow into one. The dependency list is
+# part of the promise this crate makes: see the module docs.
+[dependencies]
+serde = { workspace = true }
+ts-rs = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

@@ -18,6 +18,7 @@ slidx_doctor = { version = "0.0.1", path = "crates/slidx_doctor" }
 slidx_highlight = { version = "0.0.1", path = "crates/slidx_highlight" }
 slidx_lint = { version = "0.0.1", path = "crates/slidx_lint" }
 slidx_lsp = { version = "0.0.1", path = "crates/slidx_lsp" }
+slidx_publish = { version = "0.0.1", path = "crates/slidx_publish" }
 slidx_qr = { version = "0.0.1", path = "crates/slidx_qr" }
 slidx_render = { version = "0.0.1", path = "crates/slidx_render" }
 slidx_theme = { version = "0.0.1", path = "crates/slidx_theme" }

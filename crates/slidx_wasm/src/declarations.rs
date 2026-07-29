@@ -119,7 +119,7 @@ pub fn generate() -> String {
 /// The Rust doc comments come across as JSDoc: the reasoning behind a field is
 /// as load-bearing on the TypeScript side as it is in the crate, and a
 /// declaration stripped of it would read as a shape with no argument for why.
-fn push<T: TS + ?Sized>(file: &mut String, cfg: &Config) {
+pub(crate) fn push<T: TS + ?Sized>(file: &mut String, cfg: &Config) {
     file.push('\n');
     if let Some(docs) = T::docs() {
         file.push_str(docs.trim_start_matches('\n'));
@@ -129,81 +129,89 @@ fn push<T: TS + ?Sized>(file: &mut String, cfg: &Config) {
     file.push('\n');
 }
 
+/// The whole point of the exercise: a field added in Rust and forgotten in
+/// TypeScript fails a test rather than reaching a consumer as `any`.
+///
+/// Writing the file is folded into the check rather than living in its own
+/// binary so there is exactly one description of what belongs in it.
+/// `vp run generate:types` sets the variable, and a person reading the failure
+/// is told that command rather than left to find it.
+///
+/// Shared by every declaration file this crate commits, so a second boundary —
+/// publishing is the first — inherits the check rather than restating it.
+#[cfg(test)]
+pub(crate) fn check_committed(name: &str, committed: &str, generated: &str) {
+    if std::env::var_os("SLIDX_WRITE_DECK_TYPES").is_some() {
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(name);
+        std::fs::write(path, generated).expect("write the declarations");
+        return;
+    }
+
+    let committed = significant_tokens(committed);
+    let regenerated = significant_tokens(generated);
+
+    assert!(
+        committed == regenerated,
+        "crates/slidx_wasm/{name} no longer describes the Rust types. \
+         Run `vp run generate:types`.\n{}",
+        first_difference(&committed, &regenerated),
+    );
+}
+
+/// A declaration reduced to the tokens that carry meaning.
+///
+/// The committed copy is run through the repository's formatter after it is
+/// generated, and everything a formatter changes here is punctuation that
+/// separates or groups rather than names: it breaks lines, writes `;` between
+/// members where `ts-rs` writes `,`, leads a long union with a `|`, brackets a
+/// union member that is an intersection, and drops the quotes `ts-rs` puts
+/// round an object key that did not need them. Those are dropped.
+///
+/// Nothing else is. Names, types, literals, and their order all survive, so a
+/// field added in Rust and forgotten in TypeScript still changes this stream —
+/// which is the whole thing the check has to catch.
+#[cfg(test)]
+fn significant_tokens(declarations: &str) -> Vec<String> {
+    declarations
+        .split_whitespace()
+        .map(|token| token.replace([',', ';', '|', '(', ')', '"'], ""))
+        .filter(|token| !token.is_empty())
+        .collect()
+}
+
+/// Where two token streams first diverge, with enough either side to recognise.
+/// Printing both in full would bury the one changed field in a page of things
+/// that did not change.
+#[cfg(test)]
+fn first_difference(committed: &[String], regenerated: &[String]) -> String {
+    let at = committed
+        .iter()
+        .zip(regenerated)
+        .position(|(one, other)| one != other)
+        .unwrap_or_else(|| committed.len().min(regenerated.len()));
+
+    let window = |tokens: &[String]| {
+        let start = at.saturating_sub(6).min(tokens.len());
+        tokens[start..(at + 6).min(tokens.len())].join(" ")
+    };
+
+    format!("  committed: …{}…\n  generated: …{}…", window(committed), window(regenerated))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     use std::collections::BTreeSet;
-    use std::fs;
-    use std::path::PathBuf;
 
     use serde::Serialize;
 
     /// The declarations as they were last generated and committed.
     const COMMITTED: &str = include_str!("../deck.d.ts");
 
-    /// A declaration reduced to the tokens that carry meaning.
-    ///
-    /// The committed copy is run through the repository's formatter after it
-    /// is generated, and everything a formatter changes here is separator
-    /// punctuation: it breaks lines, writes `;` between members where `ts-rs`
-    /// writes `,`, and leads a long union with a `|`. Those are dropped.
-    ///
-    /// Nothing else is. Names, types, literals, and their order all survive,
-    /// so a field added in Rust and forgotten in TypeScript still changes this
-    /// stream — which is the whole thing the check has to catch.
-    fn significant_tokens(declarations: &str) -> Vec<String> {
-        declarations
-            .split_whitespace()
-            .map(|token| token.replace([',', ';', '|'], ""))
-            .filter(|token| !token.is_empty())
-            .collect()
-    }
-
-    /// The whole point of the exercise: a field added in Rust and forgotten in
-    /// TypeScript fails a test rather than reaching a consumer as `any`.
-    ///
-    /// Writing the file is folded into the check rather than living in its own
-    /// binary so there is exactly one description of what belongs in it.
-    /// `vp run generate:types` sets the variable, and a person reading the
-    /// failure is told that command rather than left to find it.
     #[test]
     fn the_committed_declarations_are_what_the_rust_types_generate() {
-        let generated = generate();
-
-        if std::env::var_os("SLIDX_WRITE_DECK_TYPES").is_some() {
-            let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("deck.d.ts");
-            fs::write(path, &generated).expect("write deck.d.ts");
-            return;
-        }
-
-        let committed = significant_tokens(COMMITTED);
-        let regenerated = significant_tokens(&generated);
-
-        assert!(
-            committed == regenerated,
-            "crates/slidx_wasm/deck.d.ts no longer describes the Rust types. \
-             Run `vp run generate:types`.\n{}",
-            first_difference(&committed, &regenerated),
-        );
-    }
-
-    /// Where two token streams first diverge, with enough either side to
-    /// recognise. Printing both in full would bury the one changed field in a
-    /// page of things that did not change.
-    fn first_difference(committed: &[String], regenerated: &[String]) -> String {
-        let at = committed
-            .iter()
-            .zip(regenerated)
-            .position(|(one, other)| one != other)
-            .unwrap_or_else(|| committed.len().min(regenerated.len()));
-
-        let window = |tokens: &[String]| {
-            let start = at.saturating_sub(6).min(tokens.len());
-            tokens[start..(at + 6).min(tokens.len())].join(" ")
-        };
-
-        format!("  committed: …{}…\n  generated: …{}…", window(committed), window(regenerated))
+        check_committed("deck.d.ts", COMMITTED, &generate());
     }
 
     /// Field names that appear in the declaration but never in the payload —
