@@ -77,7 +77,10 @@ pub fn render_print(deck: &Deck, options: &PrintOptions) -> String {
                 layout = slide.layout.as_deref().unwrap_or("stack"),
                 width = width,
                 height = height,
-                body = render(&slide.content, &options.markdown),
+                body = render(
+                    &crate::snippet::stage(deck, slide, &options.theme),
+                    &options.markdown,
+                ),
                 brand = escape(&brand(deck)),
                 number = slide.index + 1,
             )
