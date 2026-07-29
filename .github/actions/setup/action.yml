@@ -8,9 +8,11 @@ inputs:
   wasm:
     description: Also install the wasm32 target and a matching wasm-bindgen. Implies rust.
     default: "false"
-  browser:
-    description: Download the Chromium build Playwright drives. Only jobs that export a PDF need it.
-    default: "false"
+  browsers:
+    description: >
+      Space-separated Playwright browsers to download, or empty for none.
+      `chromium` is what the PDF export drives; the full matrix job asks for all three.
+    default: ""
 
 runs:
   using: composite
@@ -63,8 +65,8 @@ runs:
       shell: bash
 
     # The npm package is only the driver. pnpm does not run its postinstall,
-    # so the browser it drives has to be fetched on purpose, and the PDF
-    # export is checked against a real one rather than a mock.
-    - if: inputs.browser == 'true'
+    # so the browsers it drives have to be fetched on purpose, and the deck is
+    # checked against real ones rather than a mock.
+    - if: inputs.browsers != ''
       shell: bash
-      run: pnpm exec playwright install --with-deps chromium
+      run: pnpm exec playwright install --with-deps ${{ inputs.browsers }}

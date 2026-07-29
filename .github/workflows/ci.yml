@@ -57,7 +57,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           wasm: "true"
-          browser: "true"
+          browsers: chromium
       - run: pnpm exec vp run ci:ts
 
   build:
@@ -74,12 +74,50 @@ jobs:
           wasm: "true"
       - run: pnpm exec vp run ci:build
 
+  # The layout mechanism is one CSS rule carrying the whole design, with no
+  # script to fall back on, so every engine gets to prove it rather than being
+  # assumed to support it. macOS is in the matrix because WebKit there is the
+  # build closest to the Safari a speaker will actually open.
+  browsers:
+    name: browsers / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          wasm: "true"
+          browsers: chromium firefox webkit
+      - run: pnpm exec vp run build:packages
+      - run: pnpm exec vitest run packages/vite-plugin/test/browser.test.ts
+
+  # One artifact serves every runtime, and each one instantiates it itself.
+  # That path is where they differ, so all three build the same deck and the
+  # digests are compared.
+  runtimes:
+    name: runtimes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          wasm: "true"
+      - uses: oven-sh/setup-bun@v2
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: pnpm exec vp run build:packages
+      - run: pnpm exec vitest run packages/vite-plugin/test/runtime.test.ts
+
   # One check to require on the branch, so adding a job to the matrix above
   # never needs the ruleset edited to match.
   ci:
     name: ci
     if: always()
-    needs: [conventions, rust, typescript, build]
+    needs: [conventions, rust, typescript, build, browsers, runtimes]
     runs-on: ubuntu-latest
     steps:
       - name: Report
