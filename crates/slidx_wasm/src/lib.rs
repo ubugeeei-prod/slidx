@@ -38,8 +38,8 @@ use wasm_bindgen::prelude::*;
 use slidx_core::{parse_deck, DeckParseOptions};
 use slidx_lint::{lint, LintInput, LintOptions, Measurement};
 use slidx_render::{
-    render_deck_card, render_presenter, render_print, render_slide, OgOptions, PresenterOptions,
-    PrintOptions, ShellOptions,
+    render_deck_card, render_presenter, render_print, render_slide, render_snippets, OgOptions,
+    PresenterOptions, PrintOptions, ShellOptions, SnippetOptions,
 };
 
 /// What a caller can ask for when building a deck.
@@ -128,6 +128,21 @@ pub struct BuildResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub og_svg: Option<String>,
+    /// A page per shared code fence, for the caller to write.
+    ///
+    /// Composed here and written by whoever asked, because this side of the
+    /// boundary has no filesystem. Empty when the deck shares nothing, which
+    /// is most decks.
+    pub snippets: Vec<SnippetFile>,
+}
+
+/// One shared snippet, as a file waiting to be written.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct SnippetFile {
+    /// Relative to the deck's own output root, separators already `/`.
+    pub path: String,
+    pub html: String,
 }
 
 /// A diagnostic, flattened for the JavaScript side.
@@ -273,6 +288,7 @@ fn build(source: &str, options: &BuildOptions) -> BuildResult {
         ..ShellOptions::default()
     };
     let print_theme = theme.clone();
+    let snippet_theme = theme.clone();
     let og_theme = theme.clone();
     let presenter =
         PresenterOptions { theme, runtime_src: runtime_src.clone(), ..PresenterOptions::default() };
@@ -309,8 +325,22 @@ fn build(source: &str, options: &BuildOptions) -> BuildResult {
         )
     });
 
+    // Rendered whenever the deck is rendered rather than behind a flag: a
+    // slide that asks for a snippet already shows a QR pointing at its page,
+    // and a code on a projector that resolves to nothing is worse than no code
+    // at all.
+    let snippets = if render {
+        render_snippets(&deck, &SnippetOptions { theme: snippet_theme })
+            .into_iter()
+            .map(|page| SnippetFile { path: page.path, html: page.html })
+            .collect()
+    } else {
+        Vec::new()
+    };
+
     BuildResult {
         og_svg: (render && options.og).then(|| render_deck_card(&deck, &og)),
+        snippets,
         title: deck.meta.title.clone(),
         description: deck.meta.description.clone(),
         slides,

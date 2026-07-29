@@ -29,6 +29,7 @@ import {
   resolveOptions,
   runtimeFileName,
   slideFileName,
+  snippetFileName,
   type SlidxOptions,
 } from "./options";
 import { build as buildDeck } from "./pipeline";
@@ -223,6 +224,17 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
             source: built.ogSvg,
           });
         }
+      }
+
+      // A slide that shares a fence already draws a QR pointing at its page,
+      // so an unwritten page is a code on a projector that resolves to
+      // nothing. Empty for the decks that share nothing, which is most.
+      for (const snippet of built.snippets) {
+        this.emitFile({
+          type: "asset",
+          fileName: snippetFileName(options, snippet.path),
+          source: snippet.html,
+        });
       }
 
       if (built.printHtml) {

@@ -50,7 +50,7 @@ use slidx_core::{
 };
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{BuildOptions, BuildResult, BuiltSlide, Finding};
+use crate::{BuildOptions, BuildResult, BuiltSlide, Finding, SnippetFile};
 
 // Appended verbatim to the `.d.ts` wasm-bindgen writes, which is how the types
 // reach npm without a second artifact to keep in step.
@@ -96,6 +96,7 @@ pub fn generate() -> String {
     push::<BuildResult>(&mut file, &cfg);
     push::<BuiltSlide>(&mut file, &cfg);
     push::<Finding>(&mut file, &cfg);
+    push::<SnippetFile>(&mut file, &cfg);
 
     // The step timeline, which the renderer embeds as JSON in the page and the
     // client runtime parses back out. It crosses without going through
@@ -276,6 +277,7 @@ mod tests {
             has_blocking: false,
             print_html: None,
             og_svg: None,
+            snippets: Vec::new(),
         };
         let state = ElementState {
             target: "[data-slidx-anchor]".into(),
