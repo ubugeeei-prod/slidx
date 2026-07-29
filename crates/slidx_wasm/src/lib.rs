@@ -36,11 +36,7 @@ use ts_rs::TS;
 use wasm_bindgen::prelude::*;
 
 use slidx_core::{parse_deck, DeckParseOptions};
-use slidx_lint::{lint, LintInput, LintOptions, Measurement};
-use slidx_render::{
-    render_deck_card, render_presenter, render_print, render_slide, render_snippets, OgOptions,
-    PresenterOptions, PrintOptions, ShellOptions, SnippetOptions,
-};
+use slidx_lint::{LintOptions, Measurement};
 
 /// What a caller can ask for when building a deck.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
@@ -64,6 +60,14 @@ pub struct BuildOptions {
     pub og: bool,
     /// Module URL the presenter view imports the runtime from.
     pub runtime_src: Option<String>,
+    /// Image sizes the caller already read, keyed by the path a slide writes.
+    ///
+    /// There is no filesystem on this side of the boundary, so the resolution
+    /// rules cannot open `./logo.png` themselves. A caller that can — the Vite
+    /// plugin — reads each header, passes it through [`probe_image`], and hands
+    /// the answers back here. Absent means those rules stay silent, which is
+    /// the editor mid-keystroke.
+    pub assets: Vec<AssetSize>,
     /// The runtime's source, inlined into the print shell.
     ///
     /// The print shell is opened over `file://` — by the PDF exporter, from a
@@ -143,6 +147,36 @@ pub struct SnippetFile {
     /// Relative to the deck's own output root, separators already `/`.
     pub path: String,
     pub html: String,
+}
+
+/// One image, as the caller measured it.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct AssetSize {
+    /// As a slide writes it, minus any query or fragment.
+    pub path: String,
+    pub width: u32,
+    pub height: u32,
+    /// True for a format with no resolution to run out of, which is SVG.
+    pub scalable: bool,
+}
+
+/// The intrinsic size in an image's header, or nothing.
+///
+/// Exposed so a caller with a filesystem can use the one header parser this
+/// project has rather than writing a second. `None` for a format it does not
+/// read and for a truncated header of one it does — both of which are silence
+/// rather than a complaint, the same as everywhere else in the linter.
+#[wasm_bindgen(js_name = probeImage)]
+pub fn probe_image(bytes: &[u8]) -> Result<JsValue, JsError> {
+    let probed = slidx_lint::probe_image(bytes).map(|intrinsic| AssetSize {
+        path: String::new(),
+        width: intrinsic.width,
+        height: intrinsic.height,
+        scalable: intrinsic.format.is_scalable(),
+    });
+
+    serde_wasm_bindgen::to_value(&probed).map_err(|error| JsError::new(&error.to_string()))
 }
 
 /// A diagnostic, flattened for the JavaScript side.
@@ -265,108 +299,9 @@ pub(crate) fn parse_options(separator: Option<&str>) -> DeckParseOptions {
     }
 }
 
-fn build(source: &str, options: &BuildOptions) -> BuildResult {
-    let deck = parse_deck(source, &parse_options(options.separator.as_deref()));
-    let theme = resolve_theme(options.theme.as_deref(), deck.meta.theme.as_deref());
-    let surfaces = theme.surfaces();
+mod build;
 
-    let mut diagnostics: Vec<Finding> = deck.diagnostics.iter().map(finding).collect();
-    let has_blocking = deck.diagnostics.has_blocking();
-
-    // The theme's padding is the safe area the shell enforces, and resolving
-    // the theme is the only place that number exists. Without it the linter
-    // cannot say whether a venue's caption strip reaches into content.
-    let padding = theme.spacing.padding_px / theme.reference_height_px();
-    let findings =
-        lint(&LintInput::new(&deck, &surfaces).with_padding(padding), &LintOptions::default());
-    diagnostics.extend(findings.iter().map(finding));
-
-    let runtime_src = options.runtime_src.clone().unwrap_or_else(|| "./runtime.js".to_string());
-    let shell = ShellOptions {
-        theme: theme.clone(),
-        runtime_src: runtime_src.clone(),
-        ..ShellOptions::default()
-    };
-    let print_theme = theme.clone();
-    let snippet_theme = theme.clone();
-    let og_theme = theme.clone();
-    let presenter =
-        PresenterOptions { theme, runtime_src: runtime_src.clone(), ..PresenterOptions::default() };
-
-    let render = !options.parse_only;
-    let og = OgOptions { theme: og_theme, ..OgOptions::default() };
-
-    let slides = deck
-        .slides
-        .iter()
-        .map(|slide| BuiltSlide {
-            id: slide.id.clone(),
-            index: slide.index,
-            title: slide.title.clone(),
-            notes: slide.notes.clone(),
-            stop_count: slide.timeline.len() as u32,
-            frontmatter: slide.frontmatter.clone(),
-            html: render.then(|| render_slide(&deck, slide, &shell)),
-            og_svg: (render && options.og)
-                .then(|| slidx_render::render_slide_card(&deck, slide, &og)),
-            presenter_html: (render && options.presenter)
-                .then(|| render_presenter(&deck, slide, &presenter)),
-        })
-        .collect();
-
-    let print_html = (render && options.print).then(|| {
-        render_print(
-            &deck,
-            &PrintOptions {
-                theme: print_theme,
-                inline_runtime: options.print_runtime.clone(),
-                ..PrintOptions::default()
-            },
-        )
-    });
-
-    // Rendered whenever the deck is rendered rather than behind a flag: a
-    // slide that asks for a snippet already shows a QR pointing at its page,
-    // and a code on a projector that resolves to nothing is worse than no code
-    // at all.
-    let snippets = if render {
-        render_snippets(&deck, &SnippetOptions { theme: snippet_theme })
-            .into_iter()
-            .map(|page| SnippetFile { path: page.path, html: page.html })
-            .collect()
-    } else {
-        Vec::new()
-    };
-
-    BuildResult {
-        og_svg: (render && options.og).then(|| render_deck_card(&deck, &og)),
-        snippets,
-        title: deck.meta.title.clone(),
-        description: deck.meta.description.clone(),
-        slides,
-        diagnostics,
-        has_blocking,
-        print_html,
-    }
-}
-
-/// An explicit theme wins over the deck's own, which wins over the default.
-fn resolve_theme(requested: Option<&str>, from_deck: Option<&str>) -> slidx_theme::Theme {
-    requested
-        .or(from_deck)
-        .and_then(slidx_theme::resolve)
-        .unwrap_or_else(slidx_theme::default_theme)
-}
-
-fn finding(diagnostic: &slidx_core::Diagnostic) -> Finding {
-    Finding {
-        severity: diagnostic.severity.as_token().to_string(),
-        code: diagnostic.code.clone(),
-        message: diagnostic.message.clone(),
-        help: diagnostic.help.clone(),
-        slide_index: diagnostic.span.slide_index,
-    }
-}
+use build::{build, finding, resolve_theme};
 
 #[cfg(test)]
 mod tests {

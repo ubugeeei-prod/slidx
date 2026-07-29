@@ -41,6 +41,16 @@ export type BuildOptions = {
    */
   runtimeSrc: string | null;
   /**
+   * Image sizes the caller already read, keyed by the path a slide writes.
+   *
+   * There is no filesystem on this side of the boundary, so the resolution
+   * rules cannot open `./logo.png` themselves. A caller that can — the Vite
+   * plugin — reads each header, passes it through [`probe_image`], and hands
+   * the answers back here. Absent means those rules stay silent, which is
+   * the editor mid-keystroke.
+   */
+  assets: Array<AssetSize>;
+  /**
    * The runtime's source, inlined into the print shell.
    *
    * The print shell is opened over `file://` — by the PDF exporter, from a
@@ -49,6 +59,22 @@ export type BuildOptions = {
    * that document carries its own script rather than referencing one.
    */
   printRuntime: string | null;
+};
+
+/**
+ * One image, as the caller measured it.
+ */
+export type AssetSize = {
+  /**
+   * As a slide writes it, minus any query or fragment.
+   */
+  path: string;
+  width: number;
+  height: number;
+  /**
+   * True for a format with no resolution to run out of, which is SVG.
+   */
+  scalable: boolean;
 };
 
 /**

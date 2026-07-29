@@ -88,8 +88,10 @@ fn read_deck(dir: &Path) -> Result<Deck, Box<dyn std::error::Error>> {
 /// and the wrong one here.
 fn report(deck: &Deck, theme: &slidx_theme::Theme, assets: &Path) {
     let surfaces = theme.surfaces();
-    let findings =
-        lint(&LintInput::new(deck, &surfaces).with_assets(assets), &LintOptions::default());
+    let findings = lint(
+        &LintInput::new(deck, &surfaces).with_asset_directory(assets),
+        &LintOptions::default(),
+    );
 
     for diagnostic in deck.diagnostics.iter().chain(findings.iter()) {
         println!("{}", format_diagnostic(diagnostic, deck));

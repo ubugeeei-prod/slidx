@@ -11,7 +11,9 @@ import { createRequire } from "node:module";
 
 import init, {
   buildDeck,
+  probeImage as probeImageBytes,
   lintMeasured as lintMeasuredDeck,
+  type AssetSize,
   type BuildDeckOptions,
   type BuildResult,
   type Finding,
@@ -73,4 +75,19 @@ export async function lintMeasured(
     theme: options.theme,
     separator: options.separator,
   });
+}
+
+/**
+ * The intrinsic size in an image's header, or `null`.
+ *
+ * Synchronous, and deliberately not exported from `assets.ts` directly: the
+ * module is instantiated once per process and every caller has to wait for
+ * that, so the wait lives here with the rest of the boundary.
+ *
+ * The `path` comes back empty — the parser is answering about bytes and knows
+ * nothing about where they came from. The caller fills it in.
+ */
+export async function probeImageHeader(head: Uint8Array): Promise<AssetSize | null> {
+  await ensureReady();
+  return probeImageBytes(head);
 }

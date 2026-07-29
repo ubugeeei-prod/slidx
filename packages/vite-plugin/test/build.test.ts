@@ -12,7 +12,7 @@ import { mkdtemp, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { build } from "vite";
+import { build, createLogger } from "vite";
 import { beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { EDITOR_ROUTE_PREFIX, slidx } from "../src/index";
@@ -253,5 +253,68 @@ describe("shared code snippets", () => {
 
     expect(written).toHaveLength(1);
     expect(slide).toContain("snippets/retry-policy.html");
+  }, 60_000);
+});
+
+/**
+ * The image rules, reaching a build.
+ *
+ * They need a file's own pixel dimensions and they run inside WebAssembly,
+ * which has no filesystem — so for as long as nothing read the headers on this
+ * side, the rules were implemented, tested, merged, and never once ran on a
+ * real deck. The failure they catch is a 400-pixel logo across half a
+ * projector: invisible on the laptop it was authored on, mush from row 12.
+ */
+describe("image sizes", () => {
+  /** A PNG header claiming a size. Nothing decodes it; only the header is read. */
+  function png(width: number, height: number): Buffer {
+    const bytes = Buffer.alloc(24);
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(bytes, 0);
+    bytes.write("IHDR", 12, "ascii");
+    bytes.writeUInt32BE(width, 16);
+    bytes.writeUInt32BE(height, 20);
+    return bytes;
+  }
+
+  async function buildWithLogo(markup: string, size: Buffer) {
+    const root = await mkdtemp(join(tmpdir(), "slidx-assets-"));
+    await mkdir(join(root, "slides"), { recursive: true });
+    await writeFile(join(root, "slides", "0001.md"), markup);
+    await writeFile(join(root, "slides", "logo.png"), size);
+
+    // The rule warns rather than errors — a soft logo still shows, and
+    // stopping a build minutes before a talk is how a linter gets switched
+    // off — so the assertion has to read what was said, not an exit code.
+    const warnings: string[] = [];
+    const logger = createLogger("silent");
+    logger.warn = (message: string) => void warnings.push(message);
+
+    await build({
+      root,
+      logLevel: "silent",
+      customLogger: logger,
+      plugins: [slidx()],
+      build: { outDir: join(root, "dist") },
+    });
+
+    return warnings.join("\n");
+  }
+
+  it("catches a logo drawn far wider than its own pixels", async () => {
+    const output = await buildWithLogo(
+      '# Results\n\n<img src="logo.png" width="1440" alt="the logo">\n',
+      png(400, 200),
+    );
+
+    expect(output).toContain("resolution/upscaled");
+  }, 60_000);
+
+  it("says nothing about an image drawn at the size it is", async () => {
+    const output = await buildWithLogo(
+      '# Results\n\n<img src="logo.png" width="400" alt="the logo">\n',
+      png(400, 200),
+    );
+
+    expect(output).not.toContain("resolution/");
   }, 60_000);
 });
