@@ -12,9 +12,11 @@
 //! Font stacks name system faces only. A theme that reaches for a webfont
 //! fails the offline check, and a venue with no network is the normal case.
 
+use slidx_core::Easing;
+
 use crate::palette::{hex, Palette};
 use crate::scale::TypeScale;
-use crate::theme::{Spacing, Theme};
+use crate::theme::{Motion, Spacing, Theme};
 
 const SANS: &str = "system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', \
                     'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif";
@@ -61,6 +63,7 @@ pub fn minimal() -> Theme {
         },
         scale: TypeScale::default(),
         spacing: Spacing::default(),
+        motion: Motion::default(),
         font_sans: SANS.into(),
         font_mono: MONO.into(),
     }
@@ -96,6 +99,9 @@ pub fn editorial() -> Theme {
         },
         scale: TypeScale { base_px: 34.0, ratio: 1.333, code_factor: 0.95 },
         spacing: Spacing { padding_px: 112.0, block_px: 32.0, ..Spacing::default() },
+        // Prose is read, not scanned. A slightly longer change of place suits
+        // a talk the audience is following sentence by sentence.
+        motion: Motion { transition_ms: 320, transition_easing: Easing::EaseInOut },
         font_sans: SANS.into(),
         font_mono: MONO.into(),
     }
@@ -132,6 +138,9 @@ pub fn terminal() -> Theme {
         // Code is the point of this theme, so it is set at full body size.
         scale: TypeScale { base_px: 32.0, ratio: 1.2, code_factor: 1.0 },
         spacing: Spacing { padding_px: 80.0, block_px: 24.0, ..Spacing::default() },
+        // Live-coding talks step back and forth through the same few slides
+        // constantly. Anything leisurely becomes a queue of pending animations.
+        motion: Motion { transition_ms: 140, transition_easing: Easing::EaseOut },
         font_sans: MONO.into(),
         font_mono: MONO.into(),
     }
@@ -172,6 +181,9 @@ pub fn contrast() -> Theme {
         },
         scale: TypeScale { base_px: 38.0, ratio: 1.25, code_factor: 0.95 },
         spacing: Spacing { padding_px: 88.0, block_px: 32.0, ..Spacing::default() },
+        // The theme people reach for when seeing the slide is already hard.
+        // A long transition is one more thing between them and the content.
+        motion: Motion { transition_ms: 160, transition_easing: Easing::EaseOut },
         font_sans: SANS.into(),
         font_mono: MONO.into(),
     }
@@ -265,6 +277,20 @@ mod tests {
     fn the_terminal_theme_sets_code_at_full_body_size() {
         let theme = terminal();
         assert_eq!(theme.scale.code_px(), theme.scale.body_px());
+    }
+
+    #[test]
+    fn no_theme_transitions_for_long_enough_to_be_noticed() {
+        // Past roughly a third of a second an audience watches the transition
+        // instead of the slide, and a presenter clicking through waits for it.
+        for theme in all() {
+            assert!(
+                (80..=400).contains(&theme.motion.transition_ms),
+                "{} transitions in {}ms",
+                theme.id,
+                theme.motion.transition_ms
+            );
+        }
     }
 
     #[test]

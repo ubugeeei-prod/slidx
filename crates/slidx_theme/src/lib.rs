@@ -21,13 +21,22 @@
 //! to reach for, which makes "shrink the text until it fits" — the reflex that
 //! produces unreadable slides — something the system does not offer.
 //!
+//! ## Motion is opt-in and reversible
+//!
+//! Slide-to-slide transitions are CSS the browser runs across a real
+//! navigation, so a deck keeps one document per slide and still animates
+//! between them. A deck gets none unless it asks, and whatever it asks for is
+//! cancelled for a viewer who prefers reduced motion. See [`transition`].
+//!
 //! ```
 //! use slidx_lint::LintOptions;
-//! use slidx_theme::{audit, builtin, css};
+//! use slidx_theme::{audit, builtin, css, transition, Transition};
 //!
 //! let theme = builtin::contrast();
 //! assert!(audit::audit(&theme, &LintOptions::default()).is_empty());
 //! assert!(css::render(&theme).contains("--slidx-color-text:"));
+//! assert!(transition::render(&theme, Transition::Push).contains("@view-transition"));
+//! assert!(transition::render(&theme, Transition::None).is_empty());
 //! ```
 
 #![deny(missing_debug_implementations)]
@@ -39,10 +48,12 @@ pub mod css;
 pub mod palette;
 pub mod scale;
 pub mod theme;
+pub mod transition;
 
 pub use palette::{Palette, Scheme};
 pub use scale::{TypeScale, REFERENCE_HEIGHT_PX};
-pub use theme::{Spacing, Theme};
+pub use theme::{Motion, Spacing, Theme, REDUCED_MOTION_CEILING_MS};
+pub use transition::Transition;
 
 /// Resolves a theme by name.
 ///
