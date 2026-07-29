@@ -18,7 +18,7 @@
  *   second registration of the same name is normal and must not throw.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import type { IslandDefinition, IslandHandle } from "../src/contract";
 import { createRegistry, unknownIslandMessage } from "../src/registry";

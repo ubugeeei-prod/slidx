@@ -21,7 +21,7 @@
  *   made the rest readable and reads as a bug.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { composeSocial } from "../src/targets/social";
 import { countCharacters } from "../src/text";

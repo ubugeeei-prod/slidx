@@ -17,7 +17,7 @@
  *   that mounts everything, so the fallback is eager rather than never.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import {
   defaultVisibility,

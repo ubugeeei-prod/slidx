@@ -18,7 +18,7 @@
  *   and React do.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { parseProps } from "../src/props";
 

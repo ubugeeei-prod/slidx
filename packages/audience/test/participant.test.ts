@@ -17,7 +17,7 @@
  * The clock is injected, so none of this is measured by sleeping.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { createParticipant, createTokenBucket } from "../src/participant";
 import { clock } from "./support";

@@ -18,7 +18,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { build } from "vite";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { reportOverflow } from "../src/artifacts";
 import { resolveOptions, printFileName } from "../src/options";

@@ -31,7 +31,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { build } from "vite";
-import { describe, expect, it, beforeAll } from "vitest";
+import { describe, expect, it, beforeAll } from "vite-plus/test";
 
 import { slidx } from "../src/index";
 

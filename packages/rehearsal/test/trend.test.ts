@@ -16,7 +16,7 @@
  * cut it again would send them to undo work that is already working.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { trackRehearsals } from "../src/trend";
 import { minutes, recording, skipped, slide } from "./support";

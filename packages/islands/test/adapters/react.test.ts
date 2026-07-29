@@ -16,7 +16,7 @@
  *   about an invalid element type, which is a long way from the real cause.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { reactIsland, type ReactDomRuntime, type ReactRuntime } from "../../src/adapters/react";
 

@@ -16,7 +16,7 @@
  * - Losing slide order, which is the only structure a draft starts with.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { composeBlog } from "../src/targets/blog";
 import type { BlogScaffold, Composed } from "../src";

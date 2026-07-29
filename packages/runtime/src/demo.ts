@@ -79,9 +79,10 @@ const HAVE_CURRENT_DATA = 2;
  */
 export function createDemoSwitch(root: ParentNode): DemoSwitch | null {
   const figure = root.querySelector(`[${DEMO_ATTRIBUTE}]`);
-  const video = figure?.querySelector("video");
+  if (figure === null) return null;
 
-  if (!figure || !video) return null;
+  const video = figure.querySelector("video");
+  if (video === null) return null;
 
   // `preload="auto"` is advisory. This is the one asset in a deck where the
   // browser's judgement about whether the fetch is worth it is wrong.
@@ -90,7 +91,10 @@ export function createDemoSwitch(root: ParentNode): DemoSwitch | null {
   const read = (): DemoSide =>
     figure.getAttribute(DEMO_ATTRIBUTE) === "fallback" ? "fallback" : "live";
 
-  function show(side: DemoSide): void {
+  // An arrow rather than a declaration, and not as a matter of taste: a
+  // hoisted function could in principle run before the two guards above, so a
+  // type checker will not carry their narrowing into one.
+  const show = (side: DemoSide): void => {
     // Re-showing the current side would rewind the recording to a frame the
     // speaker has already talked past.
     if (side === read()) return;
@@ -109,7 +113,7 @@ export function createDemoSwitch(root: ParentNode): DemoSwitch | null {
 
     // Left running, a hidden recording keeps decoding behind the live demo.
     video.pause();
-  }
+  };
 
   return {
     show,

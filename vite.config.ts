@@ -113,7 +113,7 @@ export default defineConfig({
       // from CI, because CI has no steps of its own to forget.
       "ci:conventions": group(["check:conventions", "check:version", "check:dead-config"]),
       "ci:rust": group(["fmt:rust-check", "lint:rust", "test:rust"]),
-      "ci:ts": group(["fmt:ts-check", "check:ts", "test:ts"]),
+      "ci:ts": group(["fmt:ts-check", "check:ts", "check:types", "test:ts"]),
       "ci:build": group(["build:rust", "build:packages"]),
 
       "workspace:check": group([
@@ -124,6 +124,7 @@ export default defineConfig({
         "fmt:ts-check",
         "lint:rust",
         "check:ts",
+        "check:types",
       ]),
       "workspace:test": group(["test:rust", "test:ts"]),
       "workspace:build": group(["build:rust", "build:packages"]),
@@ -189,6 +190,17 @@ export default defineConfig({
 
       // TypeScript.
       "check:ts": task(builtin("vp check"), { dependsOn: ["build:packages"] }),
+
+      // `vp check` runs the formatter and a type-aware linter, which is not
+      // the same thing as a type check: it reads types to answer lint
+      // questions and never asks whether the program type-checks. Nothing did,
+      // so `tsconfig.json` had `exactOptionalPropertyTypes` and
+      // `noUncheckedIndexedAccess` switched on and a tree that did not pass
+      // either — including a reference to a name that was never imported.
+      //
+      // Depends on the built packages: `@slidx/wasm` is where the deck type
+      // lives, and it is generated rather than committed to a source folder.
+      "check:types": task("tsc --noEmit -p tsconfig.json", { dependsOn: ["build:packages"] }),
       "fmt:ts": task(builtin("vp fmt")),
       "fmt:ts-check": task(builtin("vp fmt --check")),
 

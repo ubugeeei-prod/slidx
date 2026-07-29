@@ -19,7 +19,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 // Paths rather than `new URL(…, import.meta.url)`: Vite rewrites that pattern
 // into an asset reference, and the rewritten URL is no longer a file one.

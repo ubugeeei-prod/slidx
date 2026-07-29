@@ -14,7 +14,7 @@
  *   missing PDF only after fixing the title is two trips instead of one.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { composeSpeakerDeck } from "../src/targets/speakerdeck";
 import type { Composed } from "../src/types";

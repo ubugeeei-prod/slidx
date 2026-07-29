@@ -23,7 +23,7 @@
  * frames is a test with a sleep in it.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import {
   threeIsland,
