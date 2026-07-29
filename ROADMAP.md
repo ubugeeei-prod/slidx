@@ -112,7 +112,7 @@ The chore that is currently done exhausted, and therefore often not done.
 - [x] Social card, post text, and a blog scaffold generated from notes
 - [x] Resources page built from every link in the deck — #19
 - [x] QR encoder — #19
-- [ ] QR codes rendered onto slides and the resources page — #19
+- [x] QR codes rendered onto slides — #19
 - [ ] Attach the recording after the fact; archive and talk index — #20
 
 **Done when** publishing everywhere is one command driven by frontmatter the
