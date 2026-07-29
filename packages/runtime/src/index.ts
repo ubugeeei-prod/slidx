@@ -18,7 +18,12 @@ export { createMediaController, describeLevel, LOUDNESS_TARGET_DB } from "./medi
 export type { LevelReport, Levels, LevelStatus, MediaController, MediaElementLike } from "./media";
 export { createMirror } from "./mirror";
 export { createNavigator, LAST_STEP } from "./navigate";
-export { detectPlatform, enterPresentation, presentationChecklist } from "./presentation";
+export {
+  browserPresentationEnvironment,
+  detectPlatform,
+  enterPresentation,
+  presentationChecklist,
+} from "./presentation";
 export type {
   ChecklistItem,
   Platform,
