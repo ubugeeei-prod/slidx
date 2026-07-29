@@ -26,9 +26,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { readDeck } from "./deck";
+import { EDITOR_MODULE, EDITOR_PAGE, editorPage, readEditor } from "./editor";
 import { joinDeck } from "./files";
 import {
   applyOperation,
+  locate,
   revertOperation,
   writeDeck,
   type DeckFile,
@@ -71,14 +73,24 @@ export function createEditSession(root: string, options: ResolvedOptions): EditS
     return placeEmptied(found, emptied);
   }
 
+  /**
+   * Everything the editor needs to draw itself once.
+   *
+   * The parsed model, the diagnostics that go with it, and where each slide's
+   * bytes are — the last of these is what turns a selection in the canvas into
+   * the byte range an operation names.
+   */
   async function state(source: string) {
-    const deck = await buildDeck(source, {
-      theme: options.theme,
-      separator: options.separator,
-      parseOnly: true,
-    });
+    const [deck, located] = await Promise.all([
+      buildDeck(source, {
+        theme: options.theme,
+        separator: options.separator,
+        parseOnly: true,
+      }),
+      locate(source, options.separator),
+    ]);
 
-    return { source, deck };
+    return { source, spans: located.slides, deck };
   }
 
   return {
@@ -87,6 +99,17 @@ export function createEditSession(root: string, options: ResolvedOptions): EditS
       if (!path.startsWith(EDITOR_ROUTE_PREFIX)) return false;
 
       try {
+        if (path === EDITOR_PAGE && request.method === "GET") {
+          const deck = await state(joinDeck(await files(), options.separator).source);
+          page(response, editorPage(options.base, deck.deck.title));
+          return true;
+        }
+
+        if (path === EDITOR_MODULE && request.method === "GET") {
+          script(response, await readEditor());
+          return true;
+        }
+
         if (path === DECK_ROUTE && request.method === "GET") {
           send(response, 200, await state(joinDeck(await files(), options.separator).source));
           return true;
@@ -168,6 +191,20 @@ async function read(request: IncomingMessage): Promise<EditRequest> {
 
   const body = Buffer.concat(chunks).toString("utf8");
   return body ? (JSON.parse(body) as EditRequest) : {};
+}
+
+function page(response: ServerResponse, html: string): void {
+  response.statusCode = 200;
+  response.setHeader("content-type", "text/html; charset=utf-8");
+  response.setHeader("cache-control", "no-store");
+  response.end(html);
+}
+
+function script(response: ServerResponse, source: string): void {
+  response.statusCode = 200;
+  response.setHeader("content-type", "text/javascript; charset=utf-8");
+  response.setHeader("cache-control", "no-store");
+  response.end(source);
 }
 
 function send(response: ServerResponse, status: number, payload: unknown): void {

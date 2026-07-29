@@ -255,6 +255,7 @@ mod tests {
             title: None,
             notes: Vec::new(),
             stop_count: 1,
+            frontmatter: serde_json::Value::Null,
             html: None,
             og_svg: None,
             presenter_html: None,

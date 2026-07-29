@@ -67,6 +67,17 @@ describe("joining slide files", () => {
     expect(joined.spans[1]).toEqual({ start: 5, end: 5 });
   });
 
+  it("measures a file in bytes, because that is what a splice is measured in", () => {
+    // One em dash is one JavaScript character and three bytes. Counting the
+    // wrong one shifts every later span by two and lands the next write in the
+    // middle of a word — silently, and only on a deck that is not pure ASCII.
+    const joined = joinDeck(files("# One — really\n", "# Two\n"), "---");
+
+    expect(joined.spans[0]).toEqual({ start: 0, end: 16 });
+    expect(joined.spans[1]!.start).toBe(16 + Buffer.byteLength("\n\n---\n\n"));
+    expect(Buffer.from(joined.source, "utf8").toString("utf8", 0, 16)).toBe("# One — really");
+  });
+
   it("writes the separator the deck was configured with", () => {
     expect(joinDeck(files("# One\n", "# Two\n"), "===").source).toBe("# One\n\n===\n\n# Two");
   });

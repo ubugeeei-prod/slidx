@@ -46,7 +46,9 @@ const DECK: Record<string, string> = {
     "",
     "*  the venue Wi-Fi is down and the fonts were on a CDN",
     "*  the body text was 18px and unreadable from row 12",
-    "*  the projector washed out a colour pair",
+    // An em dash: three bytes, one JavaScript character. Everything the
+    // session does to a later slide depends on counting the right one.
+    "*  the projector washed out a colour pair — badly",
     "",
   ].join("\n"),
   "0003.md": [
@@ -264,6 +266,57 @@ describe("an editing session, seen as a diff", () => {
       const source = await readFile(join(session.root, "slides", name), "utf8");
       expect(source.endsWith("\n"), `${name} lost its final newline`).toBe(true);
     }
+  });
+});
+
+describe("the editor in the dev server", () => {
+  let session: Session;
+
+  beforeAll(async () => {
+    session = await open();
+  }, 60_000);
+
+  afterAll(async () => {
+    await session?.server.close();
+  });
+
+  it("is served by the server that already has the deck, with nothing else to start", async () => {
+    // `vite dev` gives the author their deck and the editor. A second process
+    // would be a second port to remember and a second copy of the deck.
+    const response = await fetch(`${session.url}__slidx/`);
+    const page = await response.text();
+
+    expect(response.headers.get("content-type")).toContain("text/html");
+    expect(page).toContain('<div id="slidx-editor">');
+    expect(page).toContain('import { mount } from "/__slidx/editor.js"');
+    expect(page).toContain('deckBase: "slides"');
+  });
+
+  it("serves the editor as one module and nothing to install", async () => {
+    const response = await fetch(`${session.url}__slidx/editor.js`);
+
+    expect(response.headers.get("content-type")).toContain("javascript");
+    expect(await response.text()).toContain("mount");
+  });
+
+  it("keeps the editor out of search results", async () => {
+    // It writes to the author's files. It is not a page anyone should reach
+    // from anywhere but their own machine.
+    expect(await (await fetch(`${session.url}__slidx/`)).text()).toContain('name="robots"');
+  });
+
+  it("says which slide has a problem in the same call that returns the deck", async () => {
+    const response = await fetch(`${session.url}__slidx/deck`);
+    const payload = (await response.json()) as {
+      spans: { body: { start: number; end: number } }[];
+      deck: { diagnostics: unknown[]; slides: { frontmatter?: Record<string, unknown> }[] };
+    };
+
+    // Live diagnostics cost the editor nothing: the pipeline returns them with
+    // every parse, so wiring them is reading a field.
+    expect(payload.deck.diagnostics).toBeInstanceOf(Array);
+    expect(payload.spans).toHaveLength(4);
+    expect(payload.deck.slides[0]!.frontmatter).toMatchObject({ title: "Making Decks Fast" });
   });
 });
 

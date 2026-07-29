@@ -89,6 +89,18 @@ export type BuiltSlide = {
    */
   stopCount: number;
   /**
+   * The frontmatter keys the author wrote, whether or not slidx knows them.
+   *
+   * The editor's inspector shows these, so a key this version has never
+   * heard of is still visible rather than quietly lost. The first slide's
+   * block is the deck's, which is what the parser already believes.
+   *
+   * Declared by hand because it is genuinely open: whatever a deck's YAML
+   * held. A generated shape would be a promise about keys slidx does not
+   * define.
+   */
+  frontmatter?: Record<string, unknown>;
+  /**
    * The complete HTML page. Absent when `parseOnly` was set.
    */
   html?: string;

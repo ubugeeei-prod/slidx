@@ -26,7 +26,7 @@ import {
 } from "./files";
 import { ensureReady } from "./pipeline";
 
-export type { DeckFile, FileWrite } from "./files";
+export type { DeckFile, FileWrite, SlideSpans } from "./files";
 
 /**
  * One change to a deck, as `slidx_edit` defines it.
@@ -94,6 +94,20 @@ export async function revertOperation(
   );
 }
 
+/**
+ * Where every slide of a source is.
+ *
+ * The editor needs these to show one slide at a time and to turn a selection
+ * into the byte range an operation names, and they have to come from the same
+ * pipeline that computes the splice or the two would be measuring different
+ * documents.
+ */
+export async function locate(source: string, separator: string): Promise<LocatedSource> {
+  await ensureReady();
+
+  return { source, slides: slideSpans(source, { separator }) as LocatedSource["slides"] };
+}
+
 async function plan(
   files: readonly DeckFile[],
   separator: string,
@@ -101,12 +115,7 @@ async function plan(
 ): Promise<DeckEdit> {
   await ensureReady();
 
-  const joined = joinDeck(files, separator);
-  const before: LocatedSource = {
-    source: joined.source,
-    slides: slideSpans(joined.source, { separator }),
-  };
-
+  const before = await locate(joinDeck(files, separator).source, separator);
   const after = run(before);
 
   if (after.error) return { writes: [], source: before.source, undo: [], error: after.error };

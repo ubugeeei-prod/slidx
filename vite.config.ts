@@ -185,7 +185,11 @@ export default defineConfig({
       // is already there on a machine that has run a build once.
       "build:runtime": uncached("vp run --filter @slidx/runtime pack:lib"),
 
-      "build:packages": group(["build:wasm", "build:runtime"]),
+      // The editor is read off disk by the dev server the same way, and for
+      // the same reason: it is served as a module, not imported as one.
+      "build:editor": uncached("vp run --filter @slidx/editor pack:lib"),
+
+      "build:packages": group(["build:wasm", "build:runtime", "build:editor"]),
 
       // TypeScript.
       "check:ts": task(builtin("vp check"), { dependsOn: ["build:packages"] }),

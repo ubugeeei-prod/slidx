@@ -27,10 +27,9 @@
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
-use slidx_core::ByteSpan;
-use slidx_edit::{Edit, EditError, EditOp};
+use slidx_edit::{Edit, EditError, EditOp, SlideSpans};
 
-use crate::parse_options;
+use crate::{parse_options, to_js};
 
 /// Parse settings an edit needs. The separator is the only one that changes
 /// which bytes a slide is.
@@ -50,7 +49,7 @@ pub struct EditResult {
     /// when the operation asked for what the source already said.
     pub undo: Edit,
     /// Where each slide's bytes are in `source`.
-    pub slides: Vec<ByteSpan>,
+    pub slides: Vec<SlideSpans>,
     /// What the operation named that the source does not have.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<EditError>,
@@ -120,7 +119,7 @@ fn reverted(source: &str, edit: &Edit, options: &EditOptions) -> EditResult {
     EditResult { slides: spans(&next, options), source: next, undo, error: None }
 }
 
-fn spans(source: &str, options: &EditOptions) -> Vec<ByteSpan> {
+fn spans(source: &str, options: &EditOptions) -> Vec<SlideSpans> {
     slidx_edit::slide_spans(source, &parse_options(options.separator.as_deref()))
 }
 
@@ -138,10 +137,6 @@ fn read_options(options: JsValue) -> Result<EditOptions, JsError> {
 
     serde_wasm_bindgen::from_value(options)
         .map_err(|error| JsError::new(&format!("invalid options: {error}")))
-}
-
-fn to_js<T: Serialize>(value: &T) -> Result<JsValue, JsError> {
-    serde_wasm_bindgen::to_value(value).map_err(|error| JsError::new(&error.to_string()))
 }
 
 #[cfg(test)]
@@ -193,7 +188,8 @@ mod tests {
         let op = EditOp::InsertSlide { at: 1, body: "# Inserted".into() };
         let result = applied(DECK, &op, &options());
 
-        let text: Vec<&str> = result.slides.iter().map(|span| span.slice(&result.source)).collect();
+        let text: Vec<&str> =
+            result.slides.iter().map(|slide| slide.content.slice(&result.source)).collect();
         assert_eq!(text, ["#   One\n\nBody.", "# Inserted", "# Two"]);
     }
 

@@ -82,6 +82,18 @@ pub struct BuiltSlide {
     pub notes: Vec<String>,
     /// Stops on this slide, including the resting frame. Always at least one.
     pub stop_count: u32,
+    /// The frontmatter keys the author wrote, whether or not slidx knows them.
+    ///
+    /// The editor's inspector shows these, so a key this version has never
+    /// heard of is still visible rather than quietly lost. The first slide's
+    /// block is the deck's, which is what the parser already believes.
+    ///
+    /// Declared by hand because it is genuinely open: whatever a deck's YAML
+    /// held. A generated shape would be a promise about keys slidx does not
+    /// define.
+    #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
+    #[ts(type = "Record<string, unknown>", optional)]
+    pub frontmatter: serde_json::Value,
     /// The complete HTML page. Absent when `parseOnly` was set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
@@ -154,8 +166,20 @@ pub fn build_deck(
             .map_err(|error| JsError::new(&format!("invalid options: {error}")))?
     };
 
-    let result = build(source, &options);
-    serde_wasm_bindgen::to_value(&result).map_err(|error| JsError::new(&error.to_string()))
+    to_js(&build(source, &options))
+}
+
+/// Sends a value across as JSON-shaped data.
+///
+/// Maps become plain objects rather than `Map` instances. The default is the
+/// other way round, which is right for a `HashMap` used as a lookup and wrong
+/// for the thing this boundary actually carries: an author's frontmatter, which
+/// is JSON on both sides and has to survive `JSON.stringify` on the way to a
+/// browser.
+pub(crate) fn to_js<T: Serialize>(value: &T) -> Result<JsValue, JsError> {
+    let serializer = serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+
+    value.serialize(&serializer).map_err(|error| JsError::new(&error.to_string()))
 }
 
 /// Reports what a browser found when it laid the built pages out.
@@ -260,6 +284,7 @@ fn build(source: &str, options: &BuildOptions) -> BuildResult {
             title: slide.title.clone(),
             notes: slide.notes.clone(),
             stop_count: slide.timeline.len() as u32,
+            frontmatter: slide.frontmatter.clone(),
             html: render.then(|| render_slide(&deck, slide, &shell)),
             og_svg: (render && options.og)
                 .then(|| slidx_render::render_slide_card(&deck, slide, &og)),
@@ -382,6 +407,17 @@ mod tests {
         let presenter = result.slides[0].presenter_html.as_ref().unwrap();
         assert!(presenter.contains("out loud"));
         assert!(!result.slides[0].html.as_ref().unwrap().contains("out loud"));
+    }
+
+    #[test]
+    fn a_slide_carries_the_keys_the_author_wrote_even_the_unknown_ones() {
+        // The inspector shows these. A tool that hides a key it does not
+        // understand is a tool that eventually loses it.
+        let result =
+            build("---\ntitle: T\nsponsor: Someone\n---\n\n# One\n", &BuildOptions::default());
+
+        assert_eq!(result.slides[0].frontmatter["sponsor"], "Someone");
+        assert_eq!(result.slides[0].frontmatter["title"], "T");
     }
 
     #[test]

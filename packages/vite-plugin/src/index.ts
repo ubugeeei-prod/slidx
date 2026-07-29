@@ -33,10 +33,12 @@ import {
 } from "./options";
 import { build as buildDeck } from "./pipeline";
 import { blockingSummary, formatReport, groupFindings } from "./report";
+import { EDITOR_PAGE } from "./editor";
 import { createEditSession } from "./session";
 
 export type { SlidxOptions } from "./options";
 export { EDITOR_ROUTE_PREFIX } from "./session";
+export { EDITOR_PAGE } from "./editor";
 
 /** A virtual module so a deck-only project needs no entry of its own. */
 const ENTRY_ID = "virtual:slidx-entry";
@@ -103,6 +105,7 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
      */
     configureServer(server) {
       watchSlides(server, root, options.srcDir);
+      announceEditor(server);
 
       const session = createEditSession(root, options);
 
@@ -377,6 +380,23 @@ function watchSlides(server: ViteDevServer, root: string, srcDir: string): void 
   server.watcher.on("add", reload);
   server.watcher.on("change", reload);
   server.watcher.on("unlink", reload);
+}
+
+/**
+ * Says where the editor is, once, next to the URLs Vite prints.
+ *
+ * An editor nobody knows is running is an editor nobody uses. It costs one
+ * line, and it goes through Vite's own URL printing so it appears with the
+ * others rather than scrolling past before the server is up.
+ */
+function announceEditor(server: ViteDevServer): void {
+  const printUrls = server.printUrls.bind(server);
+
+  server.printUrls = () => {
+    printUrls();
+    const local = server.resolvedUrls?.local[0];
+    if (local) server.config.logger.info(`  ➜  Editor:  ${local.replace(/\/$/, "")}${EDITOR_PAGE}`);
+  };
 }
 
 /** Sends findings to the terminal and the browser overlay at once. */

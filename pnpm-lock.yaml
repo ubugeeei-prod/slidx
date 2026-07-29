@@ -63,6 +63,8 @@ importers:
         specifier: ^4.20240909.0
         version: 4.20260702.1
 
+  packages/editor: {}
+
   packages/islands:
     dependencies:
       '@angular/core':
@@ -99,6 +101,9 @@ importers:
 
   packages/vite-plugin:
     dependencies:
+      '@slidx/editor':
+        specifier: workspace:*
+        version: link:../editor
       '@slidx/runtime':
         specifier: workspace:*
         version: link:../runtime
