@@ -91,7 +91,11 @@ importers:
 
   packages/rehearsal: {}
 
-  packages/runtime: {}
+  packages/runtime:
+    devDependencies:
+      '@slidx/wasm':
+        specifier: workspace:*
+        version: link:../wasm
 
   packages/vite-plugin:
     dependencies:

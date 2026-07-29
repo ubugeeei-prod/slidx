@@ -5,9 +5,10 @@
 //! menu they are used to picking from.
 
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 /// Which phase of an element's life an effect belongs to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 pub enum EffectKind {
     #[default]
@@ -17,7 +18,7 @@ pub enum EffectKind {
 }
 
 /// A named animation. Each preset maps to one CSS keyframe set in the runtime.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 pub enum EffectPreset {
     /// No motion at all. Respected verbatim when a deck opts out of animation.
@@ -111,7 +112,7 @@ impl EffectPreset {
 }
 
 /// Direction an effect travels from or towards.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 pub enum Origin {
     Left,
@@ -134,7 +135,7 @@ impl Origin {
 }
 
 /// Timing curve for an effect.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 pub enum Easing {
     Linear,

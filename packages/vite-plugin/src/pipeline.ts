@@ -9,7 +9,7 @@
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 
-import init, { buildDeck, type BuildResult } from "@slidx/wasm";
+import init, { buildDeck, type BuildDeckOptions, type BuildResult } from "@slidx/wasm";
 
 let ready: Promise<void> | undefined;
 
@@ -30,29 +30,19 @@ export function ensureReady(): Promise<void> {
   return ready;
 }
 
-export interface BuildDeckOptions {
-  theme?: string | undefined;
-  separator: string;
-  parseOnly?: boolean;
-  presenter?: boolean;
-  print?: boolean;
-  og?: boolean;
-  runtimeSrc?: string;
-  printRuntime?: string;
-}
+export type { BuildDeckOptions };
 
-/** Parses, lints, and renders a deck. */
+/**
+ * Parses, lints, and renders a deck.
+ *
+ * The options go straight through. They used to be restated here field by
+ * field, which is how the plugin ended up describing a payload it does not
+ * own; `BuildDeckOptions` is generated from the Rust struct, so the only thing
+ * left to do with it is pass it on. Every default lives in one place, on the
+ * side that acts on it.
+ */
 export async function build(source: string, options: BuildDeckOptions): Promise<BuildResult> {
   await ensureReady();
 
-  return buildDeck(source, {
-    theme: options.theme,
-    separator: options.separator,
-    parseOnly: options.parseOnly ?? false,
-    presenter: options.presenter ?? false,
-    print: options.print ?? false,
-    og: options.og ?? false,
-    runtimeSrc: options.runtimeSrc,
-    printRuntime: options.printRuntime,
-  });
+  return buildDeck(source, options);
 }

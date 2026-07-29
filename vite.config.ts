@@ -158,6 +158,25 @@ export default defineConfig({
       // through, so nothing on that side can be checked until it exists.
       "build:wasm": uncached("node scripts/build-wasm.mjs"),
 
+      // The TypeScript form of the deck, written out of the Rust types.
+      //
+      // Nothing depends on this task, and that is the point. The generated
+      // file is committed, so `build:wasm` finds it already there and a change
+      // to the boundary arrives in review as a diff rather than as a rebuild
+      // nobody sees. What keeps it honest is `test:rust`, which CI already
+      // runs and which fails the moment the file stops describing the types it
+      // came from. This task is how you fix that failure.
+      "generate:types": uncached("vp fmt crates/slidx_wasm/deck.d.ts", {
+        dependsOn: ["generate:types-raw"],
+      }),
+
+      // Two tasks because two tools have opinions: the generator writes
+      // `ts-rs`'s spelling, and the repository's formatter has the last word
+      // on how a file someone has to read is laid out.
+      "generate:types-raw": uncached(
+        "SLIDX_WRITE_DECK_TYPES=1 cargo test -p slidx_wasm --lib the_committed_declarations",
+      ),
+
       // The runtime is consumed through its published `exports`, which point
       // at `dist/`. Importing it from source instead would test a module that
       // no user ever loads, so it is built before anything reads it. This is
