@@ -55,15 +55,17 @@ pub mod notes;
 pub mod parser;
 pub mod scanner;
 pub mod slug;
+pub mod span;
 pub mod steps;
 
 pub use diagnostic::{Diagnostic, Diagnostics, Severity, SourceSpan};
 pub use mark::{compile_marks, find_marks, Mark, MARK_ATTRIBUTE};
 pub use markers::{anchor_selector, StagedContent, ANCHOR_ATTRIBUTE};
 pub use model::{estimate_speaking_seconds, AspectRatio, Deck, DeckMeta, Slide, TalkMeta};
-pub use notes::{extract_notes, ExtractedNotes};
+pub use notes::{extract_notes, find_notes, ExtractedNotes, FoundNote};
 pub use parser::{parse_deck, DeckParseOptions};
 pub use slug::{slugify, SlugAllocator};
+pub use span::ByteSpan;
 pub use steps::{
     compile_timeline, AutoSteps, Easing, Effect, EffectKind, EffectPreset, ElementState, Origin,
     StepAction, StepFrame, StepOptions, StepSource, StepTimeline, Visibility,

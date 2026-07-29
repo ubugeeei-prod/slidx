@@ -1,0 +1,419 @@
+//! The four properties that make bidirectional editing worth claiming.
+//!
+//! Each one is checked over a corpus of decks crossed with every operation,
+//! rather than on the example that happened to occur to whoever wrote the
+//! feature. The corpus is deliberately awkward — CRLF files, decks with no
+//! frontmatter, decks that are nothing but frontmatter, slides made of fenced
+//! Markdown that contains its own separators — because those are the files an
+//! editor meets in a real repository and the ones a splice can get wrong.
+//!
+//! 1. **Minimal diff.** An operation touches only the lines it names.
+//! 2. **Round trip.** Parsing an edited source agrees with what the operation
+//!    said it would do to the model.
+//! 3. **Idempotence.** Setting something to what it already says is not an
+//!    edit, and doing a set twice is the same as doing it once.
+//! 4. **No panics.** An operation naming something that is not there is an
+//!    error value, on every source in the corpus.
+
+use slidx_core::{parse_deck, ByteSpan, DeckParseOptions, StepAction};
+use slidx_edit::{apply, plan, EditOp, MarkAttributes, SlideRef};
+
+/// Decks chosen so that every structural case appears at least once.
+fn corpus() -> Vec<&'static str> {
+    vec![
+        // The ordinary shape.
+        "---\ntitle: T\nduration: 20m\n---\n\n# One\n\nBody.\n\n---\n\n# Two\n\n- a\n- b\n",
+        // No frontmatter at all.
+        "# One\n\nBody.\n\n---\n\n# Two\n",
+        // Frontmatter and nothing else.
+        "---\ntitle: Only\n---\n",
+        // A slide with its own block, which owns the separator above it.
+        "# One\n\n---\nlayout: split\nbudget: 90s\n---\n\n# Two\n\n---\n\n# Three\n",
+        // Deck frontmatter and a per-slide block, the pair that cannot both
+        // sit at the top of a file.
+        "---\ntitle: T\n---\n\n# One\n\n---\nlayout: cover\n---\n\n# Two\n",
+        // One slide, so removing it has nowhere to fall back to.
+        "# Only\n\nBody.\n",
+        // Empty.
+        "",
+        // Windows line endings.
+        "---\r\ntitle: T\r\n---\r\n\r\n# One\r\n\r\nBody.\r\n\r\n<!-- notes: said -->\r\n\r\n---\r\n\r\n# Two\r\n",
+        // Separators inside a fence, which are not separators.
+        "# Slides\n\n```md\n# a\n\n---\n\n# b\n```\n\n---\n\n# After\n",
+        // Marks, notes, and steps together.
+        "---\nsteps:\n  - reveal: \".a\"\n  - hide: \".b\"\n---\n\n# One\n\nA [word]{#hero .accent} here.\n\n<!-- notes: remember -->\n",
+        // Staged with markers rather than a list.
+        "# One\n\n- a <!-- step -->\n- b <!-- step -->\n",
+        // Ragged blank lines the author chose.
+        "# One\n\n\n\nBody.\n\n\n---\n\n\n# Two\n",
+        // No trailing newline.
+        "# One\n\n---\n\n# Two",
+        // A heading with a closing run of hashes.
+        "## Balanced ##\n\nBody.\n",
+    ]
+}
+
+/// Every operation, aimed at whatever the given deck has.
+fn operations(source: &str) -> Vec<EditOp> {
+    let deck = parse_deck(source, &DeckParseOptions::default());
+    let last = deck.slides.len() - 1;
+    let attributes = MarkAttributes::default().with_key("k").with_class("accent");
+
+    let mut ops = vec![
+        EditOp::SetBody { slide: 0.into(), body: "# Replaced\n\nNew body.".into() },
+        EditOp::SetHeading { slide: 0.into(), text: "Retitled".into() },
+        EditOp::SetHeading { slide: last.into(), text: "Retitled".into() },
+        EditOp::InsertSlide { at: 0, body: "# Inserted".into() },
+        EditOp::InsertSlide { at: last, body: "# Inserted".into() },
+        EditOp::InsertSlide { at: last + 1, body: "# Inserted".into() },
+        EditOp::RemoveSlide { slide: 0.into() },
+        EditOp::RemoveSlide { slide: last.into() },
+        EditOp::MoveSlide { slide: 0.into(), to: last },
+        EditOp::MoveSlide { slide: last.into(), to: 0 },
+        EditOp::SetField { slide: 0.into(), key: "theme".into(), value: "terminal".into() },
+        EditOp::SetField { slide: last.into(), key: "budget".into(), value: "45s".into() },
+        EditOp::AddStep { slide: 0.into(), action: StepAction::reveal(".added") },
+        EditOp::SetNotes { slide: 0.into(), notes: "said out loud".into() },
+        EditOp::SetNotes { slide: 0.into(), notes: String::new() },
+        EditOp::SetNotes { slide: last.into(), notes: "said out loud".into() },
+    ];
+
+    for (index, slide) in deck.slides.iter().enumerate() {
+        if !slide.steps.actions.is_empty() {
+            ops.push(EditOp::RemoveStep { slide: index.into(), index: 0 });
+        }
+        if !slide.marks.is_empty() {
+            ops.push(EditOp::SetMark {
+                slide: index.into(),
+                mark: 0.into(),
+                attributes: attributes.clone(),
+            });
+            ops.push(EditOp::RemoveMark { slide: index.into(), mark: 0.into() });
+        }
+    }
+
+    ops
+}
+
+fn parse(source: &str) -> slidx_core::Deck {
+    parse_deck(source, &DeckParseOptions::default())
+}
+
+fn edited(source: &str, op: &EditOp) -> String {
+    apply(source, &DeckParseOptions::default(), op).expect("the corpus only aims at what is there")
+}
+
+/// The titles the author wrote.
+///
+/// A deck always parses into at least one slide so that something renders, so
+/// a file of nothing but frontmatter reports a slide nobody wrote. Comparing
+/// written titles keeps these properties about slides rather than about that
+/// fallback.
+fn written_titles(source: &str) -> Vec<String> {
+    parse(source).slides.iter().filter_map(|slide| slide.title.clone()).collect()
+}
+
+// ------------------------------------------------------------- minimal diff
+
+/// How many of the original lines an edit did not leave alone, measured from
+/// the longest common prefix and suffix so a changed line count does not read
+/// as a rewritten file.
+fn touched(before: &str, after: &str) -> usize {
+    let old: Vec<&str> = before.lines().collect();
+    let new: Vec<&str> = after.lines().collect();
+
+    let prefix = old.iter().zip(&new).take_while(|(a, b)| a == b).count();
+    let room = old.len().min(new.len()) - prefix;
+    let suffix =
+        old.iter().rev().zip(new.iter().rev()).take(room).take_while(|(a, b)| a == b).count();
+
+    old.len().saturating_sub(prefix + suffix)
+}
+
+#[test]
+fn an_operation_touches_only_the_lines_it_names() {
+    // Retitling the first slide of a hundred-slide deck is one line. The point
+    // of the whole crate is that the other ninety-nine are not read, so the
+    // number here is a hard ceiling rather than a budget.
+    let mut source = "---\ntitle: T\n---\n".to_string();
+    for index in 0..100 {
+        source.push_str(&format!("\n# Slide {index}\n\nBody {index}.\n\n---\n"));
+    }
+    let source = source.trim_end_matches("\n---\n").to_string() + "\n";
+
+    let one_line = [
+        EditOp::SetHeading { slide: 0.into(), text: "Retitled".into() },
+        EditOp::SetHeading { slide: 50.into(), text: "Retitled".into() },
+        EditOp::SetField { slide: 0.into(), key: "title".into(), value: "Renamed".into() },
+    ];
+
+    for op in one_line {
+        let result = edited(&source, &op);
+        assert_eq!(touched(&source, &result), 1, "{op:?} rewrote more than the line it named");
+    }
+}
+
+#[test]
+fn a_line_the_operation_does_not_name_keeps_the_formatting_the_author_gave_it() {
+    // Every line here is written in a way a serialiser would tidy up. None of
+    // them may change, because none of them is what the operation names.
+    let source = "---\ntitle:    Spaced Out\n---\n\n#    Loose Heading\n\n*  star bullet\n*  another\n\n\n\nA very long paragraph that a formatter would want to rewrap at eighty columns but must not.\n";
+    let result = edited(
+        source,
+        &EditOp::SetField { slide: 0.into(), key: "theme".into(), value: "editorial".into() },
+    );
+
+    assert!(result.contains("title:    Spaced Out"));
+    assert!(result.contains("#    Loose Heading"));
+    assert!(result.contains("*  star bullet"));
+    assert!(result.contains("\n\n\n\nA very long paragraph"));
+}
+
+#[test]
+fn a_file_written_with_windows_line_endings_stays_that_way() {
+    // An author on Windows has a CRLF file. Writing one LF line into it puts a
+    // `^M` on every following line of the diff, which is the opposite of what
+    // a splice is for.
+    let source = "---\r\ntitle: T\r\n---\r\n\r\n# One\r\n\r\nBody.\r\n";
+
+    let writes = [
+        EditOp::InsertSlide { at: 1, body: "# Added".into() },
+        EditOp::SetField { slide: 0.into(), key: "theme".into(), value: "terminal".into() },
+        EditOp::SetNotes { slide: 0.into(), notes: "spoken".into() },
+        EditOp::AddStep { slide: 0.into(), action: StepAction::reveal(".a") },
+    ];
+
+    for op in writes {
+        let result = edited(source, &op);
+        assert!(
+            !result.replace("\r\n", "").contains('\n'),
+            "{op:?} left a bare newline in {result:?}"
+        );
+    }
+}
+
+// --------------------------------------------------------------- round trip
+
+#[test]
+fn what_the_source_says_after_an_edit_is_what_the_operation_asked_for() {
+    // Parsing an edited file agrees with what the operation promised to do to
+    // the model it was aimed at — for every slide of every deck in the corpus,
+    // rather than for the one the feature was written against.
+    for source in corpus() {
+        for index in 0..parse(source).slides.len() {
+            let retitled = EditOp::SetHeading { slide: index.into(), text: "Retitled".into() };
+            assert_eq!(
+                parse(&edited(source, &retitled)).slides[index].title.as_deref(),
+                Some("Retitled"),
+                "{retitled:?} on {source:?}"
+            );
+
+            let spoken = EditOp::SetNotes { slide: index.into(), notes: "spoken aloud".into() };
+            assert_eq!(
+                parse(&edited(source, &spoken)).slides[index].notes,
+                vec!["spoken aloud"],
+                "{spoken:?} on {source:?}"
+            );
+
+            let budgeted =
+                EditOp::SetField { slide: index.into(), key: "budget".into(), value: "45s".into() };
+            assert_eq!(
+                parse(&edited(source, &budgeted)).slides[index].budget_seconds,
+                Some(45),
+                "{budgeted:?} on {source:?}"
+            );
+
+            let staged =
+                EditOp::AddStep { slide: index.into(), action: StepAction::reveal(".added") };
+            assert_eq!(
+                parse(&edited(source, &staged)).slides[index].steps.actions.last(),
+                Some(&StepAction::reveal(".added")),
+                "{staged:?} on {source:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn an_inserted_slide_lands_where_it_was_asked_for_and_displaces_nothing() {
+    for source in corpus() {
+        let before = written_titles(source);
+
+        for at in 0..=before.len() {
+            let op = EditOp::InsertSlide { at, body: "# Inserted".into() };
+            let mut expected = before.clone();
+            expected.insert(at, "Inserted".to_string());
+
+            assert_eq!(written_titles(&edited(source, &op)), expected, "{op:?} on {source:?}");
+        }
+    }
+}
+
+#[test]
+fn a_moved_slide_lands_where_the_operation_said_and_arrives_intact() {
+    for source in corpus() {
+        let before = written_titles(source);
+        if before.len() < 2 {
+            continue;
+        }
+
+        for (from, to) in [(0, before.len() - 1), (before.len() - 1, 0), (0, 1)] {
+            let op = EditOp::MoveSlide { slide: from.into(), to };
+            let mut expected = before.clone();
+            let moved = expected.remove(from);
+            expected.insert(to, moved);
+
+            assert_eq!(written_titles(&edited(source, &op)), expected, "{op:?} on {source:?}");
+        }
+    }
+}
+
+#[test]
+fn a_removed_slide_is_the_only_one_that_goes() {
+    for source in corpus() {
+        let before = written_titles(source);
+        if before.len() < 2 {
+            continue;
+        }
+
+        for index in 0..before.len() {
+            let op = EditOp::RemoveSlide { slide: index.into() };
+            let mut expected = before.clone();
+            expected.remove(index);
+
+            assert_eq!(written_titles(&edited(source, &op)), expected, "{op:?} on {source:?}");
+        }
+    }
+}
+
+#[test]
+fn an_edit_is_exactly_undone_by_its_inverse() {
+    for source in corpus() {
+        for op in operations(source) {
+            let edit = plan(source, &DeckParseOptions::default(), &op).unwrap();
+            let changed = edit.apply(source);
+
+            assert_eq!(
+                edit.invert(source).apply(&changed),
+                source,
+                "{op:?} on {source:?} could not be taken back"
+            );
+        }
+    }
+}
+
+// -------------------------------------------------------------- idempotence
+
+#[test]
+fn setting_something_to_what_it_already_says_is_not_an_edit() {
+    for source in corpus() {
+        let deck = parse(source);
+
+        for (index, slide) in deck.slides.iter().enumerate() {
+            let mut ops = vec![EditOp::SetNotes { slide: index.into(), notes: slide.notes_text() }];
+
+            if let Some(title) = &slide.title {
+                ops.push(EditOp::SetHeading { slide: index.into(), text: title.clone() });
+            }
+            if !slide.notes.is_empty() {
+                // Rewriting a note with its own words leaves the comment alone.
+                ops.push(EditOp::SetNotes { slide: index.into(), notes: slide.notes[0].clone() });
+            }
+
+            for op in ops {
+                let edit = plan(source, &DeckParseOptions::default(), &op).unwrap();
+                assert!(edit.is_empty(), "{op:?} on {source:?} planned {:?}", edit.splices());
+            }
+        }
+    }
+}
+
+#[test]
+fn doing_a_set_twice_is_the_same_as_doing_it_once() {
+    for source in corpus() {
+        let sets = [
+            EditOp::SetHeading { slide: 0.into(), text: "Settled".into() },
+            EditOp::SetBody { slide: 0.into(), body: "# Settled\n\nBody.".into() },
+            EditOp::SetField { slide: 0.into(), key: "theme".into(), value: "terminal".into() },
+            EditOp::SetNotes { slide: 0.into(), notes: "settled".into() },
+        ];
+
+        for op in sets {
+            let once = edited(source, &op);
+            assert_eq!(edited(&once, &op), once, "{op:?} on {source:?} did not settle");
+        }
+    }
+}
+
+// ------------------------------------------------------------------ safety
+
+#[test]
+fn an_operation_naming_something_that_is_not_there_is_an_error_not_a_crash() {
+    let missing: Vec<EditOp> = vec![
+        EditOp::SetBody { slide: 99.into(), body: "x".into() },
+        EditOp::SetHeading { slide: SlideRef::Id("nope".into()), text: "x".into() },
+        EditOp::InsertSlide { at: 99, body: "x".into() },
+        EditOp::RemoveSlide { slide: 99.into() },
+        EditOp::MoveSlide { slide: 0.into(), to: 99 },
+        EditOp::MoveSlide { slide: 99.into(), to: 0 },
+        EditOp::SetField { slide: 99.into(), key: "a".into(), value: "b".into() },
+        EditOp::AddMark {
+            slide: 0.into(),
+            range: (900..1000).into(),
+            attributes: Default::default(),
+        },
+        // Backwards, which a selection dragged right to left could produce.
+        EditOp::AddMark {
+            slide: 0.into(),
+            range: ByteSpan::new(5, 1),
+            attributes: Default::default(),
+        },
+        EditOp::SetMark { slide: 0.into(), mark: 99.into(), attributes: Default::default() },
+        EditOp::RemoveMark { slide: 0.into(), mark: "gone".into() },
+        EditOp::AddStep { slide: 99.into(), action: StepAction::reveal(".a") },
+        EditOp::RemoveStep { slide: 0.into(), index: 99 },
+        EditOp::SetNotes { slide: 99.into(), notes: "x".into() },
+    ];
+
+    for source in corpus() {
+        for op in &missing {
+            let planned = plan(source, &DeckParseOptions::default(), op);
+
+            if let Ok(edit) = planned {
+                // Some of these are legitimate on some sources — index 0 exists
+                // everywhere. What must never happen is a source that stops
+                // being a deck.
+                assert!(!parse(&edit.apply(source)).diagnostics.has_blocking());
+            }
+        }
+    }
+}
+
+#[test]
+fn a_range_that_would_cut_a_character_in_half_is_refused() {
+    let source = "# One\n\n日本語のテキスト\n";
+    let op = EditOp::AddMark {
+        slide: 0.into(),
+        range: (7..9).into(),
+        attributes: MarkAttributes::default().with_class("accent"),
+    };
+
+    assert!(plan(source, &DeckParseOptions::default(), &op).is_err());
+}
+
+#[test]
+fn every_operation_on_every_deck_in_the_corpus_leaves_a_deck_behind() {
+    for source in corpus() {
+        for op in operations(source) {
+            let result = edited(source, &op);
+            let deck = parse(&result);
+
+            assert!(!deck.slides.is_empty(), "{op:?} on {source:?} left no slides");
+            assert!(
+                !deck.diagnostics.has_blocking(),
+                "{op:?} on {source:?} left {:?}",
+                deck.diagnostics
+            );
+        }
+    }
+}

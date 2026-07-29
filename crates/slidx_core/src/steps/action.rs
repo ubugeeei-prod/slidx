@@ -160,6 +160,55 @@ impl StepAction {
         self.options().after.is_some()
     }
 
+    /// Canonical `steps:` source for this action, without the leading `- `.
+    ///
+    /// The inverse of [`parse_step_actions`](super::parse::parse_step_actions),
+    /// and the reason the editor's timeline can write frontmatter at all. Two
+    /// forms rather than one: an action with default timing is a single
+    /// `reveal: ".a"`, because that is what an author writes by hand and a
+    /// deck that gains five keys of defaults on being opened in the editor is
+    /// a deck nobody will open in the editor twice.
+    ///
+    /// Anything with options is written as a flow mapping so an action always
+    /// occupies exactly one line, which keeps a reordered timeline to a diff
+    /// of moved lines.
+    pub fn to_source(&self) -> String {
+        let timed = *self.options() != StepOptions::default();
+
+        let (name, mut fields) = match self {
+            Self::Reveal { target, .. } => ("reveal", vec![field("target", target)]),
+            Self::Hide { target, .. } => ("hide", vec![field("target", target)]),
+            Self::Emphasize { target, .. } => ("emphasize", vec![field("target", target)]),
+            Self::Set { target, patch, .. } => ("set", set_fields(target, patch)),
+            Self::Group { actions, .. } => {
+                let members: Vec<String> =
+                    actions.iter().map(|action| format!("{{ {} }}", action.to_source())).collect();
+                let list = format!("[{}]", members.join(", "));
+
+                // A group with default timing is a bare list, which is both the
+                // shorter spelling and the one the parser documents first.
+                if !timed {
+                    return format!("group: {list}");
+                }
+                ("group", vec![("actions".to_string(), list)])
+            }
+        };
+
+        // A `set` always needs its mapping — a bare target says nothing about
+        // what changed — and so does anything that carries timing.
+        if !timed
+            && matches!(self, Self::Reveal { .. } | Self::Hide { .. } | Self::Emphasize { .. })
+        {
+            return format!("{name}: {}", fields.remove(0).1);
+        }
+
+        fields.extend(self.options().to_fields());
+        let written: Vec<String> =
+            fields.iter().map(|(key, value)| format!("{key}: {value}")).collect();
+
+        format!("{name}: {{ {} }}", written.join(", "))
+    }
+
     /// Every selector this action touches, including nested group members.
     pub fn targets(&self) -> Vec<&str> {
         match self {
@@ -170,6 +219,33 @@ impl StepAction {
             Self::Group { actions, .. } => actions.iter().flat_map(Self::targets).collect(),
         }
     }
+}
+
+fn field(key: &str, value: &str) -> (String, String) {
+    (key.to_string(), yaml_string(value))
+}
+
+fn set_fields(target: &str, patch: &Patch) -> Vec<(String, String)> {
+    let mut fields = vec![field("target", target)];
+
+    if let Some(content) = &patch.content {
+        fields.push(field("text", content));
+    }
+    for (name, value) in &patch.properties {
+        fields.push(field(name, value));
+    }
+
+    fields
+}
+
+/// Quotes a value for a YAML flow mapping.
+///
+/// Always quoted, never conditionally: selectors are made of the characters a
+/// flow mapping reserves — `[`, `{`, `,`, `"`, `:` — and a rule that decides
+/// per value is a rule that eventually decides wrong on the one selector
+/// nobody tested.
+fn yaml_string(value: &str) -> String {
+    format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
 }
 
 /// Automatic staging derived from slide structure rather than explicit actions.
@@ -211,6 +287,57 @@ impl StepSource {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::steps::parse::parse_step_actions;
+
+    /// Reads back a `steps:` list of one written action.
+    fn reparse(action: &StepAction) -> Vec<StepAction> {
+        let yaml = format!("- {}\n", action.to_source());
+        let value: serde_yaml::Value = serde_yaml::from_str(&yaml).expect("valid YAML");
+        let (actions, errors) = parse_step_actions(&serde_json::to_value(value).unwrap());
+
+        assert!(errors.is_empty(), "{yaml} did not read back: {errors:?}");
+        actions
+    }
+
+    #[test]
+    fn an_action_without_options_writes_the_short_form() {
+        assert_eq!(StepAction::reveal(".a").to_source(), r#"reveal: ".a""#);
+        assert_eq!(StepAction::hide("[data-x=\"1\"]").to_source(), r#"hide: "[data-x=\"1\"]""#);
+    }
+
+    #[test]
+    fn every_action_reads_back_as_the_action_that_wrote_it() {
+        // The editor's timeline writes `steps:` and the parser reads it. If
+        // those two ever disagree, a deck changes meaning by being saved.
+        let cases = vec![
+            StepAction::reveal(".a"),
+            // Selectors are written resolved. `#hero` is authored shorthand
+            // that the parser expands, so it is not a fixed point and never
+            // reaches a written action.
+            StepAction::hide(crate::mark::resolve_target("#hero")),
+            StepAction::emphasize(".b", EffectPreset::Pulse),
+            StepAction::reveal(".c")
+                .with_preset(EffectPreset::FlyIn)
+                .with_origin(Origin::Left)
+                .with_duration(800)
+                .after_ms(250),
+            StepAction::set(".d", Patch::content("42").with_property("color", "danger, bold")),
+            StepAction::group(vec![StepAction::reveal(".e"), StepAction::hide(".f")]),
+            StepAction::group(vec![StepAction::reveal(".g")]).after_ms(100),
+        ];
+
+        for action in cases {
+            assert_eq!(reparse(&action), vec![action.clone()], "{}", action.to_source());
+        }
+    }
+
+    #[test]
+    fn a_target_that_looks_like_yaml_survives_being_written() {
+        // Selectors are full of brackets, braces, commas, and quotes — every
+        // character that means something else in a flow mapping.
+        let action = StepAction::reveal("[data-slidx-mark=\"a, b\"] > li").with_duration(700);
+        assert_eq!(reparse(&action), vec![action]);
+    }
 
     #[test]
     fn builders_compose() {
