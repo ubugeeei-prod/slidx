@@ -33,8 +33,10 @@ import {
 } from "./options";
 import { build as buildDeck } from "./pipeline";
 import { blockingSummary, formatReport, groupFindings } from "./report";
+import { createEditSession } from "./session";
 
 export type { SlidxOptions } from "./options";
+export { EDITOR_ROUTE_PREFIX } from "./session";
 
 /** A virtual module so a deck-only project needs no entry of its own. */
 const ENTRY_ID = "virtual:slidx-entry";
@@ -88,10 +90,27 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
       return undefined;
     },
 
+    /**
+     * The editing routes exist here and nowhere else.
+     *
+     * They write to the author's slide files, so a built deck must have no way
+     * to reach them. Registering them in `configureServer` alone is that
+     * guarantee: `vite build` never calls this hook.
+     */
     configureServer(server) {
       watchSlides(server, root, options.srcDir);
+
+      const session = createEditSession(root, options);
+
       server.middlewares.use(async (request, response, next) => {
         const url = request.url ?? "/";
+
+        try {
+          if (await session.handle(request, response)) return;
+        } catch (error) {
+          next(error);
+          return;
+        }
 
         const asked = slideRequestFor(url, options.base);
         if (asked === null) return next();

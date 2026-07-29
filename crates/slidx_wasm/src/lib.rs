@@ -27,6 +27,8 @@
 #![deny(missing_debug_implementations)]
 #![warn(clippy::all)]
 
+pub mod edit;
+
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
@@ -161,13 +163,19 @@ pub fn version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
-fn build(source: &str, options: &BuildOptions) -> BuildResult {
-    let parse_options = DeckParseOptions {
-        separator: options.separator.clone().unwrap_or_else(|| "---".to_string()),
+/// How this module reads a deck source.
+///
+/// One place, so a build and an edit cannot disagree about where a slide ends
+/// — which is what the editor's canvas and its writes depend on.
+pub(crate) fn parse_options(separator: Option<&str>) -> DeckParseOptions {
+    DeckParseOptions {
+        separator: separator.unwrap_or("---").to_string(),
         ..DeckParseOptions::default()
-    };
+    }
+}
 
-    let deck = parse_deck(source, &parse_options);
+fn build(source: &str, options: &BuildOptions) -> BuildResult {
+    let deck = parse_deck(source, &parse_options(options.separator.as_deref()));
     let theme = resolve_theme(options.theme.as_deref(), deck.meta.theme.as_deref());
     let surfaces = theme.surfaces();
 

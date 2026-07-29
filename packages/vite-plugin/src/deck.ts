@@ -13,14 +13,10 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 
+import { joinDeck, type DeckFile } from "./files";
+
 /** A slide file, as found on disk. */
-export interface SlideFile {
-  /** Absolute path, for watching and for error messages. */
-  path: string;
-  /** Path relative to the project root, for logs. */
-  label: string;
-  source: string;
-}
+export type SlideFile = DeckFile;
 
 /** Everything read from `srcDir`, in deck order. */
 export interface DeckSource {
@@ -52,7 +48,7 @@ export async function readDeck(
     }),
   );
 
-  return { files, source: joinSources(files, separator) };
+  return { files, source: joinDeck(files, separator).source };
 }
 
 async function listSlideFiles(directory: string, extensions: string[]): Promise<string[]> {
@@ -70,14 +66,4 @@ async function listSlideFiles(directory: string, extensions: string[]): Promise<
     .map((entry) => entry.name)
     .filter((name) => extensions.some((extension) => name.toLowerCase().endsWith(extension)))
     .sort((a, b) => a.localeCompare(b, "en"));
-}
-
-/**
- * Joins slide files with the deck separator.
- *
- * The first file's frontmatter is the deck's, which is why it is left at the
- * very start: the parser reads deck metadata from the top of the source.
- */
-function joinSources(files: SlideFile[], separator: string): string {
-  return files.map((file) => file.source.trim()).join(`\n\n${separator}\n`);
 }

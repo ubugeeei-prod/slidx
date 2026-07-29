@@ -517,6 +517,7 @@ dependencies = [
  "serde-wasm-bindgen",
  "serde_json",
  "slidx_core",
+ "slidx_edit",
  "slidx_lint",
  "slidx_render",
  "slidx_theme",

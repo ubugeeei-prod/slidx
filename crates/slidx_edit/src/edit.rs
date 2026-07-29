@@ -10,10 +10,12 @@
 //! Splices are disjoint and in source order, so applying them is one pass and
 //! [`invert`](Edit::invert) is exact.
 
+use serde::{Deserialize, Serialize};
+
 use slidx_core::ByteSpan;
 
 /// One byte range, and the text that takes its place.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Splice {
     pub span: ByteSpan,
     pub text: String,
@@ -24,7 +26,13 @@ pub struct Splice {
 /// Usually one splice. Setting notes can be several, because a slide is
 /// allowed more than one notes comment and rewriting the prose between them
 /// would be a change nobody asked for.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+///
+/// Transparent on the wire, because the editor's undo stack is a list of these
+/// and a wrapper object would be one more shape a caller has to remember. An
+/// edit that arrives from elsewhere is not trusted to be well formed —
+/// [`apply`](Self::apply) is total for any list of splices at all.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Edit {
     splices: Vec<Splice>,
 }
@@ -172,6 +180,35 @@ mod tests {
         let changed = edit.apply(source);
         assert_ne!(changed, source);
         assert_eq!(edit.invert(source).apply(&changed), source);
+    }
+
+    #[test]
+    fn an_edit_survives_the_boundary_and_can_still_take_itself_back() {
+        // An undo stack lives in the editor and the bytes live here, so an
+        // inverse has to be storable as data and re-appliable later. If it
+        // could not cross, undo would have to be a second document model.
+        let source = "# One\n\nBody.\n";
+        let mut builder = EditBuilder::new(source);
+        builder.replace(ByteSpan::new(2, 5), "Two");
+        let undo = builder.build().invert(source);
+
+        let posted: Edit = serde_json::from_str(&serde_json::to_string(&undo).unwrap()).unwrap();
+
+        assert_eq!(posted, undo);
+        assert_eq!(posted.apply("# Two\n\nBody.\n"), source);
+    }
+
+    #[test]
+    fn an_edit_is_a_bare_list_of_splices_on_the_wire() {
+        // JavaScript stores these; a wrapper object is one more shape a caller
+        // has to remember for no gain.
+        let mut builder = EditBuilder::new("abc");
+        builder.replace(ByteSpan::new(0, 1), "X");
+
+        assert_eq!(
+            serde_json::to_value(builder.build()).unwrap(),
+            serde_json::json!([{ "span": { "start": 0, "end": 1 }, "text": "X" }])
+        );
     }
 
     #[test]

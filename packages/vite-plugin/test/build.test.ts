@@ -15,7 +15,7 @@ import { join } from "node:path";
 import { build } from "vite";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { slidx } from "../src/index";
+import { EDITOR_ROUTE_PREFIX, slidx } from "../src/index";
 
 async function buildDeck(
   slides: Record<string, string>,
@@ -91,6 +91,20 @@ describe("building a deck with no configuration", () => {
 
     const slide = await readFile(join(result.root, "dist/slides/index.html"), "utf8");
     expect(slide).not.toContain("<script");
+  });
+
+  it("ships no way to edit the deck it was built from", async () => {
+    // The editing routes write to the author's slide files. They are
+    // registered in `configureServer` and nowhere else, so `vite build` never
+    // creates them — this is the assertion that keeps a deck on a web server
+    // from ever offering one.
+    const pages = await Promise.all(
+      result.files
+        .filter((file) => file.endsWith(".html") || file.endsWith(".js"))
+        .map((file) => readFile(join(result.root, "dist", file), "utf8")),
+    );
+
+    expect(pages.filter((page) => page.includes(EDITOR_ROUTE_PREFIX))).toEqual([]);
   });
 
   it("emits one printable document for the whole deck", () => {
