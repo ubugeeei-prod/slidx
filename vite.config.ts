@@ -91,6 +91,10 @@ export default defineConfig({
     // against a mock.
     environment: "happy-dom",
     passWithNoTests: true,
+    // Parallel work happens in scratch worktrees under `.claude/`, which are
+    // whole checkouts of this repository. Without this the suite runs every
+    // test once per worktree, against code that is deliberately not merged.
+    exclude: ["**/node_modules/**", "**/dist/**", ".claude/**"],
   },
 
   run: {

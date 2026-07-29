@@ -33,7 +33,8 @@ use wasm_bindgen::prelude::*;
 use slidx_core::{parse_deck, DeckParseOptions};
 use slidx_lint::{lint, LintInput, LintOptions};
 use slidx_render::{
-    render_presenter, render_print, render_slide, PresenterOptions, PrintOptions, ShellOptions,
+    render_deck_card, render_presenter, render_print, render_slide, OgOptions, PresenterOptions,
+    PrintOptions, ShellOptions,
 };
 
 /// What a caller can ask for when building a deck.
@@ -54,6 +55,8 @@ pub struct BuildOptions {
     pub presenter: bool,
     /// Also render the print shell — one document, one page per stop.
     pub print: bool,
+    /// Also draw a social card per slide, and one for the deck.
+    pub og: bool,
     /// Module URL the presenter view imports the runtime from.
     pub runtime_src: Option<String>,
     /// The runtime's source, inlined into the print shell.
@@ -78,6 +81,9 @@ pub struct BuiltSlide {
     /// The complete HTML page. Absent when `parseOnly` was set.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub html: Option<String>,
+    /// This slide's social card, as SVG. Absent unless `og` was set.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub og_svg: Option<String>,
     /// The speaker's view of this slide. Absent unless `presenter` was set.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub presenter_html: Option<String>,
@@ -97,6 +103,9 @@ pub struct BuildResult {
     /// The whole deck as one printable document. Absent unless `print` was set.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub print_html: Option<String>,
+    /// The deck's own social card, as SVG. Absent unless `og` was set.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub og_svg: Option<String>,
 }
 
 /// A diagnostic, flattened for the JavaScript side.
@@ -171,10 +180,12 @@ fn build(source: &str, options: &BuildOptions) -> BuildResult {
     let runtime_src = options.runtime_src.clone().unwrap_or_else(|| "./runtime.js".to_string());
     let shell = ShellOptions { theme: theme.clone(), ..ShellOptions::default() };
     let print_theme = theme.clone();
+    let og_theme = theme.clone();
     let presenter =
         PresenterOptions { theme, runtime_src: runtime_src.clone(), ..PresenterOptions::default() };
 
     let render = !options.parse_only;
+    let og = OgOptions { theme: og_theme, ..OgOptions::default() };
 
     let slides = deck
         .slides
@@ -186,6 +197,8 @@ fn build(source: &str, options: &BuildOptions) -> BuildResult {
             notes: slide.notes.clone(),
             stop_count: slide.timeline.len() as u32,
             html: render.then(|| render_slide(&deck, slide, &shell)),
+            og_svg: (render && options.og)
+                .then(|| slidx_render::render_slide_card(&deck, slide, &og)),
             presenter_html: (render && options.presenter)
                 .then(|| render_presenter(&deck, slide, &presenter)),
         })
@@ -203,6 +216,7 @@ fn build(source: &str, options: &BuildOptions) -> BuildResult {
     });
 
     BuildResult {
+        og_svg: (render && options.og).then(|| render_deck_card(&deck, &og)),
         title: deck.meta.title.clone(),
         description: deck.meta.description.clone(),
         slides,
@@ -256,6 +270,16 @@ mod tests {
 
         assert!(html.contains("const marker = 1;"));
         assert!(!html.contains("import {"));
+    }
+
+    #[test]
+    fn social_cards_are_opt_in_and_cover_every_slide() {
+        let options = BuildOptions { og: true, ..BuildOptions::default() };
+        let result = build("# One\n\n---\n\n# Two\n", &options);
+
+        assert!(result.og_svg.is_some(), "the deck gets its own card");
+        assert!(result.slides.iter().all(|slide| slide.og_svg.is_some()));
+        assert!(build("# One\n", &BuildOptions::default()).slides[0].og_svg.is_none());
     }
 
     #[test]
