@@ -168,7 +168,6 @@ export function ogFileBase(options: ResolvedOptions, index: number | "deck"): st
   return options.base ? `${options.base}/${name}` : name;
 }
 
-/** Where the printable document is written. */
 /**
  * Where one shared snippet's page is written.
  *
@@ -180,6 +179,7 @@ export function snippetFileName(options: ResolvedOptions, path: string): string 
   return options.base ? `${options.base}/${path}` : path;
 }
 
+/** Where the printable document is written. */
 export function printFileName(options: ResolvedOptions): string {
   return options.base ? `${options.base}/print/index.html` : "print/index.html";
 }

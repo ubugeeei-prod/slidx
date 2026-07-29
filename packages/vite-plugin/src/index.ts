@@ -28,8 +28,8 @@ import {
   printFileName,
   resolveOptions,
   runtimeFileName,
-  snippetFileName,
   slideFileName,
+  snippetFileName,
   type SlidxOptions,
 } from "./options";
 import { build as buildDeck } from "./pipeline";

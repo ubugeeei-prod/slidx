@@ -227,7 +227,7 @@ describe("a deck with nothing in it", () => {
 describe("shared code snippets", () => {
   it("writes a page for every shared fence", async () => {
     const { files } = await buildDeck({
-      "0001.md": '# Retry\n\n```rust {#retry-policy .share}\nfn retry() {}\n```\n',
+      "0001.md": "# Retry\n\n```rust {#retry-policy .share}\nfn retry() {}\n```\n",
     });
 
     expect(files).toContain("slides/snippets/retry-policy.html");
@@ -245,7 +245,7 @@ describe("shared code snippets", () => {
     // The QR is drawn from the same path. A page written somewhere else is a
     // code that scans to a 404, which nobody discovers until a room does.
     const { root, files } = await buildDeck({
-      "0001.md": '# Retry\n\n```rust {#retry-policy .share}\nfn retry() {}\n```\n',
+      "0001.md": "# Retry\n\n```rust {#retry-policy .share}\nfn retry() {}\n```\n",
     });
 
     const slide = await readFile(join(root, "dist/slides/index.html"), "utf8");
