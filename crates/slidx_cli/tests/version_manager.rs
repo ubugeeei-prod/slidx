@@ -17,6 +17,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use slidx_cli::version::store::BINARY;
+
 /// A scratch machine: its own `~/.slidx`, and its own release to install from.
 struct Machine {
     root: PathBuf,
@@ -43,6 +45,16 @@ impl Machine {
         self.root.join("release")
     }
 
+    /// The binary one version installed, under the name this platform uses.
+    fn installed(&self, version: &str) -> PathBuf {
+        self.home().join("versions").join(version).join(BINARY)
+    }
+
+    /// The path a shell resolves `slidx` to.
+    fn shim(&self) -> PathBuf {
+        self.home().join("bin").join(BINARY)
+    }
+
     /// Publishes one version: an archive, and a checksum file describing it.
     ///
     /// `corrupt` rewrites the archive after the digest is taken, which is what
@@ -54,20 +66,22 @@ impl Machine {
         let stage = self.root.join("stage");
         let _ = fs::remove_dir_all(&stage);
         fs::create_dir_all(&stage).expect("stage");
-        fs::write(stage.join("slidx"), format!("#!/bin/sh\necho \"slidx {version}\"\n"))
+        fs::write(stage.join(BINARY), format!("#!/bin/sh\necho \"slidx {version}\"\n"))
             .expect("binary");
 
+        // The same format the release publishes for this target: a zip on
+        // Windows, a gzipped tar everywhere else. Publishing a tarball a
+        // Windows build would never ask for would test a path nobody runs.
         let asset = asset_name();
-        let made = Command::new("tar")
-            .args([
-                "-czf",
-                &release.join(&asset).display().to_string(),
-                "-C",
-                &stage.display().to_string(),
-                "slidx",
-            ])
-            .status()
-            .expect("tar");
+        let archive = release.join(&asset).display().to_string();
+        let from = stage.display().to_string();
+        let arguments: Vec<&str> = if asset.ends_with(".zip") {
+            vec!["--format=zip", "-cf", &archive, "-C", &from, BINARY]
+        } else {
+            vec!["-czf", &archive, "-C", &from, BINARY]
+        };
+
+        let made = Command::new("tar").args(&arguments).status().expect("tar");
         assert!(made.success(), "could not build the release archive");
 
         let digest = sha256_of(&release.join(&asset));
@@ -83,7 +97,7 @@ impl Machine {
         let output = Command::new(binary())
             .args(arguments)
             .env("SLIDX_HOME", self.home())
-            .env("SLIDX_BASE_URL", format!("file://{}", self.release().display()))
+            .env("SLIDX_BASE_URL", file_url(&self.release()))
             .env("NO_COLOR", "1")
             .output()
             .expect("run slidx");
@@ -109,8 +123,26 @@ struct Output {
 }
 
 /// The asset name for the target this test binary was built for.
+///
+/// Asked of the code under test rather than spelled out again, so the fixture
+/// cannot publish an asset the installer would never ask for.
 fn asset_name() -> String {
-    format!("slidx-{}.tar.gz", slidx_cli::version::download::target())
+    slidx_cli::version::download::asset_name(slidx_cli::version::download::target())
+}
+
+/// A `file://` URL for a directory on this machine.
+///
+/// A Windows path is not a URL: `C:\a\b` has to be spelled `/C:/a/b`, so the
+/// drive letter needs a third slash and the separators have to be turned round.
+/// Interpolating the path as it comes gives a fetcher something it cannot read.
+fn file_url(path: &Path) -> String {
+    let text = path.display().to_string().replace('\\', "/").replace(' ', "%20");
+
+    if text.starts_with('/') {
+        format!("file://{text}")
+    } else {
+        format!("file:///{text}")
+    }
 }
 
 fn binary() -> PathBuf {
@@ -120,7 +152,7 @@ fn binary() -> PathBuf {
     if path.ends_with("deps") {
         path.pop();
     }
-    path.join(if cfg!(windows) { "slidx.exe" } else { "slidx" })
+    path.join(BINARY)
 }
 
 fn sha256_of(path: &Path) -> String {
@@ -146,7 +178,7 @@ fn installing_a_version_verifies_it_and_puts_it_where_use_can_find_it() {
 
     assert_eq!(output.code, 0, "{}{}", output.stdout, output.stderr);
     assert!(output.stdout.contains("checksum verified"), "{}", output.stdout);
-    assert!(machine.home().join("versions/0.3.0/slidx").is_file());
+    assert!(machine.installed("0.3.0").is_file());
 }
 
 #[test]
@@ -203,7 +235,7 @@ fn using_a_version_points_the_shim_at_it_and_records_the_choice() {
 
     // Both halves: the link the shell finds, and the record that survives it
     // being clobbered.
-    let shim = machine.home().join("bin/slidx");
+    let shim = machine.shim();
     assert!(shim.exists(), "no shim");
     assert!(fs::read_to_string(&shim).expect("read through the shim").contains("0.3.0"));
     assert_eq!(fs::read_to_string(machine.home().join("version")).expect("record").trim(), "0.3.0");
@@ -222,7 +254,7 @@ fn install_and_switch_in_one_step_when_asked() {
 
     assert_eq!(output.code, 0, "{}{}", output.stdout, output.stderr);
     assert!(output.stdout.contains("now in use"), "{}", output.stdout);
-    assert!(machine.home().join("bin/slidx").exists());
+    assert!(machine.shim().exists());
 }
 
 #[test]
@@ -266,7 +298,7 @@ fn using_a_version_that_is_not_installed_says_how_to_install_it() {
 
     assert_ne!(output.code, 0);
     assert!(output.stderr.contains("slidx version install 9.9.9"), "{}", output.stderr);
-    assert!(!machine.home().join("bin/slidx").exists(), "a dead shim was left behind");
+    assert!(!machine.shim().exists(), "a dead shim was left behind");
 }
 
 #[test]
@@ -285,7 +317,7 @@ fn removing_the_version_in_use_is_refused_rather_than_leaving_a_dead_shim() {
 
     assert_ne!(output.code, 0);
     assert!(output.stderr.contains("pointing at nothing"), "{}", output.stderr);
-    assert!(machine.home().join("versions/0.3.0/slidx").is_file());
+    assert!(machine.installed("0.3.0").is_file());
 }
 
 #[test]

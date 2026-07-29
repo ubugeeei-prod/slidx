@@ -191,37 +191,37 @@ pub fn fetch(url: &str, into: &Path) -> Result<(), Problem> {
 pub fn unpack(archive: &Path, into: &Path) -> Result<(), Problem> {
     fs::create_dir_all(into).map_err(|error| Problem::Unpacking { detail: error.to_string() })?;
 
-    let zip = archive.extension().is_some_and(|extension| extension == "zip");
-    let (program, arguments) = if zip {
-        (
-            "unzip",
-            vec![
-                "-q".to_string(),
-                "-o".to_string(),
-                archive.display().to_string(),
-                "-d".to_string(),
-                into.display().to_string(),
-            ],
-        )
+    let from = archive.display().to_string();
+    let to = into.display().to_string();
+
+    // A zip needs two candidates. Windows is the platform that publishes one,
+    // and it ships bsdtar in System32 while shipping no `unzip` at all, so a
+    // zip release unpacked with `unzip` alone fails on the one platform that
+    // gets a zip. `unzip` is still tried first because GNU tar, which is what
+    // `tar` is on most Linux machines, cannot read a zip.
+    let candidates: Vec<(&str, Vec<&str>)> = if archive
+        .extension()
+        .is_some_and(|extension| extension == "zip")
+    {
+        vec![("unzip", vec!["-q", "-o", &from, "-d", &to]), ("tar", vec!["-xf", &from, "-C", &to])]
     } else {
-        (
-            "tar",
-            vec![
-                "-xzf".to_string(),
-                archive.display().to_string(),
-                "-C".to_string(),
-                into.display().to_string(),
-            ],
-        )
+        vec![("tar", vec!["-xzf", &from, "-C", &to])]
     };
 
-    match Command::new(program).args(&arguments).stderr(Stdio::null()).status() {
-        Ok(status) if status.success() => Ok(()),
-        Ok(_) => {
-            Err(Problem::Unpacking { detail: format!("{program} refused {}", archive.display()) })
+    let mut detail = String::new();
+
+    for (program, arguments) in candidates {
+        match Command::new(program).args(&arguments).stderr(Stdio::null()).status() {
+            Ok(status) if status.success() => return Ok(()),
+            // The program is there and refused the archive. Recorded rather
+            // than returned, because the next candidate may be the one that
+            // reads this format.
+            Ok(_) => detail = format!("{program} refused {from}"),
+            Err(_) => detail = format!("{program} is not on PATH"),
         }
-        Err(_) => Err(Problem::Unpacking { detail: format!("{program} is not on PATH") }),
     }
+
+    Err(Problem::Unpacking { detail })
 }
 
 /// Marks a freshly unpacked binary executable.
@@ -409,6 +409,29 @@ ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  slidx-aarch64-
             let out = scratch.join("out");
             unpack(&archive, &out).expect("unpack");
             assert!(out.join("slidx").is_file());
+        }
+
+        let _ = fs::remove_dir_all(&scratch);
+    }
+
+    #[test]
+    fn a_zip_round_trips_too_because_that_is_what_windows_is_published_as() {
+        let scratch = std::env::temp_dir().join(format!("slidx-zip-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&scratch);
+        fs::create_dir_all(scratch.join("stage")).expect("stage");
+        fs::write(scratch.join("stage/slidx.exe"), "not really a binary").expect("write");
+
+        // Skipped where no tool on this machine can write a zip; the
+        // extraction side is what this is here to cover.
+        let made = Command::new("zip")
+            .args(["-q", "../slidx-x.zip", "slidx.exe"])
+            .current_dir(scratch.join("stage"))
+            .status();
+
+        if made.map(|status| status.success()).unwrap_or(false) {
+            let out = scratch.join("out");
+            unpack(&scratch.join("slidx-x.zip"), &out).expect("unpack");
+            assert!(out.join("slidx.exe").is_file());
         }
 
         let _ = fs::remove_dir_all(&scratch);
