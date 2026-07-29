@@ -12,7 +12,14 @@ import { resolve } from "node:path";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
-import init, { buildDeck, themeCss, themeNames, version } from "../dist/slidx.js";
+import init, {
+  buildDeck,
+  type BuildDeckOptions,
+  type BuiltSlide,
+  themeCss,
+  themeNames,
+  version,
+} from "../dist/slidx.js";
 
 /**
  * Locates the built wasm relative to wherever the runner started.
@@ -47,7 +54,7 @@ describe("building a deck", () => {
   });
 
   it("renders a complete page per slide", () => {
-    const [slide] = buildDeck("# One\n").slides;
+    const slide = onlySlide(buildDeck("# One\n").slides);
 
     expect(slide.html).toMatch(/^<!doctype html>/);
     expect(slide.html).toContain("</html>");
@@ -56,26 +63,26 @@ describe("building a deck", () => {
   it("names fields in camelCase on this side of the boundary", () => {
     // serde renames on the Rust side; if that ever stops working the plugin
     // reads `undefined` everywhere and the failure is far from the cause.
-    const [slide] = buildDeck("- a <!-- step -->\n").slides;
+    const slide = onlySlide(buildDeck("- a <!-- step -->\n").slides);
 
     expect(slide).toHaveProperty("stopCount");
     expect(slide).not.toHaveProperty("stop_count");
   });
 
   it("counts the stops the PDF exporter needs", () => {
-    const [slide] = buildDeck("- a <!-- step -->\n- b <!-- step -->\n").slides;
+    const slide = onlySlide(buildDeck("- a <!-- step -->\n- b <!-- step -->\n").slides);
     expect(slide.stopCount).toBe(3);
   });
 
   it("carries speaker notes without rendering them", () => {
-    const [slide] = buildDeck("# One\n\n<!-- notes: out loud -->\n").slides;
+    const slide = onlySlide(buildDeck("# One\n\n<!-- notes: out loud -->\n").slides);
 
     expect(slide.notes).toEqual(["out loud"]);
     expect(slide.html).not.toContain("out loud");
   });
 
   it("skips the HTML when asked to parse only", () => {
-    const [slide] = buildDeck("# One\n", { parseOnly: true }).slides;
+    const slide = onlySlide(buildDeck("# One\n", { parseOnly: true }).slides);
 
     expect(slide.html).toBeUndefined();
     expect(slide.title).toBe("One");
@@ -98,15 +105,54 @@ describe("building a deck", () => {
   it("applies the theme it is given over the deck's own", () => {
     const source = "---\ntheme: minimal\n---\n\n# One\n";
 
-    expect(buildDeck(source, { theme: "terminal" }).slides[0].html).not.toBe(
-      buildDeck(source).slides[0].html,
+    expect(onlySlide(buildDeck(source, { theme: "terminal" }).slides).html).not.toBe(
+      onlySlide(buildDeck(source).slides).html,
     );
   });
 
   it("throws only when the options themselves are malformed", () => {
-    expect(() => buildDeck("# One\n", { parseOnly: "yes" })).toThrow(/invalid options/);
+    // The cast is the point: `parseOnly: "yes"` no longer compiles, so this is
+    // reachable only from JavaScript, and the runtime check is what catches it
+    // there. Reaching it needs a lie the type system has to be talked out of.
+    const malformed = { parseOnly: "yes" } as unknown as BuildDeckOptions;
+    expect(() => buildDeck("# One\n", malformed)).toThrow(/invalid options/);
   });
 });
+
+describe("the declarations that ship with the module", () => {
+  /**
+   * The types are generated from Rust and appended to the `.d.ts`
+   * `wasm-bindgen` writes, so a consumer describes nothing by hand. That
+   * appending is one attribute in one file and would fail silently if it ever
+   * stopped happening: the package would still work, and every consumer would
+   * quietly see `any` again.
+   *
+   * Read as text because a type has nothing to assert at runtime.
+   */
+  const declarations = readFileSync(resolve(wasmPath(), "../slidx.d.ts"), "utf8");
+
+  it("describes what buildDeck returns", () => {
+    expect(declarations).toContain("options?: BuildDeckOptions): BuildResult;");
+  });
+
+  it("carries the deck model rather than pointing at another package", () => {
+    for (const name of ["BuildResult", "BuiltSlide", "Finding", "StepTimeline", "ElementState"]) {
+      expect(declarations).toContain(`export type ${name} =`);
+    }
+  });
+});
+
+/**
+ * The first slide, asserted rather than assumed.
+ *
+ * Every source here builds exactly one, and `noUncheckedIndexedAccess` is
+ * right that indexing an array does not prove that.
+ */
+function onlySlide(slides: BuiltSlide[]): BuiltSlide {
+  const [slide] = slides;
+  if (!slide) throw new Error("the deck built no slides");
+  return slide;
+}
 
 describe("themes", () => {
   it("lists the built-in names", () => {

@@ -1,0 +1,38 @@
+{
+  "name": "slidx",
+  "version": "0.0.1",
+  "description": "The slidx command line: the pre-flight a speaker runs in the room, and the linter their CI runs",
+  "keywords": [
+    "cli",
+    "linter",
+    "presentation",
+    "slides"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ubugeeei-prod/slidx.git",
+    "directory": "packages/cli"
+  },
+  "bin": {
+    "slidx": "bin/slidx.mjs"
+  },
+  "files": [
+    "bin"
+  ],
+  "type": "module",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "optionalDependencies": {
+    "@slidx/cli-darwin-arm64": "0.0.1",
+    "@slidx/cli-darwin-x64": "0.0.1",
+    "@slidx/cli-linux-arm64": "0.0.1",
+    "@slidx/cli-linux-x64": "0.0.1",
+    "@slidx/cli-win32-x64": "0.0.1"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  }
+}

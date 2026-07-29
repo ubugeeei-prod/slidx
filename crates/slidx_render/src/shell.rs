@@ -40,7 +40,7 @@ impl Default for ShellOptions {
 
 /// Renders one slide as a complete HTML document.
 pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> String {
-    let body = render(&slide.content, &options.markdown);
+    let body = render(&crate::snippet::stage(deck, slide, &options.theme), &options.markdown);
     let (width, height) = deck.meta.aspect.dimensions();
 
     let title = match (&slide.title, &deck.meta.title) {
@@ -479,7 +479,22 @@ mod tests {
         // phantom indent. Readable output is not worth corrupting code.
         let html = shell("```rust\nfn main() {\n    let x = 1;\n}\n```\n");
 
-        assert!(html.contains("<code class=\"language-rust\">fn main() {\n    let x = 1;\n}\n"));
+        let block = html.split_once("<code class=\"language-rust\">").expect("a code block").1;
+        let block = block.split_once("</code>").expect("a closed block").0;
+
+        assert!(block.contains("\n    "), "the indent was reflowed:\n{block}");
+        assert!(block.ends_with('\n'), "the trailing newline was trimmed:\n{block}");
+    }
+
+    #[test]
+    fn code_on_a_slide_arrives_coloured_and_still_carries_no_script() {
+        // The whole reason highlighting happens at build time: the page an
+        // audience sees is a string by then.
+        let html = shell("```rust\nlet x = 1; // one\n```\n");
+
+        assert!(html.contains("<span class=\"slidx-code-keyword\">let</span>"));
+        assert!(html.contains("--slidx-color-code-comment:"));
+        assert!(!html.contains("<script"), "an audience slide ships no JavaScript");
     }
 
     #[test]

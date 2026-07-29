@@ -1,0 +1,8 @@
+[package]
+name = "slidx_highlight"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Build-time syntax highlighting for slidx, so an audience slide ships no JavaScript"

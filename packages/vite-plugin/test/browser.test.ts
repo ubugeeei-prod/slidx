@@ -103,9 +103,13 @@ async function serve(root: string): Promise<string> {
   server = createServer((request, response) => {
     // Normalised and re-rooted: a test server is still a server, and `..` in a
     // request path should not reach the machine's filesystem.
-    const path = new URL(request.url ?? "/", "http://localhost").pathname;
-    const relative = normalize(decodeURIComponent(path)).replace(/^(\.\.[/\\])+/, "");
-    const file = join(root, relative.endsWith("/") ? `${relative}index.html` : relative);
+    const path = decodeURIComponent(new URL(request.url ?? "/", "http://localhost").pathname);
+    // `index.html` is appended before normalising, not after: on Windows
+    // `normalize` rewrites the separators, so a directory request arrives as
+    // `\slides\` and there is no trailing `/` left to notice.
+    const requested = path.endsWith("/") ? `${path}index.html` : path;
+    const relative = normalize(requested).replace(/^(\.\.[/\\])+/, "");
+    const file = join(root, relative);
 
     readFile(file).then(
       (body) => {

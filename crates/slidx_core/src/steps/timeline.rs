@@ -14,6 +14,7 @@
 //! [`compile`](super::compile) turns authored intents into these snapshots.
 
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use std::collections::BTreeMap;
 
@@ -21,7 +22,7 @@ use super::action::Visibility;
 use super::timing::Effect;
 
 /// One element's state within one frame.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ElementState {
     pub target: String,
@@ -32,20 +33,22 @@ pub struct ElementState {
     /// snapshot rather than as a diff is what lets a presenter step backwards
     /// through a changing value and see the earlier one again, without the
     /// runtime remembering anything.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub content: Option<String>,
     /// Data properties in force at this stop. Accumulated, so a later patch
     /// that changes colour does not clear an earlier one that changed weight.
-    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub properties: BTreeMap<String, String>,
     /// Set only on the frame that triggers the animation, so scrubbing
     /// backwards past an entrance does not replay it.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub effect: Option<Effect>,
 }
 
 /// A complete description of the slide at one stop.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct StepFrame {
     pub index: u32,
@@ -96,7 +99,7 @@ impl StepFrame {
 }
 
 /// Every stop on a slide, in order.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct StepTimeline {
     pub(super) frames: Vec<StepFrame>,
