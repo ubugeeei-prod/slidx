@@ -132,7 +132,10 @@ impl Theme {
             let sample =
                 TextSample::new(role, color, self.scale.role_px(role), format!("theme.{name}"));
 
-            if background == palette.code_surface && name == "codeText" {
+            // Routed by the background the role is drawn on rather than by
+            // name: a syntax colour checked against the slide would pass a
+            // comment that is invisible everywhere it is actually shown.
+            if background == palette.code_surface {
                 code = code.with_text(sample);
             } else {
                 slide = slide.with_text(sample);
@@ -149,11 +152,15 @@ impl Theme {
 }
 
 /// Maps a palette role name onto the legibility role it is judged as.
+///
+/// Every `code*` role is code: a comment is set at code size and read at code
+/// density, and holding it to the body floor would let a theme ship a comment
+/// colour that only works at heading size.
 fn role_of(name: &str) -> TextRole {
     match name {
         "heading" => TextRole::Heading,
         "muted" => TextRole::Caption,
-        "codeText" => TextRole::Code,
+        name if name.starts_with("code") => TextRole::Code,
         _ => TextRole::Body,
     }
 }
@@ -191,8 +198,32 @@ mod tests {
             .unwrap();
 
         assert_eq!(code.background, theme.light.code_surface);
-        assert_eq!(code.text.len(), 1);
-        assert_eq!(code.text[0].role, TextRole::Code);
+        assert!(code.text.iter().all(|sample| sample.role == TextRole::Code));
+        assert!(code.text.iter().any(|sample| sample.origin == "theme.codeText"));
+    }
+
+    #[test]
+    fn every_syntax_colour_is_audited_as_code_on_the_code_surface() {
+        // The point of putting these colours in the theme at all: a comment
+        // colour that is illegible on a projector is the failure this project
+        // exists to catch, and it can only be caught here.
+        let theme = builtin::minimal();
+        let code = theme
+            .surfaces()
+            .into_iter()
+            .find(|surface| surface.name.contains("dark / code"))
+            .unwrap();
+
+        for role in ["codeComment", "codeString", "codeKeyword", "codeType", "codePunctuation"] {
+            let sample = code
+                .text
+                .iter()
+                .find(|sample| sample.origin == format!("theme.{role}"))
+                .unwrap_or_else(|| panic!("{role} is not audited"));
+
+            assert_eq!(sample.role, TextRole::Code);
+            assert_eq!(sample.font_px, theme.scale.code_px());
+        }
     }
 
     #[test]

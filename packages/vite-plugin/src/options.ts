@@ -53,6 +53,20 @@ export interface SlidxOptions {
    */
   og?: boolean;
   /**
+   * Measure the built pages in a browser and report content that is clipped.
+   *
+   * On by default. Whether a slide fits its box depends on where the lines
+   * break, which nothing at build time can work out, so this is the only check
+   * that catches a slide with more on it than the frame holds — and the
+   * clipping is invisible on the author's screen too, because they are looking
+   * at the same clipped slide.
+   *
+   * It costs one browser launch on a build that is usually launching one
+   * anyway for the social cards, and it is skipped without complaint when
+   * Playwright is not installed.
+   */
+  overflow?: boolean;
+  /**
    * Fail the build when the linter reports something blocking.
    *
    * On by default: a contrast failure that reaches a projector cannot be fixed
@@ -72,6 +86,7 @@ export interface ResolvedOptions {
   print: boolean;
   og: boolean;
   pdf: false | { fileName: string };
+  overflow: boolean;
   failOnDiagnostics: boolean;
 }
 
@@ -86,6 +101,7 @@ export function resolveOptions(options: SlidxOptions = {}): ResolvedOptions {
     print: options.print ?? true,
     og: options.og ?? true,
     pdf: resolvePdf(options.pdf),
+    overflow: options.overflow ?? true,
     failOnDiagnostics: options.failOnDiagnostics ?? true,
   };
 }

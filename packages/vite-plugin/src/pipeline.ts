@@ -9,7 +9,15 @@
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 
-import init, { buildDeck, type BuildResult } from "@slidx/wasm";
+import init, {
+  buildDeck,
+  lintMeasured as lintMeasuredDeck,
+  type BuildDeckOptions,
+  type BuildResult,
+  type Finding,
+} from "@slidx/wasm";
+
+import type { Measurement } from "./overflow";
 
 let ready: Promise<void> | undefined;
 
@@ -30,29 +38,39 @@ export function ensureReady(): Promise<void> {
   return ready;
 }
 
-export interface BuildDeckOptions {
-  theme?: string | undefined;
-  separator: string;
-  parseOnly?: boolean;
-  presenter?: boolean;
-  print?: boolean;
-  og?: boolean;
-  runtimeSrc?: string;
-  printRuntime?: string;
-}
+export type { BuildDeckOptions };
 
-/** Parses, lints, and renders a deck. */
+/**
+ * Parses, lints, and renders a deck.
+ *
+ * The options go straight through. They used to be restated here field by
+ * field, which is how the plugin ended up describing a payload it does not
+ * own; `BuildDeckOptions` is generated from the Rust struct, so the only thing
+ * left to do with it is pass it on. Every default lives in one place, on the
+ * side that acts on it.
+ */
 export async function build(source: string, options: BuildDeckOptions): Promise<BuildResult> {
   await ensureReady();
 
-  return buildDeck(source, {
+  return buildDeck(source, options);
+}
+
+/**
+ * Turns what a browser measured into findings.
+ *
+ * The judgement stays in Rust with every other rule: what counts as clipped,
+ * what is browser rounding, and how a clipped slide is worded are one set of
+ * decisions, and a copy of them here would be a second set that drifts.
+ */
+export async function lintMeasured(
+  source: string,
+  measured: Measurement[],
+  options: Pick<BuildDeckOptions, "separator" | "theme">,
+): Promise<Finding[]> {
+  await ensureReady();
+
+  return lintMeasuredDeck(source, measured, {
     theme: options.theme,
     separator: options.separator,
-    parseOnly: options.parseOnly ?? false,
-    presenter: options.presenter ?? false,
-    print: options.print ?? false,
-    og: options.og ?? false,
-    runtimeSrc: options.runtimeSrc,
-    printRuntime: options.printRuntime,
   });
 }

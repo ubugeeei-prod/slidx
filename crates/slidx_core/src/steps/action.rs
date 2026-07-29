@@ -7,12 +7,13 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use super::preset::{EffectPreset, Origin};
 use super::timing::StepOptions;
 
 /// Whether an element is painted in a given frame.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 pub enum Visibility {
     /// Present in the layout but not painted, so revealing never reflows.
@@ -185,6 +186,11 @@ pub enum AutoSteps {
 }
 
 impl AutoSteps {
+    /// Every mode, in the order they are offered to an author.
+    ///
+    /// Editor tooling completes from here rather than restating the names.
+    pub const ALL: [Self; 3] = [Self::List, Self::Block, Self::Row];
+
     pub fn as_token(self) -> &'static str {
         match self {
             Self::List => "list",

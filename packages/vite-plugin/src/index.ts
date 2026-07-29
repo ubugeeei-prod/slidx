@@ -21,7 +21,7 @@
 import type { Plugin, ViteDevServer } from "vite";
 
 import { readDeck } from "./deck";
-import { exportPdf, rasteriseCards } from "./artifacts";
+import { exportPdf, rasteriseCards, reportOverflow } from "./artifacts";
 import {
   ogFileBase,
   presenterFileName,
@@ -46,6 +46,10 @@ const RESOLVED_RUNTIME_ID = "\0virtual:slidx-runtime";
 export function slidx(userOptions: SlidxOptions = {}): Plugin {
   const options = resolveOptions(userOptions);
   let root = process.cwd();
+
+  // Kept from the bundle so the measurement pass does not read and parse the
+  // deck a second time. It runs against files, so it cannot run any earlier.
+  let lastBuild: Awaited<ReturnType<typeof renderDeck>> | undefined;
 
   return {
     name: "slidx",
@@ -136,6 +140,7 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
       }
 
       const built = await renderDeck(root, options, options.presenter, options.print, options.og);
+      lastBuild = built;
 
       // No slide files at all is a different situation from a deck that
       // failed to parse: emitting a blank page would look like the deck built
@@ -229,6 +234,12 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
 
       if (options.og) await rasteriseCards(this, directory, options);
       await exportPdf(this, directory, options);
+
+      // An empty deck emitted no pages, so there is nothing to open.
+      if (lastBuild && lastBuild.fileCount > 0) {
+        const titles = lastBuild.slides.map((slide) => slide.title);
+        await reportOverflow(this, directory, options, lastBuild.source, titles);
+      }
     },
   };
 }
@@ -259,7 +270,7 @@ async function renderDeck(
     printRuntime: print ? await readRuntime() : undefined,
   });
 
-  return { ...built, fileCount: files.length };
+  return { ...built, source, fileCount: files.length };
 }
 
 /**
@@ -353,7 +364,7 @@ function watchSlides(server: ViteDevServer, root: string, srcDir: string): void 
 function report(
   server: ViteDevServer,
   findings: Parameters<typeof groupFindings>[0],
-  slides: { title?: string | undefined }[],
+  slides: readonly { title: string | null }[],
 ): void {
   if (findings.length === 0) return;
 

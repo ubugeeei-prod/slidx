@@ -11,10 +11,30 @@
 //!
 //! Font stacks name system faces only. A theme that reaches for a webfont
 //! fails the offline check, and a venue with no network is the normal case.
+//!
+//! # Syntax colours
+//!
+//! Every theme names the same six roles with the same hues — comments neutral,
+//! strings green, numbers warm, keywords blue, types violet — so a reader who
+//! has learned one slidx deck can read the next one. What changes between
+//! themes is the neutral family and how far each hue is pushed to clear the
+//! code surface it sits on.
+//!
+//! Two consequences worth naming, because both look like mistakes until the
+//! reason is stated:
+//!
+//! **Comments are not dim.** Every syntax colour is audited as code text and
+//! held to 4.5:1 against the code surface, in a bright room. The grey an editor
+//! uses for comments is nowhere near that, and on a projector it is the first
+//! thing to disappear — which is the failure this project exists to catch.
+//!
+//! **On a dark theme, a comment is separated by hue rather than by lightness.**
+//! The floor leaves perhaps a fifth of a stop of room below the code colour, so
+//! dimming further is not available. A cool grey against a neutral one is.
 
 use slidx_core::Easing;
 
-use crate::palette::{hex, Palette};
+use crate::palette::{hex, Palette, SyntaxPalette};
 use crate::scale::TypeScale;
 use crate::theme::{Motion, Spacing, Theme};
 
@@ -49,6 +69,14 @@ pub fn minimal() -> Theme {
             border: hex("#d4d4d8"),
             code_surface: hex("#f4f4f5"),
             code_text: hex("#27272a"),
+            syntax: Some(SyntaxPalette {
+                comment: hex("#465064"),
+                string: hex("#0d5b43"),
+                number: hex("#7c2d12"),
+                keyword: hex("#1e40af"),
+                type_name: hex("#5b21b6"),
+                punctuation: hex("#3f3f46"),
+            }),
         },
         dark: Palette {
             canvas: hex("#09090b"),
@@ -60,6 +88,14 @@ pub fn minimal() -> Theme {
             border: hex("#3f3f46"),
             code_surface: hex("#27272a"),
             code_text: hex("#e4e4e7"),
+            syntax: Some(SyntaxPalette {
+                comment: hex("#c9d0da"),
+                string: hex("#a7f3d0"),
+                number: hex("#fed7aa"),
+                keyword: hex("#bfdbfe"),
+                type_name: hex("#ddd6fe"),
+                punctuation: hex("#d4d4d8"),
+            }),
         },
         scale: TypeScale::default(),
         spacing: Spacing::default(),
@@ -85,6 +121,14 @@ pub fn editorial() -> Theme {
             border: hex("#d6d3d1"),
             code_surface: hex("#f5f5f4"),
             code_text: hex("#292524"),
+            syntax: Some(SyntaxPalette {
+                comment: hex("#57514a"),
+                string: hex("#0d5b43"),
+                number: hex("#7c2d12"),
+                keyword: hex("#1e40af"),
+                type_name: hex("#5b21b6"),
+                punctuation: hex("#3f3a36"),
+            }),
         },
         dark: Palette {
             canvas: hex("#0c0a09"),
@@ -96,6 +140,14 @@ pub fn editorial() -> Theme {
             border: hex("#44403c"),
             code_surface: hex("#292524"),
             code_text: hex("#e7e5e4"),
+            syntax: Some(SyntaxPalette {
+                comment: hex("#cbd2dc"),
+                string: hex("#a7f3d0"),
+                number: hex("#fed7aa"),
+                keyword: hex("#bfdbfe"),
+                type_name: hex("#ddd6fe"),
+                punctuation: hex("#d6d3d1"),
+            }),
         },
         scale: TypeScale { base_px: 34.0, ratio: 1.333, code_factor: 0.95 },
         spacing: Spacing { padding_px: 112.0, block_px: 32.0, ..Spacing::default() },
@@ -123,6 +175,14 @@ pub fn terminal() -> Theme {
             border: hex("#d4d4d8"),
             code_surface: hex("#f4f4f5"),
             code_text: hex("#18181b"),
+            syntax: Some(SyntaxPalette {
+                comment: hex("#465064"),
+                string: hex("#0d5b43"),
+                number: hex("#7c2d12"),
+                keyword: hex("#1e40af"),
+                type_name: hex("#5b21b6"),
+                punctuation: hex("#3f3f46"),
+            }),
         },
         dark: Palette {
             canvas: hex("#000000"),
@@ -134,6 +194,14 @@ pub fn terminal() -> Theme {
             border: hex("#3f3f46"),
             code_surface: hex("#18181b"),
             code_text: hex("#e4e4e7"),
+            syntax: Some(SyntaxPalette {
+                comment: hex("#bcc7d4"),
+                string: hex("#86efac"),
+                number: hex("#fdba74"),
+                keyword: hex("#a8caff"),
+                type_name: hex("#d5cbfe"),
+                punctuation: hex("#c8c8d0"),
+            }),
         },
         // Code is the point of this theme, so it is set at full body size.
         scale: TypeScale { base_px: 32.0, ratio: 1.2, code_factor: 1.0 },
@@ -167,6 +235,14 @@ pub fn contrast() -> Theme {
             border: hex("#000000"),
             code_surface: hex("#f2f2f2"),
             code_text: hex("#000000"),
+            syntax: Some(SyntaxPalette {
+                comment: hex("#2f3a4a"),
+                string: hex("#0a4d33"),
+                number: hex("#7a2410"),
+                keyword: hex("#0b3d91"),
+                type_name: hex("#4a148c"),
+                punctuation: hex("#1f1f1f"),
+            }),
         },
         dark: Palette {
             canvas: hex("#000000"),
@@ -178,6 +254,14 @@ pub fn contrast() -> Theme {
             border: hex("#ffffff"),
             code_surface: hex("#141414"),
             code_text: hex("#ffffff"),
+            syntax: Some(SyntaxPalette {
+                comment: hex("#c7d2e0"),
+                string: hex("#a5f3c0"),
+                number: hex("#ffcf9e"),
+                keyword: hex("#b4d3ff"),
+                type_name: hex("#e0d4ff"),
+                punctuation: hex("#e0e0e0"),
+            }),
         },
         scale: TypeScale { base_px: 38.0, ratio: 1.25, code_factor: 0.95 },
         spacing: Spacing { padding_px: 88.0, block_px: 32.0, ..Spacing::default() },
@@ -192,6 +276,7 @@ pub fn contrast() -> Theme {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use slidx_highlight::Token;
 
     #[test]
     fn ids_are_unique() {
@@ -289,6 +374,58 @@ mod tests {
                 "{} transitions in {}ms",
                 theme.id,
                 theme.motion.transition_ms
+            );
+        }
+    }
+
+    #[test]
+    fn every_built_in_theme_names_its_own_syntax_colours() {
+        // The monochrome fallback exists for theme packages published before
+        // highlighting did. A built-in falling back to it would mean shipping
+        // a highlighter that highlights nothing.
+        for theme in all() {
+            for (scheme, palette) in [("light", &theme.light), ("dark", &theme.dark)] {
+                assert!(palette.syntax.is_some(), "{} / {scheme} declares none", theme.id);
+            }
+        }
+    }
+
+    #[test]
+    fn no_two_syntax_roles_in_a_palette_share_a_colour() {
+        // Two roles the same colour is highlighting that tells the audience
+        // less than it appears to.
+        for theme in all() {
+            for (scheme, palette) in [("light", &theme.light), ("dark", &theme.dark)] {
+                let syntax = palette.syntax();
+                let mut used: Vec<String> =
+                    Token::COLOURED.iter().map(|&token| syntax.get(token).to_hex()).collect();
+
+                let total = used.len();
+                used.sort();
+                used.dedup();
+
+                assert_eq!(used.len(), total, "{} / {scheme} repeats a colour", theme.id);
+            }
+        }
+    }
+
+    #[test]
+    fn a_comment_recedes_from_the_code_around_it() {
+        // The one thing highlighting a comment is for. Equal luminance with the
+        // code colour would mean the class costs bytes and changes nothing.
+        for theme in all() {
+            let light = theme.light.syntax().comment.relative_luminance();
+            let dark = theme.dark.syntax().comment.relative_luminance();
+
+            assert!(
+                light > theme.light.code_text.relative_luminance(),
+                "{} draws light comments as dark as its code",
+                theme.id
+            );
+            assert!(
+                dark < theme.dark.code_text.relative_luminance(),
+                "{} draws dark comments as bright as its code",
+                theme.id
             );
         }
     }
