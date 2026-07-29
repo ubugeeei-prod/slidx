@@ -69,10 +69,16 @@ export function browserPresentationEnvironment(
     }
   ).wakeLock;
 
+  // Spread rather than assigned `undefined`, so a missing API genuinely leaves
+  // the key off. `attempt` treats an absent hook and a hook that is present
+  // and holds `undefined` the same way, but the type says otherwise, and the
+  // paragraph above is only true of one of them.
   return {
-    requestWakeLock: wakeLock ? () => wakeLock.request("screen") : undefined,
-    requestFullscreen: root.requestFullscreen ? () => root.requestFullscreen() : undefined,
-    exitFullscreen: page.exitFullscreen ? () => page.exitFullscreen() : undefined,
+    ...(wakeLock === undefined ? {} : { requestWakeLock: () => wakeLock.request("screen") }),
+    ...(root.requestFullscreen === undefined
+      ? {}
+      : { requestFullscreen: () => root.requestFullscreen() }),
+    ...(page.exitFullscreen === undefined ? {} : { exitFullscreen: () => page.exitFullscreen() }),
 
     subscribeFullscreenExit: (listener) => {
       // The event fires for entering too, and says nothing about which; the

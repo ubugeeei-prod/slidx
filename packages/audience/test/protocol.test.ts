@@ -19,7 +19,7 @@
  *   unbounded storage on somebody else's Worker.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import {
   checkName,

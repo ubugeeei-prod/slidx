@@ -21,7 +21,7 @@
  * Storage is a Map and the clock is a counter, so all of it is arithmetic.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { LIMITS } from "../src/protocol";
 import { createRoom, ROOM_LIFETIME } from "../src/room";

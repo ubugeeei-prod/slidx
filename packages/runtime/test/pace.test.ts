@@ -22,7 +22,7 @@
  *   marked optional may ever be offered, and only ones still ahead of them.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { assessPace, describePace, type PaceSlide } from "../src/pace";
 

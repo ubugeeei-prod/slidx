@@ -38,7 +38,7 @@ import { extname, join, normalize } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { build } from "vite";
-import { describe, expect, it, afterAll, beforeAll } from "vitest";
+import { describe, expect, it, afterAll, beforeAll } from "vite-plus/test";
 
 import { slidx } from "../src/index";
 

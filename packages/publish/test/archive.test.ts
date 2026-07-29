@@ -19,7 +19,7 @@
  * - Dropping an undated talk out of the index because it did not sort.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { composeArchive, describeArchive } from "../src/targets/archive";
 import type { ArchiveRecord } from "../src/targets/archive";

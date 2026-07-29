@@ -15,7 +15,7 @@
  * - Holding a key must not queue navigation the speaker cannot see the end of.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { createNavigator, type Navigator } from "../src/navigate";
 

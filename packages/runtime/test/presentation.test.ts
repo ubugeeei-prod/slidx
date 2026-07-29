@@ -18,7 +18,7 @@
  * environment and half of them do not exist in Safari either.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { enterPresentation, presentationChecklist } from "../src/presentation";
 

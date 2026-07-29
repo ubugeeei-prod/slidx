@@ -18,7 +18,7 @@
  *   bracket.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { collectLinks } from "../src/links";
 import { composeResources } from "../src/targets/resources";

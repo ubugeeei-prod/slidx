@@ -13,7 +13,7 @@
  * - A page with nothing to switch to reports that instead of pretending.
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createDemoSwitch, DEMO_ATTRIBUTE } from "../src/demo";
 

@@ -14,7 +14,7 @@
  *   and the deck still presents — one working window beats two broken ones.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { createMirror, type MirrorMessage, type MirrorTransport } from "../src/mirror";
 

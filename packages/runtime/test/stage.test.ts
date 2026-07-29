@@ -7,7 +7,7 @@
  * the same code path and cannot disagree.
  */
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vite-plus/test";
 
 import { ANCHOR_ATTRIBUTE } from "../src/anchor";
 import { createStage, createStopCursor, HIDDEN_ATTRIBUTE, STAGED_ATTRIBUTE } from "../src/stage";

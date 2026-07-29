@@ -17,7 +17,7 @@
  *   for a speaker who never agreed to run a Q&A.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { routeRoomRequest, type RouteContext } from "../src/routes";
 import { ask, HOST_KEY, open, roomFixture, type Fixture } from "./support";
