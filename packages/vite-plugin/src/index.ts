@@ -33,8 +33,14 @@ import {
 } from "./options";
 import { build as buildDeck } from "./pipeline";
 import { blockingSummary, formatReport, groupFindings } from "./report";
+import { emptyDeckMessage, slideRequestFor } from "./routes";
+import { EDITOR_PAGE } from "./editor";
+import { createEditSession } from "./session";
 
 export type { SlidxOptions } from "./options";
+export { slideRequestFor, type SlideRequest } from "./routes";
+export { EDITOR_ROUTE_PREFIX } from "./session";
+export { EDITOR_PAGE } from "./editor";
 
 /** A virtual module so a deck-only project needs no entry of its own. */
 const ENTRY_ID = "virtual:slidx-entry";
@@ -92,10 +98,28 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
       return undefined;
     },
 
+    /**
+     * The editing routes exist here and nowhere else.
+     *
+     * They write to the author's slide files, so a built deck must have no way
+     * to reach them. Registering them in `configureServer` alone is that
+     * guarantee: `vite build` never calls this hook.
+     */
     configureServer(server) {
       watchSlides(server, root, options.srcDir);
+      announceEditor(server);
+
+      const session = createEditSession(root, options);
+
       server.middlewares.use(async (request, response, next) => {
         const url = request.url ?? "/";
+
+        try {
+          if (await session.handle(request, response)) return;
+        } catch (error) {
+          next(error);
+          return;
+        }
 
         const asked = slideRequestFor(url, options.base);
         if (asked === null) return next();
@@ -298,47 +322,6 @@ function readRuntime(): Promise<string> {
   return runtime;
 }
 
-/** A slide, and which of its two views was asked for. */
-export interface SlideRequest {
-  index: number;
-  presenter: boolean;
-  /** The whole deck as one printable document, rather than one slide. */
-  print?: boolean;
-}
-
-/**
- * Which slide a URL asks for, or `null` when the URL is not ours.
- *
- * Returning `null` rather than a 404 lets everything else in the project —
- * assets, other plugins, the dev client — keep working alongside a deck.
- */
-export function slideRequestFor(url: string, base: string): SlideRequest | null {
-  const path = url.split("?")[0]!.replace(/\/+$/, "");
-  const prefix = base ? `/${base}` : "";
-
-  if (!path.startsWith(prefix)) return null;
-
-  let rest = path
-    .slice(prefix.length)
-    .replace(/^\//, "")
-    .replace(/\/index\.html$/, "");
-  if (rest === "index.html") rest = "";
-
-  if (rest === "print") return { index: 0, presenter: false, print: true };
-
-  const presenter = rest === "presenter" || rest.endsWith("/presenter");
-  if (presenter) rest = rest.replace(/\/?presenter$/, "");
-
-  if (rest === "") return { index: 0, presenter };
-
-  const match = /^(\d+)$/.exec(rest);
-  if (!match) return null;
-
-  // Slides are one-based in a URL because that is how a person counts them.
-  const number = Number(match[1]);
-  return number >= 2 ? { index: number - 1, presenter } : null;
-}
-
 /**
  * Watches the slide directory.
  *
@@ -360,6 +343,23 @@ function watchSlides(server: ViteDevServer, root: string, srcDir: string): void 
   server.watcher.on("unlink", reload);
 }
 
+/**
+ * Says where the editor is, once, next to the URLs Vite prints.
+ *
+ * An editor nobody knows is running is an editor nobody uses. It costs one
+ * line, and it goes through Vite's own URL printing so it appears with the
+ * others rather than scrolling past before the server is up.
+ */
+function announceEditor(server: ViteDevServer): void {
+  const printUrls = server.printUrls.bind(server);
+
+  server.printUrls = () => {
+    printUrls();
+    const local = server.resolvedUrls?.local[0];
+    if (local) server.config.logger.info(`  ➜  Editor:  ${local.replace(/\/$/, "")}${EDITOR_PAGE}`);
+  };
+}
+
 /** Sends findings to the terminal and the browser overlay at once. */
 function report(
   server: ViteDevServer,
@@ -370,24 +370,6 @@ function report(
 
   const titles = slides.map((slide) => slide.title);
   server.config.logger.warn(`\n${formatReport(findings, titles)}`);
-}
-
-/**
- * What to say when there is nothing to show.
- *
- * An empty deck is the state every new project starts in, so this is the first
- * thing many people will see. It says what to do next rather than what went
- * wrong.
- */
-function emptyDeckMessage(count: number, srcDir: string): string {
-  if (count > 0) return "No slide at this number.";
-
-  return (
-    `No slides found in ./${srcDir}.\n\n` +
-    `Create ./${srcDir}/0001.md and this page will reload:\n\n` +
-    "  # My first slide\n\n" +
-    "  - a point\n"
-  );
 }
 
 export default slidx;

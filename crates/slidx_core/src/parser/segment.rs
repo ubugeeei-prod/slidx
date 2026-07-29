@@ -19,6 +19,7 @@
 //! 4. Separators inside fenced code blocks are just text.
 
 use crate::scanner::{is_separator_of, FenceTracker};
+use crate::span::ByteSpan;
 
 /// A raw frontmatter block, before it is parsed.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,6 +27,12 @@ pub struct RawFrontmatter {
     pub text: String,
     /// One-based line of the block's first key.
     pub line: u32,
+    /// Bytes the YAML text occupies, between the delimiters. Setting a field
+    /// splices inside this.
+    pub span: ByteSpan,
+    /// Bytes the whole block occupies, delimiters included. Deleting a slide
+    /// splices this away with the body.
+    pub block: ByteSpan,
 }
 
 /// One slide's worth of source.
@@ -38,6 +45,13 @@ pub struct Segment {
     /// True when the block's position made it unambiguous, so a YAML error
     /// should be reported rather than causing a fallback to body text.
     pub frontmatter_is_certain: bool,
+    /// Bytes [`body`](Self::body) was read from.
+    ///
+    /// The two agree byte for byte on a file with Unix line endings. On a file
+    /// with CRLF they differ by the carriage returns, and the span is the one
+    /// to trust: an edit splices the file as the author saved it, so it must
+    /// not silently convert their line endings.
+    pub body_span: ByteSpan,
 }
 
 impl Segment {
@@ -46,12 +60,64 @@ impl Segment {
     }
 }
 
+/// One source line with the bytes it occupies.
+///
+/// `text` matches what [`str::lines`] yields — the terminator is excluded and
+/// a carriage return before it is stripped — while `start` and `end` stay in
+/// the coordinates of the original file.
+#[derive(Debug, Clone, Copy)]
+struct Line<'a> {
+    text: &'a str,
+    start: usize,
+    end: usize,
+}
+
+fn scan_lines(source: &str) -> Vec<Line<'_>> {
+    let mut lines = Vec::new();
+    let mut start = 0usize;
+
+    for (index, byte) in source.bytes().enumerate() {
+        if byte != b'\n' {
+            continue;
+        }
+
+        let mut end = index;
+        if end > start && source.as_bytes()[end - 1] == b'\r' {
+            end -= 1;
+        }
+        lines.push(Line { text: &source[start..end], start, end });
+        start = index + 1;
+    }
+
+    // A file ending in a newline has no final line, which is what `str::lines`
+    // reports and what every offset downstream is counted against.
+    if start < source.len() {
+        lines.push(Line { text: &source[start..], start, end: source.len() });
+    }
+
+    lines
+}
+
+/// The span the joined text of `lines[from..to]` was read from.
+fn joined_span(lines: &[Line<'_>], from: usize, to: usize, source_len: usize) -> ByteSpan {
+    match (lines.get(from), to.checked_sub(1).and_then(|last| lines.get(last))) {
+        (Some(first), Some(last)) if to > from => ByteSpan::new(first.start, last.end),
+        _ => ByteSpan::empty(line_start(lines, from, source_len)),
+    }
+}
+
+/// Where line `index` begins, or the end of the file when it does not exist.
+fn line_start(lines: &[Line<'_>], index: usize, source_len: usize) -> usize {
+    lines.get(index).map_or(source_len, |line| line.start)
+}
+
 /// Splits a deck source into segments.
 ///
 /// Always returns at least one segment, so callers never special-case an empty
 /// file.
 pub fn split(source: &str, separator: &str) -> Vec<Segment> {
-    let lines: Vec<&str> = source.lines().collect();
+    let lines = scan_lines(source);
+    let end = source.len();
     let mut segments = Vec::new();
     let mut cursor = 0usize;
 
@@ -59,20 +125,21 @@ pub fn split(source: &str, separator: &str) -> Vec<Segment> {
     let mut certain = false;
 
     // Rule 1: deck frontmatter.
-    if lines.first().is_some_and(|line| is_separator_of(line, separator)) {
+    if lines.first().is_some_and(|line| is_separator_of(line.text, separator)) {
         if let Some(close) = find_separator(&lines, 1, separator) {
-            pending = Some(RawFrontmatter { text: lines[1..close].join("\n"), line: 2 });
+            pending = Some(raw_frontmatter(&lines, 0, 1, close, end));
             certain = true;
             cursor = close + 1;
         }
     }
 
+    let mut body_from = cursor;
     let mut body: Vec<&str> = Vec::new();
     let mut body_line = cursor as u32 + 1;
     let mut fences = FenceTracker::new();
 
     while cursor < lines.len() {
-        let line = lines[cursor];
+        let line = lines[cursor].text;
 
         if !fences.feed(line) || !is_separator_of(line, separator) {
             body.push(line);
@@ -86,20 +153,22 @@ pub fn split(source: &str, separator: &str) -> Vec<Segment> {
             body: body.join("\n"),
             line: body_line,
             frontmatter_is_certain: certain,
+            body_span: joined_span(&lines, body_from, cursor, end),
         });
         body.clear();
         certain = false;
 
         // Rule 3: an immediately following YAML mapping is slide frontmatter.
+        // The separator that ended the slide is also this block's opening
+        // delimiter, which is why the block starts one line back.
+        let opened_at = cursor;
         cursor += 1;
         if let Some(close) = detect_frontmatter(&lines, cursor, separator) {
-            pending = Some(RawFrontmatter {
-                text: lines[cursor..close].join("\n"),
-                line: cursor as u32 + 1,
-            });
+            pending = Some(raw_frontmatter(&lines, opened_at, cursor, close, end));
             cursor = close + 1;
         }
 
+        body_from = cursor;
         body_line = cursor as u32 + 1;
     }
 
@@ -108,6 +177,7 @@ pub fn split(source: &str, separator: &str) -> Vec<Segment> {
         body: body.join("\n"),
         line: body_line,
         frontmatter_is_certain: certain,
+        body_span: joined_span(&lines, body_from, lines.len(), end),
     });
 
     // A trailing separator, or a file of nothing but separators, leaves blank
@@ -119,28 +189,49 @@ pub fn split(source: &str, separator: &str) -> Vec<Segment> {
             body: String::new(),
             line: 1,
             frontmatter_is_certain: false,
+            body_span: ByteSpan::empty(0),
         }]
     } else {
         kept
     }
 }
 
-fn find_separator(lines: &[&str], from: usize, separator: &str) -> Option<usize> {
+/// Builds the block whose opening delimiter is `open`, text is `text..close`,
+/// and closing delimiter is `close`.
+fn raw_frontmatter(
+    lines: &[Line<'_>],
+    open: usize,
+    text: usize,
+    close: usize,
+    source_len: usize,
+) -> RawFrontmatter {
+    RawFrontmatter {
+        text: lines[text..close].iter().map(|line| line.text).collect::<Vec<_>>().join("\n"),
+        line: text as u32 + 1,
+        span: joined_span(lines, text, close, source_len),
+        block: ByteSpan::new(
+            line_start(lines, open, source_len),
+            lines.get(close).map_or(source_len, |line| line.end),
+        ),
+    }
+}
+
+fn find_separator(lines: &[Line<'_>], from: usize, separator: &str) -> Option<usize> {
     lines[from..]
         .iter()
-        .position(|line| is_separator_of(line, separator))
+        .position(|line| is_separator_of(line.text, separator))
         .map(|offset| from + offset)
 }
 
 /// Returns the index of the closing separator when `start` opens frontmatter.
-fn detect_frontmatter(lines: &[&str], start: usize, separator: &str) -> Option<usize> {
-    let first = lines.get(start)?;
+fn detect_frontmatter(lines: &[Line<'_>], start: usize, separator: &str) -> Option<usize> {
+    let first = lines.get(start)?.text;
     if first.trim().is_empty() || is_separator_of(first, separator) {
         return None;
     }
 
     let close = find_separator(lines, start + 1, separator)?;
-    let block = lines[start..close].join("\n");
+    let block = lines[start..close].iter().map(|line| line.text).collect::<Vec<_>>().join("\n");
 
     // Only a mapping with at least one key counts. A slide body sitting between
     // two rules parses as a string, a comment, or nothing; requiring a real key
@@ -251,6 +342,59 @@ mod tests {
         let segments = split_default("---\ntitle: T\n---\n# One\n\n---\n\n# Two");
         assert_eq!(segments[0].line, 4, "body starts after the closing delimiter");
         assert_eq!(segments[1].line, 7);
+    }
+
+    #[test]
+    fn a_body_span_names_the_bytes_the_body_was_read_from() {
+        // The editor changes a deck by splicing the file, so every segment has
+        // to be able to say which bytes it came from — not just which line.
+        let source = "---\ntitle: T\n---\n\n# One\n\n---\n\n# Two\n";
+
+        for segment in split_default(source) {
+            assert_eq!(segment.body_span.slice(source), segment.body);
+        }
+    }
+
+    #[test]
+    fn a_frontmatter_block_names_its_text_and_its_delimiters_separately() {
+        // Setting a field splices inside the text; deleting a slide splices
+        // the whole block away, delimiters included.
+        let source = "---\ntitle: T\n---\n\n# One";
+        let segments = split_default(source);
+        let matter = segments[0].frontmatter.as_ref().unwrap();
+
+        assert_eq!(matter.span.slice(source), "title: T");
+        assert_eq!(matter.block.slice(source), "---\ntitle: T\n---");
+    }
+
+    #[test]
+    fn a_slide_frontmatter_block_starts_at_the_separator_that_opens_it() {
+        let source = "# One\n\n---\nlayout: split\n---\n\n# Two";
+        let segments = split_default(source);
+        let matter = segments[1].frontmatter.as_ref().unwrap();
+
+        assert_eq!(matter.span.slice(source), "layout: split");
+        assert_eq!(matter.block.slice(source), "---\nlayout: split\n---");
+        assert_eq!(segments[1].body_span.slice(source), "\n# Two");
+    }
+
+    #[test]
+    fn an_empty_frontmatter_block_names_an_insertion_point_between_its_delimiters() {
+        let source = "---\n---\n\n# One";
+        let segments = split_default(source);
+        let matter = segments[0].frontmatter.as_ref().unwrap();
+
+        assert_eq!(matter.span.slice(source), "");
+        assert_eq!(matter.block.slice(source), "---\n---");
+    }
+
+    #[test]
+    fn a_body_span_is_empty_where_a_slide_has_no_body() {
+        let source = "---\nlayout: cover\n---\n";
+        let segments = split_default(source);
+
+        assert!(segments[0].body_span.is_empty());
+        assert!(segments[0].body_span.start >= segments[0].frontmatter.as_ref().unwrap().block.end);
     }
 
     #[test]
