@@ -14,7 +14,12 @@
 export { ANCHOR_ATTRIBUTE, findAnchors, resolveAnchor } from "./anchor";
 export { createMirror } from "./mirror";
 export { createNavigator, LAST_STEP } from "./navigate";
-export { detectPlatform, enterPresentation, presentationChecklist } from "./presentation";
+export {
+  browserPresentationEnvironment,
+  detectPlatform,
+  enterPresentation,
+  presentationChecklist,
+} from "./presentation";
 export type {
   ChecklistItem,
   Platform,
