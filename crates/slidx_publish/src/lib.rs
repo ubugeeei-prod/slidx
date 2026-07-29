@@ -56,8 +56,8 @@ pub use plan::{
 pub use talks::{build_talk_index, TalkIndex, TalkIndexOptions};
 pub use targets::{
     compose_archive, compose_blog, compose_docswell, compose_resources, compose_social,
-    compose_speaker_deck, ArchiveRecord, BlogScaffold, BlogSection, DocswellUpload, ResourcesPage,
-    SocialOptions, SocialPost, SpeakerDeckUpload, DEFAULT_POST_LIMIT,
+    compose_speaker_deck, read_record, ArchiveRecord, BlogScaffold, BlogSection, DocswellUpload,
+    ResourcesPage, SocialOptions, SocialPost, SpeakerDeckUpload, DEFAULT_POST_LIMIT,
 };
 pub use types::{
     reason, Artifact, ArtifactKind, BlockedReason, Composed, DeckMetadata, DeckSlide, DeckSource,

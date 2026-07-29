@@ -119,10 +119,30 @@ mod tests {
 
     #[test]
     fn the_top_level_offers_every_command_and_the_root_flags() {
+        // Derived from the table rather than spelled out. A literal list here
+        // is a second place a command has to be added, and it failed the first
+        // time one was — which is the drift this whole module exists to stop.
+        let text = script();
+        let expected = words(
+            ALL.iter()
+                .map(|entry| entry.name.to_string())
+                .chain(ROOT.iter().map(|flag| format!("--{}", flag.long))),
+        );
+
+        assert!(text.contains(&expected), "{text}");
+        assert!(text.contains("--help --version"), "{text}");
+    }
+
+    #[test]
+    fn every_declared_command_is_offered_by_name() {
+        // The same claim stated so a failure names the command that is
+        // missing, rather than printing the whole script and leaving a reader
+        // to diff two long lines by eye.
         let text = script();
 
-        assert!(text.contains("doctor lint open tui completions preview version"), "{text}");
-        assert!(text.contains("--help --version"), "{text}");
+        for entry in ALL {
+            assert!(text.contains(entry.name), "{} is declared and never offered", entry.name);
+        }
     }
 
     #[test]

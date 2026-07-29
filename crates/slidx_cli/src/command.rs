@@ -249,6 +249,35 @@ This does not build. When there is nothing there it says so and names
             Flag::switch("no-open", "Print where it is rather than opening anything"),
         ],
     ),
+    leaf(
+        "publish",
+        "do the half of publishing that needs no account",
+        "publish [path] [options]",
+        "\
+Plans all six destinations from frontmatter the author already wrote, and then
+performs the four that are files on their own disk: the blog scaffold assembled
+from the speaker notes, the resources page built from every link in the deck,
+the talk's archive record, and the index over every record beside it.
+
+Speaker Deck and Docswell need an account. slidx composes what to send them,
+prints it as fields to paste, and names the page to paste it into — it stores
+no token and makes no network call, because a tool that can post as you is a
+tool that has to be trusted with a credential.
+
+Exits non-zero when a destination is blocked, naming the frontmatter key that
+would unblock it. Waiting on a person is not a failure. `--plan` writes
+nothing, so it can be read before it is meant and diffed against last time.",
+        &[
+            Flag::taking("out", "<path>", "Directory the written pages go under"),
+            Flag::taking("pdf", "<path>", "The built PDF the slide hosts take"),
+            Flag::taking("card", "<path>", "The social card image to attach"),
+            Flag::taking("target", "<name>", "Publish one destination; repeatable").repeatable(),
+            Flag::taking("separator", "<text>", "Slide separator in a single-file deck"),
+            Flag::switch("plan", "Print what would happen and write nothing"),
+            Flag::switch("open", "Open the upload page for each account you have to use"),
+            Flag::switch("json", "Print the plan as JSON"),
+        ],
+    ),
     Command {
         name: "version",
         summary: "install and switch between slidx versions",
