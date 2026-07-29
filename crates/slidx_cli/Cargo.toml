@@ -1,0 +1,22 @@
+[package]
+name = "slidx_cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "The slidx command line: the pre-flight a speaker runs in the room, and the linter their CI runs"
+
+# The published binary is `slidx`; the crate is `slidx_cli` so it sorts with its
+# siblings on crates.io and in this workspace.
+[[bin]]
+name = "slidx"
+path = "src/main.rs"
+
+[dependencies]
+slidx_core = { workspace = true }
+slidx_doctor = { workspace = true }
+slidx_lint = { workspace = true }
+slidx_theme = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

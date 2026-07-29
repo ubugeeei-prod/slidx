@@ -46,6 +46,7 @@
 #![deny(missing_debug_implementations)]
 #![warn(clippy::all)]
 
+pub mod demo;
 pub mod diagnostic;
 pub mod frontmatter;
 pub mod mark;
@@ -58,6 +59,7 @@ pub mod slug;
 pub mod span;
 pub mod steps;
 
+pub use demo::{Demo, DEMO_ATTRIBUTE};
 pub use diagnostic::{Diagnostic, Diagnostics, Severity, SourceSpan};
 pub use mark::{compile_marks, find_marks, Mark, MARK_ATTRIBUTE};
 pub use markers::{anchor_selector, StagedContent, ANCHOR_ATTRIBUTE};

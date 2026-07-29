@@ -5,9 +5,10 @@
 //! menu they are used to picking from.
 
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 /// Which phase of an element's life an effect belongs to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 pub enum EffectKind {
     #[default]
@@ -17,7 +18,7 @@ pub enum EffectKind {
 }
 
 /// A named animation. Each preset maps to one CSS keyframe set in the runtime.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 pub enum EffectPreset {
     /// No motion at all. Respected verbatim when a deck opts out of animation.
@@ -51,6 +52,36 @@ pub enum EffectPreset {
 }
 
 impl EffectPreset {
+    /// Every preset, grouped the way the vocabulary is: entrance, emphasis,
+    /// exit.
+    ///
+    /// Editor tooling completes from this constant rather than restating the
+    /// names, so a preset added to the enum reaches an author's editor without
+    /// a second edit somewhere else. A list that has to be kept in step by
+    /// hand is a list that stops being true.
+    pub const ALL: [Self; 20] = [
+        Self::None,
+        Self::Fade,
+        Self::FlyIn,
+        Self::Wipe,
+        Self::Zoom,
+        Self::Split,
+        Self::Grow,
+        Self::Float,
+        Self::Typewriter,
+        Self::Draw,
+        Self::Pulse,
+        Self::Shake,
+        Self::Spin,
+        Self::ColorPulse,
+        Self::Underline,
+        Self::FadeOut,
+        Self::FlyOut,
+        Self::WipeOut,
+        Self::ZoomOut,
+        Self::Shrink,
+    ];
+
     /// The preset used when the author names an action but not an animation.
     pub fn default_for(kind: EffectKind) -> Self {
         match kind {
@@ -111,7 +142,7 @@ impl EffectPreset {
 }
 
 /// Direction an effect travels from or towards.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 pub enum Origin {
     Left,
@@ -134,7 +165,7 @@ impl Origin {
 }
 
 /// Timing curve for an effect.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 pub enum Easing {
     Linear,
@@ -216,30 +247,8 @@ mod tests {
 
     #[test]
     fn tokens_are_kebab_case_and_unique() {
-        let presets = [
-            EffectPreset::None,
-            EffectPreset::Fade,
-            EffectPreset::FlyIn,
-            EffectPreset::Wipe,
-            EffectPreset::Zoom,
-            EffectPreset::Split,
-            EffectPreset::Grow,
-            EffectPreset::Float,
-            EffectPreset::Typewriter,
-            EffectPreset::Draw,
-            EffectPreset::Pulse,
-            EffectPreset::Shake,
-            EffectPreset::Spin,
-            EffectPreset::ColorPulse,
-            EffectPreset::Underline,
-            EffectPreset::FadeOut,
-            EffectPreset::FlyOut,
-            EffectPreset::WipeOut,
-            EffectPreset::ZoomOut,
-            EffectPreset::Shrink,
-        ];
-
-        let mut tokens: Vec<&str> = presets.iter().map(|preset| preset.as_token()).collect();
+        let mut tokens: Vec<&str> =
+            EffectPreset::ALL.iter().map(|preset| preset.as_token()).collect();
         let total = tokens.len();
         tokens.sort_unstable();
         tokens.dedup();
@@ -247,6 +256,25 @@ mod tests {
         assert!(tokens
             .iter()
             .all(|token| token.chars().all(|c| c.is_ascii_lowercase() || c == '-')));
+    }
+
+    #[test]
+    fn every_listed_preset_round_trips_through_its_token() {
+        // Editor completion offers these tokens verbatim. One that does not
+        // parse back would be an editor suggesting something the parser
+        // rejects.
+        for preset in EffectPreset::ALL {
+            let token = serde_json::Value::String(preset.as_token().to_string());
+            assert_eq!(serde_json::from_value::<EffectPreset>(token).ok(), Some(preset));
+        }
+    }
+
+    #[test]
+    fn the_list_covers_every_phase_of_the_vocabulary() {
+        for kind in [EffectKind::Entrance, EffectKind::Emphasis, EffectKind::Exit] {
+            assert!(EffectPreset::ALL.iter().any(|preset| preset.kind() == kind));
+            assert!(EffectPreset::ALL.contains(&EffectPreset::default_for(kind)));
+        }
     }
 
     #[test]

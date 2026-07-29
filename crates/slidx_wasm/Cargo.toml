@@ -20,6 +20,7 @@ slidx_render = { workspace = true }
 slidx_theme = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+ts-rs = { workspace = true }
 # Pinned exactly: the generated glue and the CLI that generates it are one
 # unit, and a mismatch fails with a message about recompiling rather than
 # about versions. `scripts/build-wasm.mjs` checks the two agree before it runs.

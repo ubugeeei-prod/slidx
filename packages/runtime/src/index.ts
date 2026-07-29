@@ -9,14 +9,23 @@
  *
  * The presenter view needs more, and is the only thing that pays for it: a
  * clock, and a channel to keep the projector on the same slide.
+ *
+ * The demo switch is the one exception to that split — it has to run on the
+ * audience slide, because the thing it swaps is what the audience is looking
+ * at. It stays cheap by loading only where a demo was declared, and by doing
+ * nothing at the moment it is used except write one attribute.
  */
 
 export { ANCHOR_ATTRIBUTE, findAnchors, resolveAnchor } from "./anchor";
+export { createDemoSwitch, DEMO_ATTRIBUTE } from "./demo";
+export type { DemoSide, DemoSwitch } from "./demo";
 export { createKeymap, DEFAULT_BINDINGS, formatBinding } from "./keymap";
 export type { Binding, Command, Keymap, KeymapOptions } from "./keymap";
 export { createMediaController, describeLevel, LOUDNESS_TARGET_DB } from "./media";
 export type { LevelReport, Levels, LevelStatus, MediaController, MediaElementLike } from "./media";
 export { createMirror } from "./mirror";
+export { createPairing, createRemoteTransport, pairingUrl, readPairing } from "./remote";
+export type { Pairing, PairingOptions, RemoteOptions, RemoteSocket } from "./remote";
 export { createNavigator, LAST_STEP } from "./navigate";
 export {
   browserPresentationEnvironment,
@@ -38,6 +47,7 @@ export { createTimer, formatDuration } from "./timer";
 export type { Timer, TimerState, TimerStatus } from "./timer";
 export type {
   DeckData,
+  DemoDeclaration,
   Easing,
   Effect,
   EffectKind,

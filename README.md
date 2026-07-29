@@ -237,6 +237,46 @@ visual editor in dev, and emits a static deck, a PDF, and OG images on build.
 vp build
 ```
 
+### The `slidx` command
+
+Separate from the plugin, and optional. It does the two things a build cannot:
+check the machine you are about to speak from, and fail a CI run on a deck that
+will not survive the room.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ubugeeei-prod/slidx/main/install.sh | sh
+```
+
+```bash
+npm i -g slidx
+```
+
+Either way you get one prebuilt binary — no Node, no compiler, no `postinstall`
+that downloads anything. The shell installer verifies the download against the
+SHA-256 published with the release, installs under `~/.slidx/bin`, and never
+asks for sudo. `--dry-run` shows what it would do first.
+
+Prebuilt for macOS on Apple silicon and Intel, Linux on x86-64 and ARM64
+(statically linked, so Alpine works too), and Windows on x86-64. Anywhere else,
+`cargo install slidx_cli` builds it.
+
+```bash
+slidx doctor
+```
+
+Power, disk, clock, fonts, screen capture and network — the failures that never
+happen at a desk. Worst first, each with what to do about it.
+
+```bash
+slidx lint
+```
+
+Every rule the build runs, over `./slides`, exiting non-zero on anything
+blocking. That exit code is what makes it useful in CI.
+
+`slidx` deliberately has no `build`: that is `@slidx/vite-plugin`'s job, and one
+pipeline is the whole point.
+
 ## Development
 
 [Vite+](https://voidzero.dev) runs every task in this repository, Rust and
