@@ -86,6 +86,21 @@ impl Command {
     pub fn has_subcommands(&self) -> bool {
         !self.subcommands.is_empty()
     }
+
+    /// Every flag this command accepts, its own and the global ones.
+    ///
+    /// The same chain [`Command::flag`] looks through, so what completes is
+    /// exactly what parses — which is the whole reason this table exists.
+    pub fn all_flags(&self) -> Vec<&'static Flag> {
+        self.flags
+            .iter()
+            .chain(
+                GLOBAL
+                    .iter()
+                    .filter(|global| !self.flags.iter().any(|flag| flag.long == global.long)),
+            )
+            .collect()
+    }
 }
 
 /// A leaf command with no children, which is most of them.
@@ -167,6 +182,24 @@ a keypress there is nobody to press.",
             Flag::switch("list", "Print every match and exit, without the picker"),
             Flag::switch("json", "Print the matches as JSON"),
         ],
+    ),
+    leaf(
+        "completions",
+        "print a completion script for your shell",
+        "completions <shell>",
+        "\
+Writes a completion script to standard output, for bash, zsh, fish or
+powershell. It is generated from the same table the parser and the help text
+read, so what completes is what actually runs.
+
+Where it goes depends on the shell:
+
+    slidx completions bash > ~/.local/share/bash-completion/completions/slidx
+    slidx completions zsh  > ~/.zfunc/_slidx
+    slidx completions fish > ~/.config/fish/completions/slidx.fish
+
+    slidx completions powershell >> $PROFILE",
+        &[],
     ),
     leaf(
         "preview",
