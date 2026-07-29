@@ -59,7 +59,9 @@ pub mod home;
 pub mod index;
 pub mod lint;
 pub mod report;
+pub mod sha256;
 pub mod style;
+pub mod version;
 
 use args::Invocation;
 use style::Style;
@@ -108,15 +110,18 @@ impl Outcome {
 pub fn run(argv: &[String], style: &Style) -> Outcome {
     match args::parse(argv) {
         Invocation::Help(None) => Outcome::out(help::root(style)),
-        Invocation::Help(Some(command)) => Outcome::out(help::command(command, style)),
+        Invocation::Help(Some(route)) => Outcome::out(help::command(&route, style)),
         Invocation::Version => Outcome::out(format!("slidx {}\n", version())),
-        Invocation::Run(command, matches) => match command.name {
-            "doctor" => doctor::run(&matches, style),
-            "lint" => lint::run(&matches, style),
-            "open" => find::run(&matches, style),
+        // Keyed on the pair rather than the leaf name: two commands under
+        // different parents may share one, and `list` alone says nothing.
+        Invocation::Run(route, matches) => match route.key() {
+            (None, "doctor") => doctor::run(&matches, style),
+            (None, "lint") => lint::run(&matches, style),
+            (None, "open") => find::run(&matches, style),
+            (Some("version"), action) => version::run(action, &matches, style),
             // Unreachable while the table and this match agree, which the
             // suite asserts. A panic here would be a crash in front of a room.
-            other => Outcome::misuse(format!("`{other}` is declared but not wired up.\n")),
+            _ => Outcome::misuse(format!("`{}` is declared but not wired up.\n", route.typed())),
         },
         Invocation::Declined { name, reason } => {
             Outcome::misuse(format!("slidx has no `{name}` command.\n\n{reason}\n"))
