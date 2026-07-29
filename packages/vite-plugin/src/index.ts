@@ -20,6 +20,7 @@
 
 import type { Plugin, ViteDevServer } from "vite";
 
+import { readAssetSizes } from "./assets";
 import { readDeck } from "./deck";
 import { exportPdf, rasteriseCards, reportOverflow } from "./artifacts";
 import {
@@ -294,9 +295,15 @@ async function renderDeck(
     options.separator,
   );
 
+  // Read here because the rules cannot: they run inside WebAssembly, which
+  // has no filesystem. Cheap — the head of each image, and nothing at all for
+  // a deck with no images, which is most of the ones being edited right now.
+  const assets = await readAssetSizes(root, options.srcDir);
+
   const built = await buildDeck(source, {
     theme: options.theme,
     separator: options.separator,
+    assets,
     presenter,
     print,
     og,

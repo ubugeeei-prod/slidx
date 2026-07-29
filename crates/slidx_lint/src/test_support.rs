@@ -117,7 +117,7 @@ impl Assets {
         let mut options = LintOptions::default();
         configure(&mut options);
 
-        lint(&LintInput::new(&deck, &surfaces).with_assets(&self.root), &options)
+        lint(&LintInput::new(&deck, &surfaces).with_asset_directory(&self.root), &options)
     }
 }
 

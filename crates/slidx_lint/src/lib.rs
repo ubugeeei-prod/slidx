@@ -54,13 +54,36 @@ mod test_support;
 
 pub use color::{contrast_ratio, projected_contrast_ratio, ProjectorProfile, Rgba};
 pub use geometry::{Insets, Side};
-pub use image::{Intrinsic, Tolerance as ImageTolerance};
+pub use image::{
+    probe as probe_image, Format as ImageFormat, Intrinsic, Tolerance as ImageTolerance,
+};
 pub use surface::{Measurement, RenderTarget, Surface, TextSample};
 pub use typography::{min_font_px, Legibility, TextRole, ViewingProfile};
 
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use slidx_core::{Deck, Diagnostics};
+
+/// Where the linter learns an image's intrinsic size.
+///
+/// Two shapes because two callers, and the split is the same one
+/// `slidx_doctor` makes: a rule reads, and something else does the IO. The CLI
+/// has a filesystem and hands over a directory. Everything reached through
+/// WebAssembly does not — a browser cannot open `./logo.png`, and pushing the
+/// file's bytes across the boundary to learn two integers would be a strange
+/// trade for a rule that runs on every build.
+///
+/// So the plugin reads the headers, calls `probeImage`, and passes the sizes.
+/// One header parser either way, which is the point: two would eventually
+/// disagree about a truncated JPEG.
+#[derive(Debug, Clone, Copy)]
+pub enum Assets<'a> {
+    /// A directory the deck's relative paths resolve against.
+    Directory(&'a Path),
+    /// Sizes the caller already read, keyed by the path a slide writes.
+    Measured(&'a BTreeMap<String, Intrinsic>),
+}
 
 /// Everything the rules read.
 #[derive(Debug, Clone)]
@@ -69,13 +92,12 @@ pub struct LintInput<'a> {
     /// Resolved backgrounds and text, produced by whatever rendered the deck.
     pub surfaces: &'a [Surface],
     pub target: RenderTarget,
-    /// Directory the deck's relative asset paths resolve against.
+    /// Where the linter learns how big an image really is.
     ///
-    /// `None` switches off every check that has to open a file. That is the
-    /// editor as the author types, and the browser, where there is no
-    /// filesystem to read — a rule with nothing to measure says nothing rather
-    /// than guessing.
-    pub assets: Option<&'a Path>,
+    /// `None` switches off every check that needs to know. That is the editor
+    /// as the author types — a rule with nothing to measure says nothing
+    /// rather than guessing.
+    pub assets: Option<Assets<'a>>,
     /// The padding the renderer keeps content inside — the safe area it
     /// guarantees.
     ///
@@ -92,6 +114,19 @@ pub struct LintInput<'a> {
 }
 
 impl<'a> LintInput<'a> {
+    /// Reads the sizes itself, from a directory the deck's paths resolve
+    /// against. For callers that have a filesystem.
+    pub fn with_asset_directory(mut self, root: &'a Path) -> Self {
+        self.assets = Some(Assets::Directory(root));
+        self
+    }
+
+    /// Takes sizes the caller already read. For callers that do not.
+    pub fn with_asset_sizes(mut self, sizes: &'a BTreeMap<String, Intrinsic>) -> Self {
+        self.assets = Some(Assets::Measured(sizes));
+        self
+    }
+
     /// Builds an input at the deck's own aspect ratio.
     pub fn new(deck: &'a Deck, surfaces: &'a [Surface]) -> Self {
         Self {
@@ -106,11 +141,6 @@ impl<'a> LintInput<'a> {
 
     pub fn with_target(mut self, target: RenderTarget) -> Self {
         self.target = target;
-        self
-    }
-
-    pub fn with_assets(mut self, root: &'a Path) -> Self {
-        self.assets = Some(root);
         self
     }
 

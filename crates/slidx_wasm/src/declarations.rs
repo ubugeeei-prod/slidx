@@ -50,7 +50,7 @@ use slidx_core::{
 };
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{BuildOptions, BuildResult, BuiltSlide, Finding, SnippetFile};
+use crate::{AssetSize, BuildOptions, BuildResult, BuiltSlide, Finding, SnippetFile};
 
 // Appended verbatim to the `.d.ts` wasm-bindgen writes, which is how the types
 // reach npm without a second artifact to keep in step.
@@ -93,6 +93,7 @@ pub fn generate() -> String {
 
     // The call boundary: what `buildDeck` takes and what it gives back.
     push::<BuildOptions>(&mut file, &cfg);
+    push::<AssetSize>(&mut file, &cfg);
     push::<BuildResult>(&mut file, &cfg);
     push::<BuiltSlide>(&mut file, &cfg);
     push::<Finding>(&mut file, &cfg);

@@ -36,7 +36,7 @@ use slidx_core::{Diagnostic, Diagnostics, Severity, Slide, SourceSpan};
 
 use crate::image::{self, Intrinsic};
 use crate::markup;
-use crate::{LintInput, LintOptions};
+use crate::{Assets, LintInput, LintOptions};
 
 /// Longest prefix of a file this reads.
 ///
@@ -49,7 +49,7 @@ use crate::{LintInput, LintOptions};
 const HEADER_BYTES: u64 = 64 * 1024;
 
 pub fn check(input: &LintInput<'_>, options: &LintOptions, sink: &mut Diagnostics) {
-    let Some(root) = input.assets else { return };
+    let Some(assets) = input.assets else { return };
 
     for slide in &input.deck.slides {
         let content = markup::scannable(slide);
@@ -61,7 +61,7 @@ pub fn check(input: &LintInput<'_>, options: &LintOptions, sink: &mut Diagnostic
                 continue;
             }
 
-            let Some(intrinsic) = intrinsic(root, placement.url) else { continue };
+            let Some(intrinsic) = intrinsic(assets, placement.url) else { continue };
             let span =
                 SourceSpan::line(slide.source_line + markup::line_at(&content, placement.offset))
                     .on_slide(slide.index);
@@ -284,15 +284,35 @@ fn positive(value: &f64) -> bool {
 }
 
 /// What the file behind a reference says about its own size.
-fn intrinsic(root: &Path, url: &str) -> Option<Intrinsic> {
-    image::probe(&header(&resolve(root, url)?)?)
+///
+/// Both arms answer the same question and neither guesses: a name that is not
+/// a path, a file that will not open, a format nobody here reads, and a size
+/// the caller never measured are all `None`, and `None` is silence.
+fn intrinsic(assets: Assets<'_>, url: &str) -> Option<Intrinsic> {
+    match assets {
+        Assets::Directory(root) => image::probe(&header(&resolve_path(root, url)?)?),
+        Assets::Measured(sizes) => sizes.get(&key(url)?).copied(),
+    }
+}
+
+/// The key a caller is expected to have used: the reference, minus the parts
+/// that are instructions to a bundler rather than part of a name.
+fn key(url: &str) -> Option<String> {
+    let url = url.trim();
+    if url.is_empty() || url.starts_with("//") || markup::scheme(url).is_some() {
+        return None;
+    }
+
+    // Vite carries build instructions in the query and a fragment selects
+    // part of an SVG; neither is part of the name a caller keyed on.
+    Some(url.split(['?', '#']).next()?.trim_start_matches('/').to_string())
 }
 
 /// The file a reference points at, or `None` when it does not point at one.
 ///
 /// Anything carrying a scheme is not a path: `https:` belongs to the offline
 /// rule, and a `data:` URI is the file rather than a name for one.
-fn resolve(root: &Path, url: &str) -> Option<PathBuf> {
+fn resolve_path(root: &Path, url: &str) -> Option<PathBuf> {
     let url = url.trim();
     if url.is_empty() || url.starts_with("//") || markup::scheme(url).is_some() {
         return None;
