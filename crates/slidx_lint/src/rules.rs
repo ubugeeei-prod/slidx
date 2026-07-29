@@ -13,6 +13,7 @@ pub mod contrast;
 pub mod legibility;
 pub mod motion;
 pub mod offline;
+pub mod resolution;
 pub mod structure;
 
 use slidx_core::Diagnostics;
@@ -31,6 +32,9 @@ pub const ALL: &[(&str, RuleFn)] = &[
     // Also read from the Markdown body, and cheapest to fix at the moment a
     // remote URL is pasted rather than at the venue where it fails.
     ("offline", offline::check),
+    // Also a content rule, and reported after `offline` because a reference
+    // that has to be bundled first has no file to measure yet.
+    ("resolution", resolution::check),
     ("legibility", legibility::check),
     ("contrast", contrast::check),
     ("motion", motion::check),
