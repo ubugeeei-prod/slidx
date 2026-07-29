@@ -16,6 +16,8 @@
  * payload says so.
  */
 
+export { composeArchive, describeArchive, isOrderableDate } from "./targets/archive";
+export type { ArchiveRecord } from "./targets/archive";
 export { composeBlog, describeBlog } from "./targets/blog";
 export type { BlogScaffold, BlogSection } from "./targets/blog";
 export { composeDocswell, describeDocswell } from "./targets/docswell";

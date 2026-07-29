@@ -33,6 +33,13 @@ export interface DeckMetadata {
   hashtag?: string;
   /** Canonical URL of the published deck. */
   url?: string;
+  /**
+   * The recording, once one exists.
+   *
+   * The only field here that is normally added weeks after the talk, which is
+   * what the archive target is built around.
+   */
+  recording?: string;
   /** Repository, listed on the resources page. */
   repo?: string;
   /** Author-chosen tags. Never reordered, never rewritten. */
