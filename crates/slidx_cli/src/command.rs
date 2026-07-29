@@ -168,6 +168,28 @@ a keypress there is nobody to press.",
             Flag::switch("json", "Print the matches as JSON"),
         ],
     ),
+    leaf(
+        "preview",
+        "look at what the build produced",
+        "preview [dir] [options]",
+        "\
+Opens the exported PDF, or with --web serves the built deck on loopback and
+opens a browser at it. `dir` is a build output directory and defaults to
+./dist.
+
+Serving rather than opening the files off disk is deliberate: a slide with
+more than one stop imports its runtime as a module, and a browser refuses a
+module import from a file:// origin. Opened off disk a staged deck sits frozen
+on its first stop.
+
+This does not build. When there is nothing there it says so and names
+@slidx/vite-plugin, which is the thing that produces a deck.",
+        &[
+            Flag::switch("web", "Serve the deck and open a browser instead of the PDF"),
+            Flag::taking("port", "<number>", "Port to serve on. Default: one the system picks"),
+            Flag::switch("no-open", "Print where it is rather than opening anything"),
+        ],
+    ),
     Command {
         name: "version",
         summary: "install and switch between slidx versions",

@@ -17,7 +17,7 @@
  *   number describes the fifteen slides they did not give.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { buildReport } from "../src/report";
 import { minutes, recording, skipped, slide } from "./support";

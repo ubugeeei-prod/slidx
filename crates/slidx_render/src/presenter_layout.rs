@@ -102,6 +102,23 @@ html, body {
 }
 
 /*
+ * Where the speaker is inside a build.
+ *
+ * Quieter than the slide number, because it changes several times per slide
+ * and the slide number is the one a speaker calls out when something goes
+ * wrong. Empty on a slide with one stop, and an empty element takes no room.
+ */
+.slidx-presenter-stop {
+  color: var(--slidx-color-muted);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+.slidx-presenter-stop:empty {
+  display: none;
+}
+
+/*
  * Notes get the room, not the current slide.
  *
  * The speaker can already see the slide — it is on the wall behind them. What

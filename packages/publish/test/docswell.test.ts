@@ -14,7 +14,7 @@
  * that refactor fail rather than pass quietly.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { composeDocswell } from "../src/targets/docswell";
 import { composeSpeakerDeck } from "../src/targets/speakerdeck";

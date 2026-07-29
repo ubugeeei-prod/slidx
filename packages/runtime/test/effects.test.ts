@@ -16,7 +16,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 // `import.meta.dirname` rather than `new URL(...)`: the DOM environment
 // replaces the global URL, and its instances are not accepted by node:url.

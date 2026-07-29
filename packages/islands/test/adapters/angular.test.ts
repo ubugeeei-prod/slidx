@@ -23,7 +23,7 @@
  *   rather than fail somewhere further in.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import {
   angularIsland,
@@ -66,7 +66,7 @@ function fakeAngular(overrides: { refuseInput?: string } = {}): FakeAngular {
     applications,
     components,
     teardown,
-    refuseInput: overrides.refuseInput,
+    ...(overrides.refuseInput === undefined ? {} : { refuseInput: overrides.refuseInput }),
 
     core: {
       provideZonelessChangeDetection: () => ({ zoneless: true }),

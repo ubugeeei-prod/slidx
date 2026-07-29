@@ -18,7 +18,7 @@
  *   frontmatter key to add.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import {
   blockedSteps,

@@ -15,7 +15,7 @@
  * suite that measured one with real time would be a suite nobody runs.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { createRehearsal, restoreRehearsal, type RehearsalRecording } from "../src/rehearsal";
 
