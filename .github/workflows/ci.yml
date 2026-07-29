@@ -92,7 +92,7 @@ jobs:
           wasm: "true"
           browsers: chromium firefox webkit
       - run: pnpm exec vp run build:packages
-      - run: pnpm exec vitest run packages/vite-plugin/test/browser.test.ts
+      - run: pnpm exec vp test run packages/vite-plugin/test/browser.test.ts
 
   # One artifact serves every runtime, and each one instantiates it itself.
   # That path is where they differ, so all three build the same deck and the
@@ -110,7 +110,7 @@ jobs:
         with:
           deno-version: v2.x
       - run: pnpm exec vp run build:packages
-      - run: pnpm exec vitest run packages/vite-plugin/test/runtime.test.ts
+      - run: pnpm exec vp test run packages/vite-plugin/test/runtime.test.ts
 
   # One check to require on the branch, so adding a job to the matrix above
   # never needs the ruleset edited to match.
