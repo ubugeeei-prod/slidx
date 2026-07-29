@@ -9,6 +9,7 @@ description = "Theme tokens, the built-in slidx themes, and their CSS"
 
 [dependencies]
 slidx_core = { workspace = true }
+slidx_highlight = { workspace = true }
 slidx_lint = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
