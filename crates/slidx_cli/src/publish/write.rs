@@ -283,10 +283,17 @@ mod tests {
 
     #[test]
     fn a_directory_that_cannot_be_written_says_so_in_a_sentence_a_person_can_act_on() {
+        // `--out` pointed at a regular file. Chosen over a path nobody has
+        // permission to write because that is not the same path on every
+        // machine: an absolute one is writable on Windows and as root, and a
+        // test that only fails as an unprivileged Unix user asserts nothing on
+        // the other two platforms CI runs.
+        let scratch = Scratch::new("unwritable");
+        let occupied = scratch.path().join("not-a-directory");
+        fs::write(&occupied, "already a file\n").expect("write");
+
         let steps = plan(meta("A talk", "2026-07-29"), vec![PublishTarget::Resources]);
-        let error = perform(&steps[0], Path::new("/nowhere/at/all"))
-            .expect("ours to write")
-            .expect_err("unwritable");
+        let error = perform(&steps[0], &occupied).expect("ours to write").expect_err("unwritable");
 
         assert!(error.contains("--plan"), "{error}");
     }
