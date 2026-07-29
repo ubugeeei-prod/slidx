@@ -262,8 +262,14 @@ npm i -g slidx
 
 Either way you get one prebuilt binary — no Node, no compiler, no `postinstall`
 that downloads anything. The shell installer verifies the download against the
-SHA-256 published with the release, installs under `~/.slidx/bin`, and never
-asks for sudo. `--dry-run` shows what it would do first.
+SHA-256 published with the release and never asks for sudo. `--dry-run` prints
+where it would put the binary and stops.
+
+It installs into `$SLIDX_HOME`, else `$XDG_DATA_HOME/slidx`, else `~/.slidx` —
+and `%LOCALAPPDATA%\slidx` on Windows, because a dot-directory hides nothing
+there. `slidx version` resolves the same path in the same order, which is what
+lets the version manager ever be in charge of the binary you are running; a
+test asserts the shell script and the binary spell it the same way.
 
 Prebuilt for macOS on Apple silicon and Intel, Linux on x86-64 and ARM64
 (statically linked, so Alpine works too), and Windows on x86-64. Anywhere else,
