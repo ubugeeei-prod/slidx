@@ -3,6 +3,13 @@ packages:
   - "packages/integrations/*"
   - "examples/*"
   - "docs"
+  # The `slidx` npm wrapper is published from this repository and never
+  # installed into it. Its only dependencies are the five per-platform binary
+  # packages, which exist on the registry and nowhere else — pulling them into
+  # the workspace would mean this repository could not be installed until they
+  # were published, and they cannot be published without an install. Nothing
+  # here imports it; its tests read its files directly.
+  - "!packages/cli"
 
 # One version of the toolchain across the whole repository. Vite+ ships its own
 # Vite, Vitest, oxlint, and oxfmt, so pinning it pins all of them together.
