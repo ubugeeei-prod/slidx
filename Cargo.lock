@@ -468,6 +468,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "slidx_lsp"
+version = "0.0.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "slidx_core",
+ "slidx_lint",
+ "slidx_theme",
+]
+
+[[package]]
 name = "slidx_qr"
 version = "0.0.1"
 dependencies = [

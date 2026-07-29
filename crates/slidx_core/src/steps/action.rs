@@ -185,6 +185,11 @@ pub enum AutoSteps {
 }
 
 impl AutoSteps {
+    /// Every mode, in the order they are offered to an author.
+    ///
+    /// Editor tooling completes from here rather than restating the names.
+    pub const ALL: [Self; 3] = [Self::List, Self::Block, Self::Row];
+
     pub fn as_token(self) -> &'static str {
         match self {
             Self::List => "list",
