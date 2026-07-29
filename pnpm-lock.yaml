@@ -81,6 +81,8 @@ importers:
         specifier: ^3.4.0
         version: 3.5.40(typescript@5.9.3)
 
+  packages/publish: {}
+
   packages/runtime: {}
 
   packages/vite-plugin:
