@@ -21,7 +21,9 @@ pub mod resources;
 pub mod social;
 pub mod speakerdeck;
 
-pub use archive::{compose_archive, describe_archive, is_orderable_date, ArchiveRecord};
+pub use archive::{
+    compose_archive, describe_archive, is_orderable_date, read_record, ArchiveRecord,
+};
 pub use blog::{compose_blog, describe_blog, BlogScaffold, BlogSection};
 pub use docswell::{compose_docswell, describe_docswell, DocswellUpload};
 pub use resources::{compose_resources, describe_resources, ResourcesPage};

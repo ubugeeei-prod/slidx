@@ -449,6 +449,7 @@ dependencies = [
  "slidx_core",
  "slidx_doctor",
  "slidx_lint",
+ "slidx_publish",
  "slidx_theme",
 ]
 
