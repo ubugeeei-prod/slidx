@@ -52,6 +52,7 @@
 
 pub mod args;
 pub mod command;
+pub mod completions;
 pub mod doctor;
 pub mod find;
 pub mod help;
@@ -120,6 +121,7 @@ pub fn run(argv: &[String], style: &Style) -> Outcome {
             (None, "lint") => lint::run(&matches, style),
             (None, "open") => find::run(&matches, style),
             (None, "preview") => preview::run(&matches, style),
+            (None, "completions") => completions::run(&matches, style),
             (Some("version"), action) => version::run(action, &matches, style),
             // Unreachable while the table and this match agree, which the
             // suite asserts. A panic here would be a crash in front of a room.
