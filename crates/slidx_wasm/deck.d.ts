@@ -74,6 +74,14 @@ export type BuildResult = {
    * The deck's own social card, as SVG. Absent unless `og` was set.
    */
   ogSvg?: string;
+  /**
+   * A page per shared code fence, for the caller to write.
+   *
+   * Composed here and written by whoever asked, because this side of the
+   * boundary has no filesystem. Empty when the deck shares nothing, which
+   * is most decks.
+   */
+  snippets: Array<SnippetFile>;
 };
 
 /**
@@ -123,6 +131,17 @@ export type Finding = {
   message: string;
   help?: string;
   slideIndex?: number;
+};
+
+/**
+ * One shared snippet, as a file waiting to be written.
+ */
+export type SnippetFile = {
+  /**
+   * Relative to the deck's own output root, separators already `/`.
+   */
+  path: string;
+  html: string;
 };
 
 /**

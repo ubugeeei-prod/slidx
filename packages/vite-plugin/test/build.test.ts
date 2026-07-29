@@ -214,3 +214,44 @@ describe("a deck with nothing in it", () => {
     expect(files).toEqual([]);
   }, 60_000);
 });
+
+/**
+ * The pages behind the QR codes on a slide.
+ *
+ * A shared fence draws a code on the slide *and* needs a page for that code to
+ * point at. The renderer composed the page from the day the feature landed and
+ * nothing wrote it, so every code in a built deck resolved to a 404 — the one
+ * failure mode where the audience finds out rather than the author, and finds
+ * out by pointing a phone at a wall.
+ */
+describe("shared code snippets", () => {
+  it("writes a page for every shared fence", async () => {
+    const { files } = await buildDeck({
+      "0001.md": '# Retry\n\n```rust {#retry-policy .share}\nfn retry() {}\n```\n',
+    });
+
+    expect(files).toContain("slides/snippets/retry-policy.html");
+  }, 60_000);
+
+  it("writes nothing for a deck that shares nothing", async () => {
+    // Which is most decks. A snippets directory in every build would be a
+    // directory people wonder about.
+    const { files } = await buildDeck({ "0001.md": "# One\n\n```rust\nfn main() {}\n```\n" });
+
+    expect(files.filter((file) => file.includes("snippets/"))).toEqual([]);
+  }, 60_000);
+
+  it("puts the page where the slide's code says it is", async () => {
+    // The QR is drawn from the same path. A page written somewhere else is a
+    // code that scans to a 404, which nobody discovers until a room does.
+    const { root, files } = await buildDeck({
+      "0001.md": '# Retry\n\n```rust {#retry-policy .share}\nfn retry() {}\n```\n',
+    });
+
+    const slide = await readFile(join(root, "dist/slides/index.html"), "utf8");
+    const written = files.filter((file) => file.includes("snippets/"));
+
+    expect(written).toHaveLength(1);
+    expect(slide).toContain("snippets/retry-policy.html");
+  }, 60_000);
+});

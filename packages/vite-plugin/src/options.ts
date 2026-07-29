@@ -169,6 +169,17 @@ export function ogFileBase(options: ResolvedOptions, index: number | "deck"): st
 }
 
 /** Where the printable document is written. */
+/**
+ * Where one shared snippet's page is written.
+ *
+ * The path comes from the renderer, which allocates keys across the whole deck
+ * because a key is a URL and two files cannot have one name. This only puts it
+ * under the deck's base.
+ */
+export function snippetFileName(options: ResolvedOptions, path: string): string {
+  return options.base ? `${options.base}/${path}` : path;
+}
+
 export function printFileName(options: ResolvedOptions): string {
   return options.base ? `${options.base}/print/index.html` : "print/index.html";
 }
