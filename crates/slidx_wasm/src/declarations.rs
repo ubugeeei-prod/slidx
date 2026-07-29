@@ -221,6 +221,24 @@ mod tests {
         }
     }
 
+    /// The check above is only as good as the parser under it. An inline mapped
+    /// type ends in a `};` of its own, so a scan that stopped at the first one
+    /// would silently miss every field declared after it, and the eventual
+    /// failure would blame serde rather than the parser that never looked.
+    #[test]
+    fn a_field_after_an_inline_object_is_still_scanned() {
+        let declarations = concat!(
+            "export type Thing = {\n",
+            "  properties?: { [key in string]: string };\n",
+            "  after: string;\n",
+            "};\n",
+            "\n",
+            "export type Other = { outside: string };\n",
+        );
+
+        assert_eq!(required_fields(declarations, "Thing"), BTreeSet::from(["after".to_owned()]));
+    }
+
     /// The least serde ever writes for each type: every option empty, every
     /// collection empty. What survives that is what a consumer can rely on.
     fn minimal_payloads() -> Vec<(&'static str, serde_json::Value)> {
@@ -285,11 +303,15 @@ mod tests {
     /// worth checking.
     fn required_fields(declarations: &str, name: &str) -> BTreeSet<String> {
         let start = declarations.find(&format!("export type {name} = {{")).expect("declared");
-        let body = &declarations[start..];
-        let end = body.find("};").expect("terminated");
         // Prose first: a doc comment reading "off by default: …" is otherwise
-        // indistinguishable from a field called `default`.
-        let body = without_doc_comments(&body[..end]);
+        // indistinguishable from a field called `default`, and a brace in prose
+        // is otherwise indistinguishable from the type's own.
+        let body = without_doc_comments(&declarations[start..]);
+        // The type ends at the brace matching its own opening one, not at the
+        // first `};`: an inline mapped type like `{ [key in string]: string };`
+        // contains that, and stopping there hides every field after it.
+        let end = closing_brace(&body).expect("terminated");
+        let body = &body[..end];
 
         let mut required = BTreeSet::new();
         let mut depth = 0usize;
@@ -315,6 +337,26 @@ mod tests {
         }
 
         required
+    }
+
+    /// One past the brace that closes the first `{` in `body`.
+    fn closing_brace(body: &str) -> Option<usize> {
+        let mut depth = 0usize;
+
+        for (index, character) in body.char_indices() {
+            match character {
+                '{' => depth += 1,
+                '}' => {
+                    depth = depth.checked_sub(1)?;
+                    if depth == 0 {
+                        return Some(index + 1);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        None
     }
 
     fn without_doc_comments(body: &str) -> String {
