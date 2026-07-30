@@ -48,19 +48,10 @@ Worst first, each finding with something to do about it. It reads power, disk,
 clock skew against NTP, the fonts your theme names, whether anything is
 recording the screen, and whether the network you are on actually works.
 
-```
-  1 worth thirty seconds, 1 nobody could measure.
+![A doctor report: two readings nobody could measure, and four checks that passed](../media/terminal-doctor-light.png)
 
-  WARN     power
-           running on battery at 38%
-           -> plug in — a projector, an external display and a screen recorder
-              together will not leave this enough for a full slot
-
-  UNKNOWN  clock/zone
-           the machine is on +09:00 (Asia/Tokyo), and the deck does not say what
-           zone the talk is scheduled in
-           -> declare the venue's UTC offset in the deck so this can be checked
-```
+That is a real report from the machine that generated this page, which is the
+only kind there is — the command reads the laptop you are standing at.
 
 `UNKNOWN` is not `PASS`. It means nothing portable can read that, and a guess
 about whether Do Not Disturb is on would be worse than silence.

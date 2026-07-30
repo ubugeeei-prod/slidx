@@ -206,12 +206,19 @@ a:hover { text-decoration-thickness: 2px; }
 
 .slidx-docs-prose th { color: var(--slidx-brand-muted); font-weight: var(--slidx-brand-heading-weight); }
 
-.slidx-docs-prose img {
+.slidx-docs-prose img,
+.slidx-docs-prose video {
   display: block;
   max-width: 100%;
   height: auto;
+  margin: 0 0 calc(var(--slidx-brand-space-step) * 3);
   border: var(--slidx-brand-hairline) solid var(--slidx-brand-line);
 }
+
+/* A recording plays when a reader asks for it. Nothing here starts moving on
+   its own: the linter has a rule about animation a reader did not choose, and
+   a documentation site that ignored its own argument would be a poor one. */
+.slidx-docs-prose video { background: var(--slidx-color-code-surface); }
 
 /* Inline code takes the brand's mono face and the page's own surface; a fenced
    block takes the deck theme's code colours, so the code on this site is
