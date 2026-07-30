@@ -767,6 +767,23 @@ another.
             ),
         ],
     },
+    leaf(
+        "self-update",
+        "install and use the latest stable release",
+        "self-update",
+        "\
+Downloads the newest stable release for this binary's target, verifies it
+against the release's SHA256SUMS, starts it once to confirm the version it
+reports, then installs and selects it through the version manager.
+
+Nothing is replaced before verification succeeds. A binary installed by npm,
+cargo or a system package manager remains that manager's responsibility:
+self-update refuses and prints the command for that channel instead of putting
+a second slidx later on PATH and pretending the update took effect.
+
+    slidx self-update",
+        &[],
+    ),
     Command {
         name: "version",
         summary: "install and switch between slidx versions",

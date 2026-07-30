@@ -115,7 +115,7 @@ fn list(home: &Home, store: &Store, matches: &Matches, style: &Style) -> Outcome
 /// only the first, `version list` stopped marking the default and `version
 /// remove` stopped refusing to delete it. Two ways to select a version is two
 /// chances for them to disagree.
-fn select(home: &Home, store: &Store, version: &str) -> std::io::Result<()> {
+pub(crate) fn select(home: &Home, store: &Store, version: &str) -> std::io::Result<()> {
     store.select(version)?;
     pin::write(&home.default_version(), version)
 }
@@ -312,7 +312,7 @@ fn needs_a_version(action: &str) -> String {
     )
 }
 
-fn no_prebuilt_binary() -> String {
+pub(crate) fn no_prebuilt_binary() -> String {
     format!(
         "slidx does not publish a prebuilt binary for {}-{}.\n\n\
          Build it from source instead:\n\n  cargo install slidx_cli\n",

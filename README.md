@@ -108,8 +108,8 @@ showing something that no longer happens.
 
 ## The CLI
 
-Separate from the plugin, and optional. Twenty-one commands; these are the ones
-you will type, in the order a talk needs them.
+Separate from the plugin, and optional. These are the commands you will type,
+in the order a talk needs them.
 
 ```text
 slidx dev                  # the deck and the editor, from inside the slides directory
@@ -119,6 +119,10 @@ slidx export --target pdf  # browser | pdf | pdf-zip | png | pptx
 slidx doctor               # power, clock, fonts, screen capture, mirroring, Do Not Disturb
 slidx publish              # all that needs no account, and the payload for what does
 ```
+
+`slidx self-update` verifies the latest stable release and hands it to the
+version manager. Binaries owned by another package manager stay with that
+manager; the command names the correct update path instead of shadowing it.
 
 A speaker keeps five decks in five repositories, so slidx indexes them:
 
