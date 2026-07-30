@@ -91,9 +91,18 @@ Narrow a run with a filter or a path:
 vp run --filter @slidx/runtime test:ts
 ```
 
-CI runs `vp run workspace:ci` on Linux, macOS, and Windows and nothing else, so
-a check that exists locally cannot be missing from CI. Warnings are errors.
-The task graph lives in [vite.config.ts](./vite.config.ts).
+CI runs `vp run workspace:ci` on Linux, macOS, and Windows, plus three jobs
+that each need something a general runner does not carry — the browser matrix,
+the alternative runtimes, and the Zed extension. Every one of those is a task
+in the same graph, so a check that exists in CI can always be run locally:
+
+```bash
+vp run build:zed
+```
+
+That one is a Cargo workspace of its own, built for `wasm32-wasip2`, because
+that is how Zed builds it. Warnings are errors. The task graph lives in
+[vite.config.ts](./vite.config.ts).
 
 ## Design
 

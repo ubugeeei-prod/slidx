@@ -51,7 +51,7 @@ it belongs to, and guessing from a directory name would be the same overreach.
 The rule lives in the **server**, not in the plugins. Zed can only attach a
 language server to a whole language, so its client cannot express a path rule at
 all — which means a rule stated in each client would be a rule two of them keep
-and one cannot. Editors that *can* filter do, because it saves sending the file
+and one cannot. Editors that _can_ filter do, because it saves sending the file
 at all, but nothing depends on their doing so.
 
 ## No syntax highlighting, on purpose
@@ -222,7 +222,7 @@ and the remedy `slidx lint` prints, every formatting edit is a splice
 that defines the thing being completed. An editor showing you something
 `slidx lint` disagrees with would be a bug, not a difference of opinion.
 
-And it says nothing about how your deck *looks*. Whether type is legible from row
+And it says nothing about how your deck _looks_. Whether type is legible from row
 fifteen and whether a colour pair survives a projector are questions about a
 rendered slide; the linter answers them, and it runs here — but nothing in an
 editor pane is evidence about a room. `slidx lint` and a real browser are still
