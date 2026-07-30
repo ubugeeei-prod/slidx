@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it } from "vite-plus/test";
 import {
   ago,
   createRevisions,
+  type RestoreAnswer,
   type RevisionChange,
   type RevisionList,
   type RevisionsClient,
@@ -19,20 +20,28 @@ import {
 
 interface Fake extends RevisionsClient {
   asked: string[];
+  restored: string[];
   list_: RevisionList;
   change: RevisionChange | null;
+  answer: RestoreAnswer;
 }
 
 function fakeHistory(list: Partial<RevisionList> = {}): Fake {
   const fake: Fake = {
     asked: [],
+    restored: [],
     list_: { available: true, commits: [], ...list },
     change: { first: false, slides: 3, subject: 'Add "What it cost"', changes: [] },
+    answer: { restored: "a".repeat(40), previous: "c".repeat(40) },
 
     list: async () => fake.list_,
     changeAt: async (rev) => {
       fake.asked.push(rev);
       return fake.change;
+    },
+    restore: async (rev) => {
+      fake.restored.push(rev);
+      return fake.answer;
     },
   };
 
@@ -54,13 +63,40 @@ const COMMITS = [
   },
 ];
 
+/** How many times the editor was told to read the deck again. */
+let reloaded = 0;
+
 /** The panel, mounted and rendered once, the way the editor does it. */
-function panel(client: RevisionsClient) {
-  const surface = createRevisions({ client, now: () => Date.parse("2026-07-30T09:00:00Z") });
+function panel(client: RevisionsClient, slide = 0) {
+  reloaded = 0;
+  const surface = createRevisions(
+    { reload: () => (reloaded += 1) },
+    { client, deckBase: "slides", now: () => Date.parse("2026-07-30T09:00:00Z") },
+  );
+
   document.body.append(surface.root);
-  surface.render({} as never);
+  surface.render({ selection: { slide } } as never);
 
   return surface.root;
+}
+
+function frame(root: HTMLElement): HTMLIFrameElement | null {
+  return root.querySelector<HTMLIFrameElement>(".slidx-revision-frame");
+}
+
+/** Opens the row for a commit and waits for the answer about it. */
+async function openRow(root: HTMLElement, at = 0): Promise<void> {
+  rows(root)[at]!.querySelector<HTMLElement>(".slidx-revision-open")!.click();
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+/** Clicks a button in the preview area and waits for what it asked for. */
+async function press(root: HTMLElement, selector: string): Promise<void> {
+  root.querySelector<HTMLButtonElement>(selector)!.click();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
 }
 
 function tab(root: HTMLElement): HTMLElement {
@@ -223,6 +259,128 @@ describe("the history panel", () => {
     await open(root);
 
     expect(rows(root)).toHaveLength(2);
+  });
+});
+
+describe("the deck as a commit had it", () => {
+  beforeEach(() => {
+    document.body.replaceChildren();
+  });
+
+  it("shows the deck's own page for that commit rather than drawing one", async () => {
+    // The preview is an iframe on the real route with a `?rev=`, which the dev
+    // server answers through the renderer it answers the working copy with.
+    // Nothing in this panel draws a slide, and that is the point: a second
+    // renderer would be a second answer about layout.
+    const root = panel(fakeHistory({ commits: COMMITS }), 2);
+    await open(root);
+    await openRow(root);
+
+    expect(frame(root)!.getAttribute("src")).toBe(`/slides/3/?rev=${COMMITS[0]!.rev}`);
+  });
+
+  it("keeps up with the slide the author moved to", async () => {
+    const surface = createRevisions(
+      { reload: () => {} },
+      { client: fakeHistory({ commits: COMMITS }), deckBase: "slides" },
+    );
+    document.body.append(surface.root);
+    surface.render({ selection: { slide: 0 } } as never);
+
+    await open(surface.root);
+    await openRow(surface.root);
+    surface.render({ selection: { slide: 3 } } as never);
+
+    expect(frame(surface.root)!.getAttribute("src")).toBe(`/slides/4/?rev=${COMMITS[0]!.rev}`);
+  });
+
+  it("shows nothing at all rather than a stale slide when the row is closed", async () => {
+    // A frame left pointing at the last commit looked at would be a page
+    // claiming to be something nobody asked about.
+    const root = panel(fakeHistory({ commits: COMMITS }));
+    await open(root);
+    await openRow(root);
+    expect(frame(root)!.getAttribute("src")).toBeTruthy();
+
+    await openRow(root);
+
+    expect(frame(root)!.getAttribute("src")).toBeNull();
+    expect(root.querySelector(".slidx-revisions-preview")!.getAttribute("data-showing")).toBe(
+      "false",
+    );
+  });
+});
+
+describe("putting the deck back", () => {
+  beforeEach(() => {
+    document.body.replaceChildren();
+  });
+
+  it("asks the server to restore, and never writes a file itself", async () => {
+    const client = fakeHistory({ commits: COMMITS });
+    const root = panel(client);
+    await open(root);
+    await openRow(root);
+    await press(root, ".slidx-revision-restore");
+
+    expect(client.restored).toEqual([COMMITS[0]!.rev]);
+  });
+
+  it("reads the deck again once it has been put back", async () => {
+    // A restore is a git operation rather than an edit, so nothing in the
+    // editor's own undo stack knows about it and the session starts from disk.
+    const root = panel(fakeHistory({ commits: COMMITS }));
+    await open(root);
+    await openRow(root);
+    await press(root, ".slidx-revision-restore");
+
+    expect(reloaded).toBeGreaterThan(0);
+    expect(text(root, ".slidx-revision-said")).toContain("staged");
+  });
+
+  it("offers to undo, and undoing is one more restore", async () => {
+    // What makes looking at history safe to act on: going back is not a
+    // one-way door, and the way back is the same operation.
+    const client = fakeHistory({ commits: COMMITS });
+    const root = panel(client);
+    await open(root);
+    await openRow(root);
+
+    const undo = () => root.querySelector<HTMLButtonElement>(".slidx-revision-undo")!;
+    expect(undo().hidden).toBe(true);
+
+    await press(root, ".slidx-revision-restore");
+    expect(undo().hidden).toBe(false);
+
+    client.answer = { restored: "c".repeat(40), previous: COMMITS[0]!.rev };
+    await press(root, ".slidx-revision-undo");
+
+    expect(client.restored).toEqual([COMMITS[0]!.rev, "c".repeat(40)]);
+    // The offer ends when it is taken: undoing an undo would be a redo
+    // wearing the wrong label.
+    expect(undo().hidden).toBe(true);
+    expect(text(root, ".slidx-revision-said")).toBe("Put back the way it was.");
+  });
+
+  it("says what is unsaved when the server refuses to write over it", async () => {
+    // Going back must never be the thing that loses an afternoon, and an
+    // author told which of their slides is at risk can go and deal with it.
+    const client = fakeHistory({ commits: COMMITS });
+    client.answer = {
+      refused: "The deck has changes that are not committed.",
+      changed: ["talks/deck/slides/0003.md"],
+    };
+
+    const root = panel(client);
+    await open(root);
+    await openRow(root);
+    await press(root, ".slidx-revision-restore");
+
+    expect(text(root, ".slidx-revision-said")).toBe(
+      "The deck has changes that are not committed. (talks/deck/slides/0003.md)",
+    );
+    expect(reloaded).toBe(0);
+    expect(root.querySelector<HTMLButtonElement>(".slidx-revision-undo")!.hidden).toBe(true);
   });
 });
 

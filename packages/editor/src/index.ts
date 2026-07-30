@@ -100,7 +100,10 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
     inspector,
     diagnostics,
     createTimeline({ run }),
-    createRevisions(),
+    createRevisions(
+      { reload: () => void session.open() },
+      { deckBase: options.deckBase ?? "slides" },
+    ),
     createArrange(
       { run, foresee: (findings) => session.foresee(findings) },
       { measure: (measured) => client.measured(measured) },

@@ -200,7 +200,9 @@ export function createDeckHistory(root: string, options: ResolvedOptions): DeckH
 
       const repository = await openRepository(root);
       if (repository === null) {
-        return { refused: "This deck is not in a git repository, so there is nothing to go back to." };
+        return {
+          refused: "This deck is not in a git repository, so there is nothing to go back to.",
+        };
       }
 
       if ((await repository.resolve(rev)) === null) {

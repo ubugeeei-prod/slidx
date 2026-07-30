@@ -22,6 +22,7 @@
  * and says that in a sentence — it never becomes an error state.
  */
 
+import { routeFor } from "./canvas";
 import { EDITOR_BASE } from "./client";
 import { element, fill } from "./dom";
 import type { Surface } from "./outline";
@@ -52,6 +53,17 @@ export interface RevisionChange {
   changes: string[];
 }
 
+/** What happened when the deck was asked to go back. */
+export interface RestoreAnswer {
+  restored?: string;
+  /** The commit to name to undo it, which is where the deck was. */
+  previous?: string;
+  /** Why nothing was done. */
+  refused?: string;
+  /** What is unsaved, when that is the reason. */
+  changed?: string[];
+}
+
 /**
  * The dev server, as this panel talks to it.
  *
@@ -63,17 +75,35 @@ export interface RevisionChange {
 export interface RevisionsClient {
   list(): Promise<RevisionList>;
   changeAt(rev: string): Promise<RevisionChange | null>;
+  restore(rev: string): Promise<RestoreAnswer>;
+}
+
+export interface RevisionsHandlers {
+  /**
+   * Reads the deck again, after something outside the editor changed it.
+   *
+   * A restore is a git operation rather than an edit, so nothing in the
+   * editor's own undo stack knows about it — the session has to start again
+   * from the files.
+   */
+  reload(): void;
 }
 
 export interface RevisionsOptions {
+  /** The route the deck is served under, so the preview is the real page. */
+  deckBase?: string;
   client?: RevisionsClient;
   /** Substituted in tests, where "3 days ago" has to be a fixed sentence. */
   now?: () => number;
 }
 
-export function createRevisions(options: RevisionsOptions = {}): Surface {
+export function createRevisions(
+  handlers: RevisionsHandlers,
+  options: RevisionsOptions = {},
+): Surface {
   const client = options.client ?? createRevisionsClient();
   const now = options.now ?? Date.now;
+  const deckBase = options.deckBase ?? "slides";
 
   const tab = element(
     "button",
@@ -81,9 +111,35 @@ export function createRevisions(options: RevisionsOptions = {}): Surface {
     ["History"],
   );
   const body = element("div", { class: "slidx-revisions-body" });
+
+  /**
+   * The deck's own page, as the selected commit had it.
+   *
+   * Built once and kept, with only its `src` changing. Moving an iframe
+   * between parents reloads it in some browsers, so it lives below the list
+   * rather than inside the row it belongs to — which also keeps the list
+   * scrollable with the preview staying put.
+   */
+  const frame = element("iframe", {
+    class: "slidx-revision-frame",
+    title: "The deck as this commit had it",
+  });
+  const said = element("p", { class: "slidx-revision-said" });
+  const back = element("button", { type: "button", class: "slidx-revision-restore" }, [
+    "Restore the deck to this",
+  ]);
+  const undo = element("button", { type: "button", class: "slidx-revision-undo", hidden: true }, [
+    "Undo",
+  ]);
+  const preview = element("div", { class: "slidx-revisions-preview" }, [
+    frame,
+    element("div", { class: "slidx-revision-actions" }, [back, undo, said]),
+  ]);
+
   const panel = element("div", { class: "slidx-revisions-panel" }, [
     element("header", { class: "slidx-panel-head" }, [element("h2", {}, ["History"])]),
     body,
+    preview,
   ]);
   const root = element("section", { class: "slidx-revisions", "aria-label": "History" }, [
     tab,
@@ -91,11 +147,15 @@ export function createRevisions(options: RevisionsOptions = {}): Surface {
   ]);
 
   root.setAttribute("data-open", "false");
+  preview.setAttribute("data-showing", "false");
   applyRevisionsStyles(root.ownerDocument);
 
   let open = false;
   let commits: Revision[] = [];
   let selected: string | undefined;
+  let slide = 0;
+  /** What the last restore said, so undoing it is one more restore. */
+  let undoable: string | undefined;
   const changes = new Map<string, RevisionChange>();
 
   function note(text: string): void {
@@ -181,7 +241,9 @@ export function createRevisions(options: RevisionsOptions = {}): Surface {
     // Clicking the open row closes it, so a reader can get the list back
     // without hunting for a control that only exists once something is open.
     selected = selected === rev ? undefined : rev;
+    said.textContent = "";
     draw();
+    show();
     if (selected === undefined || changes.has(rev)) return;
 
     const change = await client.changeAt(rev);
@@ -190,6 +252,73 @@ export function createRevisions(options: RevisionsOptions = {}): Surface {
     changes.set(rev, change ?? { first: false, slides: 0, subject: "", changes: [] });
     if (selected === rev) draw();
   }
+
+  /**
+   * Points the preview at the slide the author is on, as of the selected commit.
+   *
+   * The deck's own route with a `?rev=`, which the dev server answers through
+   * the same renderer it answers the working copy with. That is the whole claim
+   * of this panel: it is the page that commit would have produced, not a
+   * picture of one — so there is nothing here that draws a slide.
+   */
+  function show(): void {
+    preview.setAttribute("data-showing", String(selected !== undefined));
+    if (selected === undefined) {
+      // Emptied rather than left on the last commit looked at, so a closed row
+      // cannot leave a stale slide on screen claiming to be something.
+      frame.removeAttribute("src");
+      return;
+    }
+
+    const next = `${routeFor(deckBase, slide)}?rev=${encodeURIComponent(selected)}`;
+    if (frame.getAttribute("src") !== next) frame.setAttribute("src", next);
+  }
+
+  /**
+   * Puts the deck back to a commit, through the dev server and through git.
+   *
+   * Nothing is written from here. The button asks; the server refuses while
+   * anything under the deck is uncommitted, and says what is at risk.
+   */
+  async function restore(rev: string, undoing = false): Promise<void> {
+    back.disabled = true;
+    undo.disabled = true;
+    said.textContent = "Putting the deck back…";
+
+    const answer = await client.restore(rev);
+    back.disabled = false;
+    undo.disabled = false;
+
+    if (answer.refused) {
+      // Named files rather than a count: an author told which of their slides
+      // is unsaved can go and deal with it.
+      const named = answer.changed?.length ? ` (${answer.changed.join(", ")})` : "";
+      said.textContent = `${answer.refused}${named}`;
+      return;
+    }
+
+    // Undoing an undo would be a redo wearing the wrong label, so the offer
+    // ends when it is taken.
+    undoable = undoing ? undefined : answer.previous;
+    said.textContent = undoing
+      ? "Put back the way it was."
+      : "The deck is back to this commit — staged, and not committed.";
+
+    undo.hidden = undoable === undefined;
+
+    // The editor is looking at files that changed underneath it, and a restore
+    // is a git operation rather than an edit — so nothing in the editor's own
+    // undo stack knows about it and the session starts again from disk.
+    handlers.reload();
+  }
+
+  back.addEventListener("click", () => {
+    if (selected !== undefined) void restore(selected);
+  });
+
+  undo.addEventListener("click", () => {
+    if (undoable !== undefined) void restore(undoable, true);
+  });
 
   /**
    * Reads the log, every time the panel is opened.
@@ -223,10 +352,21 @@ export function createRevisions(options: RevisionsOptions = {}): Surface {
 
   return {
     root,
-    // Deliberately nothing. This panel's subject is the repository, not what
-    // is selected in the editor, and its list is re-read when it is opened —
-    // which is also the only moment an author is asking about it.
-    render() {},
+
+    /**
+     * Follows the author from slide to slide, and nothing else.
+     *
+     * The list is about the repository rather than about editor state, and it
+     * is re-read when the panel is opened — which is the moment somebody is
+     * asking. The preview does track the selection, because "what did this
+     * slide look like then" is the question being asked of it.
+     */
+    render(state) {
+      if (state.selection.slide === slide) return;
+
+      slide = state.selection.slide;
+      show();
+    },
   };
 }
 
@@ -243,6 +383,20 @@ export function createRevisionsClient(
         // A dev server that went away while the editor stayed open. The panel
         // says so rather than throwing into a click handler.
         return { available: false, reason: "The dev server did not answer.", commits: [] };
+      }
+    },
+
+    async restore(rev) {
+      try {
+        const response = await send(`${EDITOR_BASE}history/restore`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ rev }),
+        });
+
+        return (await response.json()) as RestoreAnswer;
+      } catch {
+        return { refused: "The dev server did not answer, so nothing was changed." };
       }
     },
 

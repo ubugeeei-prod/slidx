@@ -135,9 +135,12 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
           // rather than a picture of one. A second rendering path here would
           // be a second answer about layout.
           const rev = revisionAsked(url);
+          // `null` only ever comes from a revision that was asked for and not
+          // found, so the narrowing is the guard: no revision is `undefined`,
+          // which reads the working copy.
           const past = rev ? await session.deckAt(rev) : undefined;
 
-          if (rev && !past) {
+          if (past === null) {
             response.statusCode = 404;
             response.setHeader("content-type", "text/plain; charset=utf-8");
             // Never a quiet fall back to the working copy: a page that looked
