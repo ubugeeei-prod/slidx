@@ -28,6 +28,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
 use slidx_core::{Attributes, ByteSpan, Mark, StepAction};
+use slidx_theme::layout::BlockWidth;
 
 /// One change to a deck source.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -109,6 +110,23 @@ pub enum EditOp {
         slide: SlideRef,
         block: BlockRef,
         attributes: Attributes,
+    },
+    /// How much of its region a block takes.
+    ///
+    /// One property rather than the whole attribute group, which is what
+    /// separates this from [`Self::SetBlockAttributes`]: a resize handle knows
+    /// the share it is dragging to and nothing about the classes on the block, so
+    /// an operation carrying the group would delete whatever a co-author had just
+    /// added to it.
+    ///
+    /// [`BlockWidth::Full`] is written by *removing* the property, the same rule
+    /// [`Self::MoveBlock`] holds for the default region: a block that says
+    /// nothing already fills its region. That is what makes dragging a block
+    /// narrower and back again byte-identical.
+    SetBlockWidth {
+        slide: SlideRef,
+        block: BlockRef,
+        width: BlockWidth,
     },
     /// Moves a block to position `to` among the slide's blocks, and optionally
     /// into another region.

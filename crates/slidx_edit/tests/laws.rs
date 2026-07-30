@@ -17,6 +17,7 @@
 
 use slidx_core::{parse_deck, Attributes, ByteSpan, DeckParseOptions, StepAction};
 use slidx_edit::{apply, plan, EditOp, MarkAttributes, SlideRef};
+use slidx_theme::layout::BlockWidth;
 
 /// Decks chosen so that every structural case appears at least once.
 fn corpus() -> Vec<&'static str> {
@@ -157,6 +158,16 @@ fn operations(source: &str) -> Vec<EditOp> {
                 to: 0,
                 region: Some("side".into()),
             });
+
+            // Every share, including the default — which is the one written by
+            // taking the property away rather than by writing it.
+            for width in BlockWidth::ALL {
+                ops.push(EditOp::SetBlockWidth {
+                    slide: index.into(),
+                    block: 0.into(),
+                    width: *width,
+                });
+            }
         }
         // A move needs two blocks to be about anything.
         if slide.blocks.len() > 1 {
@@ -551,6 +562,8 @@ fn an_operation_naming_something_that_is_not_there_is_an_error_not_a_crash() {
             attributes: Default::default(),
         },
         EditOp::MoveBlock { slide: 0.into(), block: 99.into(), to: 0, region: None },
+        EditOp::SetBlockWidth { slide: 0.into(), block: 99.into(), width: BlockWidth::Half },
+        EditOp::SetBlockWidth { slide: 99.into(), block: 0.into(), width: BlockWidth::Half },
         // A drop target one past the last block, which is where the editor
         // aims when an author drags something to the bottom of a region.
         EditOp::MoveBlock { slide: 0.into(), block: 0.into(), to: 99, region: Some("side".into()) },

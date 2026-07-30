@@ -36,9 +36,11 @@ use slidx_core::Slide;
 
 pub mod css;
 mod place;
+pub mod width;
 
 pub use css::{render as css, LAYOUT_ATTRIBUTE, REGION_ATTRIBUTE};
 pub use place::{diagnose, place, Misplaced, PlacedRegion, Placement};
+pub use width::{BlockWidth, WIDTH_ATTRIBUTE, WIDTH_PROPERTY};
 
 /// How content sits in a region when it does not fill it.
 ///

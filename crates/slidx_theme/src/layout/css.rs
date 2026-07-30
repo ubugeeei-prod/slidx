@@ -26,6 +26,9 @@ pub const LAYOUT_ATTRIBUTE: &str = "data-slidx-layout";
 pub const REGION_ATTRIBUTE: &str = "data-slidx-region";
 
 /// Every built-in layout, as rules to inline into a page.
+///
+/// The block shares go out with them rather than in the shell, because a share
+/// of a region only means anything where the regions are: see [`super::width`].
 pub fn render(layouts: &[Layout]) -> String {
     let mut css = String::new();
 
@@ -33,6 +36,7 @@ pub fn render(layouts: &[Layout]) -> String {
         css.push_str(&one(layout));
     }
 
+    css.push_str(&super::width::css());
     css
 }
 

@@ -40,6 +40,15 @@
 export const BLOCK_ATTRIBUTE = "data-slidx-block";
 export const REGION_ATTRIBUTE = "data-slidx-region";
 
+/**
+ * The share of its region a block takes, from `slidx_theme::layout::width`.
+ *
+ * Absent on a block that takes the whole region, because the default is written
+ * by saying nothing — in the file and therefore on the page. A handle reads it to
+ * know where it starts.
+ */
+export const WIDTH_ATTRIBUTE = "data-slidx-width";
+
 /** A box in the editor's own coordinates. */
 export interface Rect {
   left: number;
@@ -61,6 +70,13 @@ export interface BlockBox {
    * A region narrower than a non-zero figure here will clip the block.
    */
   needsWidth: number;
+  /**
+   * The share of its region the block says it takes, or `"full"`.
+   *
+   * The word the file uses, not a number: a handle that read a measured width
+   * would round its way to a different share every time the canvas re-laid out.
+   */
+  width: string;
 }
 
 /** One region of the layout, and what is in it. */
@@ -124,7 +140,13 @@ export function readGeometry(frame: HTMLIFrameElement): SlideGeometry | undefine
       if (!Number.isInteger(index)) continue;
 
       inside.push(index);
-      blocks.push({ index, region: name, rect: at(box), needsWidth: needsWidth(box) });
+      blocks.push({
+        index,
+        region: name,
+        rect: at(box),
+        needsWidth: needsWidth(box),
+        width: box.getAttribute(WIDTH_ATTRIBUTE) ?? "full",
+      });
     }
 
     regions.push({

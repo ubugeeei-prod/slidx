@@ -26,6 +26,7 @@ function block(index: number, region: string, top: number, over: Partial<BlockBo
     region,
     rect: { left: region === "left" ? 100 : 500, top, width: 400, height: 80 },
     needsWidth: 0,
+    width: "full",
     ...over,
   };
 }

@@ -114,6 +114,15 @@ export type EditOp =
   | { op: "removeMark"; slide: SlideRef; mark: MarkRef }
   | { op: "setBlockAttributes"; slide: SlideRef; block: BlockRef; attributes: BlockAttributes }
   /**
+   * How much of its region a block takes, as a share the theme names.
+   *
+   * Never a length. The reasoning is in `slidx_theme::layout::width`: a pixel is
+   * unreviewable in a diff, means something else at another aspect ratio, and is
+   * opaque to the rule that has to say whether the content still fits. `full` is
+   * written by removing the property, so a resize out and back is byte-identical.
+   */
+  | { op: "setBlockWidth"; slide: SlideRef; block: BlockRef; width: string }
+  /**
    * Where a block is on the slide, which is a region and a position in it.
    *
    * Both in one operation because a drag is one gesture: an editor that wrote
