@@ -1,26 +1,31 @@
-//! One pigment, and the colour space it is mixed in.
+//! Mixing a colour instead of writing one down.
 //!
 //! # Why a colour space instead of a list of hexes
 //!
-//! A palette written as ten hex literals is a palette nobody can argue with,
-//! because there is no argument in it — only ten results. Worse, it is how a
-//! borrowed palette gets in: a framework's default scale is exactly ten hex
-//! literals, and pasted in it looks indistinguishable from a decision.
+//! A palette written as hex literals is a palette nobody can argue with, because
+//! there is no argument in it — only results. Worse, it is how a borrowed palette
+//! gets in: a framework's default scale *is* a list of hex literals, and pasted
+//! into a theme it is indistinguishable from a decision. This repository shipped
+//! one for a while without noticing, which is why `scripts/check-borrowed.mjs`
+//! now fails the build on a colour that matches a framework default.
 //!
-//! So the brand's colours are not written down. They are *mixed*, from a hue, a
-//! chroma and a lightness, and the hexes in `assets/brand/tokens.json` are
-//! output. Every number that goes in has a reason next to it in
-//! [`crate::palette`], and changing one changes the whole family the way changing
-//! a pigment would.
+//! So the colours here are not written down. They are *mixed*, from a hue, a
+//! chroma and a lightness, and the hexes that reach a slide are output. Every
+//! number that goes in has a reason beside it where it is declared, and changing
+//! one changes the whole family the way changing a pigment would.
+//!
+//! Shared by the deck themes in [`crate::builtin`] and by the brand in
+//! `slidx_brand`, so there is one conversion in the workspace rather than two
+//! that eventually round differently.
 //!
 //! # Why OKLCh
 //!
-//! Because the palette needs a *lightness ladder*, and lightness has to mean the
+//! Because a palette needs a *lightness ladder*, and lightness has to mean the
 //! same thing at both ends of it. In HSL it does not: `hsl(258 60% 50%)` and
 //! `hsl(60 60% 50%)` are nowhere near equally light, so a ladder built in HSL is
 //! even by arithmetic and uneven to the eye. OKLab was fitted to perceptual data
-//! for exactly this, and its polar form gives the three knobs the palette wants:
-//! how blue, how strong, how light.
+//! for exactly this, and its polar form gives the three knobs a palette wants:
+//! which hue, how strong, how light.
 //!
 //! # The gamut clamp
 //!
@@ -33,7 +38,7 @@
 
 use slidx_lint::Rgba;
 
-/// A colour as the brand thinks about it: how light, how strong, what hue.
+/// A colour as this repository thinks about it: how light, how strong, what hue.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Oklch {
     /// Perceptual lightness, 0.0 black to 1.0 white.

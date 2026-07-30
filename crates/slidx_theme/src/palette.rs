@@ -120,13 +120,18 @@ impl Scheme {
     pub const ALL: [Self; 2] = [Self::Light, Self::Dark];
 }
 
-/// Parses a hex colour at compile-time-adjacent call sites.
+/// Parses a hex colour in a test fixture.
 ///
-/// Panics on a malformed literal, which is correct here: these are constants
-/// in this crate's own source, so a bad one is a bug rather than user input.
+/// Only tests write a colour as text now. Every colour a theme actually ships is
+/// mixed by [`crate::builtin::recipe`] from a hue, a chroma and a lightness —
+/// which is what `scripts/check-borrowed.mjs` enforces, because a hex literal in
+/// a palette is precisely how a borrowed framework scale got in here.
+///
+/// Panics on a malformed literal, which is correct: these are constants in this
+/// crate's own source, so a bad one is a bug rather than user input.
+#[cfg(test)]
 pub(crate) fn hex(text: &str) -> Rgba {
-    slidx_lint::color::parse(text)
-        .unwrap_or_else(|| panic!("built-in theme colour `{text}` is malformed"))
+    slidx_lint::color::parse(text).unwrap_or_else(|| panic!("fixture colour `{text}` is malformed"))
 }
 
 impl Palette {

@@ -32,9 +32,11 @@
 //! The floor leaves perhaps a fifth of a stop of room below the code colour, so
 //! dimming further is not available. A cool grey against a neutral one is.
 
+pub mod recipe;
+
 use slidx_core::Easing;
 
-use crate::palette::{hex, Palette, SyntaxPalette};
+use crate::builtin::recipe::Recipe;
 use crate::scale::TypeScale;
 use crate::theme::{Motion, Spacing, Theme};
 
@@ -54,49 +56,18 @@ pub fn find(id: &str) -> Option<Theme> {
 }
 
 /// The default. Quiet, neutral, and out of the way.
+///
+/// Carries the project's own hue, so the theme an author gets without asking is
+/// the one that matches the mark on the page they downloaded it from.
 pub fn minimal() -> Theme {
     Theme {
         id: "minimal".into(),
         name: "Minimal".into(),
         description: "Neutral greys and a single accent. The default.".into(),
-        light: Palette {
-            canvas: hex("#e7e7e9"),
-            surface: hex("#ffffff"),
-            text: hex("#18181b"),
-            muted: hex("#52525b"),
-            heading: hex("#09090b"),
-            accent: hex("#1d4ed8"),
-            border: hex("#d4d4d8"),
-            code_surface: hex("#f4f4f5"),
-            code_text: hex("#27272a"),
-            syntax: Some(SyntaxPalette {
-                comment: hex("#465064"),
-                string: hex("#0d5b43"),
-                number: hex("#7c2d12"),
-                keyword: hex("#1e40af"),
-                type_name: hex("#5b21b6"),
-                punctuation: hex("#3f3f46"),
-            }),
-        },
-        dark: Palette {
-            canvas: hex("#09090b"),
-            surface: hex("#18181b"),
-            text: hex("#f4f4f5"),
-            muted: hex("#a1a1aa"),
-            heading: hex("#fafafa"),
-            accent: hex("#bfdbfe"),
-            border: hex("#3f3f46"),
-            code_surface: hex("#27272a"),
-            code_text: hex("#e4e4e7"),
-            syntax: Some(SyntaxPalette {
-                comment: hex("#c9d0da"),
-                string: hex("#a7f3d0"),
-                number: hex("#fed7aa"),
-                keyword: hex("#bfdbfe"),
-                type_name: hex("#ddd6fe"),
-                punctuation: hex("#d4d4d8"),
-            }),
-        },
+        light: Recipe { hue: 258.0, accent_chroma: 0.15, wash: 0.10, sheet: 0.99, ink: 0.24 }
+            .palette(),
+        dark: Recipe { hue: 258.0, accent_chroma: 0.12, wash: 0.10, sheet: 0.22, ink: 0.95 }
+            .palette(),
         scale: TypeScale::default(),
         spacing: Spacing::default(),
         motion: Motion::default(),
@@ -106,49 +77,19 @@ pub fn minimal() -> Theme {
 }
 
 /// Warmer, with a wider type scale. For talks that are mostly prose.
+///
+/// The warmth is not a decision separate from the accent: the wash that makes
+/// the neutrals is the same ochre the accent is, so the greys are warm because
+/// the ink is.
 pub fn editorial() -> Theme {
     Theme {
         id: "editorial".into(),
         name: "Editorial".into(),
         description: "Warm neutrals and a dramatic type scale, for prose-led talks.".into(),
-        light: Palette {
-            canvas: hex("#e7e5e4"),
-            surface: hex("#fafaf9"),
-            text: hex("#1c1917"),
-            muted: hex("#57534e"),
-            heading: hex("#0c0a09"),
-            accent: hex("#9a3412"),
-            border: hex("#d6d3d1"),
-            code_surface: hex("#f5f5f4"),
-            code_text: hex("#292524"),
-            syntax: Some(SyntaxPalette {
-                comment: hex("#57514a"),
-                string: hex("#0d5b43"),
-                number: hex("#7c2d12"),
-                keyword: hex("#1e40af"),
-                type_name: hex("#5b21b6"),
-                punctuation: hex("#3f3a36"),
-            }),
-        },
-        dark: Palette {
-            canvas: hex("#0c0a09"),
-            surface: hex("#1c1917"),
-            text: hex("#f5f5f4"),
-            muted: hex("#a8a29e"),
-            heading: hex("#fafaf9"),
-            accent: hex("#fdba74"),
-            border: hex("#44403c"),
-            code_surface: hex("#292524"),
-            code_text: hex("#e7e5e4"),
-            syntax: Some(SyntaxPalette {
-                comment: hex("#cbd2dc"),
-                string: hex("#a7f3d0"),
-                number: hex("#fed7aa"),
-                keyword: hex("#bfdbfe"),
-                type_name: hex("#ddd6fe"),
-                punctuation: hex("#d6d3d1"),
-            }),
-        },
+        light: Recipe { hue: 55.0, accent_chroma: 0.13, wash: 0.14, sheet: 0.98, ink: 0.25 }
+            .palette(),
+        dark: Recipe { hue: 55.0, accent_chroma: 0.12, wash: 0.14, sheet: 0.23, ink: 0.95 }
+            .palette(),
         scale: TypeScale { base_px: 34.0, ratio: 1.333, code_factor: 0.95 },
         spacing: Spacing { padding_px: 112.0, block_px: 32.0, ..Spacing::default() },
         // Prose is read, not scanned. A slightly longer change of place suits
@@ -160,49 +101,19 @@ pub fn editorial() -> Theme {
 }
 
 /// Dark, monospace-forward, sized for code. For live-coding talks.
+///
+/// Its dark scheme sits lower than the others': a live-coding talk is shown
+/// beside a terminal, and a bright slide between two dark windows is the thing
+/// that makes an audience flinch.
 pub fn terminal() -> Theme {
     Theme {
         id: "terminal".into(),
         name: "Terminal".into(),
         description: "Dark and monospace-forward, sized for code-heavy talks.".into(),
-        light: Palette {
-            canvas: hex("#e4e4e7"),
-            surface: hex("#fafafa"),
-            text: hex("#18181b"),
-            muted: hex("#52525b"),
-            heading: hex("#09090b"),
-            accent: hex("#166534"),
-            border: hex("#d4d4d8"),
-            code_surface: hex("#f4f4f5"),
-            code_text: hex("#18181b"),
-            syntax: Some(SyntaxPalette {
-                comment: hex("#465064"),
-                string: hex("#0d5b43"),
-                number: hex("#7c2d12"),
-                keyword: hex("#1e40af"),
-                type_name: hex("#5b21b6"),
-                punctuation: hex("#3f3f46"),
-            }),
-        },
-        dark: Palette {
-            canvas: hex("#000000"),
-            surface: hex("#0c0c0c"),
-            text: hex("#e4e4e7"),
-            muted: hex("#a1a1aa"),
-            heading: hex("#fafafa"),
-            accent: hex("#86efac"),
-            border: hex("#3f3f46"),
-            code_surface: hex("#18181b"),
-            code_text: hex("#e4e4e7"),
-            syntax: Some(SyntaxPalette {
-                comment: hex("#bcc7d4"),
-                string: hex("#86efac"),
-                number: hex("#fdba74"),
-                keyword: hex("#a8caff"),
-                type_name: hex("#d5cbfe"),
-                punctuation: hex("#c8c8d0"),
-            }),
-        },
+        light: Recipe { hue: 155.0, accent_chroma: 0.12, wash: 0.08, sheet: 0.98, ink: 0.24 }
+            .palette(),
+        dark: Recipe { hue: 155.0, accent_chroma: 0.15, wash: 0.08, sheet: 0.18, ink: 0.94 }
+            .palette(),
         // Code is the point of this theme, so it is set at full body size.
         scale: TypeScale { base_px: 32.0, ratio: 1.2, code_factor: 1.0 },
         spacing: Spacing { padding_px: 80.0, block_px: 24.0, ..Spacing::default() },
@@ -219,50 +130,21 @@ pub fn terminal() -> Theme {
 /// What `slidx doctor` recommends switching to when it measures a washed-out
 /// display. Pure black on pure white is avoided deliberately — at full
 /// separation it produces halation that makes text harder to read, not easier.
+///
+/// The only theme with a **zero wash**, so its neutrals are true greys. A theme
+/// whose whole job is separation should not spend any of its range on a tint.
+/// The accent still carries the hue, because the accent is the one thing that
+/// has to be told apart from the text rather than merely read.
 pub fn contrast() -> Theme {
     Theme {
         id: "contrast".into(),
         name: "High contrast".into(),
         description: "Maximum separation and larger type, for bright rooms and weak projectors."
             .into(),
-        light: Palette {
-            canvas: hex("#ffffff"),
-            surface: hex("#ffffff"),
-            text: hex("#000000"),
-            muted: hex("#2b2b2b"),
-            heading: hex("#000000"),
-            accent: hex("#0b3d91"),
-            border: hex("#000000"),
-            code_surface: hex("#f2f2f2"),
-            code_text: hex("#000000"),
-            syntax: Some(SyntaxPalette {
-                comment: hex("#2f3a4a"),
-                string: hex("#0a4d33"),
-                number: hex("#7a2410"),
-                keyword: hex("#0b3d91"),
-                type_name: hex("#4a148c"),
-                punctuation: hex("#1f1f1f"),
-            }),
-        },
-        dark: Palette {
-            canvas: hex("#000000"),
-            surface: hex("#000000"),
-            text: hex("#ffffff"),
-            muted: hex("#d6d6d6"),
-            heading: hex("#ffffff"),
-            accent: hex("#9ec5ff"),
-            border: hex("#ffffff"),
-            code_surface: hex("#141414"),
-            code_text: hex("#ffffff"),
-            syntax: Some(SyntaxPalette {
-                comment: hex("#c7d2e0"),
-                string: hex("#a5f3c0"),
-                number: hex("#ffcf9e"),
-                keyword: hex("#b4d3ff"),
-                type_name: hex("#e0d4ff"),
-                punctuation: hex("#e0e0e0"),
-            }),
-        },
+        light: Recipe { hue: 250.0, accent_chroma: 0.16, wash: 0.0, sheet: 1.0, ink: 0.13 }
+            .palette(),
+        dark: Recipe { hue: 250.0, accent_chroma: 0.13, wash: 0.0, sheet: 0.11, ink: 1.0 }
+            .palette(),
         scale: TypeScale { base_px: 38.0, ratio: 1.25, code_factor: 0.95 },
         spacing: Spacing { padding_px: 88.0, block_px: 32.0, ..Spacing::default() },
         // The theme people reach for when seeing the slide is already hard.

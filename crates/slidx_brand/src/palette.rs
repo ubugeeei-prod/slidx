@@ -23,7 +23,7 @@
 //! # Nothing here is a hex literal
 //!
 //! Four numbers go in — a hue, a chroma, a wash fraction, and a lightness per
-//! role — and the hexes come out through [`crate::ink`]. That is deliberate
+//! role — and the hexes come out through [`slidx_theme::mix`]. That is deliberate
 //! beyond tidiness: a palette written as ten hex literals is a palette nobody can
 //! argue with, and it is also exactly the shape a borrowed framework scale
 //! arrives in. `scripts/check-borrowed.mjs` fails the build if a shipped colour
@@ -52,7 +52,7 @@
 use serde::{Deserialize, Serialize};
 use slidx_lint::{projected_contrast_ratio, ProjectorProfile, Rgba, Surface, TextRole, TextSample};
 
-use crate::ink::Oklch;
+use slidx_theme::mix::Oklch;
 
 /// The one hue, in OKLCh degrees.
 ///

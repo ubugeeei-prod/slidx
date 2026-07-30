@@ -178,7 +178,7 @@ than a neutral black.
 
 Four numbers go in — a hue of **258°**, a signal chroma of **0.154**, a wash of
 **one tenth**, and one lightness per role — and the hexes come out through
-`slidx_brand::ink`, which mixes in OKLCh and converts to sRGB.
+`slidx_theme::mix`, which mixes in OKLCh and converts to sRGB.
 
 | role       | light     | dark      | job                                         |
 | ---------- | --------- | --------- | ------------------------------------------- |

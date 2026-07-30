@@ -10,6 +10,11 @@
  * Both colour schemes come from one set of custom properties, because the room
  * an author works in is not knowable from here — the same reason the built-in
  * deck themes ship both.
+ *
+ * The accent is the brand's `signal`, copied from `assets/brand/tokens.json` and
+ * checked against it by a test rather than trusted. It used to be a code host's
+ * brand blue in light and an editor theme's in dark, which is the same borrowed
+ * palette problem `scripts/check-borrowed.mjs` now fails the build over.
  */
 
 export const STYLESHEET = `
@@ -19,7 +24,7 @@ export const STYLESHEET = `
   --slidx-e-text: #16181d;
   --slidx-e-muted: #6a6f7a;
   --slidx-e-line: #e2e3e7;
-  --slidx-e-accent: #2f6feb;
+  --slidx-e-accent: #01489f;
   --slidx-e-error: #b42318;
   --slidx-e-warning: #9a6700;
   --slidx-e-hairline: 1px;
@@ -36,7 +41,7 @@ export const STYLESHEET = `
     --slidx-e-text: #e8eaed;
     --slidx-e-muted: #9aa0ac;
     --slidx-e-line: #2a2e37;
-    --slidx-e-accent: #7aa2f7;
+    --slidx-e-accent: #a5c9ff;
     --slidx-e-error: #f5776a;
     --slidx-e-warning: #d9a441;
   }
