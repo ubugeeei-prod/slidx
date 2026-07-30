@@ -139,13 +139,13 @@ export const ARRANGE_STYLESHEET = `
 .slidx-arrange-grip:hover, .slidx-arrange-grip:focus-visible { opacity: 1; }
 .slidx-arrange-grip:hover { background: transparent; }
 
-.slidx-arrange-grip[aria-pressed="true"] {
+.slidx-arrange-grip[data-moving="true"] {
   opacity: 1;
   color: var(--slidx-e-accent);
   cursor: grabbing;
 }
 
-.slidx-arrange-grip[aria-pressed="true"]::before { border-color: var(--slidx-e-accent); }
+.slidx-arrange-grip[data-moving="true"]::before { border-color: var(--slidx-e-accent); }
 
 /* The one state change worth animating: a grip coming forward under a cursor. */
 @media (prefers-reduced-motion: no-preference) {

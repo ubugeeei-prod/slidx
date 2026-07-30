@@ -174,7 +174,11 @@ export function createArrange(handlers: ArrangeHandlers, options: ArrangeOptions
         // matches that selector only when it carries the attribute.
         tabindex: 0,
         "data-block": index,
-        "aria-pressed": false,
+        // Not `aria-pressed`: a drag is not a toggle, and a button that gains
+        // the attribute halfway through a gesture changes what it is to a
+        // screen reader. What is happening is said in words, in the live
+        // region, which is where it belongs.
+        "data-moving": false,
         "aria-label": `Move block ${index + 1}, in ${region}`,
       },
       [element("span", {}, ["≡"])],
@@ -203,7 +207,7 @@ export function createArrange(handlers: ArrangeHandlers, options: ArrangeOptions
 
     event.preventDefault();
     handle.setPointerCapture?.(event.pointerId);
-    handle.setAttribute("aria-pressed", "true");
+    handle.setAttribute("data-moving", "true");
 
     moving = { index };
     asked = undefined;
@@ -297,7 +301,7 @@ export function createArrange(handlers: ArrangeHandlers, options: ArrangeOptions
     handlers.foresee([]);
 
     for (const handle of grips.querySelectorAll(".slidx-arrange-grip")) {
-      handle.setAttribute("aria-pressed", "false");
+      handle.setAttribute("data-moving", "false");
     }
   }
 

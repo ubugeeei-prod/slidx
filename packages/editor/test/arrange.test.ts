@@ -324,6 +324,16 @@ describe("the overlay as a piece of interface", () => {
     expect(open().grip(0).getAttribute("tabindex")).toBe("0");
   });
 
+  it("stays an ordinary button rather than becoming a toggle mid-drag", () => {
+    // `aria-pressed` would change what the control *is* to a screen reader
+    // halfway through a gesture. What is happening is said in the live region.
+    const opened = open();
+    opened.grip(0).dispatchEvent(pointer("pointerdown", 0, 0));
+
+    expect(opened.grip(0).hasAttribute("aria-pressed")).toBe(false);
+    expect(opened.grip(0).getAttribute("data-moving")).toBe("true");
+  });
+
   it("stays flat, and animates only behind a reduced-motion query", () => {
     for (const construct of ["box-shadow", "text-shadow", "gradient(", "drop-shadow("]) {
       expect(declarations(), construct).not.toContain(construct);
