@@ -1,6 +1,6 @@
 {
   "name": "slidx",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "The slidx command line: the pre-flight a speaker runs in the room, and the linter their CI runs",
   "keywords": [
     "cli",

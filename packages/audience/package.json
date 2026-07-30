@@ -1,6 +1,6 @@
 {
   "name": "@slidx/audience",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Opt-in audience channel for slidx decks: moderated Q&A and reactions over a Cloudflare Worker",
   "license": "MIT",
   "repository": {

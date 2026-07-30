@@ -1,6 +1,6 @@
 {
   "name": "@slidx/wasm",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "The slidx deck pipeline compiled to WebAssembly",
   "license": "MIT",
   "repository": {

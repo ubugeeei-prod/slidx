@@ -1,6 +1,6 @@
 {
   "name": "@slidx/editor",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "The slidx visual editor: deck outline, slide canvas, and inspector, writing back to Markdown",
   "license": "MIT",
   "repository": {
