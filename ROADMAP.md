@@ -214,6 +214,7 @@ conference publish a video.
 - [x] Runtime matrix: Node, Bun, Deno; macOS, Linux, Windows — #23
 - [x] The `slidx` binary, by `curl | sh` or `npm i -g`, with published checksums — #23
 - [x] Version manager, deck index, fuzzy finder, `preview`, completions, TUI — #23
+- [x] `list`, `grep` and `cd` over the decks the index already knows — #23
 - [ ] Theme packages distributable on npm — #3
 - [ ] Editor plugins for VS Code, Zed, and Neovim over the language server — #23
 - [ ] Documentation site
@@ -229,6 +230,18 @@ The terminal preview renders the deck's _model_, never its HTML, and says so on
 every frame: it previews structure and flow, not appearance. Nothing about a
 character grid can tell you whether type is legible from row 15. That belongs to
 the linter and to a real browser, and both already exist.
+
+`slidx cd` prints a path instead of entering one, and no release will change
+that. A child process cannot move the shell that started it — `chdir` acts on
+the caller — so the command resolves and a shell function enters. Every
+directory jumper that looks like it does otherwise is that same pair.
+
+`slidx grep` reports the slide a match is on rather than the line of a file,
+which is what makes it worth having over `grep -r`: `slides/0007.md:12` is an
+address a speaker cannot use, and "slide 7 of the VueConf deck" is one they can.
+It reads only decks and stops at `node_modules`, build output and dot
+directories, and it parses a deck only once something in it has already matched
+— so a search that finds nothing costs one read per deck.
 
 ---
 

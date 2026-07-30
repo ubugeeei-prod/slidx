@@ -177,9 +177,12 @@ property rather than an omission: a tool that can post as you is a tool that has
 to be trusted with a credential.
 
 **The decks you already have.** `~/.slidx` keeps an index that fills itself as
-you work, so `slidx open` fuzzy-finds a talk you gave eighteen months ago
-without you remembering which repository it was in. `slidx version` manages
-several slidx versions, pinned per deck by a `.slidx-version` file.
+you work, so a talk you gave eighteen months ago is findable without you
+remembering which repository it was in. `slidx list` puts them in a table with
+the slide count and the slot each one was written for, `slidx grep` searches
+every one of them and answers in slides rather than line numbers, and
+`slidx cd` resolves a query to the directory. `slidx version` manages several
+slidx versions, pinned per deck by a `.slidx-version` file.
 
 **The record that finishes weeks later.** The recording appears when the
 conference gets round to it, so the archive step separates _blocked_ — a field
@@ -200,7 +203,7 @@ one line months later and exactly one line of the record changes.
 | Real-time audience channel                                | **shipped**                                               |
 | Timing and rehearsal                                      | **shipped**                                               |
 | CLI — doctor, lint, publish, preview, open, version, tui  | **shipped**                                               |
-| Managed multi-deck index                                  | **shipped**                                               |
+| Managed multi-deck index — list, grep, cd                 | **shipped**                                               |
 | Deploy assistance for slide platforms                     | **shipped** (payloads; uploads stay yours)                |
 | Formatter and dialect type check                          | not started — #82                                         |
 | Custom themes distributable on npm                        | not started — #3                                          |
@@ -347,15 +350,38 @@ because you would have stopped checking.
 
 ## The `slidx` command
 
+Two jobs, and neither of them is building a deck. One is **the room** — what is
+about to happen to your talk that no editor can see. The other is **the decks
+you already have**, because a speaker who gives four talks a year has four
+repositories and remembers where none of them are.
+
 ```bash
 slidx doctor      # check the machine you are about to speak from
 slidx lint        # every rule the build runs, exiting non-zero on anything blocking
 slidx tui         # step through a deck's structure in the terminal
 slidx preview     # open the built PDF, or --web to serve the deck on loopback
 slidx publish     # plan, and perform the half that needs no account
-slidx open        # fuzzy-find a deck this machine has seen
+```
+
+```bash
+slidx list        # every deck this machine has seen: slides, slot, event, when
+slidx grep        # search them all, and get back the slide rather than the line
+slidx cd          # print a deck's directory, for a shell function to enter
+slidx open        # fuzzy-find a deck and print its path
 slidx version     # install and switch between slidx versions
 ```
+
+`slidx grep` is the one worth explaining. `slides/0007.md:12` is not where a
+speaker keeps their content — "slide 7 of the VueConf deck" is — so the search
+parses what it matches and answers in slides. It reads decks and not
+repositories: `node_modules`, build output and dot directories are skipped, and
+a deck is parsed only once a line in it has already matched, which is what makes
+it fast enough to type on a whim.
+
+`slidx cd` prints a path rather than changing directory, and that is not a
+limitation waiting to be fixed: **a child process cannot change the working
+directory of the shell that started it.** So it resolves, and a shell function
+enters — the same pair every directory jumper is built out of.
 
 Either install channel hands over the same prebuilt binary — no Node, no
 compiler, and **no `postinstall` that downloads anything**. The shell installer

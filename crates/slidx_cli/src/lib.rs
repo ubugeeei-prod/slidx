@@ -51,15 +51,19 @@
 #![warn(clippy::all)]
 
 pub mod args;
+pub mod cd;
 pub mod command;
 pub mod completions;
 pub mod doctor;
 pub mod find;
+pub mod grep;
 pub mod help;
 pub mod home;
 pub mod index;
 pub mod lint;
+pub mod list;
 pub mod preview;
+pub mod project;
 pub mod publish;
 pub mod report;
 pub mod sha256;
@@ -123,6 +127,9 @@ pub fn run(argv: &[String], style: &Style) -> Outcome {
             (None, "doctor") => doctor::run(&matches, style),
             (None, "lint") => lint::run(&matches, style),
             (None, "open") => find::run(&matches, style),
+            (None, "list") => list::run(&matches, style),
+            (None, "cd") => cd::run(&matches, style),
+            (None, "grep") => grep::run(&matches, style),
             (None, "preview") => preview::run(&matches, style),
             (None, "completions") => completions::run(&matches, style),
             (None, "publish") => publish::run(&matches, style),
