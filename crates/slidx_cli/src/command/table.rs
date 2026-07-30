@@ -518,7 +518,10 @@ the text, and `apply` pins any id the translation would have moved.
 slidx does not translate. Producing the translation is yours to do, with
 whichever tool or person you choose; the catalogue is an ordinary Gettext PO
 file, so every translation tool already opens it. Nothing here makes a network
-call, and no build ever runs any of this.",
+call, and no build ever runs any of this.
+
+    slidx i18n extract --lang ja        # the deck's prose, as a PO file
+    slidx i18n apply ja.po --lang ja    # a translation, spliced back",
         flags: &[],
         default_subcommand: None,
         takes_the_caller_with_it: false,
