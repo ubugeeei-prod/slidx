@@ -190,6 +190,11 @@ The chore that is currently done exhausted, and therefore often not done.
 - [x] Resources page built from every link in the deck — #19
 - [x] QR encoder, and QR codes rendered onto slides — #19
 - [x] Attach the recording after the fact; archive record and talk index — #20
+- [x] `slidx export`: the static site, the deck as one document, one PDF per
+      slide, one image per stop — reachable for all four from the command line
+- [ ] `slidx export --target pptx`, for a deck somebody opens in Google Slides —
+      a rendered image per stop plus the notes as real notes text, so what a
+      speaker has to keep editing survives the trip
 
 **Done when** publishing everywhere is one command driven by frontmatter the
 author already wrote at proposal time.
@@ -203,6 +208,19 @@ The archive record is the one target whose input is not finished when it first
 runs, so it separates **blocked** — a field the author can add now — from
 **pending**, a field the world has not produced yet. Nobody can make a
 conference publish a video.
+
+`slidx export` had to be reconciled with the promise that slidx has no `build`
+before a line of it was written, because an export that rendered a deck a second
+way would break exactly that. So it **runs the deck's own build and packages what
+that wrote** — the plugin, the print shell, one browser pass — and produces
+nothing at all without the plugin installed. The frames a build does not
+ordinarily write, a document per slide and an image per stop, are rendered by
+that same pass because it is the one place the answer can come from.
+
+It runs `node_modules/.bin/vite` rather than a package manager, and the reason is
+the offline guarantee: `npm exec` installs what it cannot find, so a command that
+went through one could reach a registry mid-export on the machine where that
+matters least — a laptop the night before, on conference wifi.
 
 ---
 

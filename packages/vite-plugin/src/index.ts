@@ -23,6 +23,7 @@ import type { Plugin, ViteDevServer } from "vite";
 import { readAssetSizes } from "./assets";
 import { readDeck } from "./deck";
 import { exportPdf, rasteriseCards, reportOverflow } from "./artifacts";
+import { frameRequested, renderSlideDocuments, renderStopImages } from "./frames";
 import {
   ogFileBase,
   presenterFileName,
@@ -31,6 +32,7 @@ import {
   runtimeFileName,
   slideFileName,
   snippetFileName,
+  withPdf,
   type SlidxOptions,
 } from "./options";
 import { build as buildDeck } from "./pipeline";
@@ -265,12 +267,21 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
      * emitted print shell over `file://`, so it has to be on disk. Printing
      * the artifact is also what guarantees the PDF matches what a person gets
      * by pressing Cmd-P on the same page.
+     *
+     * The frames are the same idea one step further out. `slidx export` starts
+     * this build and asks it for what that export needs — see `frames.ts` —
+     * because the browser is here and the print shell is here, and rendering
+     * them anywhere else would be a second answer to what a slide looks like.
      */
     async writeBundle(output) {
       const directory = output.dir ?? "dist";
+      const frame = frameRequested();
 
       if (options.og) await rasteriseCards(this, directory, options);
-      await exportPdf(this, directory, options);
+      await exportPdf(this, directory, frame === "pdf" ? withPdf(options) : options);
+
+      if (frame === "pdf-slides") await renderSlideDocuments(this, directory, options);
+      if (frame === "png") await renderStopImages(this, directory, options);
 
       // An empty deck emitted no pages, so there is nothing to open.
       if (lastBuild && lastBuild.fileCount > 0) {
