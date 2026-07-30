@@ -448,6 +448,7 @@ dependencies = [
  "serde_json",
  "slidx_core",
  "slidx_doctor",
+ "slidx_edit",
  "slidx_fmt",
  "slidx_highlight",
  "slidx_jsonrpc",
