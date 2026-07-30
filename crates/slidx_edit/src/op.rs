@@ -83,14 +83,53 @@ pub enum EditOp {
         slide: SlideRef,
         mark: MarkRef,
     },
-    /// Appends an action to the slide's `steps:` list, creating it if needed.
+    /// Adds an action to the slide's `steps:` list, creating it if needed.
+    ///
+    /// `at` is the position in the list, which is what a timeline's column
+    /// names. Absent, or past the end, appends — the last column of a timeline
+    /// is one past the last action, and reaching it must not depend on the
+    /// editor having counted the list the same way this crate does.
     AddStep {
         slide: SlideRef,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        at: Option<usize>,
         action: StepAction,
     },
     RemoveStep {
         slide: SlideRef,
         index: usize,
+    },
+    /// Moves one action of the `steps:` list to position `to`, counted after
+    /// the action is lifted out — the same rule as [`Self::MoveSlide`].
+    MoveStep {
+        slide: SlideRef,
+        from: usize,
+        to: usize,
+    },
+    /// Replaces one action of the `steps:` list, leaving the rest alone.
+    ///
+    /// This is how a timeline retimes a stop or changes what it does. An action
+    /// with options serialises as a flow mapping, so the replacement is one line
+    /// for one line however much of it changed.
+    SetStep {
+        slide: SlideRef,
+        index: usize,
+        action: StepAction,
+    },
+    /// Writes the stops a slide is already running into an explicit `steps:`
+    /// list.
+    ///
+    /// `autoSteps:` and `<!-- step -->` markers generate stops that have no line
+    /// in the file, so nothing can change one in place. This is the one
+    /// operation that gives them lines — and it is deliberately separate from
+    /// changing a step, because it rewrites a key rather than a stop and there
+    /// is no going back to the generated form.
+    ///
+    /// `autoSteps:` is left where it is. It is what puts the anchors the written
+    /// steps name into the markup, so removing it would leave a list targeting
+    /// nothing.
+    AdoptSteps {
+        slide: SlideRef,
     },
     /// Replaces everything the speaker says over this slide. An empty string
     /// removes the notes.
@@ -282,6 +321,44 @@ mod tests {
         assert_eq!(
             serde_json::from_value::<EditOp>(serde_json::to_value(&op).unwrap()).unwrap(),
             op
+        );
+    }
+
+    #[test]
+    fn a_step_added_without_a_position_carries_no_position_across_the_boundary() {
+        // Appending is the common case and `"at": null` would be a field every
+        // caller then has to decide how to spell.
+        let op = EditOp::AddStep {
+            slide: 0.into(),
+            at: None,
+            action: slidx_core::StepAction::reveal(".a"),
+        };
+
+        let json = serde_json::to_value(&op).unwrap();
+        assert_eq!(json.get("at"), None);
+        assert_eq!(serde_json::from_value::<EditOp>(json).unwrap(), op);
+    }
+
+    #[test]
+    fn the_timeline_operations_cross_the_boundary_as_plain_json() {
+        let ops = [
+            EditOp::MoveStep { slide: 0.into(), from: 2, to: 0 },
+            EditOp::SetStep {
+                slide: "intro".into(),
+                index: 1,
+                action: slidx_core::StepAction::hide(".a"),
+            },
+            EditOp::AdoptSteps { slide: 3.into() },
+        ];
+
+        for op in ops {
+            let json = serde_json::to_value(&op).unwrap();
+            assert_eq!(serde_json::from_value::<EditOp>(json).unwrap(), op);
+        }
+
+        assert_eq!(
+            serde_json::to_value(EditOp::AdoptSteps { slide: 3.into() }).unwrap(),
+            json!({ "op": "adoptSteps", "slide": 3 })
         );
     }
 

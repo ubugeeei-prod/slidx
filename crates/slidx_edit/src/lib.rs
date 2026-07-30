@@ -106,12 +106,19 @@ pub fn plan(source: &str, options: &DeckParseOptions, op: &EditOp) -> Result<Edi
             inline::set(&deck, slide, mark, attributes, &mut builder)?
         }
         EditOp::RemoveMark { slide, mark } => inline::remove(&deck, slide, mark, &mut builder)?,
-        EditOp::AddStep { slide, action } => {
-            step::add(&deck, options, slide, action, &mut builder)?
+        EditOp::AddStep { slide, at, action } => {
+            step::add(&deck, options, slide, *at, action, &mut builder)?
         }
         EditOp::RemoveStep { slide, index } => {
             step::remove(&deck, options, slide, *index, &mut builder)?
         }
+        EditOp::MoveStep { slide, from, to } => {
+            step::move_to(&deck, options, slide, *from, *to, &mut builder)?
+        }
+        EditOp::SetStep { slide, index, action } => {
+            step::set(&deck, options, slide, *index, action, &mut builder)?
+        }
+        EditOp::AdoptSteps { slide } => step::adopt(&deck, options, slide, &mut builder)?,
         EditOp::SetNotes { slide, notes } => notes::set(&deck, slide, notes, &mut builder)?,
     }
 
