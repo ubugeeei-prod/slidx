@@ -382,6 +382,11 @@ input, textarea {
 
 textarea { resize: vertical; font-size: 12px; }
 
+.slidx-remove-mark {
+  margin-top: var(--slidx-e-tight);
+  color: var(--slidx-e-muted);
+}
+
 .slidx-hint { margin: 0; color: var(--slidx-e-muted); }
 .slidx-selected {
   margin: 0 0 var(--slidx-e-snug);

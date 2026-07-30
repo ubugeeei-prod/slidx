@@ -98,6 +98,12 @@ export interface MarkSpans {
   span: { start: number; end: number };
   /** The words between the brackets, which is the only part text may replace. */
   words: { start: number; end: number };
+  /** The mark's stable name, when it has one. */
+  key?: string;
+  /** Theme classes, in source order. */
+  classes?: string[];
+  /** Typed style properties, already parsed by the pipeline. */
+  properties?: Record<string, string>;
 }
 
 /**
