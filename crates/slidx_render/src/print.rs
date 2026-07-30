@@ -248,6 +248,24 @@ mod tests {
     }
 
     #[test]
+    fn a_camera_is_a_thing_that_happens_live_and_never_reaches_the_page() {
+        // Neither the tile nor its space. A PDF has no camera, so a printed page
+        // with a hole in it is a page missing whatever the region held on the
+        // day — and this document is also what the PDF exporter renders, so a
+        // reserved rectangle would be in the handout the audience takes away.
+        //
+        // Asserted on the element, not the attribute: the inlined layout
+        // stylesheet names the attribute on every page whether or not a camera
+        // exists, exactly as it names every region.
+        let html = print("---\nlayout: aside\ncamera: side\n---\n\n# Remote\n");
+
+        assert!(
+            !html.contains("<figure class=\"slidx-camera\""),
+            "the camera reached the print shell:\n{html}"
+        );
+    }
+
+    #[test]
     fn the_page_size_follows_the_decks_aspect_ratio() {
         assert!(print("# One\n").contains("size: 10in 5.625in"));
 

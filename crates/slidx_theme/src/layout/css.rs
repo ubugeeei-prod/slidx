@@ -5,10 +5,17 @@
 //! against the slide — which is already a size container — and a region is a
 //! share of the slide at every projector size, with no transform and no script.
 //!
+//! A camera tile gets the same area as the region it names. It is a sibling of
+//! the regions rather than a child of one, so the speaker sits *over* whatever
+//! the author put there — which is the placement a talk actually wants when the
+//! region in question is a diagram.
+//!
 //! Generated rather than written by hand because it has to agree with
 //! [`super::all`] exactly: a region whose area is missing from the template gets
 //! placed in an implicit track, which looks like the layout works until a second
 //! block lands there.
+
+use slidx_core::CAMERA_ATTRIBUTE;
 
 use super::{Layout, Region};
 
@@ -54,7 +61,9 @@ fn one(layout: &Layout) -> String {
 fn area(layout: &Layout, region: &Region) -> String {
     format!(
         "[{LAYOUT_ATTRIBUTE}=\"{id}\"] > .slidx-slide-body > [{REGION_ATTRIBUTE}=\"{name}\"] \
-         {{ grid-area: {name}; justify-content: {align}; }}\n",
+         {{ grid-area: {name}; justify-content: {align}; }}\n\
+         [{LAYOUT_ATTRIBUTE}=\"{id}\"] > .slidx-slide-body > [{CAMERA_ATTRIBUTE}=\"{name}\"] \
+         {{ grid-area: {name}; }}\n",
         id = layout.id,
         name = region.name,
         align = match region.align {
@@ -116,6 +125,28 @@ mod tests {
             "[data-slidx-layout=\"stack\"] .slidx-slide-body {\n  grid-template-areas:\n    \"title\"\n    \"body\";"
         ));
         assert!(css[at..].contains("grid-template-rows: auto 1fr;"));
+    }
+
+    #[test]
+    fn a_camera_tile_takes_the_area_of_the_region_it_names() {
+        // Without an area the tile is a direct child of the grid with nowhere to
+        // be, so CSS puts it in an implicit track and every region moves down —
+        // the whole slide shifts because the speaker turned their camera on.
+        let css = css();
+
+        for layout in layout::all() {
+            for region in &layout.regions {
+                assert!(
+                    css.contains(&format!(
+                        "[data-slidx-layout=\"{}\"] > .slidx-slide-body > [data-slidx-camera=\"{}\"] {{ grid-area: {}; }}",
+                        layout.id, region.name, region.name
+                    )),
+                    "{}/{} has no camera area",
+                    layout.id,
+                    region.name
+                );
+            }
+        }
     }
 
     #[test]
