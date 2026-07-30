@@ -75,7 +75,19 @@ export interface CanvasOptions {
   fetch?: typeof globalThis.fetch;
 }
 
-export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): Surface {
+/** Commands a keyboard or another piece of chrome can send to the canvas. */
+export interface CanvasSurface extends Surface {
+  /** Opens the source view and puts the caret into it. */
+  showMarkdown(): void;
+  /** Returns to the rendered slide. */
+  showVisual(): void;
+  /** Returns to the rendered slide and focuses its first editable line. */
+  focusText(): void;
+  /** Receives commands even while focus is inside the preview document. */
+  listen(listener: (event: KeyboardEvent) => void): void;
+}
+
+export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): CanvasSurface {
   const frame = element("iframe", { class: "slidx-canvas-frame", title: "Slide preview" });
   const source = element("textarea", {
     class: "slidx-canvas-source",
@@ -93,14 +105,30 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
   let slide = 0;
   let editing = false;
   let shown = "";
+  let refresh = 0;
+  let keyListener: ((event: KeyboardEvent) => void) | undefined;
+  let listening: Document | undefined;
   /** Where the author was before the change that is about to land. */
   let held: Caret | undefined;
 
-  toggle.addEventListener("click", () => {
-    editing = !editing;
+  function fresh(route: string): string {
+    refresh += 1;
+    return `${route}?at=${Date.now()}-${refresh}`;
+  }
+
+  function showSource(next: boolean): void {
+    editing = next;
     stage.setAttribute("data-editing", String(editing));
-    if (editing) source.focus();
-  });
+    toggle.textContent = editing ? "Visual" : "Markdown";
+    if (editing) {
+      source.focus();
+      return;
+    }
+
+    frame.focus();
+  }
+
+  toggle.addEventListener("click", () => showSource(!editing));
 
   // On blur rather than on every keystroke: an operation per character would
   // write the file per character, and the undo stack is a list of operations.
@@ -113,6 +141,12 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
   function bind(): void {
     const page = frame.contentDocument;
     if (!page) return;
+
+    if (listening !== page && keyListener) {
+      listening?.removeEventListener("keydown", keyListener);
+      page.addEventListener("keydown", keyListener);
+      listening = page;
+    }
 
     const lines = attachEditing(page, slide, handlers, {
       body: () => options.bodyOf(slide),
@@ -135,6 +169,26 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
 
   return {
     root,
+    showMarkdown: () => showSource(true),
+    showVisual: () => showSource(false),
+    focusText() {
+      showSource(false);
+      const line = frame.contentDocument?.querySelector<HTMLElement>("[contenteditable]");
+      line?.focus();
+    },
+    listen(listener) {
+      if (listening && keyListener) listening.removeEventListener("keydown", keyListener);
+      keyListener = listener;
+      const page = frame.contentDocument;
+      if (!page) return;
+      page.addEventListener("keydown", listener);
+      listening = page;
+    },
+    destroy() {
+      if (listening && keyListener) listening.removeEventListener("keydown", keyListener);
+      listening = undefined;
+      keyListener = undefined;
+    },
     render(state) {
       const moved = state.selection.slide !== slide;
       slide = state.selection.slide;
@@ -160,7 +214,7 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
 
         void patch(frame, next, options.fetch).then((patched) => {
           if (!patched) {
-            frame.setAttribute("src", `${next}?at=${Date.now()}`);
+            frame.setAttribute("src", fresh(next));
             return;
           }
 
@@ -176,7 +230,7 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
         return;
       }
 
-      frame.setAttribute("src", `${next}?at=${Date.now()}`);
+      frame.setAttribute("src", fresh(next));
     },
   };
 }

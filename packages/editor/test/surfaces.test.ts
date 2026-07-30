@@ -176,6 +176,27 @@ describe("the canvas", () => {
     expect(source.value).toBe("## Two\n\n*  a point");
   });
 
+  it("forwards keys from the preview document and lets them go on teardown", () => {
+    const log = recorder();
+    const canvas = createCanvas(
+      { run: log.run, selected: () => {} },
+      { deckBase: "slides", bodyOf: () => "## Two" },
+    );
+    document.body.append(canvas.root);
+    const frame = canvas.root.querySelector<HTMLIFrameElement>(".slidx-canvas-frame")!;
+    let heard = 0;
+
+    canvas.listen(() => {
+      heard += 1;
+    });
+    frame.contentDocument!.dispatchEvent(new KeyboardEvent("keydown", { key: "PageDown" }));
+    canvas.destroy?.();
+    frame.contentDocument!.dispatchEvent(new KeyboardEvent("keydown", { key: "PageDown" }));
+    canvas.root.remove();
+
+    expect(heard).toBe(1);
+  });
+
   it("sends the body as an operation when the author leaves it", () => {
     const log = recorder();
     const canvas = createCanvas(
