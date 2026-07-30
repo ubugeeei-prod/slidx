@@ -18,6 +18,7 @@ slidx_core = { workspace = true }
 slidx_doctor = { workspace = true }
 slidx_fmt = { workspace = true }
 slidx_highlight = { workspace = true }
+slidx_jsonrpc = { workspace = true }
 slidx_lint = { workspace = true }
 slidx_publish = { workspace = true }
 slidx_theme = { workspace = true }

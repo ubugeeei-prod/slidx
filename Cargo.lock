@@ -450,6 +450,7 @@ dependencies = [
  "slidx_doctor",
  "slidx_fmt",
  "slidx_highlight",
+ "slidx_jsonrpc",
  "slidx_lint",
  "slidx_publish",
  "slidx_theme",

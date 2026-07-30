@@ -64,6 +64,7 @@ pub mod home;
 pub mod index;
 pub mod lint;
 pub mod list;
+pub mod mcp;
 pub mod preview;
 pub mod project;
 pub mod publish;
@@ -131,6 +132,7 @@ pub fn run(argv: &[String], style: &Style) -> Outcome {
             (None, "doctor") => doctor::run(&matches, style),
             (None, "fmt") => fmt::run(&matches, style),
             (None, "lint") => lint::run(&matches, style),
+            (None, "mcp") => mcp::run(&matches, style),
             (None, "open") => find::run(&matches, style),
             (None, "list") => list::run(&matches, style),
             (None, "cd") => cd::run(&matches, style),
