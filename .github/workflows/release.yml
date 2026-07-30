@@ -149,7 +149,10 @@ jobs:
       # the Node runtime is not guaranteed to be new enough.
       - run: npm install -g npm@latest
 
-      - run: pnpm -r --filter "./packages/**" run pack:lib
+      # Build from the repository root: the WASM packer resolves Cargo.toml,
+      # generated declarations, and its output paths from there. The same task
+      # graph is exercised by CI and also preserves package dependency order.
+      - run: pnpm exec vp run build:packages
 
       - uses: actions/download-artifact@v4
         with:
