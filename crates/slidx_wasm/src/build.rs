@@ -107,6 +107,9 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
             notes: slide.notes.clone(),
             stop_count: slide.timeline.len() as u32,
             steps: slidx_core::step_grid(slide),
+            budget_seconds: slide.budget_seconds,
+            estimated_seconds: slide.estimated_seconds(),
+            optional: slide.optional,
             frontmatter: slide.frontmatter.clone(),
             html: render.then(|| render_slide(&deck, slide, &shell)),
             og_svg: (render && options.og)
@@ -154,6 +157,7 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
         robots,
         title: deck.meta.title.clone(),
         description: deck.meta.description.clone(),
+        duration_seconds: deck.meta.duration_seconds,
         slides,
         diagnostics,
         has_blocking,
