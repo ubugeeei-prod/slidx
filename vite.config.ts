@@ -287,10 +287,10 @@ export default defineConfig({
         dependsOn: ["build:wasm"],
       }),
 
-      // The VS Code extension. Nothing in this repository imports it, so
-      // `check:packages-built` cannot see it — and an extension nobody builds
-      // is an extension nobody can install, which is the exact shape of the
-      // problem this whole editor item exists to end. So it is built here,
+      // The VS Code extension. It is `private`, so it is never published and
+      // `check:packages-built` does not cover it — and an extension nobody
+      // builds is an extension nobody can install, which is the exact shape of
+      // the problem this whole editor item exists to end. So it is built here,
       // where a failure to compile is a failure of the build rather than a
       // surprise at packaging time.
       //
@@ -298,12 +298,27 @@ export default defineConfig({
       // that is `"type": "module"` like every other one here.
       "build:vscode": uncached("vp run --filter slidx-vscode pack:lib"),
 
+      // The four nothing in this repository imports. They are published all the
+      // same, and each declares `files: ["dist"]`, so leaving them unbuilt does
+      // not fail anything here — it publishes a tarball holding one
+      // `package.json` and calls it a package.
+      "build:audience": uncached("vp run --filter @slidx/audience pack:lib"),
+      "build:islands": uncached("vp run --filter @slidx/islands pack:lib"),
+      "build:rehearsal": uncached("vp run --filter @slidx/rehearsal pack:lib"),
+      "build:publish": uncached("vp run --filter @slidx/publish pack:lib", {
+        dependsOn: ["build:wasm"],
+      }),
+
       "build:packages": group([
         "build:wasm",
         "build:runtime",
         "build:editor",
         "build:plugin",
         "build:vscode",
+        "build:audience",
+        "build:islands",
+        "build:rehearsal",
+        "build:publish",
       ]),
 
       // Asks the filesystem rather than reading the task graph, because the
