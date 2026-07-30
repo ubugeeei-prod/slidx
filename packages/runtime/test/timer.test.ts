@@ -79,6 +79,22 @@ describe("counting", () => {
 
     expect(timer.state().elapsedMs).toBe(45 * 60_000);
   });
+
+  it("continues from elapsed time restored by another presenter page", () => {
+    const time = clock();
+    const timer = createTimer({ now: time.now, initialElapsedMs: 45_000 });
+
+    expect(timer.state().elapsedMs).toBe(45_000);
+    expect(timer.state().running).toBe(false);
+
+    timer.start();
+    time.advance(5_000);
+    expect(timer.state().elapsedMs).toBe(50_000);
+  });
+
+  it("never restores a negative elapsed time", () => {
+    expect(createTimer({ initialElapsedMs: -1 }).state().elapsedMs).toBe(0);
+  });
 });
 
 describe("pausing", () => {

@@ -114,6 +114,23 @@ describe("crossing presenter pages", () => {
     expect(second.state()).toMatchObject({ status: "recording", slideId: "details" });
   });
 
+  it("resumes on the same slide without inventing a second visit", () => {
+    const time = clock();
+    const session = openRehearsalSession({
+      key: "deck",
+      slideId: "intro",
+      slides,
+      now: time.now,
+    });
+
+    session.start();
+    time.advance(5_000);
+    session.pause();
+    session.start();
+
+    expect(session.recording().slides[0]?.visits).toBe(1);
+  });
+
   it("does not reopen a finished rehearsal on reload", () => {
     const time = clock();
     const saved = storage();

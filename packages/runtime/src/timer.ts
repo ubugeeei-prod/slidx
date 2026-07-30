@@ -37,6 +37,8 @@ export interface TimerOptions {
   now?: () => number;
   /** The slot length. Without one, the timer counts but does not judge. */
   budgetMs?: number | undefined;
+  /** Elapsed time restored after moving to another presenter page. */
+  initialElapsedMs?: number | undefined;
 }
 
 /**
@@ -52,8 +54,8 @@ export function createTimer(options: TimerOptions = {}): Timer {
   const now = options.now ?? (() => Date.now());
   const budgetMs = options.budgetMs;
 
-  /** Time banked from previous runs. */
-  let banked = 0;
+  /** Time banked from previous runs or a previous presenter page. */
+  let banked = Math.max(0, options.initialElapsedMs ?? 0);
   /** When the current run started, or null while paused. */
   let resumedAt: number | null = null;
 

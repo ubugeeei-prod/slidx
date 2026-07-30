@@ -171,9 +171,10 @@ export function openRehearsalSession(options: RehearsalSessionOptions): Rehearsa
       if (state.status === "idle") {
         rehearsal.visit(options.slideId);
       } else if (state.status === "paused") {
-        // A paused recording may have navigated to a different presenter page.
-        // `visit` records that landing; `resume` would keep charging the old one.
-        rehearsal.visit(options.slideId);
+        // A pause and resume on one slide is still one visit. If navigation
+        // happened while paused, though, the new page is a genuine landing.
+        if (state.slideId === options.slideId) rehearsal.resume();
+        else rehearsal.visit(options.slideId);
       }
     },
 
