@@ -159,6 +159,7 @@ describe("building a deck with no configuration", () => {
       "utf8",
     );
     expect(presenter).toContain('from "/slides/runtime.js"');
+    expect(presenter).toContain('from "/slides/rehearsal.js"');
   });
 
   it("keeps rehearsal out of the shared runtime", async () => {

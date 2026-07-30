@@ -29,6 +29,8 @@ pub struct PresenterOptions {
     pub markdown: MarkdownOptions,
     /// Module URL of the runtime, imported for the clock and mirroring.
     pub runtime_src: String,
+    /// Module URL of the presenter-only rehearsal recorder.
+    pub rehearsal_src: String,
 }
 
 impl Default for PresenterOptions {
@@ -37,6 +39,7 @@ impl Default for PresenterOptions {
             theme: slidx_theme::default_theme(),
             markdown: MarkdownOptions::default(),
             runtime_src: "./runtime.js".to_string(),
+            rehearsal_src: "./rehearsal.js".to_string(),
         }
     }
 }
@@ -70,6 +73,21 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
         Start
       </button>
       <button type="button" data-slidx-action="reset" aria-label="Reset the timer">Reset</button>
+      <span class="slidx-presenter-divider" aria-hidden="true"></span>
+      <button
+        type="button"
+        data-slidx-action="rehearse"
+        aria-label="Start or pause rehearsal recording"
+      >
+        Rehearse
+      </button>
+      <button type="button" data-slidx-action="finish-rehearsal" hidden>
+        Finish rehearsal
+      </button>
+      <button type="button" data-slidx-action="abandon-rehearsal" hidden>
+        End early
+      </button>
+      <span class="slidx-rehearsal-status" data-slidx-rehearsal-status aria-live="polite"></span>
       <span class="slidx-presenter-position">{number} / {count}</span>
       <span class="slidx-presenter-stop" data-slidx-stop>{stops}</span>
     </div>
@@ -83,6 +101,21 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
     <h2 class="slidx-presenter-label">Next</h2>
 {next_preview}
   </aside>
+
+  <section
+    class="slidx-rehearsal-report"
+    data-slidx-rehearsal-report
+    aria-labelledby="slidx-rehearsal-title"
+    hidden
+  >
+    <header class="slidx-rehearsal-report-header">
+      <h2 id="slidx-rehearsal-title">Rehearsal report</h2>
+      <button type="button" data-slidx-action="new-rehearsal">New rehearsal</button>
+    </header>
+    <p class="slidx-rehearsal-advice" data-slidx-rehearsal-advice></p>
+    <p class="slidx-rehearsal-total" data-slidx-rehearsal-total></p>
+    <ol class="slidx-rehearsal-slides" data-slidx-rehearsal-slides></ol>
+  </section>
 </main>
 <script type="module">
 {script}
@@ -103,7 +136,8 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
         notes = notes_html(slide, options),
         next_preview = next_preview(next, options),
         stops = stop_label(1, slide.timeline.frames().len()),
-        script = presenter_script::render(deck, slide, &options.runtime_src),
+        script =
+            presenter_script::render(deck, slide, &options.runtime_src, &options.rehearsal_src),
     )
 }
 
@@ -241,10 +275,49 @@ mod tests {
     }
 
     #[test]
+    fn a_rehearsal_can_be_recorded_finished_and_started_again() {
+        let html = presenter("# One\n", 0);
+
+        for action in ["rehearse", "finish-rehearsal", "abandon-rehearsal", "new-rehearsal"] {
+            assert!(
+                html.contains(&format!(r#"data-slidx-action="{action}""#)),
+                "missing {action}:\n{html}"
+            );
+        }
+        assert!(html.contains("openRehearsalSession"));
+        assert!(html.contains("data-slidx-rehearsal-report"));
+    }
+
+    #[test]
+    fn rehearsal_receives_every_slide_and_its_declared_budget() {
+        let html = presenter("---\nbudget: 30s\n---\n\n# One\n\n---\n\n# Two\n", 0);
+
+        assert!(
+            html.contains(
+                r#"const rehearsalSlides = [{"id":"one","budgetMs":30000},{"id":"two"}]"#
+            ),
+            "deck plan is absent:\n{html}"
+        );
+    }
+
+    #[test]
+    fn rehearsal_import_uses_the_source_the_builder_supplies() {
+        let deck = parse_deck("# One\n", &DeckParseOptions::default());
+        let options = PresenterOptions {
+            rehearsal_src: "/assets/rehearse.js".to_string(),
+            ..PresenterOptions::default()
+        };
+        let html = render_presenter(&deck, &deck.slides[0], &options);
+
+        assert!(html.contains(r#"from "/assets/rehearse.js""#));
+    }
+
+    #[test]
     fn the_controls_are_reachable_without_a_mouse() {
         // A speaker driving from a clicker or a keyboard has no pointer.
         let html = presenter("# One\n", 0);
         assert!(html.contains("aria-label=\"Start or pause the timer\""));
+        assert!(html.contains("aria-label=\"Start or pause rehearsal recording\""));
     }
 
     #[test]
