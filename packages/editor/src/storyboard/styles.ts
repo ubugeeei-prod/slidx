@@ -34,10 +34,19 @@ export const STORYBOARD_STYLESHEET = `
  * Working out where a talk's time goes is a whole-deck job, and the panel that
  * would fit next to a canvas is not wide enough to draw twenty minutes in.
  */
+/*
+ * Above everything else drawn over the canvas.
+ *
+ * This is a mode rather than a panel: while it is open it *is* the editor. The
+ * arrange overlay and the resize handles are fixed to the same window, so the
+ * order between them is a number here rather than a place in the document — and
+ * below the overlay, a talk's running order has the grips of one slide's blocks
+ * floating on top of it.
+ */
 .slidx-storyboard {
   position: fixed;
   inset: 0;
-  z-index: 4;
+  z-index: 6;
   pointer-events: none;
 }
 
