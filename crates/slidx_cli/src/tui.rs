@@ -187,7 +187,10 @@ fn walk(deck: &Deck, start: Position, style: &Style) -> Option<()> {
             Act::FirstStop => at.stop = 0,
             Act::LastStop => at.stop = last_stop(deck, at.slide),
             Act::FirstSlide => at = Position { slide: 0, stop: 0 },
-            Act::LastSlide => at = Position { slide: deck.slides.len() - 1, stop: 0 },
+            // Saturating, though `run` has already refused an empty deck: a
+            // panic here happens inside raw mode, which is the worst place in
+            // the binary to have one.
+            Act::LastSlide => at = Position { slide: deck.slides.len().saturating_sub(1), stop: 0 },
             Act::Nothing => {}
         }
     }
