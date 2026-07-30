@@ -284,6 +284,7 @@ textarea:focus-visible,
  * switch uses display: none and this does not — here the row must not change
  * width when a pointer enters it.
  */
+.slidx-outline-duplicate,
 .slidx-outline-remove {
   border: 0;
   min-width: var(--slidx-e-hit);
@@ -293,7 +294,9 @@ textarea:focus-visible,
   opacity: 0;
 }
 
+.slidx-outline-row:hover .slidx-outline-duplicate,
 .slidx-outline-row:hover .slidx-outline-remove,
+.slidx-outline-duplicate:focus-visible,
 .slidx-outline-remove:focus-visible {
   opacity: 1;
 }

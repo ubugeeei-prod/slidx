@@ -122,16 +122,18 @@ describe("the outline", () => {
     expect(log.ops).toEqual([]);
   });
 
-  it("adds a slide at the end and removes the one that was asked for", () => {
+  it("adds, duplicates, and removes slides through whole-slide operations", () => {
     const log = recorder();
     const outline = createOutline(log);
     outline.render(stateOf());
 
     outline.root.querySelector<HTMLElement>(".slidx-add")!.click();
+    outline.root.querySelectorAll<HTMLElement>(".slidx-outline-duplicate")[1]!.click();
     outline.root.querySelectorAll<HTMLElement>(".slidx-outline-remove")[0]!.click();
 
     expect(log.ops).toEqual([
       { op: "insertSlide", at: 3, body: "## New slide" },
+      { op: "duplicateSlide", slide: 1 },
       { op: "removeSlide", slide: 0 },
     ]);
   });

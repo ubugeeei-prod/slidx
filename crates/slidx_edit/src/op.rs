@@ -70,6 +70,14 @@ pub enum EditOp {
         at: usize,
         body: String,
     },
+    /// Copies one slide immediately after itself.
+    ///
+    /// This is its own operation rather than an `InsertSlide` assembled by the
+    /// browser: the pipeline knows which frontmatter belongs to the deck, which
+    /// separator belongs to the slide, and which pinned id must not be copied.
+    DuplicateSlide {
+        slide: SlideRef,
+    },
     RemoveSlide {
         slide: SlideRef,
     },
@@ -522,6 +530,20 @@ mod tests {
             serde_json::from_value(json!({ "op": "removeSlide", "slide": "intro" })).unwrap();
 
         assert_eq!(by_id, EditOp::RemoveSlide { slide: SlideRef::Id("intro".into()) });
+    }
+
+    #[test]
+    fn duplicating_a_slide_crosses_as_one_reference() {
+        let op = EditOp::DuplicateSlide { slide: "intro".into() };
+
+        assert_eq!(
+            serde_json::to_value(&op).unwrap(),
+            json!({ "op": "duplicateSlide", "slide": "intro" })
+        );
+        assert_eq!(
+            serde_json::from_value::<EditOp>(serde_json::to_value(&op).unwrap()).unwrap(),
+            op
+        );
     }
 
     #[test]

@@ -18,6 +18,7 @@ use slidx_core::scanner::{heading_span, FenceTracker};
 use slidx_core::{find_notes, ByteSpan};
 
 use crate::edit::EditBuilder;
+use crate::frontmatter;
 use crate::op::{EditError, SlideRef};
 use crate::source::DeckSource;
 
@@ -87,6 +88,57 @@ pub(crate) fn insert(
 
     builder.insert(deck.at(at).content.start, text);
     Ok(())
+}
+
+/// Copies one slide immediately after itself, without copying a pinned address.
+///
+/// The slide source already excludes the deck's own frontmatter, even for the
+/// opening slide, so its title and publish settings cannot leak into the copy.
+/// A later slide's own frontmatter does travel — layout, timing, transitions,
+/// steps and every unknown key are part of the slide — except `id:`. A pinned
+/// id is a published address and two slides cannot own it; without a pin the
+/// parser allocates the duplicate its own collision-safe slug.
+pub(crate) fn duplicate(
+    deck: &DeckSource<'_>,
+    slide: &SlideRef,
+    builder: &mut EditBuilder<'_>,
+) -> Result<(), EditError> {
+    let index = deck.resolve(slide)?;
+    let located = deck.at(index);
+    let copied = without_pinned_id(deck, index);
+    let before = if located.owns_frontmatter() { deck.blank() } else { deck.separator_block() };
+
+    builder.insert(located.content.end, format!("{before}{copied}"));
+    Ok(())
+}
+
+fn without_pinned_id(deck: &DeckSource<'_>, index: usize) -> String {
+    let located = deck.at(index);
+    let content = located.content.slice(deck.source);
+    let Some(matter) = located.frontmatter.filter(|_| located.owns_frontmatter()) else {
+        return content.to_string();
+    };
+    let Some(id) = frontmatter::entry(matter.slice(deck.source), "id") else {
+        return content.to_string();
+    };
+
+    let mut start = matter.start - located.content.start + id.whole.start;
+    let mut end = matter.start - located.content.start + id.whole.end;
+
+    // Take one line ending with the key. If the entry ends the block, take the
+    // one before it instead. The rest of the author's frontmatter stays byte
+    // identical, including its comments and line-ending style.
+    if content[end..].starts_with("\r\n") {
+        end += 2;
+    } else if content[end..].starts_with('\n') {
+        end += 1;
+    } else if content[..start].ends_with("\r\n") {
+        start -= 2;
+    } else if content[..start].ends_with('\n') {
+        start -= 1;
+    }
+
+    format!("{}{}", &content[..start], &content[end..])
 }
 
 pub(crate) fn remove(

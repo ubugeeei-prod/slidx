@@ -98,6 +98,16 @@ function row(
     { type: "button", class: "slidx-outline-remove", "aria-label": `Remove slide ${index + 1}` },
     ["×"],
   );
+  const duplicate = element(
+    "button",
+    {
+      type: "button",
+      class: "slidx-outline-duplicate",
+      "aria-label": `Duplicate slide ${index + 1}`,
+      title: "Duplicate slide",
+    },
+    ["⧉"],
+  );
 
   const item = element(
     "li",
@@ -108,10 +118,11 @@ function row(
       "data-slide": index,
       "data-severity": worst,
     },
-    [open, remove],
+    [open, duplicate, remove],
   );
 
   open.addEventListener("click", () => handlers.select(index));
+  duplicate.addEventListener("click", () => handlers.run({ op: "duplicateSlide", slide: index }));
   remove.addEventListener("click", () => handlers.run({ op: "removeSlide", slide: index }));
 
   item.addEventListener("dragstart", () => drag.start(index));
