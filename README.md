@@ -185,6 +185,26 @@ There is **no HTTP client and no token store** anywhere under it, and that is a
 property rather than an omission: a tool that can post as you is a tool that has
 to be trusted with a credential.
 
+**The file somebody else asked for.** A conference wants a PDF, a review form
+wants one file per slide, a blog post wants images, a static host wants the
+site. `slidx export --target <name>` is one file each, and every one of them
+comes out of the build you already ran rather than a second rendering of your
+deck — so the thing you hand over is the thing you rehearsed. Each export says
+in one line what survives the trip, because an export that quietly lost the
+animation is worse than one that told you it would.
+
+```bash
+slidx export --target browser   # the static site, as a zip
+slidx export --target pdf       # the deck as one document
+slidx export --target pdf-zip   # one PDF per slide
+slidx export --target png       # one image per stop
+```
+
+Nothing is uploaded and no account is involved, the same boundary
+`slidx publish` holds. **The stop is the unit everywhere**: a slide that builds
+in four steps is four images, because a handout showing only the last one shows
+the punchline without the setup.
+
 **The decks you already have.** `~/.slidx` keeps an index that fills itself as
 you work, so a talk you gave eighteen months ago is findable without you
 remembering which repository it was in. `slidx list` puts them in a table with
@@ -200,26 +220,26 @@ one line months later and exactly one line of the record changes.
 
 ## Status
 
-|                                                           |                                                           |
-| --------------------------------------------------------- | --------------------------------------------------------- |
-| Framework-independent output                              | **shipped**                                               |
-| Native build, Markdown engine included                    | **shipped**                                               |
-| Visual editor — outline, canvas, inspector                | **shipped**; animation timeline to do                     |
-| Language server — diagnostics, completion, symbols, hover | **shipped**                                               |
-| Linter for legibility, overflow, timing                   | **shipped**                                               |
-| Built-in themes                                           | **shipped**                                               |
-| Code sharing with QR                                      | **shipped**                                               |
-| Real-time audience channel                                | **shipped**                                               |
-| Timing and rehearsal                                      | **shipped**                                               |
-| CLI — doctor, lint, fmt, dev, publish, preview, version   | **shipped**                                               |
-| Managed multi-deck index — list, grep, cd, open           | **shipped**                                               |
-| Deploy assistance for slide platforms                     | **shipped** (payloads; uploads stay yours)                |
-| Formatter for the parts slidx owns                        | **shipped**; dialect type check to do — #82               |
-| Custom themes distributable on npm                        | not started — #3                                          |
-| SEO artefacts beyond OG and one URL per slide             | not started — #83                                         |
-| Automatic translation                                     | not started — #84                                         |
-| Speaker camera embed                                      | not started — #85                                         |
-| System-level control of notifications and volume          | **will not ship** — no browser API, and none should exist |
+|                                                                 |                                                           |
+| --------------------------------------------------------------- | --------------------------------------------------------- |
+| Framework-independent output                                    | **shipped**                                               |
+| Native build, Markdown engine included                          | **shipped**                                               |
+| Visual editor — outline, canvas, inspector                      | **shipped**; animation timeline to do                     |
+| Language server — diagnostics, completion, symbols, hover       | **shipped**                                               |
+| Linter for legibility, overflow, timing                         | **shipped**                                               |
+| Built-in themes                                                 | **shipped**                                               |
+| Code sharing with QR                                            | **shipped**                                               |
+| Real-time audience channel                                      | **shipped**                                               |
+| Timing and rehearsal                                            | **shipped**                                               |
+| CLI — doctor, lint, fmt, dev, export, publish, preview, version | **shipped**                                               |
+| Managed multi-deck index — list, grep, cd, open                 | **shipped**                                               |
+| Deploy assistance for slide platforms                           | **shipped** (payloads; uploads stay yours)                |
+| Formatter for the parts slidx owns                              | **shipped**; dialect type check to do — #82               |
+| Custom themes distributable on npm                              | not started — #3                                          |
+| SEO artefacts beyond OG and one URL per slide                   | not started — #83                                         |
+| Automatic translation                                           | not started — #84                                         |
+| Speaker camera embed                                            | not started — #85                                         |
+| System-level control of notifications and volume                | **will not ship** — no browser API, and none should exist |
 
 Nothing above is released yet. [ROADMAP.md](./ROADMAP.md) is the honest version:
 every unchecked line there says _why_ it is not done, and it opens with what a
@@ -375,6 +395,7 @@ slidx tui         # step through a deck's structure in the terminal
 slidx doctor      # check the machine you are about to speak from
 slidx lint        # every rule the build runs, exiting non-zero on anything blocking
 slidx preview     # open the built PDF, or --web to serve the deck on loopback
+slidx export      # package what the build produced, for somewhere else
 slidx publish     # plan, and perform the half that needs no account
 ```
 
@@ -447,6 +468,12 @@ like: it implements no server. It finds your Vite config by walking up from the
 deck, works out which package manager filled `node_modules` by reading the
 lockfile, hands the terminal to `vite dev` with the plugin, and gets out of the
 way. Every byte of HTML still comes from one place.
+
+`slidx export` is not a second pipeline wearing another name either: it _runs_
+that build and packages what it wrote, so without the plugin installed it
+produces nothing and says so. Every page, every PDF and every image in an export
+came out of the same browser pass over the same print shell as the deck you
+rehearsed.
 
 ## Development
 

@@ -149,6 +149,9 @@ export function presenterFileName(options: ResolvedOptions, index: number): stri
   return options.base ? `${options.base}/${path}` : path;
 }
 
+/** What the exported document is called when nobody chooses. */
+export const DEFAULT_PDF_FILE_NAME = "deck.pdf";
+
 /**
  * PDF export, normalised.
  *
@@ -157,9 +160,21 @@ export function presenterFileName(options: ResolvedOptions, index: number): stri
  */
 function resolvePdf(pdf: SlidxOptions["pdf"]): false | { fileName: string } {
   if (!pdf) return false;
-  if (pdf === true) return { fileName: "deck.pdf" };
+  if (pdf === true) return { fileName: DEFAULT_PDF_FILE_NAME };
 
-  return { fileName: pdf.fileName?.trim() || "deck.pdf" };
+  return { fileName: pdf.fileName?.trim() || DEFAULT_PDF_FILE_NAME };
+}
+
+/**
+ * The same options with the PDF on, whatever the project chose.
+ *
+ * `slidx export --target pdf` is a person asking for the document on a command
+ * line. Refusing because the config leaves `pdf` off would be answering a
+ * direct question with a setting, and the setting exists to keep a browser
+ * download out of every ordinary build rather than to forbid the export.
+ */
+export function withPdf(options: ResolvedOptions): ResolvedOptions {
+  return options.pdf ? options : { ...options, pdf: { fileName: DEFAULT_PDF_FILE_NAME } };
 }
 
 /** Where a slide's social card is written, without an extension. */

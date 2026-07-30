@@ -1,0 +1,13 @@
+[package]
+name = "slidx_export"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Packaging what a slidx build produced into one file somebody can hand over"
+
+# No dependencies, and that is the point: a zip container and a few XML parts
+# are a bounded amount of code, and a crate here would be a crate in the supply
+# chain of a binary people are asked to pipe into a shell.
+[dependencies]

@@ -15,8 +15,15 @@
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
-/** Set by the print shell once every stop has been expanded into a page. */
-const READY_ATTRIBUTE = "data-slidx-print-ready";
+/**
+ * Set by the print shell once every stop has been expanded into a page.
+ *
+ * Exported because everything that drives a browser over the shell has to wait
+ * for it, and a second spelling of the attribute would be a module that prints
+ * before the pages exist — one page per slide instead of one per stop, with no
+ * error anywhere.
+ */
+export const READY_ATTRIBUTE = "data-slidx-print-ready";
 
 export interface PdfOptions {
   /** Page width, as CSS. Defaults to what the shell's `@page` declares. */

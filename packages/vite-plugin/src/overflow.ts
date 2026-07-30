@@ -24,8 +24,7 @@
 
 import { pathToFileURL } from "node:url";
 
-/** Set by the print shell once every stop has been expanded into a page. */
-const READY_ATTRIBUTE = "data-slidx-print-ready";
+import { READY_ATTRIBUTE } from "./pdf";
 
 /** One rendered stop, as the Rust linter's `Measurement` expects it. */
 export interface Measurement {

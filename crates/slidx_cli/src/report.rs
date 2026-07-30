@@ -35,6 +35,13 @@ pub const STATUS_WIDTH: usize = 7;
 /// Where the text of a report starts: two spaces, the status column, two more.
 pub const INDENT: usize = 2 + STATUS_WIDTH + 2;
 
+/// Indent for a command that reports one value rather than a column of findings.
+///
+/// `preview` and `export` say where a file is; they do not wear the status
+/// column, because that space is reserved for a word and leaving it empty reads
+/// as something missing.
+pub const VALUE_INDENT: usize = 2;
+
 /// One finding that needs doing something about.
 ///
 /// `detail` and `remedy` are wrapped; `subject` is not, because it is a short
