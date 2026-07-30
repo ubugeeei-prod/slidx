@@ -287,14 +287,21 @@ measure of that:
 
 |                                     |                           |
 | ----------------------------------- | ------------------------- |
-| Rust tests                          | 1642                      |
-| TypeScript tests                    | 1080                      |
-| Crates                              | 10                        |
-| Published packages                  | 8                         |
+| Rust tests                          | 2316                      |
+| TypeScript tests                    | 1157                      |
+| Crates                              | 13                        |
+| Published packages                  | 9                         |
 | Platforms in CI                     | Linux, macOS, Windows     |
 | Browsers exercised                  | Chromium, Firefox, WebKit |
 | Runtimes exercised                  | Node, Bun, Deno           |
 | JavaScript on a slide with no steps | none                      |
+
+`node scripts/count-coverage.mjs` reproduces the first four rows, so they are
+measured rather than remembered. They had said 1642, 1080 and 10 against a tree
+holding 2316, 1157 and 13 — written by hand, true on the afternoon they were
+typed, and drifted far enough that two readers noticed independently before
+anyone corrected them. A table that calls itself the honest measure has to be
+able to prove it.
 
 That last row used to read "on an audience slide", and the correction is the
 point of this document. A slide with steps loads one shared module and its own
