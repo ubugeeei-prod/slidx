@@ -2,7 +2,7 @@
 title: Your editor
 summary: Diagnostics, completion, the deck outline, hover and formatting, in VS Code, Zed and Neovim.
 section: reference
-order: 6
+order: 7
 ---
 
 # Your editor

@@ -26,6 +26,14 @@ import { exportPdf, rasteriseCards, reportOverflow } from "./artifacts";
 import { emitCrawlerFiles } from "./crawler";
 import { frameRequested, renderSlideDocuments, renderStopImages } from "./frames";
 import {
+  islandClientModule,
+  islandClientSource,
+  ISLAND_CLIENT_ID,
+  ISLAND_CLIENT_PATH,
+  RESOLVED_ISLAND_CLIENT_ID,
+  withIslandClient,
+} from "./islands";
+import {
   ogFileBase,
   effectsFileName,
   presenterFileName,
@@ -91,7 +99,9 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
      */
     config(_config, env) {
       if (env.command !== "build") return undefined;
-      return { build: { rollupOptions: { input: ENTRY_ID } } };
+      return {
+        build: { rollupOptions: { input: options.islands ? ISLAND_CLIENT_ID : ENTRY_ID } },
+      };
     },
 
     /**
@@ -104,6 +114,9 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
      */
     resolveId(id) {
       if (id === ENTRY_ID) return RESOLVED_ENTRY_ID;
+      if (id === ISLAND_CLIENT_ID || id === ISLAND_CLIENT_PATH || id.endsWith(ISLAND_CLIENT_PATH)) {
+        return RESOLVED_ISLAND_CLIENT_ID;
+      }
       if (id === `/${runtimeFileName(options)}`) return RESOLVED_RUNTIME_ID;
       if (id === `/${rehearsalFileName(options)}`) return RESOLVED_REHEARSAL_ID;
       return undefined;
@@ -111,6 +124,9 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
 
     async load(id) {
       if (id === RESOLVED_ENTRY_ID) return "export default null;";
+      if (id === RESOLVED_ISLAND_CLIENT_ID && options.islands) {
+        return islandClientModule(root, options.islands);
+      }
       if (id === RESOLVED_RUNTIME_ID) return readRuntime();
       if (id === RESOLVED_REHEARSAL_ID) return readRehearsal();
       return undefined;
@@ -136,6 +152,14 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
 
       server.middlewares.use(async (request, response, next) => {
         const url = request.url ?? "/";
+
+        if (url.split("?")[0] === ISLAND_CLIENT_PATH && options.islands) {
+          response.statusCode = 200;
+          response.setHeader("content-type", "text/javascript; charset=utf-8");
+          response.setHeader("cache-control", "no-store");
+          response.end(islandClientModule(root, options.islands, true));
+          return;
+        }
 
         try {
           if (await session.handle(request, response)) return;
@@ -207,7 +231,8 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
           // A deck is edited constantly; a cached slide is a slide that does
           // not change when its file does.
           response.setHeader("cache-control", "no-store");
-          response.end(await server.transformIndexHtml(url, html));
+          const page = options.islands ? withIslandClient(html, ISLAND_CLIENT_PATH) : html;
+          response.end(await server.transformIndexHtml(url, page));
         } catch (error) {
           next(error);
         }
@@ -215,12 +240,17 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
     },
 
     async generateBundle(_output, bundle) {
+      let islandClientFile: string | undefined;
+
       // The virtual entry existed only to give rollup something to start
       // from. Leaving it emits an empty chunk into a deck that otherwise
       // ships no JavaScript at all, which is the property worth protecting.
       for (const [fileName, chunk] of Object.entries(bundle)) {
         if (chunk.type === "chunk" && chunk.facadeModuleId === RESOLVED_ENTRY_ID) {
           delete bundle[fileName];
+        }
+        if (chunk.type === "chunk" && chunk.facadeModuleId === RESOLVED_ISLAND_CLIENT_ID) {
+          islandClientFile = fileName;
         }
       }
 
@@ -252,10 +282,13 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
 
       for (const [index, slide] of built.slides.entries()) {
         if (slide.html) {
+          const fileName = slideFileName(options, index);
           this.emitFile({
             type: "asset",
-            fileName: slideFileName(options, index),
-            source: slide.html,
+            fileName,
+            source: islandClientFile
+              ? withIslandClient(slide.html, islandClientSource(fileName, islandClientFile))
+              : slide.html,
           });
         }
 
@@ -263,6 +296,10 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
           this.emitFile({
             type: "asset",
             fileName: presenterFileName(options, index),
+            // The presenter holds a static preview of the next slide, not the
+            // live current slide. Hydrating that preview would start a hidden
+            // component one slide early and make it consume resources for
+            // something the audience cannot see.
             source: slide.presenterHtml,
           });
         }

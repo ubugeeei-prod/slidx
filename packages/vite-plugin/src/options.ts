@@ -38,6 +38,16 @@ export interface SlidxOptions {
   /** File extensions treated as slides. Default `[".md"]`. */
   extensions?: string[];
   /**
+   * Client setup module for opt-in framework islands.
+   *
+   * Relative to the Vite root and absent by default. The module default-exports
+   * an `IslandRegistry`, usually built with `createRegistry` and exactly the
+   * framework adapters this deck uses. The entry is bundled only when this is
+   * set and injected only into rendered pages that contain
+   * `data-slidx-island`.
+   */
+  islands?: string;
+  /**
    * Build the speaker's view alongside each slide.
    *
    * On by default: the presenter view is the reason to use a deck tool rather
@@ -102,6 +112,7 @@ export interface ResolvedOptions {
   deckUrl: string | undefined;
   separator: string;
   extensions: string[];
+  islands: string | undefined;
   presenter: boolean;
   print: boolean;
   og: boolean;
@@ -118,6 +129,7 @@ export function resolveOptions(options: SlidxOptions = {}): ResolvedOptions {
     deckUrl: options.deckUrl?.trim() || undefined,
     separator: options.separator ?? "---",
     extensions: normaliseExtensions(options.extensions ?? [".md"]),
+    islands: options.islands?.trim() || undefined,
     presenter: options.presenter ?? true,
     print: options.print ?? true,
     og: options.og ?? true,
