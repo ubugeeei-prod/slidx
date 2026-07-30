@@ -45,6 +45,7 @@
 pub mod audit;
 pub mod builtin;
 pub mod css;
+pub mod mix;
 pub mod palette;
 pub mod scale;
 pub mod theme;

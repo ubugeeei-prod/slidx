@@ -77,6 +77,7 @@ fn empty_deck() -> Deck {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::palette::Palette;
     use slidx_lint::{Surface, ViewingProfile};
 
     /// Named so a failure says which pair broke rather than only that one did.
@@ -167,17 +168,21 @@ mod tests {
 
     #[test]
     fn the_audit_is_not_vacuous() {
-        // The loop could close because nothing is being checked. This is the
-        // guard: the obvious blue for this palette measures 4.46:1 on brand
-        // paper in a bright room, and the audit has to say so.
+        // The loop could close because nothing is being checked. The guard is a
+        // colour that passes on a monitor and fails in a room: `#1d4ed8` is a
+        // framework's default blue, it measures 6.5:1 direct on brand paper, and
+        // 4.46:1 once the projector model is applied. The audit has to say so.
         let deck = empty_deck();
-        let mut palette = palette::light();
-        palette.signal = palette::hex("#1d4ed8");
+        let near_miss = slidx_lint::color::parse("#1d4ed8").expect("a valid hex");
+        let palette = Palette { signal: near_miss, ..palette::light() };
 
         let surfaces = palette.surfaces(Scheme::Light, tokens::TYPE_SCALE.base_px);
-        let options =
-            LintOptions { projector: ProjectorProfile::BrightRoom, ..LintOptions::default() };
-        let diagnostics = lint(&LintInput::new(&deck, &surfaces), &options);
+        let options = LintOptions {
+            projector: ProjectorProfile::BrightRoom,
+            viewing: READING_ROOM,
+            ..LintOptions::default()
+        };
+        let diagnostics = lint(&LintInput::new(&deck, &surfaces).with_target(PAGE), &options);
 
         assert!(
             diagnostics.iter().any(|d| d.code.starts_with("contrast/")),

@@ -120,6 +120,7 @@ export default defineConfig({
       "ci:conventions": group([
         "check:conventions",
         "check:version",
+        "check:borrowed",
         "check:dead-config",
         "check:flat",
       ]),
@@ -129,6 +130,7 @@ export default defineConfig({
 
       "workspace:check": group([
         "check:conventions",
+        "check:borrowed",
         "check:dead-config",
         "check:flat",
         "check:version",
@@ -294,6 +296,12 @@ export default defineConfig({
       // warning: the size guideline is a judgement call about how much a file is
       // holding, and this one is not.
       "check:flat": task("node scripts/check-flat.mjs"),
+
+      // No palette pasted from a framework, and no palette written as hex
+      // literals at all. slidx shipped one popular framework's `zinc` ramp for
+      // months without anyone noticing, because a pasted palette looks exactly
+      // like a chosen one once it is in a file.
+      "check:borrowed": task("node scripts/check-borrowed.mjs"),
       "check:version": task("node scripts/check-version.mjs"),
 
       // The README images are output of the pipeline, not artwork. Kept as a

@@ -15,29 +15,29 @@
   --slidx-brand-radius: 0px;
   --slidx-brand-hairline: 1px;
   --slidx-brand-lockup-gap: 0.25em;
-  --slidx-brand-paper: #fbfbfc;
-  --slidx-brand-ink: #101014;
-  --slidx-brand-muted: #4b4b55;
-  --slidx-brand-signal: #1b3bc9;
-  --slidx-brand-line: #d8d8de;
+  --slidx-brand-paper: #f7faff;
+  --slidx-brand-ink: #161b22;
+  --slidx-brand-muted: #5f656e;
+  --slidx-brand-signal: #01489f;
+  --slidx-brand-line: #d3dae4;
 
   color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-slidx-brand-scheme="light"]) {
-    --slidx-brand-paper: #0b0b0d;
-    --slidx-brand-ink: #f2f2f5;
-    --slidx-brand-muted: #a6a6b2;
-    --slidx-brand-signal: #b8ccff;
-    --slidx-brand-line: #2b2b33;
+    --slidx-brand-paper: #13171e;
+    --slidx-brand-ink: #eff6ff;
+    --slidx-brand-muted: #979da7;
+    --slidx-brand-signal: #a5c9ff;
+    --slidx-brand-line: #2a2f37;
   }
 }
 
 :root[data-slidx-brand-scheme="dark"] {
-  --slidx-brand-paper: #0b0b0d;
-  --slidx-brand-ink: #f2f2f5;
-  --slidx-brand-muted: #a6a6b2;
-  --slidx-brand-signal: #b8ccff;
-  --slidx-brand-line: #2b2b33;
+  --slidx-brand-paper: #13171e;
+  --slidx-brand-ink: #eff6ff;
+  --slidx-brand-muted: #979da7;
+  --slidx-brand-signal: #a5c9ff;
+  --slidx-brand-line: #2a2f37;
 }

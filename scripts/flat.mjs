@@ -33,31 +33,8 @@
  */
 
 import { readFileSync } from "node:fs";
-import { execFileSync } from "node:child_process";
 
-/**
- * The two files allowed to contain what the rule rejects.
- *
- * A checker and its test cannot be held to it. Naming them rather than
- * loosening a pattern is the same trade `og.rs` makes when it exempts `xmlns`
- * by name: the next real shadow is still caught.
- */
-export const EXEMPT = ["scripts/flat.mjs", "scripts/test/flat.test.mjs"];
-
-/** Where slidx's own output and assets come from. */
-const SOURCE_ROOTS = ["crates", "packages", "scripts", "assets", "docs"];
-
-/**
- * Text that can carry a declaration.
- *
- * Markdown is deliberately absent. Prose describing the rule is not a violation
- * of it, and a document is neither a stylesheet nor an image.
- *
- * `examples/` is absent for a different reason: slidx does not forbid a shadow
- * in somebody else's slide. This rule is about what the framework ships, and
- * confusing the two would make it opinionated about content.
- */
-const SCANNABLE = /\.(rs|ts|tsx|mjs|js|css|svg|html|json)$/;
+import { shippedFiles } from "./shipped.mjs";
 
 /**
  * Every construct the rule rejects, with the punctuation that makes it a
@@ -108,19 +85,11 @@ function lineAt(text, index) {
   return text.slice(start, end === -1 ? undefined : end).trim();
 }
 
-/** Files git knows about, so build output and dependencies are excluded for free. */
-export function shippedFiles() {
-  const output = execFileSync("git", ["ls-files", "-z", ...SOURCE_ROOTS], { encoding: "utf8" });
-
-  return output
-    .split("\0")
-    .filter((file) => SCANNABLE.test(file))
-    .filter((file) => !EXEMPT.includes(file));
-}
-
 /** Every finding across every shipped file, each tagged with where it came from. */
 export function scanRepository() {
   return shippedFiles().flatMap((file) =>
     findFlatness(readFileSync(file, "utf8")).map((finding) => ({ file, ...finding })),
   );
 }
+
+export { shippedFiles };

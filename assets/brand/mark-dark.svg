@@ -19,8 +19,8 @@
     built-in themes are flat because a projector turns those to mud first,
     and the mark is held to the same rule.
   -->
-  <rect x="0" y="0" width="9" height="24" fill="#f2f2f5"/>
-  <rect x="12" y="0" width="12" height="6" fill="#b8ccff"/>
-  <rect x="12" y="9" width="12" height="6" fill="#b8ccff"/>
-  <rect x="12" y="18" width="12" height="6" fill="#b8ccff"/>
+  <rect x="0" y="0" width="9" height="24" fill="#eff6ff"/>
+  <rect x="12" y="0" width="12" height="6" fill="#a5c9ff"/>
+  <rect x="12" y="9" width="12" height="6" fill="#a5c9ff"/>
+  <rect x="12" y="18" width="12" height="6" fill="#a5c9ff"/>
 </svg>

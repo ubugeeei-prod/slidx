@@ -300,8 +300,15 @@ mod tests {
     fn colours_are_emitted_as_something_a_stylesheet_can_paste() {
         let light = tokens().color.light;
 
-        assert_eq!(light.signal, "#1b3bc9");
-        assert!(light.paper.starts_with('#') && light.paper.len() == 7);
+        // The hex is an output rather than an input, so this asserts the shape a
+        // stylesheet needs and the fact that the signal survived the trip — not a
+        // literal somebody chose. `crate::palette` is where the value is argued.
+        for value in [&light.paper, &light.ink, &light.muted, &light.signal, &light.line] {
+            assert!(value.starts_with('#'), "{value} is not a hex a stylesheet can paste");
+            assert_eq!(value.len(), 7, "{value} is not six digits");
+        }
+
+        assert_eq!(light.signal, palette::light().signal.to_hex());
     }
 
     #[test]

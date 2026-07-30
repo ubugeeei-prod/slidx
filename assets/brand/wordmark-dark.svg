@@ -5,5 +5,5 @@
     exists to prevent. The stack is the default theme's, so the wordmark and a
     heading on a slide resolve to the same face.
   -->
-  <text x="0" y="12" fill="#f2f2f5" font-family="system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif" font-size="24" font-weight="650" letter-spacing="-0.02em" dominant-baseline="central">slidx</text>
+  <text x="0" y="12" fill="#eff6ff" font-family="system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif" font-size="24" font-weight="650" letter-spacing="-0.02em" dominant-baseline="central">slidx</text>
 </svg>

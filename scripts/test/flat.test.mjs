@@ -12,7 +12,8 @@
 
 import { describe, expect, it } from "vite-plus/test";
 
-import { EXEMPT, findFlatness, shippedFiles } from "../flat.mjs";
+import { findFlatness } from "../flat.mjs";
+import { EXEMPT, shippedFiles } from "../shipped.mjs";
 
 describe("what counts as a shadow", () => {
   it("reports a box-shadow declaration", () => {
@@ -135,10 +136,15 @@ describe("where the rule applies", () => {
     expect(files).toContain("assets/brand/mark-light.svg");
   });
 
-  it("exempts only the checker and its own test", () => {
-    // These two files have to contain what they reject. Naming them rather than
-    // loosening the patterns keeps the next real shadow caught.
-    expect(EXEMPT).toEqual(["scripts/flat.mjs", "scripts/test/flat.test.mjs"]);
+  it("exempts only the checkers and their own tests", () => {
+    // A checker and its test have to contain what they reject. Naming them
+    // rather than loosening the patterns keeps the next real shadow caught.
+    expect(EXEMPT).toEqual([
+      "scripts/flat.mjs",
+      "scripts/test/flat.test.mjs",
+      "scripts/borrowed.mjs",
+      "scripts/test/borrowed.test.mjs",
+    ]);
 
     for (const exempt of EXEMPT) {
       expect(shippedFiles()).not.toContain(exempt);
