@@ -29,7 +29,7 @@
 
 use slidx_core::{Block, Deck, Slide};
 use slidx_theme::layout::{
-    css::REGION_ATTRIBUTE, place, width, BlockWidth, Layout, WIDTH_ATTRIBUTE,
+    css::REGION_ATTRIBUTE, place, width, BlockWidth, Layout, REGION_NAMES, WIDTH_ATTRIBUTE,
 };
 use slidx_theme::Theme;
 
@@ -73,9 +73,10 @@ pub fn body(
                 .iter()
                 .filter_map(|at| sources.get(*at).map(|markdown| (*at, markdown)))
                 .map(|(at, markdown)| {
-                    let share = slide.blocks.get(at).map(width::of).and_then(Result::ok);
+                    let block = &slide.blocks[at];
+                    let share = width::of(block).ok();
 
-                    wrap(at, share, &render(markdown, options))
+                    wrap(at, block, share, &render(markdown, options))
                 })
                 .collect();
 
@@ -94,7 +95,18 @@ pub fn body(
 /// A share that is the whole region writes no attribute, the same way a block in
 /// the default region writes no class: the theme's rule for it would be a rule
 /// that changes nothing, and the editor reads an absent attribute as `full`.
-fn wrap(index: usize, share: Option<BlockWidth>, html: &str) -> String {
+fn wrap(index: usize, block: &Block, share: Option<BlockWidth>, html: &str) -> String {
+    let classes = block
+        .attributes
+        .classes
+        .iter()
+        // A region is placement, not presentation. Filtering the vocabulary
+        // across every layout also keeps a stale region name from becoming a
+        // style merely because the current layout does not offer it.
+        .filter(|class| !REGION_NAMES.contains(&class.as_str()))
+        .map(|class| format!(" slidx-{class}"))
+        .collect::<String>();
+
     let width = match share.filter(|share| *share != BlockWidth::Full) {
         Some(share) => format!(" {WIDTH_ATTRIBUTE}=\"{}\"", share.as_token()),
         None => String::new(),
@@ -103,7 +115,7 @@ fn wrap(index: usize, share: Option<BlockWidth>, html: &str) -> String {
     // The rendered Markdown is emitted verbatim. Indenting it would indent the
     // inside of every `<pre>`, where whitespace is content.
     format!(
-        "        <div class=\"slidx-block\" {BLOCK_ATTRIBUTE}=\"{index}\"{width}>\n{html}\n        </div>\n"
+        "        <div class=\"slidx-block{classes}\" {BLOCK_ATTRIBUTE}=\"{index}\"{width}>\n{html}\n        </div>\n"
     )
 }
 
@@ -182,6 +194,17 @@ mod tests {
         assert!(region(&html, "left").contains("<h1"));
         assert!(region(&html, "right").contains("Beside it."));
         assert!(!region(&html, "left").contains("Beside it."));
+        assert!(!html.contains("slidx-right"), "placement leaked into styling: {html}");
+    }
+
+    #[test]
+    fn a_block_style_reaches_the_same_theme_class_as_an_inline_mark() {
+        let html = rendered("{.accent .muted}\n# Styled\n");
+
+        assert!(
+            html.contains("class=\"slidx-block slidx-accent slidx-muted\""),
+            "classes were dropped: {html}"
+        );
     }
 
     #[test]
@@ -238,6 +261,7 @@ mod tests {
         let html = rendered("---\nlayout: split\n---\n\n{.side}\n# Stranded\n");
 
         assert!(region(&html, "left").contains("Stranded"));
+        assert!(!html.contains("slidx-side"), "a stale placement became styling: {html}");
     }
 
     #[test]
