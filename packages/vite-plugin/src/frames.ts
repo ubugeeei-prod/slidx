@@ -45,6 +45,7 @@ import type { ResolvedOptions } from "./options";
 import { printFileName } from "./options";
 import { READY_ATTRIBUTE } from "./pdf";
 import type { Reporter } from "./artifacts";
+import { capture } from "./capture";
 
 /** What `slidx export` sets to say which frames the build has to render. */
 export const FRAME_VARIABLE = "SLIDX_EXPORT";
@@ -139,7 +140,7 @@ export async function renderStopImages(
         name: `slide-${padded(slide + 1, total.size)}-stop-${padded(stop, widest)}.png`,
         // The element rather than the viewport: the page box *is* the slide, so
         // there is nothing to crop and no margin to guess at.
-        bytes: await element.screenshot({ type: "png" }),
+        bytes: await capture(() => element.screenshot({ type: "png" })),
       });
     }
 
