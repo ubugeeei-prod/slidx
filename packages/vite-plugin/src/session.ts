@@ -41,6 +41,7 @@ import {
 } from "./edit";
 import type { ResolvedOptions } from "./options";
 import { build as buildDeck } from "./pipeline";
+import { readThemePackages } from "./themes";
 
 /** Everything the editor posts to, under one prefix nothing else claims. */
 export const EDITOR_ROUTE_PREFIX = "/__slidx/";
@@ -85,9 +86,16 @@ export function createEditSession(root: string, options: ResolvedOptions): EditS
    * the byte range an operation names.
    */
   async function state(source: string) {
+    // Read each time rather than once at startup, because `vp add` during a dev
+    // session is exactly when an author installs a theme — and an editor that
+    // kept reporting `dialect/unknown-theme` until the server restarted would
+    // be reporting on a project that no longer exists.
+    const themePackages = await readThemePackages(root);
+
     const [deck, located] = await Promise.all([
       buildDeck(source, {
         theme: options.theme,
+        themePackages,
         separator: options.separator,
         parseOnly: true,
       }),

@@ -1,0 +1,210 @@
+{
+  "id": "workshop",
+  "name": "Workshop",
+  "description": "Light, code at body size, for a session the audience is typing along with.",
+  "light": {
+    "canvas": {
+      "r": 215,
+      "g": 226,
+      "b": 226,
+      "a": 1.0
+    },
+    "surface": {
+      "r": 240,
+      "g": 251,
+      "b": 251,
+      "a": 1.0
+    },
+    "text": {
+      "r": 27,
+      "g": 35,
+      "b": 35,
+      "a": 1.0
+    },
+    "muted": {
+      "r": 117,
+      "g": 127,
+      "b": 127,
+      "a": 1.0
+    },
+    "heading": {
+      "r": 14,
+      "g": 21,
+      "b": 22,
+      "a": 1.0
+    },
+    "accent": {
+      "r": 0,
+      "g": 95,
+      "b": 97,
+      "a": 1.0
+    },
+    "border": {
+      "r": 188,
+      "g": 199,
+      "b": 199,
+      "a": 1.0
+    },
+    "codeSurface": {
+      "r": 223,
+      "g": 234,
+      "b": 234,
+      "a": 1.0
+    },
+    "codeText": {
+      "r": 27,
+      "g": 35,
+      "b": 35,
+      "a": 1.0
+    },
+    "syntax": {
+      "comment": {
+        "r": 36,
+        "g": 76,
+        "b": 77,
+        "a": 1.0
+      },
+      "string": {
+        "r": 0,
+        "g": 81,
+        "b": 34,
+        "a": 1.0
+      },
+      "number": {
+        "r": 103,
+        "g": 59,
+        "b": 0,
+        "a": 1.0
+      },
+      "keyword": {
+        "r": 28,
+        "g": 69,
+        "b": 128,
+        "a": 1.0
+      },
+      "type": {
+        "r": 105,
+        "g": 47,
+        "b": 101,
+        "a": 1.0
+      },
+      "punctuation": {
+        "r": 62,
+        "g": 71,
+        "b": 71,
+        "a": 1.0
+      }
+    }
+  },
+  "dark": {
+    "canvas": {
+      "r": 3,
+      "g": 8,
+      "b": 8,
+      "a": 1.0
+    },
+    "surface": {
+      "r": 16,
+      "g": 24,
+      "b": 24,
+      "a": 1.0
+    },
+    "text": {
+      "r": 227,
+      "g": 238,
+      "b": 238,
+      "a": 1.0
+    },
+    "muted": {
+      "r": 147,
+      "g": 157,
+      "b": 157,
+      "a": 1.0
+    },
+    "heading": {
+      "r": 254,
+      "g": 255,
+      "b": 255,
+      "a": 1.0
+    },
+    "accent": {
+      "r": 72,
+      "g": 217,
+      "b": 220,
+      "a": 1.0
+    },
+    "border": {
+      "r": 55,
+      "g": 63,
+      "b": 63,
+      "a": 1.0
+    },
+    "codeSurface": {
+      "r": 28,
+      "g": 35,
+      "b": 35,
+      "a": 1.0
+    },
+    "codeText": {
+      "r": 227,
+      "g": 238,
+      "b": 238,
+      "a": 1.0
+    },
+    "syntax": {
+      "comment": {
+        "r": 168,
+        "g": 211,
+        "b": 211,
+        "a": 1.0
+      },
+      "string": {
+        "r": 146,
+        "g": 220,
+        "b": 162,
+        "a": 1.0
+      },
+      "number": {
+        "r": 255,
+        "g": 190,
+        "b": 126,
+        "a": 1.0
+      },
+      "keyword": {
+        "r": 170,
+        "g": 205,
+        "b": 255,
+        "a": 1.0
+      },
+      "type": {
+        "r": 249,
+        "g": 181,
+        "b": 242,
+        "a": 1.0
+      },
+      "punctuation": {
+        "r": 195,
+        "g": 205,
+        "b": 205,
+        "a": 1.0
+      }
+    }
+  },
+  "scale": {
+    "basePx": 33.0,
+    "ratio": 1.18,
+    "codeFactor": 1.0
+  },
+  "spacing": {
+    "paddingPx": 72.0,
+    "blockPx": 26.0,
+    "radiusPx": 0.0,
+    "hairlinePx": 1.0
+  },
+  "motion": {
+    "transitionMs": 120,
+    "transitionEasing": "ease-out"
+  },
+  "fontSans": "system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif",
+  "fontMono": "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Roboto Mono', 'Noto Sans Mono CJK JP', monospace"
+}

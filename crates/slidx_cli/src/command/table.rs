@@ -212,6 +212,27 @@ and it is the one step that needs the network.
         ],
     ),
     leaf(
+        "theme",
+        "list the built-in themes, or check a theme document",
+        "theme [path]",
+        "\
+With no argument, every theme slidx ships and what each one is for. A theme
+package adds a name to that list for the project that installed it, and this
+command cannot see those: resolving a package name means resolving
+node_modules, which is @slidx/vite-plugin's job and is done in one place.
+
+With a path to a theme document — the JSON file a package names under
+`slidx.theme` in its own package.json — it reads that file exactly as a build
+would, and reports what slidx would do with it: anything the guard would not
+pass through, and everything the linter says about its colours and its type.
+
+That last part is what a theme's author wants and a build cannot give them. A
+build judges a theme in the room the deck is being built for; a published theme
+is shown in all of them, so this runs every room slidx models. It exits
+non-zero when it found something, which is the form for CI.",
+        &[],
+    ),
+    leaf(
         "add",
         "add a slide to a deck",
         "add [path] [options]",

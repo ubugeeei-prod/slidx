@@ -12,7 +12,9 @@
 //! not a report.
 //!
 //! The same audit runs over third-party theme packages, which is the reason a
-//! theme is described as resolved surfaces rather than as CSS.
+//! theme is described as resolved surfaces rather than as CSS. See [`package`]
+//! for what one is, how a name resolves to it, and what a document arriving
+//! from a registry is not allowed to do.
 //!
 //! ## Sizes are relative, deliberately
 //!
@@ -55,23 +57,29 @@ pub mod builtin;
 pub mod css;
 pub mod layout;
 pub mod mix;
+pub mod package;
 pub mod palette;
+pub mod published;
 pub mod scale;
 pub mod theme;
 pub mod transition;
 
 pub use layout::{Layout, Region, RegionAlign};
+pub use package::{Catalogue, Published, Resolved};
 pub use palette::{Palette, Scheme};
 pub use scale::{TypeScale, REFERENCE_HEIGHT_PX};
 pub use theme::{Motion, Spacing, Theme, REDUCED_MOTION_CEILING_MS};
 pub use transition::Transition;
 
-/// Resolves a theme by name.
+/// Resolves a theme by name, against the built-ins alone.
 ///
-/// Only built-in ids resolve here; package themes are loaded by the plugin,
-/// which owns module resolution. Returning `None` rather than falling back
-/// silently means a typo in `theme:` is reported instead of producing a deck
-/// that looks subtly wrong.
+/// This is the answer for a caller that has no project to read — the language
+/// server on a lone file, a rule checking a name. A caller holding the
+/// documents a project installed wants [`Catalogue::resolve`], which tries the
+/// built-ins first and these same ids win there too.
+///
+/// Returning `None` rather than falling back silently means a typo in `theme:`
+/// is reported instead of producing a deck that looks subtly wrong.
 pub fn resolve(id: &str) -> Option<Theme> {
     builtin::find(id)
 }

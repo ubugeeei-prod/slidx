@@ -142,8 +142,13 @@ pub fn analyze(source: &str) -> Analysis {
     // Parse, then dialect, then room. The dialect findings come second because
     // they explain the ones under them: a `theme:` nobody can resolve is why the
     // contrast findings below it are the default theme's.
+    // With no installed vocabulary: a language server is handed a document, not
+    // a project, and reading a `node_modules` off the side of an open buffer is
+    // work it has no answer for on an unsaved file. A deck naming a theme
+    // package therefore gets the same warning it gets anywhere the packages
+    // have not been read — non-blocking, and the help names the way out.
     let mut findings = deck.diagnostics.clone();
-    findings.extend(slidx_dialect::check(&deck, &[]));
+    findings.extend(slidx_dialect::check(&deck, &[], &slidx_dialect::Installed::default()));
     findings.extend(lint_deck(&deck));
 
     Analysis {
