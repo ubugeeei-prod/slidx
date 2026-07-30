@@ -79,6 +79,15 @@ impl Default for Lockup {
 }
 
 impl Lockup {
+    /// Wordmark font size, in mark units.
+    ///
+    /// The relationship the `size_ratio` field states, resolved. Every caller
+    /// wants this rather than the ratio, so a lockup drawn anywhere gets the
+    /// same size without repeating the multiplication.
+    pub fn wordmark_size_units(self, geometry: Geometry) -> f64 {
+        f64::from(geometry.grid) * self.size_ratio
+    }
+
     /// The gap, in mark units.
     pub fn gap_units(self, geometry: Geometry) -> u32 {
         self.gap_modules * geometry.module
@@ -110,10 +119,11 @@ pub fn render_wordmark(scheme: Scheme) -> String {
     exists to prevent. The stack is the default theme's, so the wordmark and a
     heading on a slide resolve to the same face.
   -->
-  <text x="0" y="{baseline}" fill="{ink}" font-family="{font}" font-size="{height}" font-weight="{weight}" letter-spacing="{tracking}em" dominant-baseline="central">{WORDMARK}</text>
+  <text x="0" y="{baseline}" fill="{ink}" font-family="{font}" font-size="{size}" font-weight="{weight}" letter-spacing="{tracking}em" dominant-baseline="central">{WORDMARK}</text>
 </svg>
 "#,
         baseline = height / 2,
+        size = lockup.wordmark_size_units(geometry),
         ink = palette.ink.to_hex(),
         font = escape(&tokens::font_sans()),
         weight = lockup.weight,
@@ -167,7 +177,7 @@ pub fn render_lockup(scheme: Scheme) -> String {
         middle = height / 2,
         ink = palette.ink.to_hex(),
         font = escape(&tokens::font_sans()),
-        size = geometry.grid,
+        size = lockup.wordmark_size_units(geometry),
         weight = lockup.weight,
         tracking = lockup.tracking_em,
     )
@@ -197,6 +207,27 @@ mod tests {
         for units in [lockup.gap_units(geometry), lockup.clear_space_units(geometry)] {
             assert_eq!(units % geometry.module, 0);
         }
+    }
+
+    #[test]
+    fn the_wordmark_is_set_at_the_marks_height() {
+        // The size relationship, resolved rather than left as a ratio nothing
+        // reads. A lockup whose wordmark ignored it would be two sets of rules.
+        let geometry = Geometry::default();
+
+        assert_eq!(Lockup::default().wordmark_size_units(geometry), f64::from(geometry.grid));
+        assert!(render_lockup(Scheme::Light).contains("font-size=\"24\""));
+        assert!(render_wordmark(Scheme::Light).contains("font-size=\"24\""));
+    }
+
+    #[test]
+    fn a_different_size_ratio_reaches_the_drawn_wordmark() {
+        // Guards the field being decorative: it is read, so changing it changes
+        // the picture.
+        let geometry = Geometry::default();
+        let larger = Lockup { size_ratio: 1.5, ..Lockup::default() };
+
+        assert_eq!(larger.wordmark_size_units(geometry), 36.0);
     }
 
     #[test]

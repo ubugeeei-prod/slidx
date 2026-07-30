@@ -1,10 +1,6 @@
 :root {
-  --slidx-brand-font-sans:
-    system-ui, -apple-system, "Segoe UI", "Helvetica Neue", "Hiragino Sans", "Noto Sans JP",
-    "Yu Gothic UI", sans-serif;
-  --slidx-brand-font-mono:
-    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Roboto Mono",
-    "Noto Sans Mono CJK JP", monospace;
+  --slidx-brand-font-sans: system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif;
+  --slidx-brand-font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Roboto Mono', 'Noto Sans Mono CJK JP', monospace;
   --slidx-brand-size-heading-1: 33.2px;
   --slidx-brand-size-heading-2: 26.56px;
   --slidx-brand-size-heading-3: 21.25px;
