@@ -125,6 +125,19 @@ describe("reading a deck's history", () => {
     expect(await repo!.filesAt(newest!.rev, "slides", [".md"])).toHaveLength(3);
   });
 
+  it("tells a revision it does not have apart from a commit with no deck in it", async () => {
+    // Every other read here answers nothing for a failure, so without this the
+    // two look identical — and a panel would report a deck arriving with no
+    // slides rather than saying it has never heard of that commit.
+    const root = await repository();
+    const repo = await openRepository(root);
+    const [newest] = await repo!.log("slides", 20);
+
+    expect(await repo!.resolve("0123456789abcdef0123456789abcdef01234567")).toBeNull();
+    expect(await repo!.resolve("--upload-pack=echo")).toBeNull();
+    expect(await repo!.resolve(newest!.rev)).toBe(newest!.rev);
+  });
+
   it("has no earlier version to compare the deck's first commit against", async () => {
     // `git show <root-commit>^` has no answer, and neither does this.
     const root = await repository();

@@ -61,6 +61,15 @@ export interface TreeFile {
 export interface Repository {
   /** Commits that touched `directory`, newest first. */
   log(directory: string, limit: number): Promise<Commit[]>;
+  /**
+   * The commit a revision names, or `null` when this repository has no such
+   * commit.
+   *
+   * Worth asking before reading anything, because every other read here
+   * answers nothing for a failure: a revision that does not exist would
+   * otherwise be indistinguishable from a commit whose deck was empty.
+   */
+  resolve(rev: string): Promise<string | null>;
   /** The deck's files as a commit had them, in the order a deck is read. */
   filesAt(rev: string, directory: string, extensions: string[]): Promise<TreeFile[]>;
   /** The commit before this one, or `null` for the first commit of all. */
@@ -92,6 +101,20 @@ export async function openRepository(root: string): Promise<Repository | null> {
   return repository(root);
 }
 
+/**
+ * Whether there is a git to run at all.
+ *
+ * Only worth asking once [`openRepository`] has already said no, which is why
+ * it is a second call rather than a check before the first: a deck that is in a
+ * repository has answered the question, and a machine with no git should not
+ * pay for a process on every load. What it buys is a panel that can tell an
+ * author which of the two situations they are in, because the two have
+ * different things to do about them.
+ */
+export async function hasGit(root: string): Promise<boolean> {
+  return (await git(root, ["--version"])) !== null;
+}
+
 function repository(root: string): Repository {
   return {
     async log(directory, limit) {
@@ -117,6 +140,14 @@ function repository(root: string): Repository {
         .filter((record) => record.length > 0)
         .map(commitFrom)
         .filter((commit): commit is Commit => commit !== null);
+    },
+
+    async resolve(rev) {
+      if (!isRevision(rev)) return null;
+
+      const found = await git(root, ["rev-parse", "--verify", "--quiet", `${rev}^{commit}`]);
+
+      return found === null ? null : found.trim() || null;
     },
 
     async filesAt(rev, directory, extensions) {

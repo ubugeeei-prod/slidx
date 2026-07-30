@@ -11,11 +11,13 @@ import { createRequire } from "node:module";
 
 import init, {
   buildDeck,
+  deckSummary,
   probeImage as probeImageBytes,
   lintMeasured as lintMeasuredDeck,
   type AssetSize,
   type BuildDeckOptions,
   type BuildResult,
+  type DeckSummary,
   type Finding,
 } from "@slidx/wasm";
 
@@ -76,6 +78,29 @@ export async function lintMeasured(
     separator: options.separator,
   });
 }
+
+/**
+ * What changed between two versions of a deck, said in slides.
+ *
+ * The comparison stays in Rust beside the deck model, with the rest of the
+ * judgement: `slidx save` writes this same sentence into a commit message, and
+ * a second wording on this side would let a talk's history and its own record
+ * of itself disagree about what an author did.
+ *
+ * `before` absent is the deck's first commit — there is nothing to compare
+ * against, which is a different answer from an empty deck.
+ */
+export async function summarise(
+  before: string | undefined,
+  after: string,
+  options: Pick<BuildDeckOptions, "separator">,
+): Promise<DeckSummary> {
+  await ensureReady();
+
+  return deckSummary(before, after, { separator: options.separator });
+}
+
+export type { DeckSummary };
 
 /**
  * The intrinsic size in an image's header, or `null`.

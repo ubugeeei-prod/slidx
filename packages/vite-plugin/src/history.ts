@@ -1,0 +1,120 @@
+/**
+ * The deck's past, as the editor asks for it.
+ *
+ * A deck is plain Markdown in a git repository and the renderer is a pure
+ * function of that Markdown, so a commit is enough to say exactly what the deck
+ * was. This module turns a commit into the two things a speaker wants from one:
+ * who changed the deck and when, and *what changed* — not `+34 −6`, but the
+ * slides that moved and the budget that grew.
+ *
+ * # It never stops the editor loading
+ *
+ * A deck in a directory nobody ran `git init` in is an ordinary situation, and
+ * so is a machine with no git on it. Both come back as an answer saying which
+ * one it is, so the panel can say so plainly and stay out of the way. Nothing
+ * here throws for the absence of a repository.
+ *
+ * # The source it compares is the source a build reads
+ *
+ * A commit's slide files are joined by [`joinDeck`](./files) — the same
+ * function, with the same separator, that the dev server uses on the working
+ * copy. A second way of assembling a deck from its files would be a second
+ * answer about where one slide ends, which is exactly what the editor's byte
+ * spans depend on not existing.
+ */
+
+import { hasGit, isRevision, openRepository, type Commit } from "./git";
+import { joinDeck } from "./files";
+import type { ResolvedOptions } from "./options";
+import { summarise, type DeckSummary } from "./pipeline";
+
+/**
+ * How far back the panel looks.
+ *
+ * A deck has tens of commits, not thousands, and a list nobody scrolls to the
+ * end of is a list that could have been shorter. Reading more would cost a
+ * process per extra commit for rows an author never sees.
+ */
+const DEPTH = 60;
+
+/** What there is to show, or why there is nothing. */
+export interface HistoryAnswer {
+  /** True when this deck is in a repository that can be read. */
+  available: boolean;
+  /**
+   * What to say instead. Present only when `available` is false, and written
+   * for an author rather than for a log.
+   */
+  reason?: string;
+  /** Commits that touched the deck, newest first. */
+  commits: Commit[];
+}
+
+/** Reads one project's deck history for as long as the dev server runs. */
+export interface DeckHistory {
+  commits(): Promise<HistoryAnswer>;
+  /**
+   * What one commit did to the deck, against the commit before it.
+   *
+   * `null` when the revision is not one this repository has — which includes
+   * every revision that is not an object name at all.
+   */
+  changeAt(rev: string): Promise<DeckSummary | null>;
+}
+
+export function createDeckHistory(root: string, options: ResolvedOptions): DeckHistory {
+  /** The deck as one commit had it, joined the way the parser reads it. */
+  async function sourceAt(
+    repository: NonNullable<Awaited<ReturnType<typeof openRepository>>>,
+    rev: string,
+  ): Promise<string> {
+    const files = await repository.filesAt(rev, options.srcDir, options.extensions);
+
+    return joinDeck(
+      files.map((file) => ({ path: file.name, label: file.name, source: file.source })),
+      options.separator,
+    ).source;
+  }
+
+  return {
+    async commits() {
+      const repository = await openRepository(root);
+
+      if (repository === null) {
+        return {
+          available: false,
+          reason: (await hasGit(root))
+            ? "This deck is not in a git repository, so there is no history to read."
+            : "git is not installed, so there is no history to read.",
+          commits: [],
+        };
+      }
+
+      return { available: true, commits: await repository.log(options.srcDir, DEPTH) };
+    },
+
+    async changeAt(rev) {
+      if (!isRevision(rev)) return null;
+
+      const repository = await openRepository(root);
+      if (repository === null) return null;
+
+      // Asked before anything is read, because every read below answers
+      // nothing for a failure. Without this, a revision the repository does
+      // not have would look exactly like a commit whose deck was empty — and
+      // the panel would report a deck arriving with no slides in it.
+      if ((await repository.resolve(rev)) === null) return null;
+
+      const after = await sourceAt(repository, rev);
+      const parent = await repository.parentOf(rev);
+
+      // No parent is the deck's first commit. Absence rather than an empty
+      // string: comparing against nothing says the deck arrived, comparing
+      // against an empty deck says every slide was added, and only one of
+      // those is what happened.
+      const before = parent === null ? undefined : await sourceAt(repository, parent);
+
+      return summarise(before, after, { separator: options.separator });
+    },
+  };
+}
