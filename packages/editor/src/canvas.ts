@@ -131,7 +131,7 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
     if (line && lines.includes(line)) restore(page, line, wanted.at);
   }
 
-  frame.addEventListener("load", bind);
+  frame.addEventListener("load", () => bind());
 
   return {
     root,
@@ -159,8 +159,18 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
         held = caretIn(frame.contentDocument!);
 
         void patch(frame, next, options.fetch).then((patched) => {
-          if (patched) bind();
-          else frame.setAttribute("src", `${next}?at=${Date.now()}`);
+          if (!patched) {
+            frame.setAttribute("src", `${next}?at=${Date.now()}`);
+            return;
+          }
+
+          // Everything that measures inside this frame waits for a load — the
+          // lines that become editable, the grips the arrange overlay draws,
+          // the handles the resize overlay draws — and a slide replaced in
+          // place never loads. Saying so once, through the frame, is what keeps
+          // the overlays off the boxes the slide had before the change; an
+          // overlay added later needs nothing here.
+          frame.dispatchEvent(new Event("load"));
         });
 
         return;
