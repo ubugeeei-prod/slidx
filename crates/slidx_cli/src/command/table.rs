@@ -44,12 +44,21 @@ pub const ALL: &[Command] = &[
         "check this machine before you speak",
         "doctor [options]",
         "\
-Reads power, disk, clock, fonts, running applications and the network, and
-says what to do about each one. Everything it looks at is something that goes
-wrong on stage and never at a desk, so it is worth the ten seconds in the room
-even when it was clean this morning.
+Reads power, the display arrangement, notifications, the audio output, disk,
+clock, fonts, running applications and the network, and says what to do about
+each one. Everything it looks at is something that goes wrong on stage and
+never at a desk, so it is worth the ten seconds in the room even when it was
+clean this morning.
 
-A reading that could not be taken is reported as unknown, never as a pass.",
+A reading that could not be taken is reported as unknown, never as a pass.
+Platforms differ most on the three that are settings rather than measurements:
+macOS names display mirroring outright, Windows will not say whether its
+screens are duplicated, and Windows has no output level a command line can
+read. Each of those is reported as unknown with the reason, and never guessed.
+
+It changes nothing. Mirroring, Do Not Disturb and the volume are all things a
+speaker may want set, and none of them are set by a command run to find out
+what they are — the remedy names the switch instead.",
         &[
             Flag::taking("dir", "<path>", "Directory whose volume the disk check measures"),
             Flag::switch("offline", "Take no network readings, and say so in the report"),

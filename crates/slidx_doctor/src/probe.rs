@@ -24,14 +24,26 @@
 //! Readings are taken concurrently. Run one after another they would sum to
 //! something like ten seconds of subprocess startup, and a pre-flight nobody
 //! has time to wait for is a pre-flight nobody runs.
+//!
+//! Three of the readings — the displays, the notification state, the output
+//! level — dispatch on a [`Platform`] value and reach their platform's tool
+//! through [`tools::Tools`], rather than on `#[cfg]`. The reason is in
+//! [`tools`]: a branch only one runner can reach is a branch that breaks
+//! without anybody finding out. The four older readings still branch on
+//! `#[cfg]` and test their parsers directly, which is weaker and is the shape
+//! this module is moving away from.
 
+pub mod audio;
 pub mod clock;
 pub mod command;
 pub mod disk;
+pub mod displays;
 pub mod fonts;
 pub mod network;
+pub mod notifications;
 pub mod power;
 pub mod processes;
+pub mod tools;
 
 use std::env;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
@@ -39,7 +51,8 @@ use std::path::PathBuf;
 use std::thread::{self, ScopedJoinHandle};
 use std::time::Duration;
 
-use crate::environment::{Environment, Expectation, Reading};
+use crate::environment::{Environment, Expectation, Platform, Reading};
+use crate::probe::tools::Tools;
 
 /// Where to look, what to compare against, and how long to wait.
 #[derive(Debug, Clone)]
@@ -132,6 +145,9 @@ impl Request {
 /// Never fails, never blocks past the request's timeout, and never panics: a
 /// reading that cannot be taken comes back as unavailable with the reason.
 pub fn read(request: &Request) -> Environment {
+    let platform = Platform::host();
+    let home = home();
+
     thread::scope(|scope| {
         let power = scope.spawn(|| power::read(request.timeout));
         let disk = scope.spawn(|| disk::read(&request.workspace, request.timeout));
@@ -143,6 +159,17 @@ pub fn read(request: &Request) -> Environment {
         let network =
             scope.spawn(|| network::read(request.network_target.as_ref(), request.timeout));
 
+        // A `Tools` per thread rather than one shared: it holds a closure, and
+        // making it shareable across threads would put a bound on every
+        // stubbed runner a test writes for no gain — building one costs an
+        // allocation.
+        let displays =
+            scope.spawn(|| displays::read(platform, &Tools::on_this_machine(request.timeout)));
+        let notifications = scope.spawn(|| {
+            notifications::read(platform, home.as_deref(), &Tools::on_this_machine(request.timeout))
+        });
+        let audio = scope.spawn(|| audio::read(platform, &Tools::on_this_machine(request.timeout)));
+
         Environment {
             power: joined(power),
             disk: joined(disk),
@@ -151,9 +178,23 @@ pub fn read(request: &Request) -> Environment {
             fonts: joined(fonts),
             processes: joined(processes),
             network: joined(network),
+            displays: joined(displays),
+            notifications: joined(notifications),
+            audio: joined(audio),
             expected: request.expected.clone(),
+            platform,
         }
     })
+}
+
+/// The user's own directory, for the one reading that comes from a file.
+///
+/// Read from the environment rather than from a platform call, because the
+/// only thing under it slidx looks at is a file macOS writes there — and a
+/// machine with no home directory set is a machine where that file cannot be
+/// found either, which the reading says rather than guesses around.
+fn home() -> Option<PathBuf> {
+    env::var_os("HOME").or_else(|| env::var_os("USERPROFILE")).map(PathBuf::from)
 }
 
 /// Collects one reading, treating a panicking probe as an unavailable reading.
@@ -207,6 +248,13 @@ mod tests {
 
         // Nothing to assert about the values; that they exist is the contract.
         let _ = format!("{environment:?}");
+    }
+
+    #[test]
+    fn a_real_read_records_which_platform_the_readings_came_from() {
+        // Three checks build their remedy out of it. An environment that
+        // forgot to say would name no menu on a machine that has one.
+        assert_eq!(read(&Request::offline()).platform, Platform::host());
     }
 
     #[test]

@@ -25,10 +25,11 @@
 //! line, marked. The remedy is the only part anybody can act on, and it is what
 //! the [`Finding`](slidx_doctor::Finding) constructors make mandatory.
 //!
-//! **Every check appears, always.** Seven checks, seven entries, in the same
+//! **Every check appears, always.** One entry per registered check, in the same
 //! order — so the report can be scanned rather than read. One that got shorter
 //! on a healthy machine would make "fonts are fine" and "fonts were never
-//! looked at" look identical.
+//! looked at" look identical, and the checks a platform will not answer are
+//! precisely the ones that would go missing.
 //!
 //! **Wrapped at a fixed width**, never at the window's edge. See
 //! [`style::WIDTH`](crate::style::WIDTH).
@@ -40,6 +41,14 @@
 //! laptop would not enumerate its fonts is a doctor people learn to ignore, and
 //! an ignored pre-flight is worse than none. The report still says so on screen,
 //! where a person will actually act on it.
+//!
+//! ## It changes nothing
+//!
+//! Some of what this reads is a setting rather than a measurement — the display
+//! arrangement, Do Not Disturb, the output level — and a speaker would plainly
+//! like some of them changed. `doctor` will not, and no flag on it will. A
+//! command somebody runs to *find out* something must leave the machine exactly
+//! as it found it, so the remedy names the switch and the speaker flicks it.
 
 use std::path::PathBuf;
 

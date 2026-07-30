@@ -15,10 +15,13 @@
 //! would force a single verdict to speak for a reading that was taken and one
 //! that was not.
 
+pub mod audio;
 pub mod clock;
 pub mod disk;
+pub mod display;
 pub mod fonts;
 pub mod network;
+pub mod notifications;
 pub mod power;
 pub mod processes;
 
@@ -55,6 +58,12 @@ impl Check {
 /// in a laptop takes five seconds and removes the most complete failure on the
 /// list, so power leads; the network is informational and cannot be acted on at
 /// all, so it trails.
+///
+/// Mirroring, notifications and the output level sit immediately behind power
+/// for the same reason it leads: each is a switch, each takes about ten seconds,
+/// and each removes something the room would otherwise see or fail to hear. The
+/// resolution line is further down because it is mostly informational — it says
+/// which screens are attached rather than asking for anything.
 pub const ALL: &[Check] = &[
     Check {
         id: "power",
@@ -62,6 +71,30 @@ pub const ALL: &[Check] = &[
         matters: "A laptop that reaches 0% mid-talk ends the talk. Nobody plans \
                   for it, because at 60% the battery still feels like plenty.",
         run: power::check,
+    },
+    Check {
+        id: "display/mirroring",
+        title: "Display mirroring",
+        matters: "A mirrored pair is one screen wearing two cables, so presenter \
+                  view has nowhere to open — the notes, the clock and the next \
+                  slide are all on the wall behind you or nowhere.",
+        run: display::mirroring,
+    },
+    Check {
+        id: "notifications",
+        title: "Notifications",
+        matters: "A banner arrives on the slide the room is reading, and the \
+                  messages that turn up during a talk are the ones you least \
+                  want projected.",
+        run: notifications::check,
+    },
+    Check {
+        id: "audio",
+        title: "Audio output",
+        matters: "A demo or a video that plays silently is a failure nobody in \
+                  the room mentions for the first thirty seconds, and by then \
+                  the moment has gone.",
+        run: audio::check,
     },
     Check {
         id: "disk",
@@ -91,6 +124,15 @@ pub const ALL: &[Check] = &[
         matters: "Anything that can grab the screen, pull focus, or pop a join \
                   prompt in the middle of a demo.",
         run: processes::check,
+    },
+    Check {
+        id: "display/resolution",
+        title: "Display resolution",
+        matters: "Mostly the line it prints when it passes: which screens are \
+                  attached and how big each one is. It only warns where a \
+                  screen is small enough to resample the deck rather than \
+                  scale it.",
+        run: display::resolution,
     },
     Check {
         id: "clock/skew",
@@ -193,5 +235,33 @@ mod tests {
     #[test]
     fn an_unregistered_id_sorts_after_every_registered_one() {
         assert!(order_of("venue/hdmi") > order_of("network"));
+    }
+
+    #[test]
+    fn the_three_switches_a_speaker_can_flick_sit_directly_behind_power() {
+        // Mirroring, notifications and the output level are each about ten
+        // seconds of work that removes something the room would otherwise see
+        // or fail to hear, which puts them with power rather than with disk
+        // space and fonts.
+        for id in ["display/mirroring", "notifications", "audio"] {
+            assert!(order_of(id) < order_of("disk"), "{id} is buried below the disk check");
+        }
+    }
+
+    #[test]
+    fn the_resolution_line_sits_below_the_checks_that_ask_for_something() {
+        // It mostly reports which screens are attached. A check that rarely
+        // asks for anything belongs where an informational line belongs.
+        assert!(order_of("display/resolution") > order_of("display/mirroring"));
+        assert!(order_of("display/resolution") < order_of("network"));
+    }
+
+    #[test]
+    fn two_checks_sharing_a_subject_are_spelled_with_the_same_prefix() {
+        // The grouping the report and any `--only` filter key off. A subject
+        // split across `display/` and `displays/` would be two subjects.
+        let grouped: Vec<&str> = ids().into_iter().filter(|id| id.starts_with("display")).collect();
+
+        assert_eq!(grouped, ["display/mirroring", "display/resolution"]);
     }
 }
