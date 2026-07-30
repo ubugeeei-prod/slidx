@@ -54,6 +54,7 @@ pub mod args;
 pub mod cd;
 pub mod command;
 pub mod completions;
+pub mod dev;
 pub mod doctor;
 pub mod find;
 pub mod grep;
@@ -124,6 +125,7 @@ pub fn run(argv: &[String], style: &Style) -> Outcome {
         // Keyed on the pair rather than the leaf name: two commands under
         // different parents may share one, and `list` alone says nothing.
         Invocation::Run(route, matches) => match route.key() {
+            (None, "dev") => dev::run(&matches, style),
             (None, "doctor") => doctor::run(&matches, style),
             (None, "lint") => lint::run(&matches, style),
             (None, "open") => find::run(&matches, style),

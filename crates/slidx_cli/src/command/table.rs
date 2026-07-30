@@ -196,6 +196,29 @@ Where it goes depends on the shell:
         &[],
     ),
     leaf(
+        "dev",
+        "write the deck, with the editor open",
+        "dev [path] [options]",
+        "\
+Starts the project's own dev server — Vite with @slidx/vite-plugin — and opens
+the visual editor at /__slidx/. `path` is the deck and defaults to ./slides,
+the same as `slidx lint`; the Vite config is found by walking up from it.
+
+slidx is not a server. It finds the project, reaches Vite through the package
+manager that installed it, and names the editor's route, which is the page Vite
+has no reason to know about. Everything that renders a slide belongs to the
+plugin, because the artifact a speaker stands in front of has to come from one
+place.
+
+Use this while WRITING. `slidx preview` is for looking at what a build
+produced: the editor writes to your slide files and exists only here, and only
+the build output is what a host will actually serve.",
+        &[
+            Flag::taking("port", "<number>", "Port to serve on. Default: Vite's own"),
+            Flag::switch("no-open", "Do not open a browser at the editor"),
+        ],
+    ),
+    leaf(
         "preview",
         "look at what the build produced",
         "preview [dir] [options]",
@@ -210,7 +233,10 @@ module import from a file:// origin. Opened off disk a staged deck sits frozen
 on its first stop.
 
 This does not build. When there is nothing there it says so and names
-@slidx/vite-plugin, which is the thing that produces a deck.",
+@slidx/vite-plugin, which is the thing that produces a deck.
+
+Use this to check the RESULT — the same files a static host would serve. While
+you are still writing, `slidx dev` serves the source live and opens the editor.",
         &[
             Flag::switch("web", "Serve the deck and open a browser instead of the PDF"),
             Flag::taking("port", "<number>", "Port to serve on. Default: one the system picks"),
@@ -335,9 +361,12 @@ project — the default is what applies everywhere else.",
 /// The build pipeline is the Vite plugin. A second implementation of it here
 /// would be two answers to one question — the artifact a speaker stands in
 /// front of has to come from one place.
+///
+/// `dev` used to be on this list and is now a command, and the distinction is
+/// worth being precise about: it does not *implement* a dev server, it starts
+/// the project's own. Every name still here would have had to build something.
 pub const DECLINED: &[(&str, &str)] = &[
     ("build", BUILD_LIVES_IN_THE_PLUGIN),
-    ("dev", BUILD_LIVES_IN_THE_PLUGIN),
     ("serve", BUILD_LIVES_IN_THE_PLUGIN),
     ("export", BUILD_LIVES_IN_THE_PLUGIN),
     ("pdf", BUILD_LIVES_IN_THE_PLUGIN),
@@ -353,8 +382,8 @@ copy of it:
     import { slidx } from \"@slidx/vite-plugin\";
     export default { plugins: [slidx()] };
 
-`vite dev` serves the deck and `vite build` emits the static deck, the PDF and
-the OG images.";
+`vite build` emits the static deck, the PDF and the OG images. To serve the deck
+while you write it, `slidx dev` starts that same dev server for you.";
 
 pub fn find(name: &str) -> Option<&'static Command> {
     ALL.iter().find(|command| command.name == name)
