@@ -90,7 +90,11 @@ export default {
     root,
     logLevel: "silent",
     plugins: [slidx({ islands: "./islands.mjs", og: false, overflow: false })],
-    server: { host: "127.0.0.1", port: 0 },
+    // The fixture reads routes and never edits a file. Opening a filesystem
+    // watcher would add no coverage, and on Windows its native handle can
+    // outlive `server.close()` and abort the Vitest worker after every
+    // assertion has passed.
+    server: { host: "127.0.0.1", port: 0, watch: null, hmr: false },
   });
   await server.listen();
 
