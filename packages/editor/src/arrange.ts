@@ -60,6 +60,15 @@ export interface ArrangeOptions {
   measure?(measured: Measurement[]): Promise<Finding[]>;
 }
 
+/**
+ * The chrome's hit size, which is what a grip is.
+ *
+ * Repeated here because the rectangle is computed in script and the stylesheet
+ * cannot place a fixed element over a box only the canvas knows about. The
+ * stylesheet spends the token; a test holds the two together.
+ */
+const HIT = 28;
+
 /** Which way each arrow key sends a block. */
 const KEYS: Record<string, Nudge> = {
   ArrowUp: "up",
@@ -142,15 +151,26 @@ export function createArrange(handlers: ArrangeHandlers, options: ArrangeOptions
   }
 
   function grip(index: number, region: string, rect: Rect): HTMLElement {
-    const handle = element("button", {
-      type: "button",
-      class: "slidx-arrange-grip",
-      "data-block": index,
-      "aria-pressed": false,
-      "aria-label": `Move block ${index + 1}, in ${region}`,
-    });
-    handle.append("≡");
-    box(handle, { left: rect.left + 2, top: rect.top + 2, width: 14, height: 14 });
+    const handle = element(
+      "button",
+      {
+        type: "button",
+        class: "slidx-arrange-grip",
+        // The chrome's focus ring is written against `[tabindex]`, and a button
+        // matches that selector only when it carries the attribute.
+        tabindex: 0,
+        "data-block": index,
+        "aria-pressed": false,
+        "aria-label": `Move block ${index + 1}, in ${region}`,
+      },
+      [element("span", {}, ["≡"])],
+    );
+
+    // Straddling the corner rather than inside it: a target over the first word
+    // of a heading is a target that stops the heading being clicked, and a
+    // heading is edited in place.
+    const half = HIT / 2;
+    box(handle, { left: rect.left - half, top: rect.top - half, width: HIT, height: HIT });
 
     handle.addEventListener("pointerdown", (event) => start(handle, index, event));
     handle.addEventListener("pointermove", (event) => track(event));

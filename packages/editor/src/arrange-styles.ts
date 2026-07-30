@@ -58,9 +58,9 @@ export const ARRANGE_STYLESHEET = `
 .slidx-arrange-name {
   position: absolute;
   top: 2px;
-  left: 4px;
+  left: var(--slidx-e-tight);
   color: var(--slidx-e-muted);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -93,35 +93,63 @@ export const ARRANGE_STYLESHEET = `
 .slidx-arrange-guide[data-axis="y"] { height: var(--slidx-e-hairline); }
 
 /*
- * The grip: the whole gesture, in fourteen pixels.
+ * The grip: the whole gesture, in one control per block.
  *
  * A button rather than a bare element, so the tab order reaches every block on
  * the slide and the arrow keys can move one without a pointer ever being
- * involved. It sits inside the block's own corner rather than beside it,
- * because a handle outside the box would be a handle over the block above.
+ * involved. The target is the chrome's own hit size and the mark inside it is
+ * half that, because a handle small enough not to cover a slide is a handle
+ * nobody can hit — those are two different measurements and only one of them
+ * has to be small.
+ *
+ * It straddles the block's top-left corner rather than sitting inside it: a
+ * target laid over the first word of a heading is a target that stops the
+ * heading being clicked, and the heading is edited in place.
  */
 .slidx-arrange-grip {
   position: fixed;
-  width: 14px;
-  height: 14px;
+  display: grid;
+  place-items: center;
+  width: var(--slidx-e-hit);
+  height: var(--slidx-e-hit);
+  min-height: var(--slidx-e-hit);
   padding: 0;
-  border: var(--slidx-e-hairline) solid var(--slidx-e-line);
-  border-radius: var(--slidx-e-radius);
-  background: var(--slidx-e-canvas);
+  border: 0;
+  background: transparent;
   color: var(--slidx-e-muted);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1;
   cursor: grab;
-  opacity: 0.4;
+  opacity: 0.45;
   pointer-events: auto;
 }
 
+.slidx-arrange-grip::before {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: var(--slidx-e-hairline) solid var(--slidx-e-line);
+  border-radius: var(--slidx-e-radius);
+  background: var(--slidx-e-canvas);
+}
+
+.slidx-arrange-grip > span { position: relative; }
+
 .slidx-arrange-grip:hover, .slidx-arrange-grip:focus-visible { opacity: 1; }
+.slidx-arrange-grip:hover { background: transparent; }
+
 .slidx-arrange-grip[aria-pressed="true"] {
   opacity: 1;
-  border-color: var(--slidx-e-accent);
   color: var(--slidx-e-accent);
   cursor: grabbing;
+}
+
+.slidx-arrange-grip[aria-pressed="true"]::before { border-color: var(--slidx-e-accent); }
+
+/* The one state change worth animating: a grip coming forward under a cursor. */
+@media (prefers-reduced-motion: no-preference) {
+  .slidx-arrange-grip { transition: opacity 90ms linear; }
 }
 
 /*

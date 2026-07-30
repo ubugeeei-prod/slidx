@@ -12,6 +12,7 @@
 
 import { describe, expect, it } from "vite-plus/test";
 
+import { ARRANGE_STYLESHEET } from "../src/arrange-styles";
 import { createArrange } from "../src/arrange";
 import type { Finding } from "../src/client";
 import type { BlockBox, SlideGeometry } from "../src/geometry";
@@ -268,5 +269,59 @@ describe("warning before the block lands", () => {
 
     expect(opened.asked).toEqual([]);
     expect(opened.foreseen.at(-1)).toEqual([]);
+  });
+});
+
+/**
+ * The overlay is held to the same bar the chrome is, for the same reason: a
+ * stylesheet has no other way to keep a promise, and a target that shrank or a
+ * focus ring that vanished would look completely fine to whoever did it.
+ */
+describe("the overlay as a piece of interface", () => {
+  const declarations = () => ARRANGE_STYLESHEET.replaceAll(/\/\*[\s\S]*?\*\//g, "");
+
+  it("gives a grip the chrome's own hit size, drawn at half of it", () => {
+    // Two measurements: how big the target is, and how much of the slide the
+    // mark covers. Only the second has to be small.
+    expect(declarations()).toContain("width: var(--slidx-e-hit)");
+    expect(declarations()).toContain("min-height: var(--slidx-e-hit)");
+
+    const [grip] = open().root.querySelectorAll<HTMLElement>(".slidx-arrange-grip");
+    expect(grip!.style.width).toBe("28px");
+  });
+
+  it("puts the grip on the corner rather than over the block's first word", () => {
+    // The heading is edited in place, and a target laid over it is a target
+    // that stops it being clicked.
+    const [grip] = open().root.querySelectorAll<HTMLElement>(".slidx-arrange-grip");
+
+    expect(grip!.style.left).toBe("86px");
+    expect(grip!.style.top).toBe("86px");
+  });
+
+  it("carries a tabindex, so the chrome's focus ring reaches it", () => {
+    expect(open().grip(0).getAttribute("tabindex")).toBe("0");
+  });
+
+  it("stays flat, and animates only behind a reduced-motion query", () => {
+    for (const construct of ["box-shadow", "text-shadow", "gradient(", "drop-shadow("]) {
+      expect(declarations(), construct).not.toContain(construct);
+    }
+
+    for (const [, body = ""] of declarations().matchAll(/transition:([^;]+);/g)) {
+      const at = declarations().indexOf(`transition:${body}`);
+      expect(
+        declarations().lastIndexOf("@media (prefers-reduced-motion", at),
+        `an unguarded transition: ${body.trim()}`,
+      ).toBeGreaterThan(-1);
+    }
+  });
+
+  it("spends every distance from the stops the chrome declares", () => {
+    const allowed = new Set(["1px", "2px", "11px", "16px", "28px"]);
+
+    for (const [value] of declarations().matchAll(/\b\d+px\b/g)) {
+      expect(allowed.has(value), `${value} is off the rhythm`).toBe(true);
+    }
   });
 });
