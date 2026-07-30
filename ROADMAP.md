@@ -302,10 +302,10 @@ measure of that:
 
 |                                     |                           |
 | ----------------------------------- | ------------------------- |
-| Rust tests                          | 3313                      |
-| TypeScript tests                    | 1459                      |
-| Crates                              | 18                        |
-| Published packages                  | 10                        |
+| Rust tests                          | 3813                      |
+| TypeScript tests                    | 1706                      |
+| Crates                              | 19                        |
+| Publishable npm packages            | 10                        |
 | Platforms in CI                     | Linux, macOS, Windows     |
 | Browsers exercised                  | Chromium, Firefox, WebKit |
 | Runtimes exercised                  | Node, Bun, Deno           |

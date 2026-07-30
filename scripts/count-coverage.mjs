@@ -1,10 +1,10 @@
 /**
  * The numbers ROADMAP.md publishes about itself.
  *
- * That table calls itself "the honest measure", and it said 1606 Rust tests
- * against a tree holding 2316, and 10 crates against 13. A count written by
- * hand is only true on the afternoon it was typed, and this one had drifted far
- * enough that two separate readers noticed before anyone updated it.
+ * That table calls itself "the honest measure", but its handwritten totals
+ * have drifted more than once. A count written by hand is only true on the
+ * afternoon it was typed, so this command asks the test runners and manifests
+ * again instead of preserving another stale number in its own explanation.
  *
  * So it is measured instead, on the same principle as the build-time table the
  * README publishes: `node scripts/bench-build.mjs` reproduces those, so the
@@ -50,7 +50,7 @@ function typescriptTests() {
 }
 
 const crates = readdirSync("crates").length;
-const packages = readdirSync("packages").filter((name) => {
+const publishablePackages = readdirSync("packages").filter((name) => {
   const manifest = JSON.parse(readFileSync(`packages/${name}/package.json`, "utf8"));
   return !manifest.private;
 }).length;
@@ -60,7 +60,7 @@ process.stdout.write(
     `| Rust tests          | ${rustTests()} |`,
     `| TypeScript tests    | ${typescriptTests()} |`,
     `| Crates              | ${crates} |`,
-    `| Published packages  | ${packages} |`,
+    `| Publishable npm packages | ${publishablePackages} |`,
     "",
   ].join("\n"),
 );
