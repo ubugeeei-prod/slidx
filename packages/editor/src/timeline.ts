@@ -61,10 +61,7 @@ const GLYPH: Record<string, string> = {
 
 const KINDS: CellKind[] = ["reveal", "hide", "emphasize"];
 
-export function createTimeline(
-  handlers: TimelineHandlers,
-  options: TimelineOptions = {},
-): Surface {
+export function createTimeline(handlers: TimelineHandlers, options: TimelineOptions = {}): Surface {
   const where = element("span", { class: "slidx-timeline-where" });
   const scrub = element("input", {
     type: "range",
@@ -275,8 +272,13 @@ export function createTimeline(
       // Clicking a cell also moves the canvas to that stop: the point of the
       // grid is to see what the change did, and stop `n` is one index away.
       if (stop < grid.stops) playhead.show(stop);
+
+      // A cell with nothing to ask for still moved the selection and the
+      // playhead, and the grid has to say so — a click that appeared to do
+      // nothing is the one an author repeats.
       const op = toggleCell(grid, slide, entry, stop);
-      op ? handlers.run(op) : draw();
+      if (op) handlers.run(op);
+      else draw();
     });
 
     return cell;

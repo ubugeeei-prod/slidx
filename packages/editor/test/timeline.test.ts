@@ -149,11 +149,9 @@ describe("the timeline panel", () => {
     timeline.render(stateOf(build()));
 
     const rows = timeline.root.querySelectorAll(".slidx-timeline-row");
-    expect([...rows].map((row) => row.querySelector(".slidx-timeline-label")!.textContent)).toEqual([
-      "first",
-      "second",
-      "third",
-    ]);
+    expect([...rows].map((row) => row.querySelector(".slidx-timeline-label")!.textContent)).toEqual(
+      ["first", "second", "third"],
+    );
     // Four stops and one column past the end, which is where a new stop goes.
     expect(rows[0]!.querySelectorAll(".slidx-timeline-cell")).toHaveLength(5);
   });
@@ -226,9 +224,7 @@ describe("the timeline panel", () => {
 
     timeline.root.querySelectorAll<HTMLElement>(".slidx-timeline-stop")[2]!.click();
 
-    expect(posted).toEqual([
-      { type: "position", position: { slide: 0, step: 2 }, sequence: 1 },
-    ]);
+    expect(posted).toEqual([{ type: "position", position: { slide: 0, step: 2 }, sequence: 1 }]);
     expect(timeline.root.querySelector(".slidx-timeline-where")!.textContent).toContain("2 of 4");
   });
 

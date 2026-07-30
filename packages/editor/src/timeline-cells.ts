@@ -33,11 +33,7 @@ export function isGenerated(grid: StepGrid): boolean {
 }
 
 /** The action landing on `stop` that names `target`, if there is one. */
-export function actionAt(
-  grid: StepGrid,
-  target: string,
-  stop: number,
-): StepPlacement | undefined {
+export function actionAt(grid: StepGrid, target: string, stop: number): StepPlacement | undefined {
   return grid.actions.find((action) => action.stop === stop && action.targets.includes(target));
 }
 

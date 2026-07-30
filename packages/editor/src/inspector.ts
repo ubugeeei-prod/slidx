@@ -182,13 +182,19 @@ function structured(value: unknown): boolean {
   return typeof value === "object" && value !== null;
 }
 
-/** A frontmatter value as one line of text. */
+/**
+ * A frontmatter value as one line of text.
+ *
+ * Exhaustive by type rather than ending in a bare `String(value)`, because a
+ * mapping stringifies to `[object Object]` — and a field showing that is a
+ * field that writes it back.
+ */
 function shown(value: unknown): string {
-  if (value === undefined || value === null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
   if (Array.isArray(value)) return `${value.length} entries`;
-  if (structured(value)) return "a mapping";
 
-  return String(value);
+  return value === null || value === undefined ? "" : "a mapping";
 }
 
 /**

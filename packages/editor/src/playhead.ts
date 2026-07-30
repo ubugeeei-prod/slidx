@@ -59,7 +59,9 @@ export function createPlayhead(options: PlayheadOptions = {}): Playhead {
   const cursor = options.cursor ?? createStopCursor;
   // Never closed, for the same reason the deck's own page never closes its
   // channel: it lives as long as the document that opened it.
-  const mirror = createMirror(options.transport === undefined ? {} : { transport: options.transport });
+  const mirror = createMirror(
+    options.transport === undefined ? {} : { transport: options.transport },
+  );
 
   let slide = 0;
   let stage = cursor(1);

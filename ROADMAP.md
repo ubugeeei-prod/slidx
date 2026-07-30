@@ -123,7 +123,8 @@ Editor-first authoring that still writes reviewable Markdown.
 - [x] Live diagnostics from the linter, inline
 - [x] Media: video and audio embeds with level metering and loudness check — #11
 - [ ] Direct manipulation with snapping, guides, and layout tokens
-- [ ] **Animation timeline** — the PowerPoint-shaped surface over `steps:` — #10
+- [x] **Animation timeline** — rows are what a slide addresses, columns are its
+      stops, and the playhead scrubs — #10
 - [ ] Storyboard mode: edit at the level of one message per slide
 
 **Done when** an author can build a staged, animated slide without typing YAML,
@@ -144,6 +145,21 @@ the author typed by hand.
 The editor is served from `configureServer` and nowhere else, so a built deck
 has no route that could write to an author's files. A test reads every emitted
 page and fails if one mentions it.
+
+The timeline is the surface that model was compiled for. Because every stop is a
+complete snapshot rather than a delta, its playhead **scrubs**: dragging left
+costs what dragging right costs, nothing is replayed, and there is no animation
+state to run forward. A cell holds the author's intent — `reveal`, `hide`,
+`emphasize`, `set` — and never a duration or an easing, because motion belongs to
+the theme and an editor that wrote timing onto every action it touched would
+move that decision into the deck one click at a time.
+
+`autoSteps:` is a one-way door, and the timeline is where that is visible rather
+than discovered. Generated stops have no line in the file, so they are shown,
+named as generated, and refuse to be clicked — with one action offered that
+writes them out as an explicit `steps:` list. That action leaves `autoSteps:`
+where it is, because the mode is what puts the anchors the written steps name
+into the markup.
 
 ---
 
@@ -253,8 +269,8 @@ measure of that:
 
 |                                     |                           |
 | ----------------------------------- | ------------------------- |
-| Rust tests                          | 1606                      |
-| TypeScript tests                    | 1046                      |
+| Rust tests                          | 1642                      |
+| TypeScript tests                    | 1080                      |
 | Crates                              | 10                        |
 | Published packages                  | 8                         |
 | Platforms in CI                     | Linux, macOS, Windows     |

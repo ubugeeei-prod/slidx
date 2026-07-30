@@ -63,8 +63,22 @@ describe("the mounted editor", () => {
         { target: "#b", label: "second", key: "b", visible: [false, false, true] },
       ],
       actions: [
-        { index: 0, kind: "reveal", stop: 1, targets: ["#a"], timed: false, source: 'reveal: "#a"' },
-        { index: 1, kind: "reveal", stop: 2, targets: ["#b"], timed: false, source: 'reveal: "#b"' },
+        {
+          index: 0,
+          kind: "reveal",
+          stop: 1,
+          targets: ["#a"],
+          timed: false,
+          source: 'reveal: "#a"',
+        },
+        {
+          index: 1,
+          kind: "reveal",
+          stop: 2,
+          targets: ["#b"],
+          timed: false,
+          source: 'reveal: "#b"',
+        },
       ],
     };
 
