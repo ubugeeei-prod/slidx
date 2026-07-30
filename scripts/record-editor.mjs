@@ -109,6 +109,43 @@ Compiled ahead of time, so going back
 costs what going forward costs.
 `;
 
+/**
+ * Three slides with budgets, so the storyboard has a talk to lay against a slot.
+ *
+ * The example deck is four slides and declares twenty minutes, which is honest
+ * and draws a bar that is mostly empty — a picture of this feature has to be of
+ * a deck somebody has actually planned. Written here for the same reason the
+ * two-column slide is: it exists for the recording, and the deck a reader copies
+ * has no reason to carry it.
+ */
+const PLANNED = {
+  "0005.md": `---
+budget: 4m
+---
+
+## What we measured
+
+<!-- notes: The numbers, before anybody argues about the method. -->
+`,
+  "0006.md": `---
+budget: 5m
+---
+
+## How the pipeline fits together
+
+<!-- notes: The four stages, and where the time went. -->
+`,
+  "0007.md": `---
+budget: 3m30s
+optional: false
+---
+
+## The parts we cut
+
+<!-- notes: The three ideas that did not survive contact with a room. -->
+`,
+};
+
 const SCENES = [
   {
     name: "arrange",
@@ -125,6 +162,30 @@ const SCENES = [
       await drag({ block: 2, into: "right", steps: 9, each: 110 });
       await file();
       await hold(1600);
+    },
+  },
+
+  {
+    name: "storyboard",
+    // The deck as a talk rather than as slides: every slide as wide as the time
+    // it was given, laid against the slot the frontmatter declares. The gesture
+    // is the one that changes the plan — `o` marks a slide optional, which is
+    // one line in the file and a sentence about what dropping it would buy.
+    add: PLANNED,
+    open: "0003.md",
+    editor: { width: 1040, height: 620 },
+    frame: [".slidx-sb-sheet"],
+
+    async play({ press, hold, shown }) {
+      await hold(1000);
+      await press("o");
+      await shown(".slidx-sb-slack");
+      await hold(1900);
+    },
+
+    async prepare({ click, shown }) {
+      await click(".slidx-sb-launch");
+      await shown(".slidx-sb-rows .slidx-sb-slide");
     },
   },
 ];
@@ -164,6 +225,7 @@ process.stdout.write(`\n${written} recording(s) in ${OUT}\n`);
  */
 async function record(scene, scheme) {
   const root = join(scratch, `${scene.name}-${scheme}`);
+  const editorSize = scene.editor ?? EDITOR;
   cpSync(resolve(DECK), join(root, "slides"), { recursive: true });
 
   for (const [name, body] of Object.entries(scene.add ?? {})) {
@@ -182,7 +244,7 @@ async function record(scene, scheme) {
 
   await server.listen();
   const context = await browser.newContext({
-    viewport: { width: EDITOR.width + FILE_WIDTH, height: EDITOR.height },
+    viewport: { width: editorSize.width + FILE_WIDTH, height: editorSize.height },
     colorScheme: scheme,
   });
 
@@ -196,8 +258,8 @@ async function record(scene, scheme) {
       stage,
       stagePage(`${server.resolvedUrls.local[0]}__slidx/`, {
         tokens,
-        editorWidth: EDITOR.width,
-        editorHeight: EDITOR.height,
+        editorWidth: editorSize.width,
+        editorHeight: editorSize.height,
         withFile: scene.file !== undefined,
       }),
     );
@@ -205,6 +267,11 @@ async function record(scene, scheme) {
 
     const editor = await mounted(page);
     await select(page, editor, scene, root);
+
+    // Before the frame is measured, because a scene about a panel that opens
+    // has to open it first: a sheet nobody pressed the button for has no box.
+    await scene.prepare?.(controls(page, editor));
+
     const size = await frameOn(page, editor, scene);
 
     const frames = await play(page, editor, scene, root);
@@ -268,6 +335,23 @@ async function select(page, editor, scene, root) {
     `/${at + 1}/`,
   );
   await editor.waitForSelector(".slidx-arrange-grip");
+}
+
+/**
+ * What a scene can press, before its frame is measured.
+ *
+ * The same two verbs a scene is given while it is playing, minus everything that
+ * captures: nothing here is in the recording, so a scene cannot accidentally
+ * photograph the panel it is still opening.
+ */
+function controls(page, editor) {
+  const canvas = page.frameLocator(".editor");
+
+  return {
+    click: (selector) => canvas.locator(selector).click(),
+    press: (key) => page.keyboard.press(key),
+    shown: (selector) => editor.waitForSelector(selector),
+  };
 }
 
 /** The deck's slides, in the order the outline lists them. */

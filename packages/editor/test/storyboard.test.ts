@@ -10,11 +10,13 @@
 
 import { describe, expect, it } from "vite-plus/test";
 
+import { ARRANGE_STYLESHEET } from "../src/arrange-styles";
 import type { SlideSummary } from "../src/client";
 import type { EditOp } from "../src/operations";
 import type { EditorState } from "../src/session";
 import { createStoryboard } from "../src/storyboard";
 import { formatSeconds, planTime } from "../src/storyboard/plan";
+import { STORYBOARD_STYLESHEET } from "../src/storyboard/styles";
 
 function slideOf(over: Partial<SlideSummary> = {}): SlideSummary {
   return {
@@ -435,6 +437,16 @@ describe("the storyboard", () => {
 
     expect(root.querySelector("iframe")).toBeNull();
     expect(root.querySelector("img")).toBeNull();
+  });
+
+  it("covers what is drawn over the canvas, because it is a mode and not a panel", () => {
+    // Both layers are fixed to the whole window, so the order between them is a
+    // number rather than a place in the document — and the storyboard was below.
+    // A talk's running order with three block grips floating on top of it is
+    // what that looks like, which is how `scripts/record-editor.mjs` found it.
+    const layer = (stylesheet: string) => Number(/z-index:\s*(\d+)/.exec(stylesheet)![1]);
+
+    expect(layer(STORYBOARD_STYLESHEET)).toBeGreaterThan(layer(ARRANGE_STYLESHEET));
   });
 });
 
