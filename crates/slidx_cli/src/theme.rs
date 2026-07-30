@@ -18,7 +18,7 @@
 //! # Why it takes a path rather than a package name
 //!
 //! Resolving `@example/theme-x` to a directory means resolving `node_modules`,
-//! and `@slidx/vite-plugin` is where that is done — once, in the place with
+//! and `@ubugeeei/slidx-vite-plugin` is where that is done — once, in the place with
 //! Node's own view of a project. A second resolver here would be a second
 //! answer to which theme a name refers to, which is the one thing this feature
 //! must not have two of.

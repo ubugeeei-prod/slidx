@@ -36,7 +36,7 @@
  * module is imported, so there is nothing to await and nothing to initialise.
  *
  * ```js
- * import { planPublish } from "@slidx/publish";
+ * import { planPublish } from "@ubugeeei/slidx-publish";
  *
  * const plan = planPublish({ meta: { title: "Zero-JavaScript Slides" } });
  * ```

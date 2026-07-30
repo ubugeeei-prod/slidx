@@ -1,6 +1,6 @@
 //! Publishing, reachable from JavaScript.
 //!
-//! `@slidx/publish` was a thousand lines of TypeScript that answered questions
+//! `@ubugeeei/slidx-publish` was a thousand lines of TypeScript that answered questions
 //! [`slidx_publish`] also answers — what Speaker Deck will accept as a title,
 //! which field to name when a post overflows, whether a missing recording is a
 //! problem or merely a Tuesday. Two implementations of a cap is two answers,
@@ -35,7 +35,7 @@ use wasm_bindgen::prelude::*;
 use crate::declarations::push;
 
 // Appended verbatim to the `.d.ts` wasm-bindgen writes, the same way the deck
-// types are, so `@slidx/wasm` ships one self-contained description of its own
+// types are, so `@ubugeeei/slidx-wasm` ships one self-contained description of its own
 // boundary.
 #[wasm_bindgen(typescript_custom_section)]
 const PUBLISH_TYPES: &str = include_str!("../publish.d.ts");

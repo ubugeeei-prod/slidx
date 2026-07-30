@@ -180,26 +180,29 @@ detect_target() {
     arm64 | armv8* | aarch64) [ "$os" = "Darwin" ] && arch=arm64 || arch=aarch64 ;;
     esac
 
-    printf '%s\n' "$PLATFORMS" | while IFS= read -r row; do
-        row_os=$(field "$row" 1)
-        row_arch=$(field "$row" 2)
-        if [ "$row_os" = "$os" ] && [ "$row_arch" = "$arch" ]; then
-            field "$row" 3
-            return 0
-        fi
-    done | grep . || unsupported "$os" "$arch"
-}
+    matched=$(
+        printf '%s\n' "$PLATFORMS" | while IFS='|' read -r row_os row_arch row_target _; do
+            if [ "$row_os" = "$os" ] && [ "$row_arch" = "$arch" ]; then
+                printf '%s' "$row_target"
+                break
+            fi
+        done
+    )
 
-field() {
-    printf '%s\n' "$1" | cut -d'|' -f"$2"
+    if [ -n "$matched" ]; then
+        printf '%s\n' "$matched"
+    else
+        unsupported "$os" "$arch"
+    fi
 }
 
 unsupported() {
     printf 'slidx: no prebuilt binary for %s %s.\n\n' "$1" "$2" >&2
     printf 'Prebuilt binaries exist for:\n' >&2
-    printf '%s\n' "$PLATFORMS" | while IFS= read -r row; do
-        printf '  %-28s %s\n' "$(field "$row" 3)" "$(field "$row" 4)" >&2
-    done
+    printf '%s\n' "$PLATFORMS" |
+        while IFS='|' read -r _ _ row_target row_description; do
+            printf '  %-28s %s\n' "$row_target" "$row_description" >&2
+        done
     printf '\nWindows: install with `npm i -g slidx` instead.\n' >&2
     printf 'Anything else: `cargo install slidx_cli` builds it from source.\n' >&2
     exit 1

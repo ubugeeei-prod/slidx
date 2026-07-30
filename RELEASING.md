@@ -49,7 +49,7 @@ over the same file; neither compiles anything and neither needs Node.
 ### `npm i -g slidx`
 
 The wrapper package `slidx` declares one `optionalDependency` per platform —
-`@slidx/cli-darwin-arm64` and friends — each holding a single binary and
+`@ubugeeei/slidx-cli-darwin-arm64` and friends — each holding a single binary and
 declaring the `os` and `cpu` it runs on. npm installs the one that matches and
 skips the rest, and `packages/cli/bin/slidx.mjs` execs it.
 
@@ -155,12 +155,12 @@ for dir in $(node scripts/publish-order.mjs npm); do (cd "$dir" && npm publish -
 ```
 
 Derived the same way and for the same reason. The list here used to name
-`@slidx/wasm` and `@slidx/runtime` only, and `release.yml` agreed with it —
-which left **`@slidx/vite-plugin`**, the package the README tells people to
+`@ubugeeei/slidx-wasm` and `@ubugeeei/slidx-runtime` only, and `release.yml` agreed with it —
+which left **`@ubugeeei/slidx-vite-plugin`**, the package the README tells people to
 install, unpublished.
 
 The `slidx` wrapper is not in that list. Its dependencies are the five
-`@slidx/cli-*` packages, which do not exist until the release builds them, so
+`@ubugeeei/slidx-cli-*` packages, which do not exist until the release builds them, so
 it cannot be ordered from a manifest and the workflow places it last by hand.
 
 The platform packages have to exist before they can be configured too, and they
@@ -180,13 +180,13 @@ for dir in packages/cli/dist/* packages/cli; do (cd "$dir" && npm publish --acce
 ```
 
 Then, for **each** package — everything `publish-order.mjs npm` lists, plus
-`slidx` and the five `@slidx/cli-*` — at
+`slidx` and the five `@ubugeeei/slidx-cli-*` — at
 `https://www.npmjs.com/package/<name>/access`, add a trusted publisher with the
 same repository and `release.yml`.
 
-`slidx` is an unscoped name and `@slidx` is a scope: publishing `slidx` and
-`@slidx/runtime` for the first time claims both, so do that before anyone else
-does.
+`slidx` is an unscoped name and `@ubugeeei` is a scope: publishing `slidx` and
+`@ubugeeei/slidx-runtime` for the first time claims both package names, so do that
+before anyone else does.
 
 ### Checking it worked
 

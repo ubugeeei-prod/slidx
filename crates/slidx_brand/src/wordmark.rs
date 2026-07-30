@@ -14,7 +14,7 @@
 //! That is a constraint turned into consistency rather than worked around.
 //!
 //! Always lowercase. The crate is `slidx_*`, the command is `slidx`, the
-//! packages are `@slidx/*`; a capitalised wordmark would be a second spelling of
+//! packages are `@ubugeeei/slidx-*`; a capitalised wordmark would be a second spelling of
 //! the product's name.
 //!
 //! # The lockup

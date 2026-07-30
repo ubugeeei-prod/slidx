@@ -27,9 +27,9 @@ describe("finding the binary npm installed", () => {
   it("derives the package name from the platform rather than a table of its own", () => {
     // The name is the platform. A lookup table here could only ever disagree
     // with the optionalDependencies next to it.
-    expect(platformPackage("darwin", "arm64")).toBe("@slidx/cli-darwin-arm64");
-    expect(platformPackage("linux", "x64")).toBe("@slidx/cli-linux-x64");
-    expect(platformPackage("win32", "x64")).toBe("@slidx/cli-win32-x64");
+    expect(platformPackage("darwin", "arm64")).toBe("@ubugeeei/slidx-cli-darwin-arm64");
+    expect(platformPackage("linux", "x64")).toBe("@ubugeeei/slidx-cli-linux-x64");
+    expect(platformPackage("win32", "x64")).toBe("@ubugeeei/slidx-cli-win32-x64");
   });
 
   it("names a package for every platform the release builds", () => {
@@ -45,13 +45,13 @@ describe("finding the binary npm installed", () => {
   it("returns nothing when the platform package is not installed", () => {
     // Which is the state of this repository: the platform packages exist only
     // after a release builds them.
-    expect(findBinary("@slidx/cli-nowhere-nothing")).toBeUndefined();
+    expect(findBinary("@ubugeeei/slidx-cli-nowhere-nothing")).toBeUndefined();
   });
 });
 
 describe("what it says when there is no binary", () => {
   it("tells an unpublished platform what is published and how to build from source", () => {
-    const message = missingBinaryMessage("@slidx/cli-freebsd-x64", publishedPlatforms());
+    const message = missingBinaryMessage("@ubugeeei/slidx-cli-freebsd-x64", publishedPlatforms());
 
     expect(message).toContain("darwin-arm64");
     expect(message).toContain("linux-x64");
@@ -61,7 +61,7 @@ describe("what it says when there is no binary", () => {
   it("tells a published platform that its package is missing, and why that happens", () => {
     // A different situation with a different fix, so it gets a different
     // message. "No binary found" would leave somebody reinstalling forever.
-    const message = missingBinaryMessage("@slidx/cli-linux-x64", publishedPlatforms());
+    const message = missingBinaryMessage("@ubugeeei/slidx-cli-linux-x64", publishedPlatforms());
 
     expect(message).toContain("--no-optional");
     expect(message).toContain("lockfile was copied");
@@ -69,7 +69,7 @@ describe("what it says when there is no binary", () => {
   });
 
   it("offers the shell installer as the way out that does not involve npm", () => {
-    const message = missingBinaryMessage("@slidx/cli-linux-x64", publishedPlatforms());
+    const message = missingBinaryMessage("@ubugeeei/slidx-cli-linux-x64", publishedPlatforms());
 
     expect(message).toContain("install.sh");
   });

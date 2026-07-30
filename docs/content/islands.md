@@ -19,7 +19,7 @@ The setup module is relative to the Vite root:
 
 ```ts
 import { defineConfig } from "vite";
-import { slidx } from "@slidx/vite-plugin";
+import { slidx } from "@ubugeeei/slidx-vite-plugin";
 
 export default defineConfig({
   plugins: [
@@ -41,8 +41,8 @@ This example chooses Vue. The component and Vue itself are loaded when the
 island becomes visible, not when slide one opens:
 
 ```ts
-import { createRegistry } from "@slidx/islands";
-import { vueIsland } from "@slidx/islands/vue";
+import { createRegistry } from "@ubugeeei/slidx-islands";
+import { vueIsland } from "@ubugeeei/slidx-islands/vue";
 
 export default createRegistry([
   vueIsland({
@@ -56,13 +56,13 @@ The framework is a per-component adapter rather than a mode the whole deck
 enters. A deck can register a React chart beside that Vue counter, and removing
 either registration removes its adapter and component from the Vite graph.
 
-| Choice  | Adapter entry            | Factory         | Install in the deck                        |
-| ------- | ------------------------ | --------------- | ------------------------------------------ |
-| Vue     | `@slidx/islands/vue`     | `vueIsland`     | `vue` and the Vue Vite plugin              |
-| React   | `@slidx/islands/react`   | `reactIsland`   | `react`, `react-dom`, and the React plugin |
-| Svelte  | `@slidx/islands/svelte`  | `svelteIsland`  | `svelte` and the Svelte Vite plugin        |
-| Solid   | `@slidx/islands/solid`   | `solidIsland`   | `solid-js` and the Solid Vite plugin       |
-| Angular | `@slidx/islands/angular` | `angularIsland` | Angular 20+ and its compiler plugin        |
+| Choice  | Adapter entry                     | Factory         | Install in the deck                        |
+| ------- | --------------------------------- | --------------- | ------------------------------------------ |
+| Vue     | `@ubugeeei/slidx-islands/vue`     | `vueIsland`     | `vue` and the Vue Vite plugin              |
+| React   | `@ubugeeei/slidx-islands/react`   | `reactIsland`   | `react`, `react-dom`, and the React plugin |
+| Svelte  | `@ubugeeei/slidx-islands/svelte`  | `svelteIsland`  | `svelte` and the Svelte Vite plugin        |
+| Solid   | `@ubugeeei/slidx-islands/solid`   | `solidIsland`   | `solid-js` and the Solid Vite plugin       |
+| Angular | `@ubugeeei/slidx-islands/angular` | `angularIsland` | Angular 20+ and its compiler plugin        |
 
 Angular components and Angular's published packages need Angular's own compiler
 and linker in the deck's Vite config. The adapter runs zoneless so one island

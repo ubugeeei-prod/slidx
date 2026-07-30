@@ -28,7 +28,7 @@ pub enum ExportTarget {
 
 /// Something a build has to be asked for, beyond its ordinary output.
 ///
-/// Every one of these is rendered by `@slidx/vite-plugin` driving a browser
+/// Every one of these is rendered by `@ubugeeei/slidx-vite-plugin` driving a browser
 /// over the print shell it emitted. Naming them here rather than rendering them
 /// here is the boundary this crate exists to keep.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

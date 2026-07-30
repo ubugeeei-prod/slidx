@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
-import { BLOCK_ATTRIBUTE, REGION_ATTRIBUTE } from "@slidx/editor";
+import { BLOCK_ATTRIBUTE, REGION_ATTRIBUTE } from "@ubugeeei/slidx-editor";
 import { createServer, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 

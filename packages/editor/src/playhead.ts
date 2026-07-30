@@ -18,7 +18,12 @@
  * already decides it for the deck, the presenter view, and every deep link.
  */
 
-import { createMirror, createStopCursor, type MirrorTransport, type Stage } from "@slidx/runtime";
+import {
+  createMirror,
+  createStopCursor,
+  type MirrorTransport,
+  type Stage,
+} from "@ubugeeei/slidx-runtime";
 
 export interface Playhead {
   /** The stop currently shown. */

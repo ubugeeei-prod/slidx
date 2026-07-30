@@ -27,7 +27,7 @@
 //!
 //! ## What it deliberately does not do
 //!
-//! There is no `slidx build`. Building a deck belongs to `@slidx/vite-plugin`,
+//! There is no `slidx build`. Building a deck belongs to `@ubugeeei/slidx-vite-plugin`,
 //! and a second implementation of a pipeline is two answers to one question —
 //! the worst thing that could happen to a tool whose whole promise is that the
 //! artifact on the projector is the one that was checked. Typing it prints the
@@ -281,7 +281,7 @@ mod tests {
     fn asking_for_a_build_prints_the_plugin_and_exits_two() {
         let outcome = run_line("build");
 
-        assert!(outcome.stderr.contains("@slidx/vite-plugin"), "{}", outcome.stderr);
+        assert!(outcome.stderr.contains("@ubugeeei/slidx-vite-plugin"), "{}", outcome.stderr);
         assert_eq!(outcome.code, MISUSE);
     }
 }

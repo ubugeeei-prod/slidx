@@ -25,7 +25,7 @@
 
 /**
  * @typedef {object} Platform
- * @property {string} npm      Package name, without the scope's `@slidx/` prefix stripped.
+ * @property {string} npm      Package name, without the scope's `@ubugeeei/slidx-` prefix stripped.
  * @property {string} target   Rust target triple. Also the name in the release asset.
  * @property {string} os       `process.platform`, and npm's `os` field.
  * @property {string} cpu      `process.arch`, and npm's `cpu` field.
@@ -37,7 +37,7 @@
 /** @type {Platform[]} */
 export const PLATFORMS = [
   {
-    npm: "@slidx/cli-darwin-arm64",
+    npm: "@ubugeeei/slidx-cli-darwin-arm64",
     target: "aarch64-apple-darwin",
     os: "darwin",
     cpu: "arm64",
@@ -46,7 +46,7 @@ export const PLATFORMS = [
     describes: "macOS on Apple silicon",
   },
   {
-    npm: "@slidx/cli-darwin-x64",
+    npm: "@ubugeeei/slidx-cli-darwin-x64",
     target: "x86_64-apple-darwin",
     os: "darwin",
     cpu: "x64",
@@ -55,7 +55,7 @@ export const PLATFORMS = [
     describes: "macOS on Intel",
   },
   {
-    npm: "@slidx/cli-linux-x64",
+    npm: "@ubugeeei/slidx-cli-linux-x64",
     target: "x86_64-unknown-linux-musl",
     os: "linux",
     cpu: "x64",
@@ -64,7 +64,7 @@ export const PLATFORMS = [
     describes: "Linux on x86-64",
   },
   {
-    npm: "@slidx/cli-linux-arm64",
+    npm: "@ubugeeei/slidx-cli-linux-arm64",
     target: "aarch64-unknown-linux-musl",
     os: "linux",
     cpu: "arm64",
@@ -73,7 +73,7 @@ export const PLATFORMS = [
     describes: "Linux on ARM64",
   },
   {
-    npm: "@slidx/cli-win32-x64",
+    npm: "@ubugeeei/slidx-cli-win32-x64",
     target: "x86_64-pc-windows-msvc",
     os: "win32",
     cpu: "x64",

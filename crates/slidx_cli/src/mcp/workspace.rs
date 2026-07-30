@@ -161,7 +161,7 @@ impl Workspace {
     ///
     /// A directory holding no slide files but with a `slides/` in it is read as
     /// the project rather than refused, because that is the layout
-    /// `@slidx/vite-plugin` builds and the one `slidx lint` defaults to. A model
+    /// `@ubugeeei/slidx-vite-plugin` builds and the one `slidx lint` defaults to. A model
     /// that passes the project directory means the deck in it.
     pub fn read_deck(&self, path: &str, separator: Option<&str>) -> Result<Reading, String> {
         self.deck_at(self.readable(path)?, separator)

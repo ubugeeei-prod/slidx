@@ -20,7 +20,7 @@
 import { open, readdir } from "node:fs/promises";
 import { extname, join, posix, relative, sep } from "node:path";
 
-import type { AssetSize } from "@slidx/wasm";
+import type { AssetSize } from "@ubugeeei/slidx-wasm";
 
 import { probeImageHeader } from "./pipeline";
 

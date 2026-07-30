@@ -27,13 +27,13 @@ build-time and runtime work of the framework.
 ## Start
 
 ```bash
-vp add -D @slidx/vite-plugin
+vp add -D @ubugeeei/slidx-vite-plugin
 ```
 
 ```ts
 // vite.config.ts
 import { defineConfig } from "vite";
-import { slidx } from "@slidx/vite-plugin";
+import { slidx } from "@ubugeeei/slidx-vite-plugin";
 
 export default defineConfig({ plugins: [slidx()] });
 ```

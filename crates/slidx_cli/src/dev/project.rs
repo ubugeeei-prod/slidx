@@ -32,7 +32,7 @@ pub const CONFIG_NAMES: &[&str] =
     &["vite.config.ts", "vite.config.mts", "vite.config.cts", "vite.config.js", "vite.config.mjs"];
 
 /// Where the plugin's name appears when a project depends on it.
-const PLUGIN: &str = "@slidx/vite-plugin";
+const PLUGIN: &str = "@ubugeeei/slidx-vite-plugin";
 
 /// A Vite project on disk.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -169,8 +169,10 @@ mod tests {
     fn a_project_that_depends_on_the_plugin_says_so_through_its_manifest() {
         let scratch = Scratch::new("manifest");
         scratch.write("vite.config.ts", "import config from \"./vite/deck\";");
-        scratch
-            .write("package.json", "{ \"devDependencies\": { \"@slidx/vite-plugin\": \"^0\" } }");
+        scratch.write(
+            "package.json",
+            "{ \"devDependencies\": { \"@ubugeeei/slidx-vite-plugin\": \"^0\" } }",
+        );
 
         assert!(Project::find(&scratch.0).expect("a project").mentions_slidx());
     }
@@ -178,7 +180,7 @@ mod tests {
     #[test]
     fn a_project_that_registers_the_plugin_in_its_config_says_so_there() {
         let scratch = Scratch::new("config");
-        scratch.write("vite.config.ts", "import { slidx } from \"@slidx/vite-plugin\";");
+        scratch.write("vite.config.ts", "import { slidx } from \"@ubugeeei/slidx-vite-plugin\";");
 
         assert!(Project::find(&scratch.0).expect("a project").mentions_slidx());
     }

@@ -99,7 +99,7 @@ The wordmark and a heading on a slide resolve to the same face on the same
 machine.
 
 **Always lowercase.** The crate is `slidx_*`, the command is `slidx`, the
-packages are `@slidx/*`. A capitalised wordmark would be a second spelling of
+packages are `@ubugeeei/slidx-*`. A capitalised wordmark would be a second spelling of
 the product's name.
 
 ## The lockup

@@ -8,7 +8,7 @@
 //! that only one consumer reads out of the type every consumer loads.
 //!
 //! Artifacts are named, never produced. slidx does not build a deck — that is
-//! `@slidx/vite-plugin`'s job — so a PDF is a path the author points at, and
+//! `@ubugeeei/slidx-vite-plugin`'s job — so a PDF is a path the author points at, and
 //! its size is measured here so that planning never has to touch a disk.
 
 use std::fs;
@@ -19,7 +19,7 @@ use slidx_publish::{Artifact, ArtifactKind, DeckMetadata, DeckSlide, DeckSource}
 
 use crate::args::Matches;
 
-/// Where `@slidx/vite-plugin` writes the PDF, at its defaults.
+/// Where `@ubugeeei/slidx-vite-plugin` writes the PDF, at its defaults.
 ///
 /// Looked for rather than required: a deck built without `pdf: true` simply has
 /// no PDF, and the upload steps say so and say how to make one. A path given

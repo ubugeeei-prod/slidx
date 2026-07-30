@@ -1,5 +1,5 @@
 {
-  "name": "@slidx/rehearsal",
+  "name": "@ubugeeei/slidx-rehearsal",
   "version": "0.1.0",
   "description": "Per-slide dwell time from a real rehearsal, diffed against the budget the deck declares",
   "license": "MIT",

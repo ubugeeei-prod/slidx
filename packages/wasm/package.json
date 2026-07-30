@@ -1,5 +1,5 @@
 {
-  "name": "@slidx/wasm",
+  "name": "@ubugeeei/slidx-wasm",
   "version": "0.1.0",
   "description": "The slidx deck pipeline compiled to WebAssembly",
   "license": "MIT",

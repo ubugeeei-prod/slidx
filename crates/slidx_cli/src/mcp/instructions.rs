@@ -76,8 +76,8 @@ own output, with a QR code on the slide pointing at it.
 
 WHAT IS NOT HERE
 
-Building a deck, the PDF and the social cards belong to @slidx/vite-plugin:
-`vite build` in the deck's own project.
+The build belongs to @ubugeeei/slidx-vite-plugin. Run `vite build` in the
+deck's own project for the deck, PDF and social cards.
 
 Formatting is `slidx fmt`, a command a person runs. It normalises only the parts
 slidx owns — frontmatter key order, the separator's spelling, a mark's attribute
@@ -220,7 +220,7 @@ mod tests {
         // and it stops an agent tidying Markdown by hand to fill the gap.
         assert!(read_only().contains("slidx fmt"));
         assert!(read_only().contains("Never tidy Markdown by hand"));
-        assert!(read_only().contains("@slidx/vite-plugin"));
+        assert!(read_only().contains("@ubugeeei/slidx-vite-plugin"));
     }
 
     #[test]

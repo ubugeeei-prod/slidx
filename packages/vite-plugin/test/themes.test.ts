@@ -10,7 +10,7 @@
  * out in the theme's own colours.
  *
  * The document is generated from `slidx_theme::published`, so these fixtures
- * describe the same theme `@slidx/theme-workshop` publishes rather than a
+ * describe the same theme `@ubugeeei/slidx-theme-workshop` publishes rather than a
  * plausible copy of one.
  */
 
@@ -27,7 +27,7 @@ import { readThemePackages } from "../src/themes";
 
 const packages = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-/** The document `@slidx/theme-workshop` ships, read from the package itself. */
+/** The document `@ubugeeei/slidx-theme-workshop` ships, read from the package itself. */
 async function workshopDocument(): Promise<string> {
   return readFile(join(packages, "theme-workshop", "theme.json"), "utf8");
 }
@@ -67,9 +67,9 @@ async function project(name: string, installed: Installed): Promise<string> {
   return root;
 }
 
-/** A project with `@slidx/theme-workshop` installed the way npm would. */
+/** A project with `@ubugeeei/slidx-theme-workshop` installed the way npm would. */
 async function withWorkshop(): Promise<string> {
-  return project("@slidx/theme-workshop", {
+  return project("@ubugeeei/slidx-theme-workshop", {
     manifest: { slidx: { theme: "./theme.json" } },
     files: { "theme.json": await workshopDocument() },
   });
@@ -80,7 +80,7 @@ describe("finding the theme packages a project installed", () => {
     const found = await readThemePackages(await withWorkshop());
 
     expect(found).toHaveLength(1);
-    expect(found[0]?.source).toBe("@slidx/theme-workshop");
+    expect(found[0]?.source).toBe("@ubugeeei/slidx-theme-workshop");
     expect(JSON.parse(found[0]?.document ?? "{}")).toMatchObject({ id: "workshop" });
   });
 

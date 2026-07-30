@@ -1,11 +1,11 @@
-# @slidx/theme-workshop
+# @ubugeeei/slidx-theme-workshop
 
 A slidx theme for the room the four built-in themes deliberately do not cover:
 a hands-on session, where the audience is typing along and the slide is a
 reference they glance up at rather than a thing they watch.
 
 ```bash
-vp add -D @slidx/theme-workshop
+vp add -D @ubugeeei/slidx-theme-workshop
 ```
 
 ```md
@@ -14,7 +14,7 @@ theme: workshop
 ---
 ```
 
-That is the whole installation. `@slidx/vite-plugin` reads the theme documents
+That is the whole installation. `@ubugeeei/slidx-vite-plugin` reads the theme documents
 of the packages your project depends on, so nothing has to be imported,
 registered, or named in `vite.config.ts`.
 

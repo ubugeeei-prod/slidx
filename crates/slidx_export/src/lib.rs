@@ -3,7 +3,7 @@
 //! Turning what a build produced into one file somebody can hand over.
 //!
 //! **Nothing here renders a deck.** The pages, the PDF, and the images all come
-//! from `@slidx/vite-plugin` driving a real browser over the emitted print
+//! from `@ubugeeei/slidx-vite-plugin` driving a real browser over the emitted print
 //! shell; this crate takes those files and puts them in a container a
 //! conference form, a review panel, or a presentation tool will accept. That
 //! separation is the whole design: a second renderer would mean the artefact a

@@ -1,5 +1,5 @@
 /**
- * `@slidx/editor` — the deck outline, the slide canvas, and the inspector.
+ * `@ubugeeei/slidx-editor` — the deck outline, the slide canvas, and the inspector.
  *
  * The claim this package exists to keep is that the canvas and the Markdown are
  * two views of one document rather than an import and an export. Three rules

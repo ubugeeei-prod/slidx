@@ -583,7 +583,7 @@ mod tests {
         };
 
         assert_eq!(name, "build");
-        assert!(reason.contains("@slidx/vite-plugin"), "{reason}");
+        assert!(reason.contains("@ubugeeei/slidx-vite-plugin"), "{reason}");
     }
 
     #[test]
