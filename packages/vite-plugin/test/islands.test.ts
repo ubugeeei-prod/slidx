@@ -225,14 +225,25 @@ describe("the dev server", () => {
       });
       tab.on("pageerror", (error) => errors.push(error.message));
 
-      for (const base of [fixture.url, fixture.previewUrl]) {
+      for (const [surface, base] of [
+        ["dev", fixture.url],
+        ["production", fixture.previewUrl],
+      ] as const) {
+        errors.length = 0;
         await tab.goto(new URL("slides/", base).href);
 
         await expect
-          .poll(() => tab.locator('[data-slidx-island="counter"]').textContent())
+          .poll(() => tab.locator('[data-slidx-island="counter"]').textContent(), {
+            // On a saturated Windows matrix the module fetch can begin after
+            // Vitest's one-second polling default. This is a real browser
+            // boundary, so wait for the observable mount instead of racing
+            // the runner's process scheduler.
+            timeout: 10_000,
+            interval: 100,
+          })
           .toBe("Mounted 7");
+        expect(errors, `${surface} island client errors`).toEqual([]);
       }
-      expect(errors).toEqual([]);
     } finally {
       await browser.close();
     }
