@@ -69,6 +69,13 @@ pub const KEYS: &[Key] = &[
         values: Values::Text("your name"),
     },
     Key {
+        name: "lang",
+        scope: Scope::Deck,
+        summary: "BCP 47 tag for the language the slides are written in. Becomes the page's \
+                  `<html lang>`, which is what a screen reader picks a voice from.",
+        values: Values::Text("ja"),
+    },
+    Key {
         name: "theme",
         scope: Scope::Deck,
         summary: "A built-in theme id, or the name of a theme package. An unknown name is \
@@ -87,6 +94,13 @@ pub const KEYS: &[Key] = &[
         summary: "How long the speaking slot is. Drives the presenter countdown and the check \
                   that catches a 40-minute deck booked into a 20-minute slot.",
         values: Values::Duration,
+    },
+    Key {
+        name: "translationOf",
+        scope: Scope::Deck,
+        summary: "The deck this one is a translation of. Written by `slidx i18n apply`, and what \
+                  makes two decks knowably the same talk rather than two talks.",
+        values: Values::Text("../slides"),
     },
     Key {
         name: "event",
