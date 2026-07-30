@@ -55,6 +55,12 @@ pub const PACKAGE: &str = "@slidx/theme-workshop";
 /// A theme package is the easiest place in this project to break the offline
 /// guarantee, because a font stack in a published file is a long way from the
 /// rule that would catch a remote asset in a deck.
+///
+/// Written out again rather than shared with [`crate::builtin`], and that is
+/// the point rather than an oversight. This stack is *published*: it is frozen
+/// into a document on a registry the moment the package ships, so a built-in
+/// changing its own faces next year must not silently change what a deck
+/// installed. A theme package owns its typography or it does not own anything.
 const SANS: &str = "system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', \
                     'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif";
 const MONO: &str = "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, \

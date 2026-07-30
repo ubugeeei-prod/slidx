@@ -66,7 +66,11 @@ export async function readThemePackages(root: string): Promise<ThemePackage[]> {
   // By name, so two builds of one tree hand the documents over in the same
   // order — which is what makes the collision rule on the Rust side settle a
   // duplicate id the same way every time rather than by directory listing.
-  return found.sort((one, other) => one.source.localeCompare(other.source));
+  //
+  // The locale is pinned for the same reason: `localeCompare` without one
+  // sorts by whatever the machine is set to, which would make "the same order
+  // every time" true on one developer's laptop and not on CI.
+  return found.sort((one, other) => one.source.localeCompare(other.source, "en"));
 }
 
 async function dependencyNames(root: string): Promise<string[]> {
