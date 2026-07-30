@@ -198,6 +198,13 @@ export default defineConfig({
         "SLIDX_WRITE_DECK_TYPES=1 cargo test -p slidx_wasm --lib the_committed_",
       ),
 
+      // Every file under `assets/brand/` — the mark, the wordmark, the tokens.
+      // Committed for the same reason the deck types are: their consumers, the
+      // documentation site and the icon script, cannot call Rust. `test:rust`
+      // fails when a committed copy stops describing the crate, and this task is
+      // how you fix that failure.
+      "generate:brand": uncached("cargo run -p slidx_brand --example emit"),
+
       // The runtime is consumed through its published `exports`, which point
       // at `dist/`. Importing it from source instead would test a module that
       // no user ever loads, so it is built before anything reads it. This is

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 24" width="72" height="24" role="img" aria-label="slidx">
+  <!--
+    Set type, not outlines: a drawn wordmark would need a typeface the machine
+    does not have, and a deck that downloads a font is the failure this project
+    exists to prevent. The stack is the default theme's, so the wordmark and a
+    heading on a slide resolve to the same face.
+  -->
+  <text x="0" y="12" fill="#f2f2f5" font-family="system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif" font-size="24" font-weight="650" letter-spacing="-0.02em" dominant-baseline="central">slidx</text>
+</svg>
