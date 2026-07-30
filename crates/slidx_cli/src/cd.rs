@@ -10,7 +10,8 @@
 //! wrapping a binary that prints a path.
 //!
 //! So the split is deliberate: this command *resolves*, a shell function
-//! *enters*. Somebody reading it later will want to collapse the two, and this
+//! *enters*. [`crate::shell`] writes that function, for every shell slidx knows.
+//! Somebody reading this later will want to collapse the two halves, and this
 //! comment is here to say what they will find when they try.
 //!
 //! ## One path, or none

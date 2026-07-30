@@ -274,7 +274,11 @@ Fuzzy-finds a project and prints its directory, which is all a program can do
 here: a child process cannot change the working directory of the shell that
 started it, and no flag will make it. That is how processes work rather than
 something missing, so the `cd` belongs to a shell function that reads this
-command's output — and directly, to a command substitution:
+command's output. `slidx shell` writes that function:
+
+    eval \"$(slidx shell sh)\"
+
+Without it, a command substitution does the same job by hand:
 
     cd \"$(slidx cd vueconf)\"
 
