@@ -203,7 +203,19 @@ describe("the dev server", () => {
 
     const client = await fetch(new URL(source!, fixture.url));
     expect(client.ok).toBe(true);
-    expect(await client.text()).toContain("hydrateIslands");
+    const module = await client.text();
+    expect(module).toContain("hydrateIslands");
+
+    const setupSource = module.match(/import registry from "([^"]+)"/)?.[1];
+    expect(setupSource).toBeDefined();
+
+    // Fetching the nested setup module pins that the public entry went through
+    // Vite's transform graph. A raw `/@fs/` import can look correct here and
+    // still be rejected in the browser when Windows spells the temp root in
+    // its short-path form.
+    const setup = await fetch(new URL(setupSource!, fixture.url));
+    expect(setup.ok).toBe(true);
+    expect(await setup.text()).toContain('name: "counter"');
   });
 
   it("keeps a plain dev slide free of the island client", async () => {
