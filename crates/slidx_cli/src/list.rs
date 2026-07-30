@@ -98,10 +98,7 @@ pub fn describe(entry: &Entry) -> Row {
         slides: deck.as_ref().map(|deck| deck.slides),
         duration_seconds: deck.as_ref().and_then(|deck| deck.duration_seconds),
         touched: deck.as_ref().and_then(|deck| deck.touched).unwrap_or(entry.last_seen),
-        event: deck
-            .as_ref()
-            .and_then(|deck| deck.event.clone())
-            .or_else(|| entry.event.clone()),
+        event: deck.as_ref().and_then(|deck| deck.event.clone()).or_else(|| entry.event.clone()),
     }
 }
 
@@ -270,7 +267,11 @@ mod tests {
 
         let order: Vec<&str> = text
             .lines()
-            .filter_map(|line| ["Newest talk", "Middle talk", "Older talk"].into_iter().find(|title| line.contains(title)))
+            .filter_map(|line| {
+                ["Newest talk", "Middle talk", "Older talk"]
+                    .into_iter()
+                    .find(|title| line.contains(title))
+            })
             .collect();
 
         assert_eq!(order, ["Newest talk", "Middle talk", "Older talk"]);
@@ -312,7 +313,11 @@ mod tests {
 
         assert!(text.contains('…'), "{text}");
         for line in text.lines() {
-            assert!(line.chars().count() <= crate::style::WIDTH, "{} columns: {line}", line.chars().count());
+            assert!(
+                line.chars().count() <= crate::style::WIDTH,
+                "{} columns: {line}",
+                line.chars().count()
+            );
         }
     }
 
@@ -324,11 +329,15 @@ mod tests {
     #[test]
     fn the_columns_line_up_in_every_row() {
         let text = rendered(
-            &[row("Short", Some(2), Some(600), 0), row("A longer deck title", Some(30), Some(2700), 0)],
+            &[
+                row("Short", Some(2), Some(600), 0),
+                row("A longer deck title", Some(30), Some(2700), 0),
+            ],
             0,
         );
 
-        let starts: Vec<Option<usize>> = text.lines().take(3).map(|line| line.find("  ").map(|_| line.len())).collect();
+        let starts: Vec<Option<usize>> =
+            text.lines().take(3).map(|line| line.find("  ").map(|_| line.len())).collect();
         assert!(starts.iter().all(Option::is_some));
 
         // Every row is the same width, which is what a padded column means.
@@ -350,7 +359,8 @@ mod tests {
     #[test]
     fn one_deck_is_counted_in_the_singular() {
         assert!(rendered(&[row("A talk", Some(1), None, 0)], 0).contains("1 deck."));
-        assert!(rendered(&[row("A", Some(1), None, 0), row("B", Some(1), None, 0)], 0).contains("2 decks."));
+        assert!(rendered(&[row("A", Some(1), None, 0), row("B", Some(1), None, 0)], 0)
+            .contains("2 decks."));
     }
 
     #[test]

@@ -113,7 +113,11 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
     }
 
     if hits.is_empty() {
-        return Outcome { stderr: no_match(query, index.entries().len()), code: FOUND, ..Outcome::default() };
+        return Outcome {
+            stderr: no_match(query, index.entries().len()),
+            code: FOUND,
+            ..Outcome::default()
+        };
     }
 
     Outcome::out(render(&hits, query, limit, style)).with_code(OK)
@@ -236,11 +240,8 @@ fn render(hits: &[Hit], query: &str, limit: usize, style: &Style) -> String {
             deck = Some(&hit.deck);
         }
 
-        let title = hit
-            .slide_title
-            .as_deref()
-            .map(|title| format!("  {title}"))
-            .unwrap_or_default();
+        let title =
+            hit.slide_title.as_deref().map(|title| format!("  {title}")).unwrap_or_default();
 
         text.push_str(&format!(
             "    {}{}\n      {}\n",
@@ -520,10 +521,12 @@ mod tests {
         // Otherwise a screen of hits is a screen of rows all beginning with the
         // same deck name, and the eye has nowhere to rest.
         let scratch = Scratch::new("grouped");
-        let one = scratch.project("one", &["---\ntitle: First deck\n---\n\n# One\n\nphrase\nphrase\n"]);
+        let one =
+            scratch.project("one", &["---\ntitle: First deck\n---\n\n# One\n\nphrase\nphrase\n"]);
         let two = scratch.project("two", &["---\ntitle: Second deck\n---\n\n# Two\n\nphrase\n"]);
 
-        let text = render(&found(&index_over(&[one, two]), "phrase"), "phrase", 100, &Style::plain());
+        let text =
+            render(&found(&index_over(&[one, two]), "phrase"), "phrase", 100, &Style::plain());
 
         assert_eq!(text.matches("First deck").count(), 1, "{text}");
         assert_eq!(text.matches("Second deck").count(), 1, "{text}");
@@ -543,7 +546,11 @@ mod tests {
         };
 
         for line in render(&[hit], "fonts", 100, &Style::plain()).lines() {
-            assert!(line.chars().count() <= style::WIDTH, "{} columns: {line}", line.chars().count());
+            assert!(
+                line.chars().count() <= style::WIDTH,
+                "{} columns: {line}",
+                line.chars().count()
+            );
         }
     }
 
@@ -561,7 +568,10 @@ mod tests {
 
     #[test]
     fn a_line_that_fits_is_shown_as_it_was_written() {
-        assert_eq!(excerpt("the venue wifi is down", "venue", &Style::plain()), "the venue wifi is down");
+        assert_eq!(
+            excerpt("the venue wifi is down", "venue", &Style::plain()),
+            "the venue wifi is down"
+        );
     }
 
     #[test]

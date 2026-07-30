@@ -73,10 +73,9 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
             // No terminal to pick on: a pipe, a script, a CI job. The ranking
             // is the answer, and saying which one was taken costs a line of
             // standard error that no substitution will capture.
-            picker::Outcome::Unavailable => Outcome {
-                stderr: guessed(query, several, style),
-                ..entered(&several[0].path)
-            },
+            picker::Outcome::Unavailable => {
+                Outcome { stderr: guessed(query, several, style), ..entered(&several[0].path) }
+            }
         },
     }
 }
@@ -164,8 +163,7 @@ mod tests {
     fn nothing_matched_prints_nothing_at_all_on_standard_output() {
         // So `cd "$(slidx cd nonsense)"` fails rather than entering the empty
         // string, which is somebody's home directory.
-        let outcome =
-            Outcome { stderr: no_match("nonsense"), code: FOUND, ..Outcome::default() };
+        let outcome = Outcome { stderr: no_match("nonsense"), code: FOUND, ..Outcome::default() };
 
         assert!(outcome.stdout.is_empty());
         assert_eq!(outcome.code, FOUND);
@@ -197,7 +195,10 @@ mod tests {
     fn a_ranked_query_prefers_the_deck_whose_title_or_path_matches() {
         // The same ranking `slidx open` uses, so the two commands never
         // disagree about which deck a query means.
-        let entries = vec![entry("/talks/vueconf", "Making decks fast"), entry("/work/review", "Architecture review")];
+        let entries = vec![
+            entry("/talks/vueconf", "Making decks fast"),
+            entry("/work/review", "Architecture review"),
+        ];
         let ranked = scoring::rank("vueconf", &entries, Entry::haystack);
 
         assert_eq!(ranked[0].0.path, PathBuf::from("/talks/vueconf"));
