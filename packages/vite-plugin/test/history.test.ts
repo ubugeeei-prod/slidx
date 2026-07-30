@@ -56,7 +56,10 @@ async function withHistory(): Promise<Session> {
   const write = (name: string, source: string) =>
     writeFile(join(root, "slides", name), source, "utf8");
 
-  await write("0001.md", "---\ntitle: Making decks fast\nduration: 20m\n---\n\n# Making decks fast\n");
+  await write(
+    "0001.md",
+    "---\ntitle: Making decks fast\nduration: 20m\n---\n\n# Making decks fast\n",
+  );
   await write("0002.md", "---\nbudget: 90s\n---\n\n## What goes wrong\n\n- the venue wifi\n");
   await write("0003.md", "## The fix\n");
 
@@ -66,7 +69,10 @@ async function withHistory(): Promise<Session> {
   await git(root, "add", "-A");
   await git(root, "commit", "--quiet", "-m", "the deck as the author wrote it");
 
-  await write("0002.md", "---\nbudget: 120s\n---\n\n## What actually goes wrong\n\n- the venue wifi\n");
+  await write(
+    "0002.md",
+    "---\nbudget: 120s\n---\n\n## What actually goes wrong\n\n- the venue wifi\n",
+  );
   await git(root, "add", "-A");
   await git(root, "commit", "--quiet", "-m", "rework the middle");
 

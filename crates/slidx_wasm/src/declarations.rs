@@ -303,12 +303,8 @@ mod tests {
             effect: None,
         };
 
-        let summary = DeckSummary {
-            first: false,
-            slides: 0,
-            subject: String::new(),
-            changes: Vec::new(),
-        };
+        let summary =
+            DeckSummary { first: false, slides: 0, subject: String::new(), changes: Vec::new() };
 
         vec![
             ("BuildOptions", json(&BuildOptions::default())),

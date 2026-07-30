@@ -71,11 +71,11 @@ pub use notes::{extract_notes, find_notes, ExtractedNotes, FoundNote};
 pub use parser::{parse_deck, DeckParseOptions};
 pub use slug::{slugify, SlugAllocator};
 pub use span::ByteSpan;
-pub use summary::Summary;
 pub use steps::{
     compile_timeline, AutoSteps, Easing, Effect, EffectKind, EffectPreset, ElementState, Origin,
     StepAction, StepFrame, StepOptions, StepSource, StepTimeline, Visibility,
 };
+pub use summary::Summary;
 
 /// The version of the deck format this build understands.
 ///

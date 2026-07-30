@@ -27,7 +27,7 @@ function fakeHistory(list: Partial<RevisionList> = {}): Fake {
   const fake: Fake = {
     asked: [],
     list_: { available: true, commits: [], ...list },
-    change: { first: false, slides: 3, subject: "Add \"What it cost\"", changes: [] },
+    change: { first: false, slides: 3, subject: 'Add "What it cost"', changes: [] },
 
     list: async () => fake.list_,
     changeAt: async (rev) => {
@@ -107,9 +107,7 @@ describe("the history panel", () => {
 
     expect(text(rows(root)[0]!, ".slidx-revision-subject")).toBe("rework the middle");
     expect(text(rows(root)[0]!, ".slidx-revision-meta")).toBe("The Author · 2 days ago");
-    expect(text(rows(root)[1]!, ".slidx-revision-subject")).toBe(
-      "the deck as the author wrote it",
-    );
+    expect(text(rows(root)[1]!, ".slidx-revision-subject")).toBe("the deck as the author wrote it");
   });
 
   it("says a deck outside a repository has no history, in a sentence", async () => {
@@ -154,11 +152,9 @@ describe("the history panel", () => {
     expect(text(root, ".slidx-revision-headline")).toBe(
       'Retitle "What goes wrong" and retime a slide',
     );
-    expect([...root.querySelectorAll(".slidx-revision-lines li")].map((li) => li.textContent))
-      .toEqual([
-        'retitled "What goes wrong" to "What actually goes wrong"',
-        "budget: 1m30s to 2m",
-      ]);
+    expect(
+      [...root.querySelectorAll(".slidx-revision-lines li")].map((li) => li.textContent),
+    ).toEqual(['retitled "What goes wrong" to "What actually goes wrong"', "budget: 1m30s to 2m"]);
     expect(client.asked).toEqual([COMMITS[0]!.rev]);
   });
 

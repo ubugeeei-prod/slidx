@@ -192,9 +192,9 @@ describe("what cannot become an argument", () => {
     const commits = await repo!.log(`my slides; touch ${marker}`, 20);
 
     expect(commits).toHaveLength(2);
-    expect(await repo!.filesAt(commits[1]!.rev, `my slides; touch ${marker}`, [".md"])).toHaveLength(
-      2,
-    );
+    expect(
+      await repo!.filesAt(commits[1]!.rev, `my slides; touch ${marker}`, [".md"]),
+    ).toHaveLength(2);
     await expect(access(marker)).rejects.toThrow();
   });
 
