@@ -24,6 +24,7 @@ describe("defaults", () => {
     expect(options.base).toBe("slides");
     expect(options.separator).toBe("---");
     expect(options.extensions).toEqual([".md"]);
+    expect(options.islands).toBeUndefined();
   });
 
   it("treats an empty object the same as nothing", () => {
@@ -74,6 +75,11 @@ describe("normalising", () => {
 
   it("falls back rather than accepting an empty srcDir", () => {
     expect(resolveOptions({ srcDir: "/" }).srcDir).toBe("slides");
+  });
+
+  it("keeps an island setup opt-in and trims its module path", () => {
+    expect(resolveOptions({ islands: "  ./islands.ts  " }).islands).toBe("./islands.ts");
+    expect(resolveOptions({ islands: "  " }).islands).toBeUndefined();
   });
 });
 

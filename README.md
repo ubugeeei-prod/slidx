@@ -133,7 +133,7 @@ slidx cd vueconf           # with `slidx shell` loaded, takes you there
 |                                                                                           |
 | ----------------------------------------------------------------------------------------- |
 | **Zero network requests.** Asserted in three browser engines, not written down as advice. |
-| **No framework in the output.** A slide wanting Vue or Three.js opts in alone.            |
+| **No framework in the output.** Vue, React, Svelte, Solid and Angular opt in per deck.    |
 | **An edit is a byte-range splice.** Your blank lines and `*` bullets survive untouched.   |
 | **The linter checks the room.** Projector washout; angular size from the back row.        |
 | **One model, one execution.** Editor, projector, PDF and card share one parser.           |

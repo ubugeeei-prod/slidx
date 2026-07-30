@@ -214,6 +214,8 @@ stop in it, so the handout is not a different talk from the one you gave.
   built, what is not, and what will not be.
 - [The night before](tonight.md) is indexed by symptom rather than by concept,
   and it is the page to bookmark now and open at eleven at night.
+- [Framework islands](islands.md) is the opt-in path for Vue, React, Svelte,
+  Solid and Angular components while every other slide stays static.
 - [ROADMAP.md](../../ROADMAP.md) is where anything unfinished lives. It opens by
   defining what a checked box is allowed to mean, which is a distinction this
   project learned the hard way.

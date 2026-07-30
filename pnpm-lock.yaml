@@ -117,6 +117,9 @@ importers:
       '@slidx/editor':
         specifier: workspace:*
         version: link:../editor
+      '@slidx/islands':
+        specifier: workspace:*
+        version: link:../islands
       '@slidx/rehearsal':
         specifier: workspace:*
         version: link:../rehearsal
