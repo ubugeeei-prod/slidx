@@ -144,7 +144,12 @@ fn collect(deck: &Deck, matches: &Matches) -> Vec<Diagnostic> {
     };
 
     let mut diagnostics: Vec<Diagnostic> = deck.diagnostics.iter().cloned().collect();
-    diagnostics.extend(slidx_dialect::check(deck, &options.allow));
+    // With no installed vocabulary. Finding a project's theme packages means
+    // resolving `node_modules`, which is `@slidx/vite-plugin`'s job and the one
+    // place it is done — so a deck naming a package theme is warned about here
+    // and rendered correctly by the build. `slidx theme` is how an author reads
+    // a document this command cannot find for them.
+    diagnostics.extend(slidx_dialect::check(deck, &options.allow, &Default::default()));
     diagnostics.extend(lint(&LintInput::new(deck, &surfaces), &options));
 
     // A block placed in a region its layout does not have is decidable from the

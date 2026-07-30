@@ -107,6 +107,8 @@ importers:
         specifier: workspace:*
         version: link:../wasm
 
+  packages/theme-workshop: {}
+
   packages/vite-plugin:
     dependencies:
       '@slidx/editor':

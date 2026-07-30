@@ -243,6 +243,14 @@ export default defineConfig({
         "SLIDX_WRITE_DECK_TYPES=1 cargo test -p slidx_wasm --lib the_committed_",
       ),
 
+      // The token document `@slidx/theme-workshop` publishes. Committed for the
+      // reason every generated file here is: the package ships to npm and its
+      // consumers cannot call Rust. `test:rust` fails when the committed copy
+      // stops describing `slidx_theme::published`, and this task is how you fix
+      // that failure — a theme package's palette is the one thing that must not
+      // be a list of hexes somebody pasted.
+      "generate:theme": uncached("cargo run -p slidx_theme --example pack"),
+
       // Every file under `assets/brand/` — the mark, the wordmark, the tokens.
       // Committed for the same reason the deck types are: their consumers, the
       // documentation site and the icon script, cannot call Rust. `test:rust`

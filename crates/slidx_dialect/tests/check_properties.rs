@@ -162,7 +162,7 @@ fn checking_half_typed_input_never_panics() {
 
     for _ in 0..CASES {
         let source = generate_half_typed(&mut rng);
-        slidx_dialect::check(&parse(&source), &[]);
+        slidx_dialect::check(&parse(&source), &[], &slidx_dialect::Installed::default());
     }
 }
 
@@ -174,7 +174,8 @@ fn a_deck_written_only_in_spellings_the_parser_accepts_is_reported_on_for_nothin
 
     for _ in 0..CASES {
         let source = generate_valid(&mut rng);
-        let found = slidx_dialect::check(&parse(&source), &[]);
+        let found =
+            slidx_dialect::check(&parse(&source), &[], &slidx_dialect::Installed::default());
 
         assert!(found.is_empty(), "reported {found:?} for a valid deck:\n{source}");
     }
@@ -191,7 +192,8 @@ fn every_finding_points_at_a_slide_that_exists() {
         let deck = parse(&source);
         let count = deck.slides.len() as u32;
 
-        for finding in slidx_dialect::check(&deck, &[]).iter() {
+        for finding in slidx_dialect::check(&deck, &[], &slidx_dialect::Installed::default()).iter()
+        {
             let Some(index) = finding.span.slide_index else {
                 panic!("{} names no slide, and every one of these is about a slide", finding.code);
             };
@@ -219,7 +221,8 @@ fn every_finding_points_at_the_line_the_slide_it_names_begins_on() {
         let source = generate_half_typed(&mut rng);
         let deck = parse(&source);
 
-        for finding in slidx_dialect::check(&deck, &[]).iter() {
+        for finding in slidx_dialect::check(&deck, &[], &slidx_dialect::Installed::default()).iter()
+        {
             let index = finding.span.slide_index.expect("every finding names a slide");
             let slide = &deck.slides[index as usize];
 
@@ -248,7 +251,10 @@ fn checking_the_same_deck_twice_gives_the_same_findings() {
     for _ in 0..CASES {
         let deck = parse(&generate_half_typed(&mut rng));
 
-        assert_eq!(slidx_dialect::check(&deck, &[]), slidx_dialect::check(&deck, &[]));
+        assert_eq!(
+            slidx_dialect::check(&deck, &[], &slidx_dialect::Installed::default()),
+            slidx_dialect::check(&deck, &[], &slidx_dialect::Installed::default())
+        );
     }
 }
 
@@ -259,7 +265,8 @@ fn the_generated_half_typed_decks_are_ones_the_check_finds_something_in() {
     let mut reported = 0usize;
 
     for _ in 0..CASES {
-        if !slidx_dialect::check(&parse(&generate_half_typed(&mut rng)), &[]).is_empty() {
+        let deck = parse(&generate_half_typed(&mut rng));
+        if !slidx_dialect::check(&deck, &[], &slidx_dialect::Installed::default()).is_empty() {
             reported += 1;
         }
     }
