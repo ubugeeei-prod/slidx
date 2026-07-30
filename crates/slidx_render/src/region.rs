@@ -38,15 +38,11 @@ pub const BLOCK_ATTRIBUTE: &str = "data-slidx-block";
 
 /// The layout a slide renders with.
 ///
-/// An unknown name falls back to the default rather than failing: the diagnostic
-/// was already reported by [`slidx_theme::layout::diagnose`], and a slide that
-/// refused to render because of a typo is a speaker with nothing on the wall.
+/// The resolution itself lives in `slidx_theme::layout`, because an edit
+/// operation has to reach the same answer: a block dropped into a region this
+/// slide does not have is a block that is then drawn somewhere else.
 pub fn layout_of(slide: &Slide) -> Layout {
-    slide
-        .layout
-        .as_deref()
-        .and_then(slidx_theme::layout::find)
-        .unwrap_or_else(slidx_theme::layout::default_layout)
+    slidx_theme::layout::of(slide)
 }
 
 /// The inner HTML of `.slidx-slide-body`, one element per region.

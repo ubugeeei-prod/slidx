@@ -9,5 +9,10 @@ description = "The edit-operation model the slidx visual editor writes Markdown 
 
 [dependencies]
 slidx_core = { workspace = true }
+# Placement is the one thing an operation cannot decide from the source alone:
+# `.side` places a block and `.accent` styles one, and only the layout
+# vocabulary tells them apart. Answering that here rather than in the editor is
+# what keeps the rule in `slidx_theme::layout::place` the only answer to it.
+slidx_theme = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

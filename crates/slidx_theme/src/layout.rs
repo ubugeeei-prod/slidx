@@ -32,6 +32,7 @@
 //! own, this is the vocabulary it will override.
 
 use serde::{Deserialize, Serialize};
+use slidx_core::Slide;
 
 pub mod css;
 mod place;
@@ -165,6 +166,18 @@ pub fn find(id: &str) -> Option<Layout> {
 /// The layout a slide gets when it names none.
 pub fn default_layout() -> Layout {
     full()
+}
+
+/// The layout a slide's regions come from.
+///
+/// An unknown name falls back to the default rather than failing: the
+/// diagnostic was already reported by [`diagnose`], and a slide that refused to
+/// render because of a typo is a speaker with nothing on the wall. Written once
+/// here because both the renderer and the edit operations have to agree about
+/// which regions a slide has, and two answers would let a block be dropped
+/// somewhere it is then not drawn.
+pub fn of(slide: &Slide) -> Layout {
+    slide.layout.as_deref().and_then(find).unwrap_or_else(default_layout)
 }
 
 /// Names an author may write, for completion and for diagnostics.
