@@ -220,6 +220,7 @@ pub fn deck_meta(value: &JsonValue, diagnostics: &mut Diagnostics) -> DeckMeta {
         author: string(value, "author"),
         theme: string(value, "theme"),
         transition: transition(value, diagnostics),
+        camera: crate::camera::parse(value, diagnostics).flatten(),
         aspect,
         duration_seconds: duration_seconds(value, "duration"),
         talk: TalkMeta {
