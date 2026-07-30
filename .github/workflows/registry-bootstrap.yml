@@ -112,20 +112,21 @@ jobs:
       - name: Pack in publish order
         run: |
           set -euo pipefail
-          mkdir -p bundle
+          bundle="$GITHUB_WORKSPACE/bundle"
+          mkdir -p "$bundle"
           node scripts/pack-npm.mjs \
-            bundle \
+            "$bundle" \
             $(node scripts/publish-order.mjs npm) \
             packages/cli/dist/* \
             packages/cli > "$RUNNER_TEMP/tarballs"
           while IFS= read -r tarball; do
             basename "$tarball"
-          done < "$RUNNER_TEMP/tarballs" > bundle/publish-order.txt
-          git rev-parse HEAD > bundle/commit.txt
+          done < "$RUNNER_TEMP/tarballs" > "$bundle/publish-order.txt"
+          git rev-parse HEAD > "$bundle/commit.txt"
 
       - uses: actions/upload-artifact@v4
         with:
           name: registry-bootstrap-${{ github.run_id }}
-          path: bundle
+          path: ${{ github.workspace }}/bundle
           if-no-files-found: error
           retention-days: 7
