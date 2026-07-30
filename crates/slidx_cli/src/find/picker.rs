@@ -21,7 +21,7 @@
 use std::io::Write;
 
 use super::screen::Screen;
-use crate::index::Entry;
+use super::Hit;
 use crate::style::Style;
 use crate::terminal::{self, RawMode};
 
@@ -36,7 +36,7 @@ pub enum Outcome {
 }
 
 /// Runs the picker until something is chosen or given up on.
-pub fn choose(entries: &[&Entry], query: &str, style: &Style) -> Outcome {
+pub fn choose(entries: &[Hit<'_>], query: &str, style: &Style) -> Outcome {
     let Some(mut tty) = terminal::open() else {
         return Outcome::Unavailable;
     };
@@ -83,14 +83,14 @@ pub fn choose(entries: &[&Entry], query: &str, style: &Style) -> Outcome {
 
 /// The query and the cursor, and the matches that follow from them.
 struct State<'a> {
-    all: &'a [&'a Entry],
+    all: &'a [Hit<'a>],
     query: String,
-    matches: Vec<&'a Entry>,
+    matches: Vec<Hit<'a>>,
     selected: usize,
 }
 
 impl<'a> State<'a> {
-    fn new(all: &'a [&'a Entry], query: &str) -> Self {
+    fn new(all: &'a [Hit<'a>], query: &str) -> Self {
         let mut state = Self { all, query: query.to_string(), matches: Vec::new(), selected: 0 };
         state.refilter();
         state
@@ -100,10 +100,14 @@ impl<'a> State<'a> {
     ///
     /// Narrowing a list under a cursor that was further down is the ordinary
     /// case, not an edge one — it happens on nearly every keystroke.
+    ///
+    /// The match each row carries is recomputed here rather than kept, because
+    /// the query changed: a highlight left over from the previous keystroke would
+    /// point at the wrong characters, which is worse than none.
     fn refilter(&mut self) {
-        self.matches = super::scoring::rank(&self.query, self.all, |entry| entry.haystack())
+        self.matches = super::scoring::rank(&self.query, self.all, |hit| hit.entry.haystack())
             .into_iter()
-            .map(|(entry, _)| *entry)
+            .map(|(hit, found)| Hit { entry: hit.entry, found })
             .collect();
 
         self.selected = self.selected.min(self.matches.len().saturating_sub(1));
@@ -137,7 +141,7 @@ impl<'a> State<'a> {
     fn chosen(&self) -> Option<usize> {
         let picked = self.matches.get(self.selected)?;
 
-        self.all.iter().position(|entry| entry.path == picked.path)
+        self.all.iter().position(|hit| hit.entry.path == picked.entry.path)
     }
 }
 
@@ -205,12 +209,17 @@ mod tests {
         ]
     }
 
-    fn state<'a>(all: &'a [&'a Entry], query: &str) -> State<'a> {
+    fn state<'a>(all: &'a [Hit<'a>], query: &str) -> State<'a> {
         State::new(all, query)
     }
 
-    fn refs(entries: &[Entry]) -> Vec<&Entry> {
-        entries.iter().collect()
+    /// What `find::run` hands in: every deck, ranked against the query typed on
+    /// the command line, which for these tests is nothing.
+    fn refs(entries: &[Entry]) -> Vec<Hit<'_>> {
+        entries
+            .iter()
+            .map(|entry| Hit { entry, found: super::super::scoring::Match::default() })
+            .collect()
     }
 
     #[test]
@@ -225,7 +234,7 @@ mod tests {
         state.push('e');
 
         assert_eq!(state.matches.len(), 1);
-        assert_eq!(state.matches[0].path, std::path::PathBuf::from("/talks/vueconf"));
+        assert_eq!(state.matches[0].entry.path, std::path::PathBuf::from("/talks/vueconf"));
     }
 
     #[test]

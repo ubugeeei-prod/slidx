@@ -290,21 +290,41 @@ fn decks(hits: &[Hit]) -> usize {
 /// for, which turns a hit into a row somebody has to take on trust. So the
 /// window follows the match, and an ellipsis marks each end that was cut.
 fn excerpt(text: &str, query: &str, style: &Style) -> String {
-    if text.chars().count() <= EXCERPT_WIDTH {
+    if style::width::of(text) <= EXCERPT_WIDTH {
         return style.paint(Ink::Strong, text);
     }
 
     let characters: Vec<char> = text.chars().collect();
     let at = position(text, query).unwrap_or(0);
     // A few words of lead-in, so the match is not flush against the ellipsis.
-    let start = at.saturating_sub(16).min(characters.len().saturating_sub(EXCERPT_WIDTH));
-    let end = (start + EXCERPT_WIDTH).min(characters.len());
+    //
+    // The window is counted in characters and then measured in cells, because a
+    // line of Japanese fills the excerpt in half as many characters — and one
+    // cut to the character count runs past the right-hand edge.
+    let room = budget(&characters);
+    let start = at.saturating_sub(16).min(characters.len().saturating_sub(room));
+    let end = (start + room).min(characters.len());
 
     let head = if start > 0 { "…" } else { "" };
     let tail = if end < characters.len() { "…" } else { "" };
     let window: String = characters[start..end].iter().collect();
 
     format!("{head}{}{tail}", style.paint(Ink::Strong, window.trim()))
+}
+
+/// How many characters of this line fit in the excerpt's cells.
+///
+/// The widest character in the line decides, so a line mixing scripts is cut by
+/// its own worst case rather than by an average that would overrun on the row
+/// where it mattered.
+fn budget(characters: &[char]) -> usize {
+    let widest = characters.iter().copied().any(style::width::is_wide);
+
+    if widest {
+        EXCERPT_WIDTH / 2
+    } else {
+        EXCERPT_WIDTH
+    }
 }
 
 /// Where the match starts, in characters — the unit the excerpt is measured in.
@@ -564,6 +584,22 @@ mod tests {
         assert!(shown.contains("needle"), "{shown}");
         assert!(shown.starts_with('…'), "{shown}");
         assert!(shown.chars().count() <= EXCERPT_WIDTH + 2, "{shown}");
+    }
+
+    #[test]
+    fn a_long_japanese_line_is_cut_to_the_cells_it_will_occupy() {
+        // A line of Japanese fills the excerpt in half as many characters. Cut
+        // to the character count it runs off the right-hand side of the window,
+        // and the slide it belongs to scrolls off the top.
+        let text = format!("{}探すもの{}", "前置き".repeat(20), "あと".repeat(20));
+        let shown = excerpt(&text, "探すもの", &Style::plain());
+
+        assert!(shown.contains("探すもの"), "{shown}");
+        assert!(
+            style::width::of(&shown) <= EXCERPT_WIDTH + 2,
+            "{} cells: {shown}",
+            style::width::of(&shown)
+        );
     }
 
     #[test]

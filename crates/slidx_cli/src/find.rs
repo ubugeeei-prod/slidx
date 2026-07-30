@@ -26,6 +26,7 @@
 //! cancelled, `2` when it could not run at all. So `cd "$(slidx open x)"` fails
 //! loudly rather than cd-ing to an empty string, which is your home directory.
 
+pub mod highlight;
 pub mod picker;
 pub mod scoring;
 pub mod screen;
@@ -37,6 +38,20 @@ use crate::home::Home;
 use crate::index::{Entry, Index};
 use crate::style::{Ink, Style};
 use crate::{Outcome, FOUND, OK};
+
+use scoring::Match;
+
+/// A deck the query matched, and where in it the query landed.
+///
+/// The two travel together from here to the picker's rows, because the second
+/// half is what the picker draws a highlight from. Ranking used to throw it
+/// away, and the finder was the poorer for it: a list of decks that match, with
+/// nothing saying which part of each one did.
+#[derive(Debug, Clone)]
+pub struct Hit<'a> {
+    pub entry: &'a Entry,
+    pub found: Match,
+}
 
 pub fn run(matches: &Matches, style: &Style) -> Outcome {
     let home = Home::discover();
@@ -51,10 +66,11 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
     }
 
     let query = matches.first_positional().unwrap_or_default();
-    let entries: Vec<&Entry> = scoring::rank(query, index.entries(), Entry::haystack)
+    let hits: Vec<Hit> = scoring::rank(query, index.entries(), Entry::haystack)
         .into_iter()
-        .map(|(entry, _)| entry)
+        .map(|(entry, found)| Hit { entry, found })
         .collect();
+    let entries: Vec<&Entry> = hits.iter().map(|hit| hit.entry).collect();
 
     if entries.is_empty() {
         return Outcome { stderr: no_match(query), code: FOUND, ..Outcome::default() };
@@ -69,7 +85,7 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
         return chosen(entries[0]);
     }
 
-    match picker::choose(&entries, query, style) {
+    match picker::choose(&hits, query, style) {
         picker::Outcome::Chose(index) => chosen(entries[index]),
         picker::Outcome::Cancelled => Outcome::default().with_code(FOUND),
         // No raw mode — an unusual terminal, or Windows. Falling back to the

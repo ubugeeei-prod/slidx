@@ -136,6 +136,7 @@ pub fn run(argv: &[String], style: &Style) -> Outcome {
         // Keyed on the pair rather than the leaf name: two commands under
         // different parents may share one, and `list` alone says nothing.
         Invocation::Run(route, matches) => match route.key() {
+            (None, "help") => help::run(&matches, style),
             (None, "dev") => dev::run(&matches, style),
             (None, "doctor") => doctor::run(&matches, style),
             (None, "export") => export::run(&matches, style),
@@ -229,6 +230,43 @@ mod tests {
 
         assert!(outcome.stdout.is_empty());
         assert_eq!(outcome.code, MISUSE);
+    }
+
+    #[test]
+    fn json_output_is_machine_clean_however_the_terminal_is_set() {
+        // `--json` exists to be piped into something that is not a person, and
+        // colour is decided from the environment rather than from the flags. A
+        // report that painted its JSON would be valid nowhere: `jq` stops at the
+        // first escape byte, and the error it gives says nothing about colour.
+        //
+        // Driven from the table, so a command that grows a `--json` is covered
+        // by this the moment it is declared.
+        for command in command::ALL {
+            if command.flag("json").is_none() || command.name == "completions" {
+                continue;
+            }
+
+            // Offline where the command has the notion, so nothing here waits on
+            // a network to answer a question about escape sequences.
+            let offline = if command.flag("offline").is_some() { " --offline" } else { "" };
+            let line = format!("{}{offline} --json", command.name);
+            let argv: Vec<String> = line.split_whitespace().map(String::from).collect();
+            let outcome = run(&argv, &Style::colored());
+
+            assert!(
+                !outcome.stdout.contains('\u{1b}'),
+                "`slidx {line}` put an escape sequence in its JSON:\n{}",
+                outcome.stdout
+            );
+
+            if !outcome.stdout.trim().is_empty() {
+                assert!(
+                    serde_json::from_str::<serde_json::Value>(&outcome.stdout).is_ok(),
+                    "`slidx {line}` did not print JSON:\n{}",
+                    outcome.stdout
+                );
+            }
+        }
     }
 
     #[test]

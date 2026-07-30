@@ -42,6 +42,12 @@ const CELL_ASPECT: f64 = 0.5;
 /// Never draw a box narrower than this; below it nothing is legible anyway.
 const MIN_WIDTH: usize = 24;
 
+/// The smallest window a frame can be drawn in at all.
+///
+/// Four columns for the border and its padding, and rows for the two rules, one
+/// line of content, the status line and the footer.
+pub const SMALLEST: (usize, usize) = (MIN_WIDTH + 4, 8);
+
 /// The size of the box, in terminal cells.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Box2 {
@@ -140,9 +146,11 @@ pub fn frame(view: &View<'_>, style: &Style) -> String {
 /// wearing whatever colour was half-applied.
 fn render(line: &Line, width: usize, style: &Style) -> String {
     // A hidden mark keeps its width so the slide does not move between stops,
-    // while saying nothing about what it will contain.
+    // while saying nothing about what it will contain. Its width is the cells
+    // the text would have taken, so a Japanese mark does not shrink the slide
+    // by half when it is hidden and grow it again when it is revealed.
     if line.hidden {
-        return style.paint(Ink::Faint, ".".repeat(line.text.chars().count().min(width)));
+        return style.paint(Ink::Faint, ".".repeat(style::width::of(&line.text).min(width)));
     }
 
     let (ink, plain) = match line.kind {
@@ -180,12 +188,13 @@ fn render(line: &Line, width: usize, style: &Style) -> String {
 /// as a line that ends there, and this view is looked at by somebody counting
 /// what is on a slide.
 fn truncate(text: &str, width: usize) -> String {
-    if text.chars().count() <= width {
+    if style::width::of(text) <= width {
         return text.to_string();
     }
 
-    let kept: String = text.chars().take(width.saturating_sub(1)).collect();
-    format!("{kept}>")
+    // Cells, not characters: a slide of Japanese cut by character count runs
+    // through the right-hand border of its own box.
+    format!("{}>", style::width::clip(text, width.saturating_sub(1)))
 }
 
 /// The line under the box: where you are, and what the stop does.
@@ -201,9 +210,9 @@ fn status(view: &View<'_>, slide: &Slide, style: &Style) -> String {
         stops
     );
 
-    let room = style::WIDTH.saturating_sub(position.chars().count() + 4);
-    let short = if title.chars().count() > room {
-        format!("{}...", title.chars().take(room.saturating_sub(3)).collect::<String>())
+    let room = style::WIDTH.saturating_sub(style::width::of(&position) + 4);
+    let short = if style::width::of(&title) > room {
+        format!("{}...", style::width::clip(&title, room.saturating_sub(3)))
     } else {
         title
     };
@@ -211,17 +220,40 @@ fn status(view: &View<'_>, slide: &Slide, style: &Style) -> String {
     format!("  {}  {}\n", style.paint(Ink::Strong, &position), style.paint(Ink::Faint, &short))
 }
 
-/// The one sentence that has to be on screen every time.
+/// The one sentence that has to be on screen every time, and the way out.
 ///
 /// Not in the help behind a key — on the frame. Somebody who checks a deck
 /// here, sees it fit, and finds out on stage that it does not is a failure this
 /// tool caused, and a disclaimer nobody opened does not prevent it.
+///
+/// The two bindings named here are the two somebody needs before they have read
+/// anything: how to see the rest, and how to leave. A view whose exit has to be
+/// guessed at is one people leave by closing the window.
 pub fn footer(style: &Style) -> String {
     format!(
         "  {}\n",
         style.paint(
             Ink::Faint,
             "structure and flow only — never appearance. ? for keys, q to quit."
+        )
+    )
+}
+
+/// What to draw when the window cannot hold a frame.
+///
+/// A box wider than the window wraps, and a wrapped box is not a box — the deck
+/// would look broken in a way that is nothing to do with the deck. Saying so is
+/// the honest frame at that size, and it names the number to change.
+pub fn too_small(columns: usize, rows: usize, style: &Style) -> String {
+    format!(
+        "{}\n{}\n",
+        style.paint(Ink::Warn, "This window is too small to draw a slide in."),
+        style.paint(
+            Ink::Faint,
+            format!(
+                "{columns}x{rows}; at least {}x{} is needed. q to quit.",
+                SMALLEST.0, SMALLEST.1
+            )
         )
     )
 }
@@ -245,21 +277,13 @@ fn row(body: &str, width: usize, style: &Style) -> String {
     )
 }
 
-/// Characters a terminal will actually draw, ignoring escape sequences.
+/// Cells a terminal will actually draw.
+///
+/// [`crate::style::width`] is the one answer to this question in the whole
+/// binary. A second implementation here is how the box ends up one column wider
+/// than the report beside it on a Japanese slide.
 fn visible_width(text: &str) -> usize {
-    let mut width = 0;
-    let mut in_escape = false;
-
-    for character in text.chars() {
-        match character {
-            '\u{1b}' => in_escape = true,
-            'm' if in_escape => in_escape = false,
-            _ if !in_escape => width += 1,
-            _ => {}
-        }
-    }
-
-    width
+    style::width::of(text)
 }
 
 #[cfg(test)]
@@ -303,6 +327,27 @@ mod tests {
 
         assert!(size.height <= 20, "{size:?}");
         assert!(size.width < 200, "{size:?}");
+    }
+
+    #[test]
+    fn a_window_too_small_for_a_slide_says_so_rather_than_drawing_a_broken_box() {
+        // And names the size it wants, because the fix is one drag of a window
+        // edge and nothing else on screen would say which direction.
+        let text = too_small(20, 5, &Style::plain());
+
+        assert!(text.contains("too small"), "{text}");
+        assert!(text.contains("20x5"), "{text}");
+        assert!(text.contains(&format!("{}x{}", SMALLEST.0, SMALLEST.1)), "{text}");
+        assert!(text.contains('q'), "{text}");
+    }
+
+    #[test]
+    fn the_message_for_a_small_window_fits_in_a_small_window() {
+        // It would be a poor joke to overflow the window while explaining that
+        // the window is too small.
+        for line in too_small(20, 5, &Style::plain()).lines() {
+            assert!(style::width::of(line) <= 46, "{} cells: {line}", style::width::of(line));
+        }
     }
 
     #[test]

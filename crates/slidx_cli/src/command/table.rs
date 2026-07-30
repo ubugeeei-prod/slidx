@@ -40,6 +40,23 @@ pub const ROOT: &[Flag] = &[
 
 pub const ALL: &[Command] = &[
     leaf(
+        "help",
+        "describe a command, or list them all",
+        "help [command]",
+        "\
+Prints the page for one command, or the list of them when given nothing.
+
+    slidx help lint
+    slidx help version install
+
+`slidx lint --help` prints the same page. Both read this table, so they cannot
+disagree — and there is a test that fails if they ever do.
+
+Which spelling somebody reaches for depends on what they used last, so both
+work rather than one being the real one.",
+        &[],
+    ),
+    leaf(
         "doctor",
         "check this machine before you speak",
         "doctor [options]",
@@ -49,7 +66,10 @@ says what to do about each one. Everything it looks at is something that goes
 wrong on stage and never at a desk, so it is worth the ten seconds in the room
 even when it was clean this morning.
 
-A reading that could not be taken is reported as unknown, never as a pass.",
+A reading that could not be taken is reported as unknown, never as a pass.
+
+    slidx doctor --explain
+    slidx doctor --dir ~/talks/vueconf --offline",
         &[
             Flag::taking("dir", "<path>", "Directory whose volume the disk check measures"),
             Flag::switch("offline", "Take no network readings, and say so in the report"),
@@ -75,7 +95,11 @@ are reported under `dialect/` and can be switched off on their own with
 
 Exits non-zero when something blocking is found, which is what makes it usable
 in CI. `path` is a deck file or a directory of slide files, and defaults to
-./slides — the same layout @slidx/vite-plugin builds.",
+./slides — the same layout @slidx/vite-plugin builds.
+
+    slidx lint
+    slidx lint ./slides --theme editorial --strict
+    slidx lint --allow contrast --allow structure/missing-alt",
         &[
             Flag::taking("theme", "<name>", "Theme to resolve colours against"),
             Flag::taking("separator", "<text>", "Slide separator in a single-file deck"),
@@ -101,7 +125,10 @@ a diff nobody asked for is how a tool loses the right to touch a file.
 
 --check writes nothing and exits non-zero when a file is not already
 formatted, which is the form for CI. Each file is formatted on its own, so a
-deck kept as one file per slide stays that way.",
+deck kept as one file per slide stays that way.
+
+    slidx fmt
+    slidx fmt ./slides --check",
         &[
             Flag::switch("check", "Write nothing; exit non-zero if a file would change"),
             Flag::taking("separator", "<text>", "Slide separator in a single-file deck"),
@@ -149,7 +176,10 @@ list — so nothing has to be registered, and a project that has been deleted or
 moved stops appearing on its own.
 
 Slide counts and durations are read out of the decks rather than remembered, so
-a number in the table is the number in the file.",
+a number in the table is the number in the file.
+
+    slidx list
+    slidx list --json",
         &[Flag::switch("json", "Print the list as JSON")],
     ),
     leaf(
@@ -170,7 +200,10 @@ the visual editor writes through, so a title with a colon in it is quoted the
 way YAML needs rather than the way a template guessed.
 
 It installs nothing and runs no package manager. That is the author's to choose,
-and it is the one step that needs the network.",
+and it is the one step that needs the network.
+
+    slidx create ./vueconf-2026
+    slidx create ./talk --title \"Reactivity from scratch\" --duration 40m",
         &[
             Flag::taking("title", "<text>", "The deck's title. Default: the directory name"),
             Flag::taking("event", "<name>", "The event this talk is for"),
@@ -193,7 +226,10 @@ A deck kept as one file per slide gets one new file, and the files after the new
 slide move along a number so the deck stays in order. `path` is a deck file or a
 directory of slide files, and defaults to ./slides.
 
-`--at` counts from one, the way a speaker counts slides.",
+`--at` counts from one, the way a speaker counts slides.
+
+    slidx add --title \"The demo\"
+    slidx add ./slides --title Recap --at 3",
         &[
             Flag::taking("title", "<text>", "The slide's heading"),
             Flag::taking("at", "<number>", "Where it goes, counting from one. Default: the end"),
@@ -215,7 +251,10 @@ the editor uses. A rename that leaves the title slide saying the old name is
 half a rename, and the half left over is the one an audience sees.
 
 Nothing is overwritten: a destination that already exists is a refusal, not a
-merge.",
+merge.
+
+    slidx mv vueconf vueconf-2026
+    slidx mv vueconf ../talks/vueconf --title \"Reactivity from scratch\"",
         &[Flag::taking("title", "<text>", "Retitle the deck's frontmatter as well")],
     ),
     leaf(
@@ -265,7 +304,11 @@ one command sweeping up half-finished work is how a tool loses the right to be
 typed without thinking. --all widens it to the whole project.
 
 With no repository it offers to start one rather than failing, which is the
-state a deck written this morning is in.",
+state a deck written this morning is in.
+
+    slidx save
+    slidx save --dry-run
+    slidx save --all -m \"Retime the demo\"",
         &[
             Flag::taking("message", "<text>", "Use this message instead of the written one")
                 .short('m'),
@@ -302,9 +345,13 @@ standard error.
 
 A query matching nothing prints nothing and exits non-zero. Read that status:
 quoted, an empty answer leaves `cd` where it was; unquoted, the empty word
-vanishes and `cd` takes you home.",
+vanishes and `cd` takes you home.
+
+With `slidx shell` loaded the substitution is unnecessary, and `slidx cd
+vueconf` simply takes you there.",
         &[],
-    ),
+    )
+    .taking_the_caller_with_it(),
     leaf(
         "grep",
         "search every deck this machine has seen",
@@ -321,7 +368,10 @@ a capital in it is matched exactly, so `Vue` finds the framework and not
 
 Only decks are read: `node_modules`, build output and dot directories are
 skipped, which is what keeps this fast enough to type on a whim rather than
-schedule.",
+schedule.
+
+    slidx grep \"the projector\"
+    slidx grep Vue --limit 20",
         &[
             Flag::taking("limit", "<number>", "Stop after this many matches. Default: 100"),
             Flag::switch("json", "Print the matches as JSON"),
@@ -346,7 +396,10 @@ box here is not evidence it fits the slide. `slidx lint` checks the room, and
 a browser shows the deck.
 
 Piped, it prints one stop and exits rather than waiting for a keypress there
-is nobody to press.",
+is nobody to press.
+
+    slidx tui
+    slidx tui ./slides --slide 4 --stop 2",
         &[
             Flag::taking("slide", "<number>", "Open on this slide, counting from one"),
             Flag::taking("stop", "<number>", "Open on this stop, counting from one"),
@@ -411,7 +464,10 @@ place.
 
 Use this while WRITING. `slidx preview` is for looking at what a build
 produced: the editor writes to your slide files and exists only here, and only
-the build output is what a host will actually serve.",
+the build output is what a host will actually serve.
+
+    slidx dev
+    slidx dev ./slides --port 5173 --no-open",
         &[
             Flag::taking("port", "<number>", "Port to serve on. Default: Vite's own"),
             Flag::switch("no-open", "Do not open a browser at the editor"),
@@ -435,7 +491,10 @@ This does not build. When there is nothing there it says so and names
 @slidx/vite-plugin, which is the thing that produces a deck.
 
 Use this to check the RESULT — the same files a static host would serve. While
-you are still writing, `slidx dev` serves the source live and opens the editor.",
+you are still writing, `slidx dev` serves the source live and opens the editor.
+
+    slidx preview
+    slidx preview ./dist --web --port 4321",
         &[
             Flag::switch("web", "Serve the deck and open a browser instead of the PDF"),
             Flag::taking("port", "<number>", "Port to serve on. Default: one the system picks"),
@@ -462,7 +521,10 @@ open it, the same boundary `slidx publish` holds.
 
 `path` is a deck file or a directory of slide files and defaults to ./slides.
 The file lands in the current directory, named for the deck, unless --out says
-otherwise.",
+otherwise.
+
+    slidx export --target pdf
+    slidx export --target png ./slides --out ./handout",
         &[
             Flag::taking("target", "<name>", "Required. browser, pdf, pdf-zip, png, pptx"),
             Flag::taking("out", "<path>", "Directory the exported file goes in. Default: ."),
@@ -488,7 +550,11 @@ tool that has to be trusted with a credential.
 
 Exits non-zero when a destination is blocked, naming the frontmatter key that
 would unblock it. Waiting on a person is not a failure. `--plan` writes
-nothing, so it can be read before it is meant and diffed against last time.",
+nothing, so it can be read before it is meant and diffed against last time.
+
+    slidx publish --plan
+    slidx publish --pdf ./dist/deck.pdf --out ./published
+    slidx publish --target resources --target archive",
         &[
             Flag::taking("out", "<path>", "Directory the written pages go under"),
             Flag::taking("pdf", "<path>", "The built PDF the slide hosts take"),
@@ -601,7 +667,10 @@ wherever you are — so any command run inside a repository picks up the pin at
 its root. Failing that, `slidx version use` sets the default for the machine.
 
 With no command it reports what is running and where that binary came from,
-which is `slidx version current`.",
+which is `slidx version current`.
+
+    slidx version
+    slidx version install 0.4.0 --use",
         flags: &[],
         takes_the_caller_with_it: false,
         default_subcommand: Some("current"),
@@ -616,7 +685,10 @@ put it there — then says plainly whether `slidx version use` can change it.
 
 That last part is the point. `npm i -g slidx` earlier on your PATH will win
 over a managed install and nothing else will ever mention it, so a version
-manager that cannot tell you it is not in charge is worse than none.",
+manager that cannot tell you it is not in charge is worse than none.
+
+    slidx version current
+    slidx version current --json",
                 &[Flag::switch("json", "Print the report as JSON")],
             ),
             leaf(
@@ -626,7 +698,9 @@ manager that cannot tell you it is not in charge is worse than none.",
                 "\
 Every version under ~/.slidx/versions, newest first, marking the one in use and
 the one currently running. A directory with no binary in it is a half-finished
-install and is not listed.",
+install and is not listed.
+
+    slidx version list",
                 &[Flag::switch("json", "Print the list as JSON")],
             ),
             leaf(
@@ -641,7 +715,10 @@ A mismatch, or an archive the checksum file does not mention, installs nothing.
 Verification is not optional and has no fallback: slidx computes the digest
 itself rather than looking for sha256sum on the machine.
 
-Does not change which version is in use. `--use` does that in the same breath.",
+Does not change which version is in use. `--use` does that in the same breath.
+
+    slidx version install 0.4.0
+    slidx version install 0.4.0 --use --force",
                 &[
                     Flag::switch("use", "Switch to it once it is installed"),
                     Flag::switch("force", "Download again even if it is already installed"),
@@ -654,14 +731,20 @@ Does not change which version is in use. `--use` does that in the same breath.",
                 "\
 Points ~/.slidx/bin/slidx at an installed version and records the choice in
 ~/.slidx/version. A project's .slidx-version still wins over this inside that
-project — the default is what applies everywhere else.",
+project — the default is what applies everywhere else.
+
+    slidx version use 0.3.0",
                 &[],
             ),
             leaf(
                 "remove",
                 "delete an installed version",
                 "version remove <version>",
-                "Deletes a version from ~/.slidx/versions. Refuses to remove the one in use.",
+                "\
+Deletes a version from ~/.slidx/versions. Refuses to remove the one in use,
+because the next thing you typed would be the shim pointing at nothing.
+
+    slidx version remove 0.2.0",
                 &[],
             ),
         ],
