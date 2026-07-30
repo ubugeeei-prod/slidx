@@ -22,6 +22,7 @@ slidx_export = { version = "0.1.0", path = "crates/slidx_export" }
 slidx_fmt = { version = "0.1.0", path = "crates/slidx_fmt" }
 slidx_highlight = { version = "0.1.0", path = "crates/slidx_highlight" }
 slidx_i18n = { version = "0.1.0", path = "crates/slidx_i18n" }
+slidx_jsonrpc = { version = "0.1.0", path = "crates/slidx_jsonrpc" }
 slidx_lint = { version = "0.1.0", path = "crates/slidx_lint" }
 slidx_lsp = { version = "0.1.0", path = "crates/slidx_lsp" }
 slidx_publish = { version = "0.1.0", path = "crates/slidx_publish" }

@@ -1,0 +1,12 @@
+[package]
+name = "slidx_jsonrpc"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "JSON-RPC 2.0 over stdio, framed two ways: Content-Length headers for an editor and one object per line for an agent"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
