@@ -1,5 +1,8 @@
 <p align="center">
-  <strong>slidx</strong><br>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./assets/brand/lockup-dark.svg">
+    <img alt="slidx" src="./assets/brand/lockup-light.svg" width="180">
+  </picture><br>
   <em>Slide + DX — the whole life of a talk, not just the slides</em>
 </p>
 
@@ -88,7 +91,7 @@ misleading.
 Separate from the plugin, and optional. Twenty-one commands; these are the ones
 you will type.
 
-```bash
+```text
 slidx doctor               # power, clock, fonts, screen capture, mirroring, Do Not Disturb
 slidx lint                 # every rule the build runs, non-zero on anything blocking
 slidx dev                  # the deck and the editor, from inside the slides directory
@@ -99,7 +102,7 @@ slidx publish              # all that needs no account, and the payload for what
 
 A speaker keeps five decks in five repositories, so slidx indexes them:
 
-```bash
+```text
 slidx list                 # every deck this machine has seen
 slidx grep "venue wifi"    # searches them all, and answers in slides
 slidx cd vueconf           # with `slidx shell` loaded, takes you there
