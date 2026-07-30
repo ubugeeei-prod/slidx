@@ -83,8 +83,8 @@ impl Site {
     pub fn read(directory: &Path) -> Result<Self, String> {
         let mut sources: BTreeMap<String, String> = BTreeMap::new();
 
-        let entries = fs::read_dir(directory)
-            .map_err(|error| format!("{}: {error}", directory.display()))?;
+        let entries =
+            fs::read_dir(directory).map_err(|error| format!("{}: {error}", directory.display()))?;
 
         for entry in entries {
             let path = entry.map_err(|error| error.to_string())?.path();
@@ -279,11 +279,9 @@ mod tests {
 
     #[test]
     fn a_link_out_to_the_repository_is_not_treated_as_a_missing_page() {
-        let site = site_of(&[(
-            "index",
-            &page("Start", "start", 1, "[the roadmap](../../ROADMAP.md)\n"),
-        )])
-        .expect("a valid site");
+        let site =
+            site_of(&[("index", &page("Start", "start", 1, "[the roadmap](../../ROADMAP.md)\n"))])
+                .expect("a valid site");
 
         assert_eq!(site.pages().len(), 1);
     }

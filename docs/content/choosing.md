@@ -20,17 +20,17 @@ Making the slides is the short part of giving a talk. slidx is organised around
 the long part — the week before, the room, the twenty minutes on stage, and the
 fortnight afterwards when publishing never quite happens.
 
-| When                | What slidx does about it                                                                                     |
-| ------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Writing             | Markdown, and a visual editor over the same file. An edit is a byte-range splice, so the diff stays reviewable. |
-| Writing             | A language server: diagnostics as you type, completion for frontmatter keys and step presets, the deck outline. |
-| Before you leave    | A linter that models the room — projector washout, legibility from the back row, overflow measured in a real browser, time against the slot. |
-| The morning of      | `slidx doctor`: power, disk, clock skew, the fonts your theme names, whether anything is recording the screen, whether the network works. |
-| On stage            | A presenter view with the clock as the largest thing on it, a behind-or-ahead reading against your per-slide budgets, and the optional slides named when you need to drop one. |
-| On stage            | A declared demo fallback — the live target and a recording of it working, both already in the markup, switched by one key. |
-| On stage            | A shared code fence published as its own page in your deck's own output, with a QR on the slide pointing at it. |
-| Afterwards          | `slidx publish` plans every destination from the frontmatter you wrote at proposal time and performs everything that needs no account. |
-| Months later        | `slidx list`, `grep`, `cd` and `open` over the decks this machine has seen, because you will not remember which repository the talk was in. |
+| When             | What slidx does about it                                                                                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Writing          | Markdown, and a visual editor over the same file. An edit is a byte-range splice, so the diff stays reviewable.                                                                |
+| Writing          | A language server: diagnostics as you type, completion for frontmatter keys and step presets, the deck outline.                                                                |
+| Before you leave | A linter that models the room — projector washout, legibility from the back row, overflow measured in a real browser, time against the slot.                                   |
+| The morning of   | `slidx doctor`: power, disk, clock skew, the fonts your theme names, whether anything is recording the screen, whether the network works.                                      |
+| On stage         | A presenter view with the clock as the largest thing on it, a behind-or-ahead reading against your per-slide budgets, and the optional slides named when you need to drop one. |
+| On stage         | A declared demo fallback — the live target and a recording of it working, both already in the markup, switched by one key.                                                     |
+| On stage         | A shared code fence published as its own page in your deck's own output, with a QR on the slide pointing at it.                                                                |
+| Afterwards       | `slidx publish` plans every destination from the frontmatter you wrote at proposal time and performs everything that needs no account.                                         |
+| Months later     | `slidx list`, `grep`, `cd` and `open` over the decks this machine has seen, because you will not remember which repository the talk was in.                                    |
 
 The [README](../../README.md) has the long version of that list, and
 [ROADMAP.md](../../ROADMAP.md) has the honest one: every unchecked line there

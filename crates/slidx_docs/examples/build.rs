@@ -14,7 +14,10 @@
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let root = slidx_brand::assets::workspace_root();
-    let out = std::env::args().nth(1).map(Into::into).unwrap_or_else(|| root.join(slidx_docs::OUTPUT_DIR));
+    let out = std::env::args()
+        .nth(1)
+        .map(Into::into)
+        .unwrap_or_else(|| root.join(slidx_docs::OUTPUT_DIR));
 
     let site = slidx_docs::Site::read(&root.join(slidx_docs::CONTENT_DIR))?;
 

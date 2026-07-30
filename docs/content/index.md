@@ -72,13 +72,13 @@ Open **`/slides/`** on the port Vite prints. That is slide one. `/slides/2/` is
 slide two, and it is a URL rather than a route, so it can be shared, bookmarked,
 opened on a phone, and indexed. Four more addresses exist for the same deck:
 
-| URL                 | What it is                                                |
-| ------------------- | --------------------------------------------------------- |
-| `/slides/`          | the deck, from slide one                                   |
-| `/slides/2/`        | slide two, on its own                                      |
-| `/slides/presenter/`| the presenter view: clock, notes, next slide               |
-| `/slides/print/`    | the whole deck as one document, one page per animation stop |
-| `/__slidx/`         | the visual editor, in dev only                              |
+| URL                  | What it is                                                  |
+| -------------------- | ----------------------------------------------------------- |
+| `/slides/`           | the deck, from slide one                                    |
+| `/slides/2/`         | slide two, on its own                                       |
+| `/slides/presenter/` | the presenter view: clock, notes, next slide                |
+| `/slides/print/`     | the whole deck as one document, one page per animation stop |
+| `/__slidx/`          | the visual editor, in dev only                              |
 
 Open `/__slidx/` and click a slide. The editor writes to the Markdown file you
 have open in your own editor; edits are byte-range splices into the file you
@@ -88,11 +88,9 @@ canvas.
 ## 3. Write a slide
 
 The example deck's slides live in `examples/deck/slides`, one file per slide.
-Add a fifth:
+Add a fifth, `0005.md`:
 
 ```md
-<!-- examples/deck/slides/0005.md -->
-
 ---
 budget: 60s
 ---

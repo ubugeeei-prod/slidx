@@ -203,7 +203,11 @@ mod tests {
 
         for marker in ["<link", "@import", "//cdn", "src=\"http", "href=\"http"] {
             let remote = html.matches(marker).count();
-            let allowed = if marker == "href=\"http" { html.matches("href=\"https://github.com/ubugeeei-prod/slidx").count() } else { 0 };
+            let allowed = if marker == "href=\"http" {
+                html.matches("href=\"https://github.com/ubugeeei-prod/slidx").count()
+            } else {
+                0
+            };
             assert_eq!(remote, allowed, "the page reaches for {marker}");
         }
     }

@@ -20,6 +20,11 @@
 //! zero. The rule exists because a projector turns a soft edge to mud — a
 //! documentation site is not projected, but a brand that meant one thing on a
 //! slide and another on a page would not be a brand.
+//!
+//! There is deliberately no test here restating that. The gate already reads
+//! this file, and a Rust test that listed the same constructs would be a second
+//! copy of the rule — one that the gate itself flags, because a list of the
+//! things it rejects is indistinguishable from using them.
 
 /// The whole stylesheet, in one string.
 ///
@@ -267,15 +272,6 @@ mod tests {
         // would be the one surface a brand change could not reach.
         assert!(!STYLESHEET.contains('#'), "the stylesheet names a colour literally");
         assert!(!STYLESHEET.contains("rgb("));
-    }
-
-    #[test]
-    fn the_stylesheet_has_no_shadow_and_no_gradient() {
-        // `scripts/check-flat.mjs` is the gate; this fails first and locally,
-        // which is the only time a design rule is cheap to act on.
-        for construct in ["box-shadow", "text-shadow", "drop-shadow", "gradient("] {
-            assert!(!STYLESHEET.contains(construct), "the stylesheet reaches for {construct}");
-        }
     }
 
     #[test]

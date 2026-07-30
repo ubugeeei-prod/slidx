@@ -141,18 +141,18 @@ talk can lose; nothing guesses.
 
 ## Keys I will want and will not remember
 
-| Key                          | What it does                       |
-| ---------------------------- | ---------------------------------- |
-| `→` `Space` `PageDown`       | Next stop                          |
-| `←` `PageUp` `Backspace`     | Previous stop                      |
-| `Home` / `End`               | First / last stop on this slide    |
-| `o`                          | Slide overview                     |
-| `p`                          | Presenter view                     |
-| `b` or `.`                   | Black out the screen               |
-| `f`                          | Fullscreen                         |
-| `t` / `r`                    | Start or pause / reset the timer   |
-| `d`                          | Switch the demo for its recording  |
-| `?`                          | Show these shortcuts               |
+| Key                      | What it does                      |
+| ------------------------ | --------------------------------- |
+| `→` `Space` `PageDown`   | Next stop                         |
+| `←` `PageUp` `Backspace` | Previous stop                     |
+| `Home` / `End`           | First / last stop on this slide   |
+| `o`                      | Slide overview                    |
+| `p`                      | Presenter view                    |
+| `b` or `.`               | Black out the screen              |
+| `f`                      | Fullscreen                        |
+| `t` / `r`                | Start or pause / reset the timer  |
+| `d`                      | Switch the demo for its recording |
+| `?`                      | Show these shortcuts              |
 
 The navigation keys are the ones presentation remotes actually send. The letters
 are the ones already in your fingers.

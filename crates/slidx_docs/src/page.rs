@@ -45,8 +45,8 @@ impl Page {
     /// and appears in no navigation. Both are invisible in review and obvious to
     /// a reader who cannot find the page.
     pub fn parse(slug: &str, source: &str) -> Result<Self, String> {
-        let (matter, body) = split_frontmatter(source)
-            .ok_or_else(|| format!("{slug}.md: no frontmatter block"))?;
+        let (matter, body) =
+            split_frontmatter(source).ok_or_else(|| format!("{slug}.md: no frontmatter block"))?;
 
         // The block's own diagnostics are dropped rather than reported: a
         // malformed one yields an empty object, and the required-key errors

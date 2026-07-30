@@ -28,7 +28,7 @@ const REPOSITORY_BLOB: &str = "https://github.com/ubugeeei-prod/slidx/blob/main/
 /// which of the several link spellings CommonMark accepts produced the `href`.
 /// Ox Content has already collapsed them all into one attribute by this point.
 pub fn rewrite(html: &str) -> String {
-    replace_hrefs(html, |href| rewrite_href(href))
+    replace_hrefs(html, rewrite_href)
 }
 
 /// One `href`, as the site should spell it.
@@ -145,7 +145,10 @@ mod tests {
     fn a_link_to_an_image_is_left_alone() {
         // The screenshots are published beside the pages, so their relative
         // paths already resolve.
-        assert_eq!(rewrite(r#"<img src="images/2-light.png">"#), r#"<img src="images/2-light.png">"#);
+        assert_eq!(
+            rewrite(r#"<img src="images/2-light.png">"#),
+            r#"<img src="images/2-light.png">"#
+        );
     }
 
     #[test]
