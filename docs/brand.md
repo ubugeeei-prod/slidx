@@ -276,6 +276,63 @@ from row fifteen and a documentation page from fifty centimetres, and
 `slidx_lint`'s angular model is precisely the thing that says those are
 different numbers.
 
+## No borrowed palettes, as a gate
+
+```bash
+vp run check:borrowed
+```
+
+slidx shipped a framework's default colour scale for months and nobody noticed.
+`#18181b`, `#09090b`, `#52525b`, `#e4e4e7` and `#f4f4f5` were one popular CSS
+framework's `zinc` ramp in order; `#1d4ed8` was its `blue-700`; `#5b21b6` was its
+`violet-800`, in three of the four built-in themes at once.
+
+The problem was never that those colours are ugly. It is that they are what
+_every_ machine reaches for, so they carry no information about what the product
+is — and a reader can tell, even without being able to name why. A colour a
+person chose is recognisable even when it is plainer.
+
+Taste cannot be relied on to catch it, because the values look like decisions
+once they are in a file. That is precisely how they survived review. So it is a
+gate, with two rules:
+
+**A palette is mixed, not written.** The files that declare shipped palettes may
+not contain a hex colour literal at all — every colour in them comes from
+`slidx_theme::mix`. This is the complete rule: a borrowed scale cannot be pasted
+into a file that rejects pasted colours, whatever the scale happens to be.
+
+**A known borrowed colour is rejected everywhere.** A list of mistakes actually
+found here, not an attempt to enumerate every framework in the world — that would
+be a losing game and a false sense of cover. It earns its place because rule one
+cannot reach a stylesheet written in CSS, where there is no mixer to call, and it
+immediately caught the editor chrome using a code host's brand blue in light and
+an editor theme's in dark.
+
+Both rules skip comments and test modules, for the same reason the flatness gate
+skips prose: `builtin/recipe.rs` names the exact borrowed hexes it replaced, and
+`the_audit_is_not_vacuous` re-runs the borrowed blue to prove the contrast audit
+still measures something.
+
+### The second defect it exposed
+
+Because the values were pasted, they were pasted _between themes_ as well.
+`minimal` and `terminal` shipped byte-identical light syntax palettes, and three
+of the four themes shipped the same `#5b21b6` for a type name. **A theme system
+whose headline feature is code on slides was not theming code at all** — and its
+own doc comment already described the correct design, which was never
+implemented.
+
+That design now exists. Four categorical hues are shared across themes — string,
+number, keyword, type — so a reader who has learned one slidx deck can read the
+next, and each is solved to a different lightness against _each theme's own_ code
+surface. Comments and punctuation are deliberately not categorical: neither is a
+category anyone looks up, they are the material the other four sit in, so both
+are mixed from the theme's own hue and differ per theme. The type hue moved from
+violet to a plum at 330°.
+
+`cargo run -p slidx_theme --example swatches` prints every resolved palette,
+because a solved palette can no longer be read off the source.
+
 ## Flatness, as a gate
 
 ```bash
