@@ -9,6 +9,7 @@ import test from "node:test";
 import { assertPublishableManifest, packedManifest } from "../pack-npm.mjs";
 
 const workflow = readFileSync(".github/workflows/release.yml", "utf8");
+const guide = readFileSync("RELEASING.md", "utf8");
 
 test("the npm release builds the package graph from the repository root", () => {
   assert.match(workflow, /with:\n\s+wasm: "true"/);
@@ -38,6 +39,9 @@ test("the npm release resolves workspace dependencies before publishing", async 
   assert.match(workflow, /node scripts\/pack-npm\.mjs/);
   assert.match(workflow, /npm publish "\$tarball"/);
   assert.doesNotMatch(workflow, /\(cd "\$dir" && npm publish/);
+  assert.match(guide, /node scripts\/pack-npm\.mjs/);
+  assert.match(guide, /npm publish "\$tarball"/);
+  assert.doesNotMatch(guide, /\(cd "\$dir" && npm publish/);
 });
 
 test("the release packer refuses an unresolved workspace dependency", () => {

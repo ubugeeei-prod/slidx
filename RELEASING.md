@@ -10,8 +10,9 @@ vp run release minor
 
 `major`, `minor` or `patch`. It writes the version into every place one lives —
 the Cargo workspace, the version each crate is required at by its siblings, the
-lockfile, and every publishable `package.json` — commits that, and pushes the
-tag. `--dry-run` writes the tree and stops before the commit.
+lockfile, every publishable `package.json`, and generated brand assets — commits
+that, and pushes the tag. `--dry-run` writes the tree and stops before the
+commit.
 
 It refuses for the four reasons a release goes wrong before it starts: a dirty
 tree, a branch that is not `main`, a tag that already exists, and a `HEAD` that
@@ -147,14 +148,25 @@ npm login
 ```
 
 ```bash
-pnpm -r --filter "./packages/**" run pack:lib
+pnpm exec vp run build:packages
 ```
 
 ```bash
-for dir in $(node scripts/publish-order.mjs npm); do (cd "$dir" && npm publish --access public); done
+bootstrap_dir=$(mktemp -d)
+node scripts/pack-npm.mjs \
+  "$bootstrap_dir" \
+  $(node scripts/publish-order.mjs npm) > "$bootstrap_dir/source-tarballs"
+while IFS= read -r tarball; do
+  npm publish "$tarball" --access public
+done < "$bootstrap_dir/source-tarballs"
 ```
 
-Derived the same way and for the same reason. The list here used to name
+`pack-npm.mjs` is the same path the release workflow uses. It resolves every
+`workspace:*` requirement to this release's exact version and refuses a tarball
+if one survives. Publishing the workspace directories directly skips that
+rewrite and would put an unusable dependency requirement on the registry.
+
+The order is derived the same way and for the same reason. The list here used to name
 `@ubugeeei/slidx-wasm` and `@ubugeeei/slidx-runtime` only, and `release.yml` agreed with it —
 which left **`@ubugeeei/slidx-vite-plugin`**, the package the README tells people to
 install, unpublished.
@@ -176,7 +188,13 @@ node scripts/build-platform-packages.mjs <binaries-dir>
 ```
 
 ```bash
-for dir in packages/cli/dist/* packages/cli; do (cd "$dir" && npm publish --access public); done
+node scripts/pack-npm.mjs \
+  "$bootstrap_dir" \
+  packages/cli/dist/* \
+  packages/cli > "$bootstrap_dir/cli-tarballs"
+while IFS= read -r tarball; do
+  npm publish "$tarball" --access public
+done < "$bootstrap_dir/cli-tarballs"
 ```
 
 Then, for **each** package — everything `publish-order.mjs npm` lists, plus
