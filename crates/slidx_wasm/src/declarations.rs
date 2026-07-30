@@ -45,8 +45,8 @@
 use ts_rs::{Config, TS};
 
 use slidx_core::{
-    Easing, Effect, EffectKind, EffectPreset, ElementState, Origin, StepFrame, StepTimeline,
-    Visibility,
+    AutoSteps, Easing, Effect, EffectKind, EffectPreset, ElementState, Origin, StepFrame, StepGrid,
+    StepKind, StepPlacement, StepRow, StepTimeline, Visibility,
 };
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -111,6 +111,14 @@ pub fn generate() -> String {
     push::<Easing>(&mut file, &cfg);
     push::<Origin>(&mut file, &cfg);
     push::<Visibility>(&mut file, &cfg);
+
+    // The same slide's steps seen from the authoring side rather than the
+    // presenting one: what the editor's timeline draws rows and columns from.
+    push::<StepGrid>(&mut file, &cfg);
+    push::<StepRow>(&mut file, &cfg);
+    push::<StepPlacement>(&mut file, &cfg);
+    push::<StepKind>(&mut file, &cfg);
+    push::<AutoSteps>(&mut file, &cfg);
 
     file.push_str(FOOTER);
     file
@@ -265,6 +273,7 @@ mod tests {
             title: None,
             notes: Vec::new(),
             stop_count: 1,
+            steps: slidx_core::StepGrid::default(),
             frontmatter: serde_json::Value::Null,
             html: None,
             og_svg: None,
@@ -297,6 +306,7 @@ mod tests {
             ("StepFrame", json(&StepFrame::default())),
             ("ElementState", json(&state)),
             ("Effect", json(&Effect::default())),
+            ("StepGrid", json(&StepGrid::default())),
         ]
     }
 

@@ -155,16 +155,46 @@ function keyFields(
   return keys.map((key) => {
     const current = written[key];
     const input = element("input", { type: "text", "data-key": key });
-    input.value = current === undefined || current === null ? "" : String(current);
+    input.value = shown(current);
+
+    // A key whose value is a list or a mapping is shown and not edited. A text
+    // box cannot express `steps:`, and committing what one holds would replace
+    // an author's whole timeline with the string `[object Object]` — which is
+    // what happened before the timeline made that key ordinary.
+    if (structured(current)) {
+      input.setAttribute("readonly", "");
+      input.setAttribute("title", `\`${key}\` is a list, and is edited where it is drawn.`);
+      return field(key, input);
+    }
 
     input.addEventListener("blur", () => {
       const value = input.value.trim();
-      if (value === (current === undefined || current === null ? "" : String(current))) return;
+      if (value === shown(current)) return;
       commit(key, coerce(value));
     });
 
     return field(key, input);
   });
+}
+
+/** True when the value is a list or a mapping rather than one scalar. */
+function structured(value: unknown): boolean {
+  return typeof value === "object" && value !== null;
+}
+
+/**
+ * A frontmatter value as one line of text.
+ *
+ * Exhaustive by type rather than ending in a bare `String(value)`, because a
+ * mapping stringifies to `[object Object]` — and a field showing that is a
+ * field that writes it back.
+ */
+function shown(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return `${value.length} entries`;
+
+  return value === null || value === undefined ? "" : "a mapping";
 }
 
 /**

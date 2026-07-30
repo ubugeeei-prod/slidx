@@ -184,23 +184,29 @@ fn compile_steps(
     }
 
     let declared = declared_actions(matter, index, diagnostics);
+    // `autoSteps:` alongside `steps:` is not a conflict, and this is the one
+    // place that has to know it: the mode injects the anchors an explicit list
+    // targets, which is exactly what the editor's timeline writes when an author
+    // asks to edit generated stops. Only staging written into the body — a
+    // marker, a take — actually loses its meaning to a declared list.
+    let authored = !staged.actions.is_empty() || !takes.actions.is_empty();
     let derived: Vec<StepAction> =
         staged.actions.into_iter().chain(auto_actions).chain(takes.actions).collect();
 
-    let actions = match (declared, derived.is_empty()) {
-        (Some(declared), false) => {
+    let actions = match (declared, authored) {
+        (Some(declared), true) => {
             diagnostics.push(
                 Diagnostic::new(
                     "steps/markers-ignored",
                     Severity::Info,
-                    "`steps:` takes precedence, so step markers on this slide are ignored",
+                    "`steps:` takes precedence, so the staging written into this slide is ignored",
                 )
                 .at(SourceSpan::default().on_slide(index))
                 .with_help("remove `steps:` to use the markers, or fold the markers into it"),
             );
             declared
         }
-        (Some(declared), true) => declared,
+        (Some(declared), false) => declared,
         (None, _) => derived,
     };
 
@@ -330,6 +336,19 @@ mod tests {
         assert_eq!(deck.slides[0].steps.actions[0].targets(), vec![".x"]);
         assert!(deck.diagnostics.iter().any(|d| d.code == "steps/markers-ignored"));
         assert!(!deck.slides[0].content.contains("<!-- step -->"), "the marker never ships");
+    }
+
+    #[test]
+    fn auto_steps_beside_declared_steps_is_not_reported_because_it_supplies_the_anchors() {
+        // What the editor's timeline writes when an author asks to edit the
+        // stops `autoSteps:` generated. The mode has to stay — it is what puts
+        // `[data-slidx-step="N"]` in the markup — so a slide in that shape is
+        // correct rather than in conflict with itself.
+        let deck = parse("---\nautoSteps: list\nsteps:\n  - reveal: \".x\"\n---\n\n- one\n");
+
+        assert_eq!(deck.slides[0].steps.actions.len(), 1);
+        assert!(deck.slides[0].content.contains("data-slidx-step=\"1\""));
+        assert!(!deck.diagnostics.iter().any(|d| d.code == "steps/markers-ignored"));
     }
 
     #[test]

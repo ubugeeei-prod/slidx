@@ -72,7 +72,10 @@ fn operations(source: &str) -> Vec<EditOp> {
         EditOp::MoveSlide { slide: last.into(), to: 0 },
         EditOp::SetField { slide: 0.into(), key: "theme".into(), value: "terminal".into() },
         EditOp::SetField { slide: last.into(), key: "budget".into(), value: "45s".into() },
-        EditOp::AddStep { slide: 0.into(), action: StepAction::reveal(".added") },
+        EditOp::AddStep { slide: 0.into(), at: None, action: StepAction::reveal(".added") },
+        EditOp::AddStep { slide: 0.into(), at: Some(0), action: StepAction::reveal(".added") },
+        EditOp::AdoptSteps { slide: 0.into() },
+        EditOp::AdoptSteps { slide: last.into() },
         EditOp::SetNotes { slide: 0.into(), notes: "said out loud".into() },
         EditOp::SetNotes { slide: 0.into(), notes: String::new() },
         EditOp::SetNotes { slide: last.into(), notes: "said out loud".into() },
@@ -81,6 +84,18 @@ fn operations(source: &str) -> Vec<EditOp> {
     for (index, slide) in deck.slides.iter().enumerate() {
         if !slide.steps.actions.is_empty() {
             ops.push(EditOp::RemoveStep { slide: index.into(), index: 0 });
+            ops.push(EditOp::SetStep {
+                slide: index.into(),
+                index: 0,
+                action: StepAction::hide(".replaced"),
+            });
+        }
+        // A move needs two positions to be about anything, so it joins the
+        // corpus only where the slide has a list long enough to reorder.
+        if slide.steps.actions.len() > 1 {
+            let end = slide.steps.actions.len() - 1;
+            ops.push(EditOp::MoveStep { slide: index.into(), from: 0, to: end });
+            ops.push(EditOp::MoveStep { slide: index.into(), from: end, to: 0 });
         }
         if !slide.marks.is_empty() {
             ops.push(EditOp::SetMark {
@@ -180,7 +195,7 @@ fn a_file_written_with_windows_line_endings_stays_that_way() {
         EditOp::InsertSlide { at: 1, body: "# Added".into() },
         EditOp::SetField { slide: 0.into(), key: "theme".into(), value: "terminal".into() },
         EditOp::SetNotes { slide: 0.into(), notes: "spoken".into() },
-        EditOp::AddStep { slide: 0.into(), action: StepAction::reveal(".a") },
+        EditOp::AddStep { slide: 0.into(), at: None, action: StepAction::reveal(".a") },
     ];
 
     for op in writes {
@@ -223,8 +238,11 @@ fn what_the_source_says_after_an_edit_is_what_the_operation_asked_for() {
                 "{budgeted:?} on {source:?}"
             );
 
-            let staged =
-                EditOp::AddStep { slide: index.into(), action: StepAction::reveal(".added") };
+            let staged = EditOp::AddStep {
+                slide: index.into(),
+                at: None,
+                action: StepAction::reveal(".added"),
+            };
             assert_eq!(
                 parse(&edited(source, &staged)).slides[index].steps.actions.last(),
                 Some(&StepAction::reveal(".added")),
@@ -370,7 +388,7 @@ fn an_operation_naming_something_that_is_not_there_is_an_error_not_a_crash() {
         },
         EditOp::SetMark { slide: 0.into(), mark: 99.into(), attributes: Default::default() },
         EditOp::RemoveMark { slide: 0.into(), mark: "gone".into() },
-        EditOp::AddStep { slide: 99.into(), action: StepAction::reveal(".a") },
+        EditOp::AddStep { slide: 99.into(), at: None, action: StepAction::reveal(".a") },
         EditOp::RemoveStep { slide: 0.into(), index: 99 },
         EditOp::SetNotes { slide: 99.into(), notes: "x".into() },
     ];

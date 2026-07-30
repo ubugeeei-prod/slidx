@@ -10,6 +10,54 @@
 
 import type { Edit, EditOp, EditRefusal } from "./operations";
 
+/** One thing a slide's steps can name, which is one row of the timeline. */
+export interface StepRow {
+  target: string;
+  label: string;
+  /** The mark's `#key`. Absent for a row `autoSteps:` or a marker staged. */
+  key?: string;
+  /**
+   * Whether the row is painted at each stop, one entry per stop.
+   *
+   * Off the compiled frames rather than folded out of the actions here, so the
+   * bar a cell draws cannot disagree with what the deck shows.
+   */
+  visible: boolean[];
+}
+
+/** One authored action, placed on the grid. */
+export interface StepPlacement {
+  /** Position in the slide's action list, which is what an operation names. */
+  index: number;
+  kind: "reveal" | "hide" | "emphasize" | "set" | "group";
+  /** The stop it lands on. */
+  stop: number;
+  targets: string[];
+  /** True when it plays on a timer and shares the stop before it. */
+  timed: boolean;
+  /** Canonical `steps:` source, without the leading `- `. */
+  source: string;
+}
+
+/**
+ * A slide's steps as rows and stops.
+ *
+ * Mirrors `StepGrid` in `crates/slidx_core/src/grid.rs`, which is the
+ * definition. Which stop an action lands on is decided there, because it is a
+ * rule of the step compiler and a second answer to it here would put a click on
+ * the wrong column.
+ */
+export interface StepGrid {
+  rows: StepRow[];
+  actions: StepPlacement[];
+  /** Stops on this slide, including the resting frame. Always at least one. */
+  stops: number;
+  /** True when the author wrote `steps:`, so a cell has a line to change. */
+  declared: boolean;
+  /** The `autoSteps:` mode in force. */
+  auto?: "list" | "block" | "row";
+}
+
 /** A slide, as the outline and the canvas need it. */
 export interface SlideSummary {
   id: string;
@@ -17,6 +65,8 @@ export interface SlideSummary {
   title?: string;
   notes: string[];
   stopCount: number;
+  /** This slide's steps as rows and stops, for the timeline. */
+  steps?: StepGrid;
   /** The keys the author wrote on this slide. The deck's own are slide zero's. */
   frontmatter?: Record<string, unknown>;
 }

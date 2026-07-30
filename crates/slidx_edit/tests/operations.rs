@@ -268,8 +268,10 @@ fn a_mark_that_is_not_there_is_an_error_rather_than_a_panic() {
 #[test]
 fn adding_a_step_creates_the_list_on_a_slide_that_has_none() {
     let source = "---\ntitle: T\n---\n\n# One\n";
-    let result =
-        edit(source, EditOp::AddStep { slide: 0.into(), action: StepAction::reveal(".a") });
+    let result = edit(
+        source,
+        EditOp::AddStep { slide: 0.into(), at: None, action: StepAction::reveal(".a") },
+    );
 
     assert_eq!(result, "---\ntitle: T\nsteps:\n  - reveal: \".a\"\n---\n\n# One\n");
 }
@@ -277,7 +279,8 @@ fn adding_a_step_creates_the_list_on_a_slide_that_has_none() {
 #[test]
 fn a_second_step_is_one_more_line_and_nothing_else() {
     let source = "---\nsteps:\n  - reveal: \".a\"\n---\n\n# One\n";
-    let result = edit(source, EditOp::AddStep { slide: 0.into(), action: StepAction::hide(".b") });
+    let result =
+        edit(source, EditOp::AddStep { slide: 0.into(), at: None, action: StepAction::hide(".b") });
 
     assert_eq!(result, "---\nsteps:\n  - reveal: \".a\"\n  - hide: \".b\"\n---\n\n# One\n");
     assert!(touched_lines(source, &result).is_empty(), "a new step adds a line and rewrites none");
@@ -308,11 +311,190 @@ fn a_step_added_to_a_slide_staged_with_markers_keeps_the_staging_it_had() {
     // reveals the author already has: `steps:` takes precedence over markers,
     // so writing it has to carry them across.
     let source = "# One\n\n- a <!-- step -->\n- b <!-- step -->\n";
-    let result = edit(source, EditOp::AddStep { slide: 0.into(), action: StepAction::hide(".c") });
+    let result =
+        edit(source, EditOp::AddStep { slide: 0.into(), at: None, action: StepAction::hide(".c") });
 
     let deck = parse(&result);
     assert_eq!(deck.slides[0].steps.actions.len(), 3);
     assert_eq!(deck.slides[0].steps.actions[2].targets(), vec![".c"]);
+}
+
+#[test]
+fn a_step_added_at_a_position_becomes_the_stop_that_was_there() {
+    // A timeline's cell is a stop, not the end of a list. Clicking one has to
+    // put the action where the click was, or the gesture would be an add
+    // followed by a move — two operations and two undo presses.
+    let source = "---\nsteps:\n  - reveal: \".a\"\n  - reveal: \".c\"\n---\n\n# One\n";
+    let result = edit(
+        source,
+        EditOp::AddStep { slide: 0.into(), at: Some(1), action: StepAction::reveal(".b") },
+    );
+
+    assert_eq!(
+        result,
+        "---\nsteps:\n  - reveal: \".a\"\n  - reveal: \".b\"\n  - reveal: \".c\"\n---\n\n# One\n"
+    );
+    assert!(touched_lines(source, &result).is_empty(), "an inserted step rewrites no line");
+}
+
+#[test]
+fn a_position_past_the_end_of_the_list_appends_rather_than_refusing() {
+    // The last column of a timeline is one past the last action, and reaching
+    // it must not depend on the editor counting the list the same way.
+    let source = "---\nsteps:\n  - reveal: \".a\"\n---\n\n# One\n";
+    let result = edit(
+        source,
+        EditOp::AddStep { slide: 0.into(), at: Some(9), action: StepAction::hide(".b") },
+    );
+
+    assert_eq!(result, "---\nsteps:\n  - reveal: \".a\"\n  - hide: \".b\"\n---\n\n# One\n");
+}
+
+#[test]
+fn moving_a_step_moves_its_line_and_writes_no_other() {
+    let source =
+        "---\nsteps:\n  - reveal: \".a\"\n  - hide: \".b\"\n  - reveal: \".c\"\n---\n\n# One\n";
+    let result = edit(source, EditOp::MoveStep { slide: 0.into(), from: 2, to: 0 });
+
+    assert_eq!(
+        result,
+        "---\nsteps:\n  - reveal: \".c\"\n  - reveal: \".a\"\n  - hide: \".b\"\n---\n\n# One\n"
+    );
+}
+
+#[test]
+fn moving_a_step_to_where_it_already_is_is_not_an_edit_at_all() {
+    let source = "---\nsteps:\n  - reveal: \".a\"\n  - hide: \".b\"\n---\n\n# One\n";
+    let op = EditOp::MoveStep { slide: 0.into(), from: 1, to: 1 };
+
+    assert!(plan(source, &DeckParseOptions::default(), &op).unwrap().is_empty());
+}
+
+#[test]
+fn moving_a_step_somewhere_the_list_does_not_reach_is_an_error() {
+    let source = "---\nsteps:\n  - reveal: \".a\"\n  - hide: \".b\"\n---\n\n# One\n";
+
+    for op in [
+        EditOp::MoveStep { slide: 0.into(), from: 5, to: 0 },
+        EditOp::MoveStep { slide: 0.into(), from: 0, to: 5 },
+    ] {
+        assert_eq!(
+            plan(source, &DeckParseOptions::default(), &op),
+            Err(EditError::NoSuchStep { index: 5, present: 2 })
+        );
+    }
+}
+
+#[test]
+fn setting_a_step_rewrites_its_line_and_leaves_the_list_around_it() {
+    let source =
+        "---\nsteps:\n  - reveal: \".a\"\n  - hide: \".b\"\n  - reveal: \".c\"\n---\n\n# One\n";
+    let result = edit(
+        source,
+        EditOp::SetStep {
+            slide: 0.into(),
+            index: 1,
+            action: StepAction::emphasize(".b", slidx_core::EffectPreset::Pulse),
+        },
+    );
+
+    assert_eq!(touched_lines(source, &result), vec![4]);
+    assert!(result.contains("- emphasize: { target: \".b\", preset: pulse }"), "{result}");
+}
+
+#[test]
+fn retiming_a_step_is_the_same_one_line_because_timing_is_written_inline() {
+    // The reason an action serialises as a flow mapping: a retimed step has to
+    // stay one line, or a timeline that adjusts one stop would diff as three.
+    let source = "---\nsteps:\n  - reveal: \".a\"\n---\n\n# One\n";
+    let result = edit(
+        source,
+        EditOp::SetStep {
+            slide: 0.into(),
+            index: 0,
+            action: StepAction::reveal(".a").with_duration(700),
+        },
+    );
+
+    assert_eq!(
+        result,
+        "---\nsteps:\n  - reveal: { target: \".a\", duration: 700 }\n---\n\n# One\n"
+    );
+}
+
+#[test]
+fn setting_a_step_that_is_not_declared_is_an_error_rather_than_an_append() {
+    let source = "---\nsteps:\n  - reveal: \".a\"\n---\n\n# One\n";
+    let op = EditOp::SetStep { slide: 0.into(), index: 4, action: StepAction::hide(".b") };
+
+    assert_eq!(
+        plan(source, &DeckParseOptions::default(), &op),
+        Err(EditError::NoSuchStep { index: 4, present: 1 })
+    );
+}
+
+#[test]
+fn writing_out_generated_steps_puts_the_list_the_slide_was_running_into_the_file() {
+    // `autoSteps:` is a one-way door and this operation is the door. What it
+    // writes has to be the pipeline the slide already ran, or opening the door
+    // would change the talk.
+    let source = "---\nautoSteps: list\n---\n\n- one\n- two\n";
+    let result = edit(source, EditOp::AdoptSteps { slide: 0.into() });
+
+    assert_eq!(
+        result,
+        concat!(
+            "---\nautoSteps: list\nsteps:\n",
+            "  - reveal: \"[data-slidx-step=\\\"1\\\"]\"\n",
+            "  - reveal: \"[data-slidx-step=\\\"2\\\"]\"\n",
+            "---\n\n- one\n- two\n"
+        )
+    );
+    assert_eq!(parse(source).slides[0].timeline.len(), parse(&result).slides[0].timeline.len());
+}
+
+#[test]
+fn writing_out_generated_steps_leaves_auto_steps_in_place_because_it_owns_the_anchors() {
+    // The written-out steps name `[data-slidx-step="N"]`, and `autoSteps:` is
+    // what puts those anchors in the markup. Removing the key would leave a
+    // list of steps that target nothing.
+    let source = "---\nautoSteps: list\n---\n\n- one\n- two\n";
+    let result = edit(source, EditOp::AdoptSteps { slide: 0.into() });
+
+    assert!(result.contains("autoSteps: list"));
+    let deck = parse(&result);
+    assert_eq!(deck.slides[0].timeline.frame(1).unwrap().visible_targets().len(), 1);
+}
+
+#[test]
+fn writing_out_steps_a_slide_already_declares_is_not_an_edit() {
+    // Idempotence, and the thing that keeps the door one-way rather than a
+    // switch: a second press cannot rewrite a list the author has since
+    // reordered.
+    let source = "---\nsteps:\n  - reveal: \".a\"\n---\n\n# One\n";
+    let op = EditOp::AdoptSteps { slide: 0.into() };
+
+    assert!(plan(source, &DeckParseOptions::default(), &op).unwrap().is_empty());
+}
+
+#[test]
+fn writing_out_the_steps_of_a_marker_staged_slide_keeps_the_reveals_it_had() {
+    let source = "# One\n\n- a <!-- step -->\n- b <!-- step -->\n";
+    let result = edit(source, EditOp::AdoptSteps { slide: 0.into() });
+
+    let deck = parse(&result);
+    assert_eq!(deck.slides[0].steps.actions.len(), 2);
+    assert_eq!(deck.slides[0].timeline.len(), 3);
+}
+
+#[test]
+fn writing_out_the_steps_of_a_slide_that_has_none_leaves_an_empty_list() {
+    // An empty `steps:` rather than no key: the slide now says it stages
+    // nothing, which is a different statement from never having been asked.
+    let source = "---\ntitle: T\n---\n\n# One\n";
+    let result = edit(source, EditOp::AdoptSteps { slide: 0.into() });
+
+    assert_eq!(result, "---\ntitle: T\nsteps: []\n---\n\n# One\n");
 }
 
 // -------------------------------------------------------------------- notes

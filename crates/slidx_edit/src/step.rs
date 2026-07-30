@@ -1,4 +1,4 @@
-//! Adding and removing entries in a slide's `steps:` list.
+//! Writing a slide's `steps:` list — adding, removing, moving, replacing.
 //!
 //! Two paths, and the reason for both is the diff.
 //!
@@ -25,22 +25,31 @@ pub(crate) fn add(
     deck: &DeckSource<'_>,
     options: &DeckParseOptions,
     slide: &SlideRef,
+    at: Option<usize>,
     action: &StepAction,
     builder: &mut EditBuilder<'_>,
 ) -> Result<(), EditError> {
     let index = deck.resolve(slide)?;
     let declared = declared(deck, options, index);
+    // Clamped rather than refused: the last column of a timeline is one past
+    // the last action, and an editor counting a list a keystroke behind this one
+    // must still be able to reach the end.
+    let at = at.unwrap_or(declared.len()).min(declared.len());
 
     match block_list(deck, index) {
-        Some(list) if list.items.len() == declared.len() => {
-            builder.insert(
+        Some(list) if list.items.len() == declared.len() => match list.items.get(at) {
+            Some(item) => builder.insert(
+                item.start,
+                format!("{}- {}{}", list.indent, action.to_source(), deck.newline()),
+            ),
+            None => builder.insert(
                 list.end,
                 format!("{}{}- {}", deck.newline(), list.indent, action.to_source()),
-            );
-        }
+            ),
+        },
         _ => {
             let mut actions = declared;
-            actions.push(action.clone());
+            actions.insert(at, action.clone());
             write_list(deck, index, &actions, builder);
         }
     }
@@ -77,6 +86,123 @@ pub(crate) fn remove(
     }
 
     Ok(())
+}
+
+/// Moves one action of the list.
+///
+/// The bytes move rather than being re-rendered, so the author's own spelling of
+/// the step that moved survives the move and the diff is the line that changed
+/// place.
+pub(crate) fn move_to(
+    deck: &DeckSource<'_>,
+    options: &DeckParseOptions,
+    slide: &SlideRef,
+    from: usize,
+    to: usize,
+    builder: &mut EditBuilder<'_>,
+) -> Result<(), EditError> {
+    let index = deck.resolve(slide)?;
+    let declared = declared(deck, options, index);
+    let present = declared.len();
+
+    for named in [from, to] {
+        if named >= present {
+            return Err(EditError::NoSuchStep { index: named, present });
+        }
+    }
+    if from == to {
+        return Ok(());
+    }
+
+    match block_list(deck, index) {
+        Some(list) if list.items.len() == present => {
+            let moved = list.items[from];
+            let body = moved.slice(deck.source).trim_start().to_string();
+            let newline = deck.newline();
+
+            // Both spans are measured in the source before either applies, so
+            // `to` is read as a position among the items as they are now.
+            let opens = if from == 0 { list.value } else { list.items[from - 1].end };
+            builder.delete(ByteSpan::new(opens, moved.end));
+
+            match from < to {
+                true => {
+                    builder.insert(list.items[to].end, format!("{newline}{}{body}", list.indent))
+                }
+                false => {
+                    builder.insert(list.items[to].start, format!("{}{body}{newline}", list.indent))
+                }
+            }
+        }
+        _ => {
+            let mut actions = declared;
+            let action = actions.remove(from);
+            actions.insert(to, action);
+            write_list(deck, index, &actions, builder);
+        }
+    }
+
+    Ok(())
+}
+
+/// Replaces one action of the list.
+pub(crate) fn set(
+    deck: &DeckSource<'_>,
+    options: &DeckParseOptions,
+    slide: &SlideRef,
+    at: usize,
+    action: &StepAction,
+    builder: &mut EditBuilder<'_>,
+) -> Result<(), EditError> {
+    let index = deck.resolve(slide)?;
+    let declared = declared(deck, options, index);
+
+    if at >= declared.len() {
+        return Err(EditError::NoSuchStep { index: at, present: declared.len() });
+    }
+
+    match block_list(deck, index) {
+        Some(list) if list.items.len() == declared.len() => {
+            builder.replace(list.items[at], format!("{}- {}", list.indent, action.to_source()));
+        }
+        _ => {
+            let mut actions = declared;
+            actions[at] = action.clone();
+            write_list(deck, index, &actions, builder);
+        }
+    }
+
+    Ok(())
+}
+
+/// Writes the stops the slide is already running into an explicit list.
+///
+/// A slide staged by `autoSteps:` or by markers has stops with no line in the
+/// file, so nothing can change one in place. This gives them lines, and it is
+/// where the one-way door is: after this the generated form is gone.
+///
+/// A slide that already declares `steps:` is left alone rather than re-rendered.
+/// The author's list may spell an action differently from
+/// [`StepAction::to_source`] — `emphasise`, a flow list, a nested mapping — and
+/// none of that is this operation's to tidy.
+pub(crate) fn adopt(
+    deck: &DeckSource<'_>,
+    options: &DeckParseOptions,
+    slide: &SlideRef,
+    builder: &mut EditBuilder<'_>,
+) -> Result<(), EditError> {
+    let index = deck.resolve(slide)?;
+
+    if !declares_steps(deck, index) {
+        write_list(deck, index, &declared(deck, options, index), builder);
+    }
+
+    Ok(())
+}
+
+/// True when the slide's frontmatter writes `steps:` itself.
+fn declares_steps(deck: &DeckSource<'_>, index: usize) -> bool {
+    deck.at(index).frontmatter.and_then(|block| entry(block.slice(deck.source), "steps")).is_some()
 }
 
 /// The steps the slide runs, however they are spelled.
