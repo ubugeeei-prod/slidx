@@ -455,6 +455,7 @@ dependencies = [
 name = "slidx_cli"
 version = "0.1.0"
 dependencies = [
+ "getrandom",
  "serde",
  "serde_json",
  "slidx_core",
@@ -468,6 +469,7 @@ dependencies = [
  "slidx_lint",
  "slidx_lsp",
  "slidx_publish",
+ "slidx_qr",
  "slidx_theme",
 ]
 

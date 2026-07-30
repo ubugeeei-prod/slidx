@@ -43,6 +43,13 @@ serde_yaml = "0.9"
 ts-rs = { version = "12", default-features = false, features = ["serde-compat"] }
 insta = { version = "1", features = ["json", "yaml"] }
 rayon = "1"
+# The platform's own CSPRNG, for the share secret `slidx dev --crdt` mints. Unix
+# is a file read, Windows is `BCryptGenRandom` behind `unsafe extern`, and WASI is
+# a third thing — precisely the code nobody should hand-roll, and precisely what
+# this crate is. It was already in this workspace's lockfile, so nothing new
+# enters the supply chain, and it compiles to a syscall wrapper: a few hundred
+# bytes, and no start-up cost at all because nothing calls it without --crdt.
+getrandom = "0.4"
 
 [profile.release]
 lto = "fat"

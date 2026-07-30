@@ -462,9 +462,21 @@ place.
 
 Use this while WRITING. `slidx preview` is for looking at what a build
 produced: the editor writes to your slide files and exists only here, and only
-the build output is what a host will actually serve.",
+the build output is what a host will actually serve.
+
+--crdt shares the deck with the laptop next to you. It binds beyond localhost,
+prints a link and a QR code, and puts the editor's changes through one shared
+document so an edit from the canvas and a file you saved in your own editor
+merge rather than overwrite. The link is READ ONLY: --allow-edit mints a second
+link, and only that one can change the deck.
+
+Sharing is on your local network and involves no third party. There is no
+tunnel and no flag that adds one — a public URL to an unannounced talk, served
+by something that can write your files, is not a switch this should have.",
         &[
             Flag::taking("port", "<number>", "Port to serve on. Default: Vite's own"),
+            Flag::switch("crdt", "Share on this network, read-only, to edit together"),
+            Flag::switch("allow-edit", "Also mint a link that may change the deck"),
             Flag::switch("no-open", "Do not open a browser at the editor"),
         ],
     ),

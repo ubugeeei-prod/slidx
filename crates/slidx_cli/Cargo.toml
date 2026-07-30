@@ -31,6 +31,8 @@ slidx_lint = { workspace = true }
 # binary is one PATH entry, one release asset, and one `.slidx-version` pin.
 slidx_lsp = { workspace = true }
 slidx_publish = { workspace = true }
+slidx_qr = { workspace = true }
 slidx_theme = { workspace = true }
+getrandom = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
