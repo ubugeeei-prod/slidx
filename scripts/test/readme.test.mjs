@@ -34,4 +34,15 @@ describe("the CLI examples", () => {
     expect(cli).not.toContain("```bash");
     expect(cli.match(/```text/g)).toHaveLength(2);
   });
+
+  it("introduce commands in the order a talk needs them", () => {
+    const cli = README.slice(README.indexOf("## The CLI"), README.indexOf("## What is actually"));
+    const firstFence = cli.match(/```text\n([\s\S]*?)```/)?.[1] ?? "";
+    const commands = firstFence
+      .trim()
+      .split("\n")
+      .map((line) => line.match(/^slidx ([^ ]+)/)?.[1]);
+
+    expect(commands).toEqual(["dev", "fmt", "lint", "export", "doctor", "publish"]);
+  });
 });

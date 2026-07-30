@@ -109,14 +109,14 @@ showing something that no longer happens.
 ## The CLI
 
 Separate from the plugin, and optional. Twenty-one commands; these are the ones
-you will type.
+you will type, in the order a talk needs them.
 
 ```text
-slidx doctor               # power, clock, fonts, screen capture, mirroring, Do Not Disturb
-slidx lint                 # every rule the build runs, non-zero on anything blocking
 slidx dev                  # the deck and the editor, from inside the slides directory
 slidx fmt                  # normalise what slidx owns, and nothing you wrote
+slidx lint                 # every rule the build runs, non-zero on anything blocking
 slidx export --target pdf  # browser | pdf | pdf-zip | png | pptx
+slidx doctor               # power, clock, fonts, screen capture, mirroring, Do Not Disturb
 slidx publish              # all that needs no account, and the payload for what does
 ```
 
