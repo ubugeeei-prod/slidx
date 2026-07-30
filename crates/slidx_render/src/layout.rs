@@ -304,6 +304,58 @@ hr {
   display: none;
 }
 
+/*
+ * The speaker, on the slide.
+ *
+ * The tile occupies the region the author named, so it is a share of the slide
+ * like everything else and stays put across every projector. It is a sibling of
+ * the regions rather than a child of one, which is what lets the speaker sit
+ * over a diagram — the placement a talk actually wants when the region already
+ * has something in it.
+ *
+ * `idle` is the state the build emits and the only state a published page ever
+ * has, because nothing outside presentation mode writes the attribute. Drawn as
+ * nothing at all: an empty rectangle on every audience slide would be worse
+ * than the feature not existing.
+ */
+.slidx-camera {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: var(--slidx-radius);
+  background: var(--slidx-color-code-surface);
+}
+
+[data-slidx-camera-state="idle"] { display: none; }
+
+/*
+ * `cover` rather than `contain`: a camera's aspect ratio has nothing to do with
+ * the region's, and letterboxing a face inside a tile that is already small is
+ * how the speaker ends up as a stripe. Not mirrored — this is the picture the
+ * audience sees, and a mirrored one reverses anything held up to it.
+ */
+.slidx-camera video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/*
+ * What happened, when nothing happened.
+ *
+ * A refused permission, a camera another application is holding, a laptop with
+ * no camera at all: each leaves the tile saying so rather than showing a black
+ * rectangle the speaker has to interpret from the stage.
+ */
+.slidx-camera-status {
+  padding: 0.5em;
+  text-align: center;
+  color: var(--slidx-color-muted);
+  font-size: var(--slidx-size-caption);
+}
+
 /* Anchors are addresses, never content. */
 [data-slidx-step] { display: none; }
 
@@ -425,6 +477,14 @@ mod tests {
             assert_eq!(rule.matches(':').count(), 1, "{class} declares more than a colour");
             assert!(rule.contains("color:"), "{class} declares something other than a colour");
         }
+    }
+
+    #[test]
+    fn a_camera_that_was_never_started_is_drawn_as_nothing() {
+        // The state every published page is in. Painted, it would be an empty
+        // rectangle on every audience slide of every deck that declares a
+        // camera, whether or not anybody is presenting from it.
+        assert!(declarations().contains("[data-slidx-camera-state=\"idle\"] { display: none; }"));
     }
 
     #[test]

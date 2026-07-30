@@ -143,6 +143,9 @@ let page: string;
 /** Where the staged deck is served from, because a module needs an origin. */
 let served: string;
 
+/** A deck whose author placed a speaker camera on the slide. */
+let cameraPage: string;
+
 async function buildDeck(name: string, slides: Record<string, string>): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), `slidx-${name}-`));
   await mkdir(join(root, "slides"), { recursive: true });
@@ -162,7 +165,7 @@ async function buildDeck(name: string, slides: Record<string, string>): Promise<
 }
 
 beforeAll(async () => {
-  const [plain, staged] = await Promise.all([
+  const [plain, staged, camera] = await Promise.all([
     // Published, and at a stated address, so the page under test carries every
     // absolute URL a deck can carry — a canonical, an `og:image`, structured
     // data. None of them may cost the room a request.
@@ -174,10 +177,14 @@ beforeAll(async () => {
       "0001.md": "# Latency\n\nDropped to [120ms]{#latency}[38ms]{#latency}.\n",
       "0002.md": "# After\n",
     }),
+    buildDeck("camera", {
+      "0001.md": "---\nlayout: aside\ncamera: side\n---\n\n# Remote\n\nA talk from a desk.\n",
+    }),
   ]);
 
   page = pathToFileURL(join(plain, "slides", "index.html")).href;
   served = await serve(staged);
+  cameraPage = pathToFileURL(join(camera, "slides", "index.html")).href;
 }, 180_000);
 
 afterAll(async () => {
@@ -308,6 +315,121 @@ describe.each(ENGINES)("%s", (engine) => {
       const { requested } = await measure(engine, 1280, 800);
 
       expect(requested.filter((url) => !url.startsWith("file://"))).toEqual([]);
+    },
+    120_000,
+  );
+});
+
+/** The window's counter, set by the init script below. */
+interface Counted extends Window {
+  __cameraRequests: number;
+}
+
+/**
+ * Opens a deck that declares a speaker camera, watching for any request for one.
+ *
+ * The counter is installed before the page exists, so it sees a request made
+ * from anywhere — an inline script, a module, a stylesheet's side effect. A
+ * page that prompts once is a page an audience closes, and "did it prompt" is
+ * only answerable in a browser.
+ */
+async function openDeclaringCamera(engine: Engine) {
+  const playwright = await import("playwright");
+  const browser = await playwright[engine].launch();
+
+  try {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+
+    await context.addInitScript(() => {
+      (window as unknown as Counted).__cameraRequests = 0;
+
+      const devices: MediaDevices | undefined = navigator.mediaDevices;
+      if (devices === undefined) return;
+
+      const original = devices.getUserMedia.bind(devices);
+      devices.getUserMedia = (constraints?: MediaStreamConstraints) => {
+        (window as unknown as Counted).__cameraRequests += 1;
+        return original(constraints);
+      };
+    });
+
+    const tab = await context.newPage();
+    const errors: string[] = [];
+    tab.on("pageerror", (error) => errors.push(error.message));
+
+    await tab.goto(cameraPage);
+
+    return {
+      errors,
+      ...(await tab.evaluate(() => {
+        const tile = document.querySelector("[data-slidx-camera]");
+        const heading = document.querySelector("h1");
+
+        // Counted the way `measure` counts it: by what the browser would run.
+        // The structured data in the head is a `<script>` holding a block of
+        // JSON, of a type nothing executes, and only something that executes
+        // could ask for a device.
+        const executable = [...document.scripts].filter(
+          (script) =>
+            script.type === "" || script.type === "module" || /javascript/i.test(script.type),
+        );
+
+        return {
+          requests: (window as unknown as Counted).__cameraRequests,
+          scripts: executable.length,
+          videos: document.querySelectorAll("video").length,
+          declared: tile !== null,
+          tileWidth: tile === null ? 0 : tile.getBoundingClientRect().width,
+          heading: heading?.textContent ?? "",
+        };
+      })),
+    };
+  } finally {
+    await browser.close();
+  }
+}
+
+/**
+ * The speaker's camera, on the page a stranger opens.
+ *
+ * This is the constraint the whole feature is shaped around, and the only place
+ * it can honestly be checked. A published deck is a static page reached from a
+ * link, a QR code, or an archive years later, and the browser is the only thing
+ * that can say whether opening it asks for a webcam.
+ *
+ * Checked on `file://` for the same reason as everything else here: a deck off
+ * a USB stick is the worst case, and it must behave identically.
+ */
+describe.each(ENGINES)("%s, on a slide that declares a camera", (engine) => {
+  const runs = it.skipIf(!available[engine]);
+
+  runs(
+    "never asks the reader for a webcam",
+    async () => {
+      const { requests, scripts, errors } = await openDeclaringCamera(engine);
+
+      expect(requests).toBe(0);
+      // The reason it cannot: there is nothing on the page that runs, and so
+      // nothing that could ask.
+      expect(scripts).toBe(0);
+      expect(errors).toEqual([]);
+    },
+    120_000,
+  );
+
+  runs(
+    "carries the camera's place and leaves no hole in the slide",
+    async () => {
+      // The tile is in the document, so the runtime has somewhere to put a
+      // stream when a speaker starts one. It paints nothing until then: an
+      // empty rectangle on every audience slide would be worse than the
+      // feature not existing.
+      const { declared, tileWidth, videos, heading } = await openDeclaringCamera(engine);
+
+      expect(declared).toBe(true);
+      expect(tileWidth).toBe(0);
+      expect(videos).toBe(0);
+      expect(heading).toBe("Remote");
     },
     120_000,
   );

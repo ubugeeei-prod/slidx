@@ -115,25 +115,33 @@ pub fn diagnose(deck: &Deck) -> Diagnostics {
         let placement = place(&slide.blocks, &layout);
 
         for misplaced in placement.misplaced {
-            diagnostics.push(
-                Diagnostic::warning(
-                    "layout/no-such-region",
-                    format!(
-                        "`{}` has no `{}` region, so the block is in `{}` instead",
-                        layout.id, misplaced.requested, layout.default_region
-                    ),
-                )
-                .at(at(slide))
-                .with_help(format!(
-                    "`{}` offers {}",
-                    layout.id,
-                    quoted(&layout.region_names())
-                )),
-            );
+            diagnostics.push(no_such_region(&layout, &misplaced.requested, "the block", at(slide)));
+        }
+
+        // A camera names a region the same way a block does, so it goes wrong
+        // the same way — an author who changed `layout:` and left the camera
+        // pointing at a region the new one does not have.
+        if let Some(camera) = &slide.camera {
+            if !layout.has_region(&camera.region) {
+                diagnostics.push(no_such_region(&layout, &camera.region, "the camera", at(slide)));
+            }
         }
     }
 
     diagnostics
+}
+
+/// A name that is not a region of this layout, and where the thing went instead.
+fn no_such_region(layout: &Layout, requested: &str, subject: &str, at: SourceSpan) -> Diagnostic {
+    Diagnostic::warning(
+        "layout/no-such-region",
+        format!(
+            "`{}` has no `{}` region, so {subject} is in `{}` instead",
+            layout.id, requested, layout.default_region
+        ),
+    )
+    .at(at)
+    .with_help(format!("`{}` offers {}", layout.id, quoted(&layout.region_names())))
 }
 
 /// The layout a slide asked for, reporting a name that resolves to nothing.
@@ -247,6 +255,23 @@ mod tests {
 
         assert!(first.message.contains("`side`"), "got: {}", first.message);
         assert!(first.help.as_ref().unwrap().contains("`right`"), "got: {:?}", first.help);
+    }
+
+    #[test]
+    fn a_camera_pointed_at_a_region_this_layout_lacks_is_reported() {
+        // The author changed `layout:` and left the camera behind. It still
+        // renders, in the default region, because a speaker mid-talk needs the
+        // tile somewhere rather than nowhere.
+        let diagnostics = diagnose(&deck("---\nlayout: split\ncamera: side\n---\n\n# One\n"));
+        let first = diagnostics.iter().find(|d| d.code == "layout/no-such-region").unwrap();
+
+        assert!(first.message.contains("the camera"), "got: {}", first.message);
+        assert!(first.message.contains("`side`"), "got: {}", first.message);
+    }
+
+    #[test]
+    fn a_camera_in_a_region_the_layout_has_is_said_nothing_about() {
+        assert!(diagnose(&deck("---\nlayout: aside\ncamera: side\n---\n\n# One\n")).is_empty());
     }
 
     #[test]

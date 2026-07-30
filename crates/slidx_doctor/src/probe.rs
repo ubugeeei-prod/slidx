@@ -34,6 +34,7 @@
 //! this module is moving away from.
 
 pub mod audio;
+pub mod camera;
 pub mod clock;
 pub mod command;
 pub mod disk;
@@ -156,6 +157,7 @@ pub fn read(request: &Request) -> Environment {
             scope.spawn(|| clock::read_skew(request.time_server.as_deref(), request.timeout));
         let fonts = scope.spawn(|| fonts::read(request.timeout));
         let processes = scope.spawn(|| processes::read(request.timeout));
+        let cameras = scope.spawn(|| camera::read(request.timeout));
         let network =
             scope.spawn(|| network::read(request.network_target.as_ref(), request.timeout));
 
@@ -177,6 +179,7 @@ pub fn read(request: &Request) -> Environment {
             skew: joined(skew),
             fonts: joined(fonts),
             processes: joined(processes),
+            cameras: joined(cameras),
             network: joined(network),
             displays: joined(displays),
             notifications: joined(notifications),

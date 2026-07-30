@@ -199,6 +199,34 @@ pub fn layouts() -> Vec<Term> {
         .collect()
 }
 
+/// Every region name any built-in layout uses.
+///
+/// Offered flat rather than per layout because completion happens while the key
+/// is being typed, and the slide's `layout:` may be a line that is not written
+/// yet. A name this slide's layout does not have is reported by
+/// `slidx_theme::layout`, which is where the pairing is actually known.
+pub fn regions() -> Vec<Term> {
+    let layouts = layout::all();
+
+    layout::REGION_NAMES
+        .iter()
+        .map(|name| {
+            let offered: Vec<&str> = layouts
+                .iter()
+                .filter(|layout| layout.has_region(name))
+                .map(|layout| layout.id.as_str())
+                .collect();
+
+            let summary = layouts
+                .iter()
+                .find_map(|layout| layout.region(name))
+                .map_or_else(String::new, |region| region.summary.clone());
+
+            Term::new(*name, format!("in {}", offered.join(", ")), summary)
+        })
+        .collect()
+}
+
 fn describe_aspect(aspect: AspectRatio) -> &'static str {
     match aspect {
         AspectRatio::Wide => "Widescreen. The default, and what most venues project.",
@@ -219,6 +247,7 @@ pub enum Values {
     AutoSteps,
     Aspects,
     Layouts,
+    Regions,
     /// A list of step actions, which is structure rather than a value.
     Steps,
 }
@@ -232,6 +261,7 @@ impl Values {
             Self::AutoSteps => Some(auto_steps()),
             Self::Aspects => Some(aspects()),
             Self::Layouts => Some(layouts()),
+            Self::Regions => Some(regions()),
             Self::Text(_) | Self::Duration | Self::Boolean | Self::Steps => None,
         }
     }
@@ -247,6 +277,7 @@ impl Values {
             Self::AutoSteps => "an automatic staging mode",
             Self::Aspects => "an aspect ratio",
             Self::Layouts => "a layout name",
+            Self::Regions => "a region of this slide's layout",
             Self::Steps => "a list of step actions",
         }
     }

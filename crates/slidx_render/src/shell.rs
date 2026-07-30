@@ -9,7 +9,8 @@
 //! a shell that references anything remote is a shell that goes blank when the
 //! venue Wi-Fi does.
 
-use slidx_core::{Deck, Slide, DEMO_ATTRIBUTE};
+use slidx_core::{Deck, Slide, CAMERA_ATTRIBUTE, CAMERA_STATE_ATTRIBUTE, DEMO_ATTRIBUTE};
+use slidx_theme::layout::Layout;
 use slidx_theme::{css, transition, Theme};
 
 use crate::layout;
@@ -83,7 +84,7 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
 <main class="slidx-deck">
   <article class="slidx-slide" data-slidx-layout="{slide_layout}" style="--slidx-slide-width: {width}; --slidx-slide-height: {height}">
     <div class="slidx-slide-body">
-{body}    </div>
+{body}{camera}    </div>
     <footer class="slidx-slide-footer">
       <span class="slidx-slide-brand">{brand}</span>
       <span class="slidx-slide-number">{number} / {count}</span>
@@ -107,6 +108,7 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
         width = width,
         height = height,
         body = body,
+        camera = camera_markup(slide, &slide_layout),
         brand = escape(
             deck.meta
                 .talk
@@ -258,6 +260,39 @@ fn demo_markup(slide: &Slide) -> String {
     )
 }
 
+/// The camera's *place* on the slide. Never a camera.
+///
+/// This is the whole boundary the feature is built on. A published deck is a
+/// static page anybody may open — from a link, a QR code, an archive years
+/// later — and a page that asks for a webcam is a page people close. So what
+/// the build emits is an empty tile in the region the author named, with no
+/// `<video>`, no script, and nothing anywhere in the document that could reach
+/// a device. Starting a stream is a second opt-in, made by the speaker at
+/// presentation time, and it happens in the runtime.
+///
+/// The tile starts in the `idle` state, which the stylesheet draws as nothing
+/// at all. That is the state every published page stays in, because the only
+/// thing that writes the attribute is `enterPresentation`.
+///
+/// A region the layout does not have falls back to the layout's default rather
+/// than being emitted as written. The mistake was already reported by
+/// [`slidx_theme::layout::diagnose`], and a `grid-area` naming nothing puts the
+/// tile in an implicit track — which moves every region down, so a stale
+/// `camera:` would rearrange the slide rather than misplace one element.
+fn camera_markup(slide: &Slide, layout: &Layout) -> String {
+    let Some(camera) = &slide.camera else { return String::new() };
+
+    let region = match layout.region(&camera.region) {
+        Some(region) => region.name.as_str(),
+        None => layout.fallback().name.as_str(),
+    };
+
+    format!(
+        "      <figure class=\"slidx-camera\" {CAMERA_ATTRIBUTE}=\"{region}\" \
+         {CAMERA_STATE_ATTRIBUTE}=\"idle\"></figure>\n"
+    )
+}
+
 fn escape(text: &str) -> String {
     text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
 }
@@ -338,6 +373,84 @@ mod tests {
     fn a_poster_frame_is_used_when_the_deck_declares_one() {
         let source = "---\ndemo:\n  live: https://app.example.com\n  fallback: ./c.mp4\n  poster: ./c.png\n---\n\n# Live\n";
         assert!(shell(source).contains("poster=\"./c.png\""));
+    }
+
+    const CAMERA: &str = "---\nlayout: aside\ncamera: side\n---\n\n# Remote\n";
+
+    #[test]
+    fn a_declared_camera_puts_a_tile_in_the_region_the_author_named() {
+        let html = shell(CAMERA);
+
+        assert!(tile_in(&html).contains("data-slidx-camera=\"side\""), "wrong region:\n{html}");
+    }
+
+    #[test]
+    fn a_page_with_a_camera_on_it_cannot_ask_for_one() {
+        // The constraint the whole feature is shaped around. A built deck is a
+        // static page anybody may open from a link, and a page that prompts for
+        // a webcam is a page people close. The tile ships; the means of filling
+        // it does not, and there is nothing in the document that could.
+        let html = shell(CAMERA);
+
+        for reach in ["getUserMedia", "mediaDevices", "<video"] {
+            assert!(!html.contains(reach), "a published slide reaches for {reach}:\n{html}");
+        }
+
+        // Counted the way the staging test counts it: the structured data in
+        // the head is a `<script>` element and is not code. `application/ld+json`
+        // is the container the JSON-LD specification chose for a block of JSON,
+        // and no browser executes it. Anything else here would be something that
+        // runs, and something that runs is the only thing that could open a
+        // camera.
+        assert_eq!(html.matches("<script").count(), 1, "something else is scripted:\n{html}");
+        assert!(html.contains("<script type=\"application/ld+json\">"));
+    }
+
+    #[test]
+    fn a_camera_tile_starts_in_the_state_a_published_page_never_leaves() {
+        // `idle` is drawn as nothing at all. Without it the audience gets an
+        // empty rectangle where a face was going to be, on every slide, forever
+        // — which is worse than the feature being absent.
+        assert!(shell(CAMERA).contains("data-slidx-camera-state=\"idle\""));
+    }
+
+    #[test]
+    fn a_slide_with_no_camera_renders_no_camera_markup() {
+        // Asserted on the element, not the attribute: the inlined stylesheet
+        // names the attribute on every page whether or not a camera exists.
+        assert!(!shell("# Ordinary\n").contains("<figure class=\"slidx-camera\""));
+    }
+
+    #[test]
+    fn a_camera_naming_a_region_this_layout_lacks_lands_in_one_that_exists() {
+        // A `grid-area` naming nothing puts the tile in an implicit track, which
+        // pushes every region of the slide down a row. A stale `camera:` has to
+        // cost a misplaced tile, not a rearranged slide.
+        let html = shell("---\nlayout: split\ncamera: side\n---\n\n# One\n");
+        let tile = tile_in(&html);
+
+        assert!(tile.contains("data-slidx-camera=\"left\""), "got: {tile}");
+        assert!(!tile.contains("side"), "the stale region survived: {tile}");
+    }
+
+    /// The camera tile as emitted, without the stylesheet that names every
+    /// region's attribute on every page.
+    fn tile_in(html: &str) -> String {
+        let at = html.find("<figure class=\"slidx-camera\"").expect("no camera tile");
+        let rest = &html[at..];
+
+        rest[..rest.find('>').map_or(rest.len(), |end| end + 1)].to_string()
+    }
+
+    #[test]
+    fn a_camera_tile_has_an_area_in_the_grid_it_is_a_child_of() {
+        // The tile is a sibling of the regions rather than a child of one, so
+        // the layout's own CSS is the only thing that can place it.
+        let html = shell(CAMERA);
+
+        assert!(html.contains(
+            "[data-slidx-layout=\"aside\"] > .slidx-slide-body > [data-slidx-camera=\"side\"] { grid-area: side; }"
+        ), "the tile has no area:\n{html}");
     }
 
     #[test]

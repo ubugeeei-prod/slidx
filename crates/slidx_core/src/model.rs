@@ -107,6 +107,10 @@ pub struct DeckMeta {
     pub theme: Option<String>,
     /// Default slide-to-slide transition.
     pub transition: Option<String>,
+    /// Where the speaker's camera goes, on every slide that does not say
+    /// otherwise. A remote talk declares this once instead of forty times.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub camera: Option<crate::camera::Camera>,
     pub aspect: AspectRatio,
     /// BCP 47 tag for the language the slides are written in.
     ///
@@ -178,6 +182,13 @@ pub struct Slide {
     /// A live demo and the recording that stands in for it when it dies.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub demo: Option<crate::demo::Demo>,
+    /// Where the speaker's camera goes on this slide, if anywhere.
+    ///
+    /// A declaration and not a device. Nothing that reads this field opens a
+    /// camera; that takes a second opt-in, from the speaker, at presentation
+    /// time — see [`crate::camera`].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub camera: Option<crate::camera::Camera>,
     /// Inline marks in source order, so the editor can list what a slide
     /// addresses without re-parsing it.
     pub marks: Vec<crate::mark::Mark>,

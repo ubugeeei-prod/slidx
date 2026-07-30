@@ -208,6 +208,16 @@ mod tests {
     }
 
     #[test]
+    fn a_card_for_a_slide_with_a_camera_on_it_has_no_hole_in_it() {
+        // A social card is rendered months before the talk and looked at long
+        // after it, by people who will never see the speaker's face on the
+        // slide. A reserved rectangle would be an empty box in every preview.
+        let svg = card_for("---\ntitle: Remote\nlayout: aside\ncamera: side\n---\n\n# Remote\n");
+
+        assert!(!svg.contains("camera"), "the camera reached the card:\n{svg}");
+    }
+
+    #[test]
     fn a_slide_with_no_title_falls_back_to_the_decks() {
         let deck = deck("---\ntitle: My Talk\n---\n\nJust prose.\n");
         let svg = render_slide_card(&deck, &deck.slides[0], &OgOptions::default());

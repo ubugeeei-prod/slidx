@@ -15,7 +15,18 @@
  * A tool that claimed to handle notifications and then let one appear during a
  * demo would be worse than one that said "go and turn this on" — the speaker
  * would have stopped checking.
+ *
+ * **Why the camera is here.** A webcam needs a live user gesture and belongs to
+ * the act of presenting rather than to the deck, which is exactly what this
+ * function already is: the one thing a speaker does when they say "I am about
+ * to start". Nothing on a built slide calls it, so a deck opened from a link
+ * has no path to a camera at all — the gate is the call graph rather than a
+ * check somebody has to remember to write.
  */
+
+import { startCamera } from "./camera";
+import type { CameraSession, CameraStatus } from "./camera";
+import { browserCameraEnvironment } from "./camera";
 
 /** What a platform's settings are called, so a speaker can find them. */
 export type Platform = "macos" | "windows" | "linux" | "unknown";
@@ -32,6 +43,11 @@ export interface PresentationSession {
   /** True when the screen is being kept awake. */
   readonly wakeLock: boolean;
   readonly fullscreen: boolean;
+  /**
+   * What the camera is, which is `off` unless the deck placed one *and* this
+   * machine gave it up. Every other value leaves the deck presentable.
+   */
+  readonly camera: CameraStatus;
   exit(): Promise<void>;
 }
 
@@ -40,6 +56,11 @@ export interface PresentationEnvironment {
   requestWakeLock?: () => Promise<{ release: () => void }>;
   requestFullscreen?: () => Promise<void>;
   exitFullscreen?: () => Promise<void>;
+  /**
+   * The speaker's own camera. Left off, presentation mode simply never has one
+   * — which is what makes this the only door a camera can come through.
+   */
+  startCamera?: () => Promise<CameraSession>;
   /**
    * Called when the browser leaves fullscreen without being asked (Escape, or
    * the browser's own control). Returns an unsubscribe.
@@ -80,6 +101,11 @@ export function browserPresentationEnvironment(
       : { requestFullscreen: () => root.requestFullscreen() }),
     ...(page.exitFullscreen === undefined ? {} : { exitFullscreen: () => page.exitFullscreen() }),
 
+    // Always wired, and still gated twice: `startCamera` finds no tile on a
+    // deck whose author placed none, and nothing calls `enterPresentation`
+    // except a speaker starting a talk.
+    startCamera: () => startCamera(page, browserCameraEnvironment(view)),
+
     subscribeFullscreenExit: (listener) => {
       // The event fires for entering too, and says nothing about which; the
       // document is the only thing that knows.
@@ -110,12 +136,13 @@ function defaultEnvironment(): PresentationEnvironment {
 export async function enterPresentation(
   environment: PresentationEnvironment = defaultEnvironment(),
 ): Promise<PresentationSession> {
-  // Both are asked for before either is awaited: fullscreen needs the user
-  // gesture that is still live, and awaiting the wake lock first can outlast
-  // it.
-  const [lock, fullscreen] = await Promise.all([
+  // All three are asked for before any is awaited: fullscreen and the camera
+  // both need the user gesture that is still live, and awaiting the wake lock
+  // first can outlast it.
+  const [lock, fullscreen, camera] = await Promise.all([
     attempt(environment.requestWakeLock),
     attempt(environment.requestFullscreen),
+    attempt(environment.startCamera),
   ]);
 
   let exited = false;
@@ -124,6 +151,8 @@ export async function enterPresentation(
   const session: PresentationSession = {
     wakeLock: lock !== null,
     fullscreen: fullscreen !== null,
+    // What it is, not what was asked for. A refused camera costs a camera.
+    camera: camera?.status ?? "off",
 
     async exit() {
       // Exiting twice is normal: a keyboard shortcut, Escape, and the
@@ -134,6 +163,9 @@ export async function enterPresentation(
 
       unsubscribe?.();
       lock?.release();
+      // A camera left running is a light on the speaker's laptop after they
+      // sat down, and a device the next application cannot open.
+      camera?.stop();
       await attempt(environment.exitFullscreen);
     },
   };

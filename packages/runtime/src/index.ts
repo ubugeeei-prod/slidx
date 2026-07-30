@@ -14,9 +14,21 @@
  * audience slide, because the thing it swaps is what the audience is looking
  * at. It stays cheap by loading only where a demo was declared, and by doing
  * nothing at the moment it is used except write one attribute.
+ *
+ * The camera looks like a second exception and is not. What ships on the slide
+ * is an empty tile; the module that fills it is reached only from
+ * `enterPresentation`, so a deck opened from a link never runs a line of it and
+ * is never asked for a webcam.
  */
 
 export { ANCHOR_ATTRIBUTE, findAnchors, resolveAnchor } from "./anchor";
+export {
+  browserCameraEnvironment,
+  CAMERA_ATTRIBUTE,
+  CAMERA_STATE_ATTRIBUTE,
+  startCamera,
+} from "./camera";
+export type { CameraEnvironment, CameraSession, CameraStatus, MediaStreamLike } from "./camera";
 export { createDemoSwitch, DEMO_ATTRIBUTE } from "./demo";
 export type { DemoSide, DemoSwitch } from "./demo";
 export { createKeymap, DEFAULT_BINDINGS, formatBinding } from "./keymap";

@@ -76,6 +76,7 @@ pub const ORDER: &[&str] = &[
     "autoSteps",
     "steps",
     "demo",
+    "camera",
 ];
 
 /// Normalises one frontmatter block, given the span of its YAML.

@@ -11,6 +11,7 @@ pub use segment::{split, RawFrontmatter, Segment};
 use serde_json::Value as JsonValue;
 
 use crate::block::extract_blocks;
+use crate::camera::Camera;
 use crate::diagnostic::{Diagnostic, Diagnostics, Severity, SourceSpan};
 use crate::frontmatter;
 use crate::mark::{compile_marks, find_marks, stage_takes, strip_marks, Mark};
@@ -123,6 +124,7 @@ fn build_slide(
         budget_seconds: frontmatter::duration_seconds(&matter, "budget"),
         optional: frontmatter::boolean(&matter, "optional").unwrap_or(false),
         demo: crate::demo::parse(&matter),
+        camera: slide_camera(&matter, index, meta, diagnostics),
         timeline: compile_timeline(&steps.source),
         steps: steps.source,
         source_line: segment.line,
@@ -147,6 +149,27 @@ fn slide_transition(
     }
 
     frontmatter::transition(matter, diagnostics).or_else(|| meta.transition.clone())
+}
+
+/// Where this slide puts the speaker, if anywhere.
+///
+/// Inherits the deck's the way `transition:` does, and for the same reason: a
+/// remote talk wants the speaker on every slide and should say so once. A slide
+/// that names a region decides for itself, including when it says `false` — the
+/// full-bleed diagram in the middle of an otherwise on-camera talk.
+fn slide_camera(
+    matter: &JsonValue,
+    index: u32,
+    meta: &DeckMeta,
+    diagnostics: &mut Diagnostics,
+) -> Option<Camera> {
+    // The first slide's frontmatter *is* the deck's, and reading it again would
+    // report the same malformed value twice at the same line.
+    if index == 0 {
+        return meta.camera.clone();
+    }
+
+    crate::camera::parse(matter, diagnostics).unwrap_or_else(|| meta.camera.clone())
 }
 
 /// The Markdown body plus the pipeline compiled from it.
@@ -364,6 +387,52 @@ mod tests {
     #[test]
     fn a_slide_without_a_demo_carries_none() {
         assert!(parse("# Ordinary\n").slides[0].demo.is_none());
+    }
+
+    #[test]
+    fn a_slide_carries_the_camera_region_it_declares() {
+        let deck = parse("---\nlayout: aside\ncamera: side\n---\n\n# Remote\n");
+
+        assert_eq!(deck.slides[0].camera.as_ref().unwrap().region, "side");
+    }
+
+    #[test]
+    fn a_slide_that_declares_no_camera_carries_none() {
+        // The default, and the one that matters: a deck nobody asked a camera
+        // of has nothing anywhere in it that could reach for a device.
+        assert!(parse("# Ordinary\n").slides[0].camera.is_none());
+    }
+
+    #[test]
+    fn slides_inherit_the_decks_camera() {
+        // A remote talk wants the speaker on every slide and says so once.
+        let deck = parse("---\ncamera: side\n---\n\n# One\n\n---\n\n# Two\n");
+
+        assert_eq!(deck.slides[1].camera.as_ref().unwrap().region, "side");
+    }
+
+    #[test]
+    fn a_slide_can_move_the_camera_or_switch_it_off_for_itself() {
+        // The talk that wants the speaker large on the opening slide, small
+        // over a diagram, and gone entirely for the full-bleed screenshot.
+        let deck = parse(
+            "---\ncamera: side\n---\n\n# One\n\n---\ncamera: top-right\n---\n\n# Two\n\n---\ncamera: false\n---\n\n# Three\n",
+        );
+
+        assert_eq!(deck.slides[0].camera.as_ref().unwrap().region, "side");
+        assert_eq!(deck.slides[1].camera.as_ref().unwrap().region, "top-right");
+        assert!(deck.slides[2].camera.is_none(), "the slide could not switch it off");
+    }
+
+    #[test]
+    fn a_malformed_deck_camera_is_reported_once_not_once_per_reader() {
+        // The deck's own frontmatter is the first slide's, and both read it.
+        let deck = parse("---\ncamera: true\n---\n\n# One\n");
+
+        assert_eq!(
+            deck.diagnostics.iter().filter(|d| d.code == "frontmatter/invalid-camera").count(),
+            1
+        );
     }
 
     #[test]

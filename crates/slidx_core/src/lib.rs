@@ -48,6 +48,7 @@
 
 pub mod attributes;
 pub mod block;
+pub mod camera;
 pub mod demo;
 pub mod diagnostic;
 pub mod frontmatter;
@@ -65,6 +66,7 @@ pub mod summary;
 
 pub use attributes::Attributes;
 pub use block::{extract_blocks, find_blocks, Block, ExtractedBlocks, FoundBlock};
+pub use camera::{Camera, CAMERA_ATTRIBUTE, CAMERA_STATE_ATTRIBUTE};
 pub use demo::{Demo, DEMO_ATTRIBUTE};
 pub use diagnostic::{Diagnostic, Diagnostics, Severity, SourceSpan};
 pub use grid::{step_grid, StepGrid, StepKind, StepPlacement, StepRow};

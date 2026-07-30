@@ -80,14 +80,29 @@ pub fn check(environment: &Environment) -> Finding {
 /// several times — helpers, renderers, a crash reporter — and a finding that
 /// says "Zoom, Zoom, Zoom" reads like a bug.
 fn watched(names: &[String]) -> Vec<&'static str> {
+    matching(RECORDERS.iter().chain(CONFERENCING), names)
+}
+
+/// Running conferencing applications, by display name.
+///
+/// Public because a conferencing app is also the most likely reason a webcam
+/// will not open, and the camera check needs to name it. It reads this list
+/// rather than keeping a second one: an application added here has to be known
+/// to both checks at once, or one of them quietly stops being right.
+pub fn conferencing(names: &[String]) -> Vec<&'static str> {
+    matching(CONFERENCING.iter(), names)
+}
+
+fn matching<'a>(
+    watch_list: impl Iterator<Item = &'a (&'static str, &'static str)> + Clone,
+    names: &[String],
+) -> Vec<&'static str> {
     let mut found = Vec::new();
 
     for name in names {
         let key = normalise(name);
 
-        if let Some((_, label)) =
-            RECORDERS.iter().chain(CONFERENCING).find(|(marker, _)| *marker == key)
-        {
+        if let Some((_, label)) = watch_list.clone().find(|(marker, _)| *marker == key) {
             if !found.contains(label) {
                 found.push(*label);
             }
@@ -213,6 +228,16 @@ mod tests {
             assert_eq!(&normalise(marker), marker, "{marker} is not in normal form");
             assert!(!label.is_empty());
         }
+    }
+
+    #[test]
+    fn a_screen_recorder_is_not_a_reason_a_camera_will_not_open() {
+        // The two checks share one watch list and read different halves of it.
+        // OBS records a screen; it does not hold a webcam, and telling a
+        // speaker to quit it because their camera failed would be wrong.
+        let running: Vec<String> = ["obs", "zoom.us"].iter().map(|n| n.to_string()).collect();
+
+        assert_eq!(conferencing(&running), ["Zoom"]);
     }
 
     #[test]

@@ -246,6 +246,7 @@ pub fn deck_meta(value: &JsonValue, diagnostics: &mut Diagnostics) -> DeckMeta {
         draft: draft(value, diagnostics),
         theme: string(value, "theme"),
         transition: transition(value, diagnostics),
+        camera: crate::camera::parse(value, diagnostics).flatten(),
         aspect,
         lang: string(value, "lang"),
         translation_of: string(value, "translationOf"),

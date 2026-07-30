@@ -35,7 +35,7 @@ use serde::{Deserialize, Serialize};
 pub use audio::Audio;
 pub use displays::{Display, Displays, Resolution};
 pub use fonts::{FontStack, InstalledFonts};
-pub use machine::{Clock, Disk, Network, Power, PowerSource, RunningProcesses, Skew};
+pub use machine::{Cameras, Clock, Disk, Network, Power, PowerSource, RunningProcesses, Skew};
 pub use notifications::Notifications;
 pub use platform::Platform;
 
@@ -106,6 +106,13 @@ pub struct Expectation {
     pub venue_offset_minutes: Option<i32>,
     /// Human name for the venue's zone, for the message only.
     pub venue_zone: Option<String>,
+    /// How many slides place a speaker camera.
+    ///
+    /// Zero — the default, and the overwhelmingly common case — means the
+    /// camera check has nothing to say, whatever this machine's hardware is.
+    /// A doctor that warned every speaker about a webcam they were never going
+    /// to use is a doctor whose lines stop being read.
+    pub camera_slides: usize,
 }
 
 impl Expectation {
@@ -125,6 +132,12 @@ impl Expectation {
         self.venue_zone = Some(zone.into());
         self
     }
+
+    /// Declares how many slides of the deck place a speaker camera.
+    pub fn wanting_camera_on(mut self, slides: usize) -> Self {
+        self.camera_slides = slides;
+        self
+    }
 }
 
 /// The machine, as far as the checks are concerned.
@@ -140,6 +153,7 @@ pub struct Environment {
     pub skew: Reading<Skew>,
     pub fonts: Reading<InstalledFonts>,
     pub processes: Reading<RunningProcesses>,
+    pub cameras: Reading<Cameras>,
     pub network: Reading<Network>,
     pub displays: Reading<Displays>,
     pub notifications: Reading<Notifications>,
@@ -185,6 +199,11 @@ impl Environment {
 
     pub fn with_processes(mut self, processes: Reading<RunningProcesses>) -> Self {
         self.processes = processes;
+        self
+    }
+
+    pub fn with_cameras(mut self, cameras: Reading<Cameras>) -> Self {
+        self.cameras = cameras;
         self
     }
 
@@ -242,6 +261,7 @@ mod tests {
         assert!(!environment.skew.is_known());
         assert!(!environment.fonts.is_known());
         assert!(!environment.processes.is_known());
+        assert!(!environment.cameras.is_known());
         assert!(!environment.network.is_known());
         assert!(!environment.displays.is_known());
         assert!(!environment.notifications.is_known());
@@ -280,6 +300,7 @@ mod tests {
 
         assert!(expected.fonts.is_empty());
         assert_eq!(expected.venue_offset_minutes, None);
+        assert_eq!(expected.camera_slides, 0, "a deck nobody described wants no camera");
     }
 
     #[test]

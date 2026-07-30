@@ -185,6 +185,15 @@ pub const KEYS: &[Key] = &[
                   in the body.",
         values: Values::Steps,
     },
+    Key {
+        name: "camera",
+        scope: Scope::Slide,
+        summary: "Which region of the slide holds the speaker's camera. Written at deck level \
+                  it is the default for every slide; `camera: false` switches one off. The \
+                  built deck never asks for a webcam — the stream starts when a speaker enters \
+                  presentation mode, and not before.",
+        values: Values::Regions,
+    },
 ];
 
 /// The keys offered in a block, in the order they are offered.
@@ -278,7 +287,8 @@ mod tests {
         let source = "---\ntitle: T\ndescription: D\nauthor: A\ntheme: terminal\naspect: \"4:3\"\n\
                       duration: 25m\nevent: E\ndate: 2026-07-29\nvenue: V\nhashtag: \"#h\"\n\
                       url: https://example.com\nrepo: https://example.com/r\ntransition: fade\n\
-                      layout: split\nbudget: 90s\noptional: true\nautoSteps: list\n---\n\n- one\n";
+                      layout: split\nbudget: 90s\noptional: true\nautoSteps: list\n\
+                      camera: left\n---\n\n- one\n";
         let deck = parse(source);
         let slide = &deck.slides[0];
 
@@ -300,6 +310,18 @@ mod tests {
         assert_eq!(slide.budget_seconds, Some(90));
         assert!(slide.optional);
         assert_eq!(slide.steps.auto, Some(AutoSteps::List));
+        assert_eq!(slide.camera.as_ref().map(|camera| camera.region.as_str()), Some("left"));
+    }
+
+    #[test]
+    fn the_camera_key_completes_with_the_regions_a_layout_actually_offers() {
+        // Derived from the layouts rather than restated, so a region added to
+        // one is offered here without anybody editing this table.
+        let regions = key("camera").and_then(|key| key.values.terms()).expect("regions");
+        let labels: Vec<&str> = regions.iter().map(|term| term.label.as_str()).collect();
+
+        assert!(labels.contains(&"side"), "got: {labels:?}");
+        assert!(labels.contains(&"body"), "got: {labels:?}");
     }
 
     #[test]

@@ -11,7 +11,7 @@
 //! laptops rather than about the one the tests happen to run on.
 
 use slidx_doctor::environment::{
-    Audio, Clock, Disk, Display, Displays, InstalledFonts, Network, Notifications, Power,
+    Audio, Cameras, Clock, Disk, Display, Displays, InstalledFonts, Network, Notifications, Power,
     RunningProcesses, Skew,
 };
 use slidx_doctor::{check, probe, Environment, Expectation, Platform, Reading, Status};
@@ -78,6 +78,16 @@ fn process_readings() -> Vec<Reading<RunningProcesses>> {
     ]
 }
 
+fn camera_readings() -> Vec<Reading<Cameras>> {
+    vec![
+        Reading::known(["FaceTime HD Camera"].into_iter().collect()),
+        // A desktop in a lecture theatre. A fact about the machine, not a
+        // failed reading, and the two must stay distinguishable.
+        Reading::known(Cameras::default()),
+        Reading::unavailable("cameras could not be listed"),
+    ]
+}
+
 fn network_readings() -> Vec<Reading<Network>> {
     vec![
         Reading::known(Network::reachable("1.1.1.1:443", 18)),
@@ -132,6 +142,8 @@ fn expectations() -> Vec<Expectation> {
         // A theme that names a font nobody has and no generic to fall back to:
         // the one shape the fonts check is allowed to fail on.
         Expectation::default().at_venue_offset(0).with_font_stack("display", "Söhne"),
+        // A remote talk, which is the only kind that cares about a camera.
+        Expectation::default().at_venue_offset(540).wanting_camera_on(4),
     ]
 }
 
@@ -146,19 +158,22 @@ fn every_environment() -> Vec<Environment> {
                 for skew in skew_readings() {
                     for fonts in font_readings() {
                         for processes in process_readings() {
-                            for network in network_readings() {
-                                for expected in expectations() {
-                                    environments.push(
-                                        Environment::new()
-                                            .with_power(power.clone())
-                                            .with_disk(disk.clone())
-                                            .with_clock(clock.clone())
-                                            .with_skew(skew.clone())
-                                            .with_fonts(fonts.clone())
-                                            .with_processes(processes.clone())
-                                            .with_network(network.clone())
-                                            .expecting(expected),
-                                    );
+                            for cameras in camera_readings() {
+                                for network in network_readings() {
+                                    for expected in expectations() {
+                                        environments.push(
+                                            Environment::new()
+                                                .with_power(power.clone())
+                                                .with_disk(disk.clone())
+                                                .with_clock(clock.clone())
+                                                .with_skew(skew.clone())
+                                                .with_fonts(fonts.clone())
+                                                .with_processes(processes.clone())
+                                                .with_cameras(cameras.clone())
+                                                .with_network(network.clone())
+                                                .expecting(expected),
+                                        );
+                                    }
                                 }
                             }
                         }
@@ -217,6 +232,7 @@ fn healthy() -> Environment {
         .with_skew(Reading::known(Skew::new("pool.ntp.org", 2)))
         .with_fonts(Reading::known(["Inter", "IBM Plex Mono"].into_iter().collect()))
         .with_processes(Reading::known(["Finder", "code"].into_iter().collect()))
+        .with_cameras(Reading::known(["FaceTime HD Camera"].into_iter().collect()))
         .with_network(Reading::known(Network::reachable("1.1.1.1:443", 18)))
         .with_displays(Reading::known(
             Displays::new([
@@ -281,13 +297,14 @@ fn every_report_carries_exactly_one_finding_per_registered_check() {
 #[test]
 fn a_machine_with_nothing_measured_reports_no_passes_it_did_not_earn() {
     // The failure this crate exists to avoid: a green report about a machine
-    // nobody could read. Only the fonts check may pass, and only because a deck
-    // that names no fonts has nothing that can break.
+    // nobody could read. Two checks may pass, and both for the same reason: a
+    // deck that names no fonts and places no camera has nothing that can break,
+    // so their verdicts do not depend on the readings that failed.
     let report = slidx_doctor::run(&Environment::new());
 
     for finding in report.iter() {
         assert!(
-            finding.status != Status::Pass || finding.check == "fonts",
+            finding.status != Status::Pass || matches!(finding.check, "fonts" | "camera"),
             "{} passed on a machine nobody measured: {}",
             finding.check,
             finding.detail
@@ -305,6 +322,12 @@ fn an_unavailable_reading_reports_unknown_rather_than_pass_for_every_check() {
         ("clock/zone", healthy().with_clock(Reading::unavailable("no time zone interface"))),
         ("clock/skew", healthy().with_skew(Reading::unavailable("no reference clock"))),
         ("screen-capture", healthy().with_processes(Reading::unavailable("`ps` did not answer"))),
+        (
+            "camera",
+            healthy()
+                .expecting(Expectation::default().wanting_camera_on(1))
+                .with_cameras(Reading::unavailable("`system_profiler` did not answer")),
+        ),
         ("network", healthy().with_network(Reading::unavailable("no socket"))),
         ("display/mirroring", healthy().with_displays(Reading::unavailable("no xrandr"))),
         ("display/resolution", healthy().with_displays(Reading::unavailable("no xrandr"))),
