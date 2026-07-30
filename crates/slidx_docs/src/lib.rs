@@ -34,6 +34,7 @@
 #![deny(missing_debug_implementations)]
 #![warn(clippy::all)]
 
+pub mod generated;
 pub mod nav;
 pub mod page;
 pub mod shell;
@@ -139,10 +140,22 @@ impl Site {
         Ok(written)
     }
 
-    /// The three ways a documentation site rots, checked instead of hoped for.
+    /// The four ways a documentation site rots, checked instead of hoped for.
     fn check(&self) -> Result<(), String> {
         if !self.pages.iter().any(|page| page.slug == "index") {
             return Err(format!("{CONTENT_DIR} has no index.md — the site has no front page"));
+        }
+
+        for page in &self.pages {
+            let missing = page.render().1;
+            if let Some(name) = missing.first() {
+                return Err(format!(
+                    "{}.md asks for a generated block called {name:?}, which nothing \
+                     generates — the ones that exist are {}",
+                    page.slug,
+                    generated::NAMES.join(", "),
+                ));
+            }
         }
 
         let mut seen: BTreeMap<(Section, u32), &str> = BTreeMap::new();

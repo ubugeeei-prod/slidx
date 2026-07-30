@@ -44,16 +44,17 @@ fn rewrite_href(href: &str) -> String {
         None => (href, String::new()),
     };
 
-    if !path.ends_with(".md") {
-        return href.to_string();
-    }
-
     if path.starts_with("../") {
-        // Out of `docs/content/` and therefore out of the site. `docs/content`
-        // is two directories deep, so the first two `../` are the ones that
-        // reach the repository root and anything after them is a real path.
+        // Out of `docs/content/` and therefore out of the site, whatever the
+        // extension. A reference page linking the Rust module its table came
+        // from is the same move as linking ROADMAP.md, and both resolve on
+        // GitHub and nowhere else.
         let repository_path = path.trim_start_matches("../");
         return format!("{REPOSITORY_BLOB}{repository_path}{fragment}");
+    }
+
+    if !path.ends_with(".md") {
+        return href.to_string();
     }
 
     format!("{}.html{fragment}", path.trim_end_matches(".md"))
@@ -126,6 +127,17 @@ mod tests {
         assert_eq!(
             rewrite(r#"<a href="../../CONTRIBUTING.md#checks">"#),
             r#"<a href="https://github.com/ubugeeei-prod/slidx/blob/main/CONTRIBUTING.md#checks">"#
+        );
+    }
+
+    #[test]
+    fn a_link_to_source_leaves_the_site_the_same_way_a_link_to_a_document_does() {
+        // A reference page whose table is generated says which module generated
+        // it. That link has to reach the repository, not a page that is not
+        // there.
+        assert_eq!(
+            rewrite(r#"<a href="../../crates/slidx_lsp/src/vocabulary.rs">"#),
+            r#"<a href="https://github.com/ubugeeei-prod/slidx/blob/main/crates/slidx_lsp/src/vocabulary.rs">"#
         );
     }
 

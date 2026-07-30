@@ -17,6 +17,7 @@
 use slidx_core::{frontmatter, Diagnostics};
 use slidx_render::{render_markdown, MarkdownOptions};
 
+use crate::generated;
 use crate::link;
 use crate::nav::Section;
 
@@ -103,7 +104,17 @@ impl Page {
     /// shell. Both are the deck defaults, so the code on this site is coloured
     /// by the scanner that colours a slide.
     pub fn html(&self) -> String {
-        link::rewrite(&render_markdown(&self.body, &MarkdownOptions::default()))
+        self.render().0
+    }
+
+    /// The page, and the generated blocks it asked for that do not exist.
+    ///
+    /// Reported rather than rendered as an empty space: a placeholder naming a
+    /// table nobody generates would publish a page with a hole where its
+    /// reference was, and nothing about the page would look wrong.
+    pub fn render(&self) -> (String, Vec<String>) {
+        let html = link::rewrite(&render_markdown(&self.body, &MarkdownOptions::default()));
+        generated::fill(&html)
     }
 }
 
