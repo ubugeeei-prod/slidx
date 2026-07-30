@@ -105,12 +105,18 @@ cargo login
 ```
 
 ```bash
-for crate in slidx_core slidx_lint slidx_theme slidx_render slidx_doctor slidx_cli; do cargo publish -p "$crate"; done
+for crate in $(node scripts/publish-order.mjs crates); do cargo publish -p "$crate"; done
 ```
 
-`slidx_cli` is published to crates.io too, so `cargo install slidx_cli` works on
-a platform with no prebuilt binary. It depends on the four above, so it goes
-last.
+The order is derived from the manifests rather than written down, because a
+written-down order goes stale silently. It did: `slidx_cli` gained
+`slidx_highlight` and `slidx_publish` as dependencies and neither was in the
+list here or in `release.yml`, so a tag push would have published five crates
+and then failed on the sixth — with the five already permanent.
+
+`slidx_cli` is published to crates.io too, so `cargo install slidx_cli` works
+on a platform with no prebuilt binary. It depends on six other crates, so it
+goes near the end.
 
 Then, for **each** crate, at `https://crates.io/crates/<name>/settings`, add a
 trusted publisher:
@@ -133,8 +139,17 @@ pnpm -r --filter "./packages/**" run pack:lib
 ```
 
 ```bash
-cd packages/runtime && npm publish --access public
+for dir in $(node scripts/publish-order.mjs npm); do (cd "$dir" && npm publish --access public); done
 ```
+
+Derived the same way and for the same reason. The list here used to name
+`@slidx/wasm` and `@slidx/runtime` only, and `release.yml` agreed with it —
+which left **`@slidx/vite-plugin`**, the package the README tells people to
+install, unpublished.
+
+The `slidx` wrapper is not in that list. Its dependencies are the five
+`@slidx/cli-*` packages, which do not exist until the release builds them, so
+it cannot be ordered from a manifest and the workflow places it last by hand.
 
 The platform packages have to exist before they can be configured too, and they
 need binaries, so the first release of those is a human running the build once
@@ -152,9 +167,10 @@ node scripts/build-platform-packages.mjs <binaries-dir>
 for dir in packages/cli/dist/* packages/cli; do (cd "$dir" && npm publish --access public); done
 ```
 
-Then, for **each** package — `@slidx/wasm`, `@slidx/runtime`, `slidx`, and the
-five `@slidx/cli-*` — at `https://www.npmjs.com/package/<name>/access`, add a
-trusted publisher with the same repository and `release.yml`.
+Then, for **each** package — everything `publish-order.mjs npm` lists, plus
+`slidx` and the five `@slidx/cli-*` — at
+`https://www.npmjs.com/package/<name>/access`, add a trusted publisher with the
+same repository and `release.yml`.
 
 `slidx` is an unscoped name and `@slidx` is a scope: publishing `slidx` and
 `@slidx/runtime` for the first time claims both, so do that before anyone else
@@ -168,10 +184,21 @@ environment — npm prefers it and skips OIDC without saying so.
 
 ## Versioning
 
-One version across the whole workspace, Rust and TypeScript alike. Bump
-`[workspace.package]` in `Cargo.toml` and every publishable `package.json`
-together; `node scripts/check-version.mjs` is what stops them drifting and runs
-as part of `vp check`.
+One version across the whole workspace, Rust and TypeScript alike. The number
+appears in four kinds of place, and a bump has to reach all of them:
+
+- `[workspace.package]` in `Cargo.toml`
+- every `slidx_*` entry in `[workspace.dependencies]`, which states the version
+  each crate is required at by its siblings; cargo will not publish a path
+  dependency without one
+- every publishable `package.json`, including the `slidx` wrapper's
+  `optionalDependencies` on the platform packages the release builds
+- `Cargo.lock`, via `cargo update --workspace`
+
+Nothing here has to be remembered. `node scripts/check-version.mjs` fails on any
+of them drifting except the wrapper's optional dependencies, which
+`packages/cli/test/platforms.test.mjs` holds to the wrapper's own version, and
+both run in CI as part of `vp check`.
 
 Pre-1.0, a breaking change is a patch bump. Say what broke in the release
 notes.

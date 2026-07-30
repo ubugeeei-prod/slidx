@@ -40,12 +40,17 @@ jobs:
 
       # Dependency order, and not in parallel: crates.io has to see each crate
       # before the one that depends on it can resolve.
+      #
+      # Derived rather than listed. The list here used to be typed by hand and
+      # was wrong — `slidx_cli` had gained two dependencies that were not in
+      # it, so this job would have published five crates and failed on the
+      # sixth, with the five already permanent.
       - name: Publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
         run: |
           set -euo pipefail
-          for crate in slidx_core slidx_lint slidx_theme slidx_render slidx_doctor slidx_cli; do
+          for crate in $(node scripts/publish-order.mjs crates); do
             echo "::group::$crate"
             cargo publish -p "$crate" --no-verify
             echo "::endgroup::"
@@ -170,7 +175,7 @@ jobs:
       - name: Publish
         run: |
           set -euo pipefail
-          for dir in packages/wasm packages/runtime packages/cli/dist/* packages/cli; do
+          for dir in $(node scripts/publish-order.mjs npm) packages/cli/dist/* packages/cli; do
             echo "::group::$dir"
             (cd "$dir" && npm publish --provenance --access public)
             echo "::endgroup::"
