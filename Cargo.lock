@@ -496,7 +496,10 @@ version = "0.1.0"
 dependencies = [
  "serde_json",
  "slidx_brand",
+ "slidx_cli",
  "slidx_core",
+ "slidx_lint",
+ "slidx_lsp",
  "slidx_render",
  "slidx_theme",
 ]
