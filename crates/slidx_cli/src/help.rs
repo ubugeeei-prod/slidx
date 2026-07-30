@@ -7,12 +7,62 @@
 //!
 //! Fixed at 80 columns. A terminal narrower than that is rare; a paragraph
 //! reflowed to a 200-column window is unreadable everywhere.
+//!
+//! ## Two ways in, one page
+//!
+//! `slidx lint --help` and `slidx help lint` produce the same bytes, because
+//! both end up in [`command`] with the same route. Two help systems that agreed
+//! most of the time would be worse than one, and a test asserts they agree for
+//! every command and every subcommand in the table.
 
-use crate::args::Route;
-use crate::command::{Command, Flag, ALL, GLOBAL, ROOT};
-use crate::style::{Ink, Style};
+use crate::args::{Matches, Route};
+use crate::command::{self, Command, Flag, ALL, GLOBAL, ROOT};
+use crate::style::{width, Ink, Style};
+use crate::Outcome;
 
 const TAGLINE: &str = "the whole life of a conference talk, from proposal to publish";
+
+/// `slidx help`, and `slidx help <command>`.
+///
+/// The same pages `--help` reaches, from the other spelling. Somebody who has
+/// used git types one and somebody who has used a Rust tool types the other, and
+/// a tool that answered only one of them would be answering half its users.
+pub fn run(matches: &Matches, style: &Style) -> Outcome {
+    let asked: Vec<&str> = matches.positional().iter().map(String::as_str).collect();
+
+    match route(&asked) {
+        // Nothing named, or `slidx help help`, which has nothing else to say.
+        None if asked.is_empty() => Outcome::out(root(style)),
+        None => Outcome::misuse(no_such_page(&asked)),
+        Some(route) => Outcome::out(command(&route, style)),
+    }
+}
+
+/// The command a `slidx help …` line is asking about.
+fn route(asked: &[&str]) -> Option<Route> {
+    let first = command::find(asked.first()?)?;
+
+    match asked.get(1) {
+        Some(child) => first.subcommand(child).map(|found| Route::under(first, found)),
+        None => Some(Route::to(first)),
+    }
+}
+
+/// A page that does not exist, and the nearest one that does.
+fn no_such_page(asked: &[&str]) -> String {
+    let typed = asked.join(" ");
+    let guess = command::nearest::to(asked[0], command::names().into_iter());
+
+    let mut text = format!("slidx has no `{typed}` to describe.\n\n");
+
+    if let Some(candidate) = guess {
+        text.push_str(&format!("Did you mean `slidx help {candidate}`?\n\n"));
+    }
+
+    text.push_str(&format!("It has: {}\n\nTry: slidx --help\n", command::names().join(", ")));
+
+    text
+}
 
 /// `slidx` with nothing, or `slidx --help`.
 pub fn root(style: &Style) -> String {
@@ -22,11 +72,11 @@ pub fn root(style: &Style) -> String {
     text.push_str(&format!("{}  slidx <command> [options]\n\n", heading("Usage", style)));
 
     text.push_str(&heading("Commands", style));
-    let width = ALL.iter().map(|command| command.name.len()).max().unwrap_or(0);
+    let column = ALL.iter().map(|command| width::of(command.name)).max().unwrap_or(0);
     for command in ALL {
         text.push_str(&format!(
             "  {}  {}\n",
-            style.pad(Ink::Strong, command.name, width),
+            style.pad(Ink::Strong, command.name, column),
             command.summary
         ));
     }
@@ -41,7 +91,8 @@ pub fn root(style: &Style) -> String {
         "\nBuilding a deck is @slidx/vite-plugin's job — `vite build` emits the deck,\n\
          the PDF and the OG images. This binary checks things: the machine you are\n\
          about to speak from, and the deck you are about to show.\n\n\
-         `slidx <command> --help` describes one command.\n",
+         `slidx help <command>` describes one command, and so does\n\
+         `slidx <command> --help`. They are the same page.\n",
     );
 
     text
@@ -59,9 +110,13 @@ pub fn command(route: &Route, style: &Style) -> String {
         entry.summary
     ));
 
+    // A nested command's usage line is written the way it is typed — `version
+    // install <version>` — so prefixing the parent again would print it twice.
     let usage = match route.parent {
-        Some(parent) => format!("{} {}", parent.name, entry.usage),
-        None => entry.usage.to_string(),
+        Some(parent) if !entry.usage.starts_with(parent.name) => {
+            format!("{} {}", parent.name, entry.usage)
+        }
+        _ => entry.usage.to_string(),
     };
     text.push_str(&format!("{}  slidx {usage}\n\n", heading("Usage", style)));
     text.push_str(entry.about);
@@ -79,7 +134,7 @@ pub fn command(route: &Route, style: &Style) -> String {
 
 /// The `Commands:` block under a command that has children.
 fn subcommands(parent: &'static Command, style: &Style) -> String {
-    let width = parent.subcommands.iter().map(|child| child.name.len()).max().unwrap_or(0);
+    let column = parent.subcommands.iter().map(|child| width::of(child.name)).max().unwrap_or(0);
     let mut text = heading("Commands", style);
 
     for child in parent.subcommands {
@@ -89,7 +144,7 @@ fn subcommands(parent: &'static Command, style: &Style) -> String {
 
         text.push_str(&format!(
             "  {}  {}{}\n",
-            style.pad(Ink::Strong, child.name, width),
+            style.pad(Ink::Strong, child.name, column),
             child.summary,
             style.paint(Ink::Faint, note)
         ));
@@ -110,11 +165,11 @@ fn options(flags: &'static [Flag], style: &Style) -> String {
         .collect();
 
     let labels: Vec<String> = listed.iter().map(|flag| label(flag)).collect();
-    let width = labels.iter().map(|label| label.chars().count()).max().unwrap_or(0);
+    let column = labels.iter().map(|label| width::of(label)).max().unwrap_or(0);
 
     let mut text = heading("Options", style);
     for (flag, label) in listed.iter().zip(&labels) {
-        text.push_str(&format!("  {}  {}\n", style.pad(Ink::Strong, label, width), flag.summary));
+        text.push_str(&format!("  {}  {}\n", style.pad(Ink::Strong, label, column), flag.summary));
     }
 
     text
@@ -140,7 +195,107 @@ fn heading(text: &str, style: &Style) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::command;
+    use crate::args::Invocation;
+
+    fn run_line(line: &str) -> crate::Outcome {
+        let argv: Vec<String> = line.split_whitespace().map(String::from).collect();
+
+        crate::run(&argv, &Style::plain())
+    }
+
+    /// Every page there is, by the route that reaches it.
+    fn every_route() -> Vec<Route> {
+        ALL.iter()
+            .flat_map(|entry| {
+                std::iter::once(Route::to(entry))
+                    .chain(entry.subcommands.iter().map(|child| Route::under(entry, child)))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn asking_for_help_by_name_and_by_flag_prints_the_same_page() {
+        // Two help systems that agreed most of the time would be worse than
+        // one. They agree because both are this file reading one table, and this
+        // is the test that keeps it that way.
+        for route in every_route() {
+            let typed = route.typed();
+
+            assert_eq!(
+                run_line(&format!("help {typed}")).stdout,
+                run_line(&format!("{typed} --help")).stdout,
+                "`slidx help {typed}` and `slidx {typed} --help` disagree"
+            );
+        }
+    }
+
+    #[test]
+    fn help_with_nothing_named_is_the_page_the_bare_command_prints() {
+        assert_eq!(run_line("help").stdout, run_line("--help").stdout);
+    }
+
+    #[test]
+    fn help_for_something_that_is_not_a_command_suggests_the_nearest_one() {
+        let outcome = run_line("help lnit");
+
+        assert_eq!(outcome.code, crate::MISUSE);
+        assert!(outcome.stderr.contains("slidx help lint"), "{}", outcome.stderr);
+    }
+
+    #[test]
+    fn a_nested_commands_usage_line_names_it_once() {
+        // Its usage is written the way it is typed, parent and all, so prefixing
+        // the parent again printed `slidx version version install`.
+        let text = run_line("help version install").stdout;
+
+        assert!(text.contains("slidx version install <version>"), "{text}");
+        assert!(!text.contains("version version"), "{text}");
+    }
+
+    #[test]
+    fn every_usage_line_is_a_command_line_somebody_could_type() {
+        // The line under `Usage:` is the one thing on the page a reader copies
+        // verbatim, so it has to start with the binary and the route and nothing
+        // repeated.
+        for route in every_route() {
+            let typed = route.typed();
+            let page = command(&route, &Style::plain());
+            let usage = page
+                .lines()
+                .find(|line| line.trim_start().starts_with("slidx "))
+                .unwrap_or_else(|| panic!("{typed} has no usage line in:\n{page}"));
+
+            assert_eq!(
+                usage.trim().strip_prefix("slidx ").map(|rest| rest.starts_with(&typed)),
+                Some(true),
+                "`{}` does not begin `slidx {typed}`",
+                usage.trim()
+            );
+        }
+    }
+
+    #[test]
+    fn help_goes_to_standard_output_because_it_was_asked_for() {
+        // Not stderr. `slidx help lint | less` is how a long page gets read.
+        let outcome = run_line("help lint");
+
+        assert!(outcome.stderr.is_empty());
+        assert_eq!(outcome.code, crate::OK);
+    }
+
+    #[test]
+    fn every_page_reachable_by_flag_is_reachable_by_name() {
+        // A command whose help could only be got at one way would be the one
+        // somebody could not find.
+        for route in every_route() {
+            let typed = route.typed();
+
+            assert!(
+                matches!(crate::args::parse(&["help".into(), typed.clone()]), Invocation::Run(..)),
+                "`slidx help {typed}` does not resolve"
+            );
+        }
+    }
 
     #[test]
     fn the_root_help_lists_every_command_with_what_it_is_for() {
@@ -213,7 +368,7 @@ mod tests {
         // Help is the text most likely to end up in a README, an issue, or a
         // `--help | head` in a pipe.
         let mut pages = vec![root(&Style::plain())];
-        pages.extend(ALL.iter().map(|entry| command(&Route::to(entry), &Style::plain())));
+        pages.extend(every_route().iter().map(|route| command(route, &Style::plain())));
 
         for page in pages {
             assert!(!page.contains('\u{1b}'), "{page}");
@@ -224,14 +379,40 @@ mod tests {
     fn no_help_line_runs_past_eighty_columns() {
         // Wrapped help reads as broken. The limit is checked rather than
         // trusted, because it is only ever violated by an edit to a summary.
+        //
+        // Cells rather than characters: a summary written in Japanese would pass
+        // a character count and still wrap in the terminal.
         let mut pages = vec![root(&Style::plain())];
-        pages.extend(ALL.iter().map(|entry| command(&Route::to(entry), &Style::plain())));
+        pages.extend(every_route().iter().map(|route| command(route, &Style::plain())));
 
         for page in pages {
             for line in page.lines() {
-                assert!(line.chars().count() <= 80, "{} columns: {line}", line.chars().count());
+                assert!(width::of(line) <= 80, "{} columns: {line}", width::of(line));
             }
         }
+    }
+
+    #[test]
+    fn every_summary_in_the_command_list_starts_in_the_same_column() {
+        // The reason the list reads as a table. Measured in cells, so a name or
+        // a summary written in Japanese is held to the same claim rather than
+        // passing a character count and shearing on screen.
+        let page = root(&Style::plain());
+
+        let starts: Vec<usize> = ALL
+            .iter()
+            .map(|entry| {
+                let row = page
+                    .lines()
+                    .find(|line| line.trim_start().starts_with(entry.name))
+                    .unwrap_or_else(|| panic!("{} has no row in:\n{page}", entry.name));
+                let at = row.find(entry.summary).expect("a summary on the row");
+
+                width::of(&row[..at])
+            })
+            .collect();
+
+        assert!(starts.windows(2).all(|pair| pair[0] == pair[1]), "{starts:?}\n{page}");
     }
 
     #[test]

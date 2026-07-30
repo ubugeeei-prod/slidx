@@ -284,33 +284,74 @@ fn root_flag(token: &str) -> Option<&'static Flag> {
 }
 
 fn unknown_root_flag(argument: &str) -> String {
-    format!("`{argument}` is not a slidx option.\n\n{}", suggest(&command::names()))
+    let typed = argument.trim_start_matches('-');
+    let among = ROOT.iter().map(|flag| flag.long);
+
+    format!(
+        "`{argument}` is not a slidx option.\n\n{}{}",
+        did_you_mean(command::nearest::to(typed, among).map(|long| format!("--{long}"))),
+        suggest(&command::names())
+    )
 }
 
 fn unknown_command(name: &str) -> String {
-    format!("`{name}` is not a slidx command.\n\n{}", suggest(&command::names()))
+    // A command slidx declines is answered elsewhere, with the tool that does
+    // own the job. This is the one that is nothing at all.
+    format!(
+        "`{name}` is not a slidx command.\n\n{}{}",
+        did_you_mean(command::nearest::to(name, command::names().into_iter()).map(str::to_string)),
+        suggest(&command::names())
+    )
 }
 
 fn unknown_subcommand(parent: &'static Command, name: &str) -> String {
     let known: Vec<&str> = parent.subcommands.iter().map(|child| child.name).collect();
+    let guess = command::nearest::to(name, known.iter().copied())
+        .map(|child| format!("{} {child}", parent.name));
 
     format!(
-        "`{name}` is not something `slidx {}` does.\n\nIt has: {}\n\nTry: slidx {} --help",
+        "`{name}` is not something `slidx {}` does.\n\n{}It has: {}\n\nTry: slidx {} --help",
         parent.name,
+        did_you_mean(guess),
         known.join(", "),
         parent.name
     )
 }
 
+/// An unknown flag, and what the command it was given to does take.
+///
+/// Names the command as well as the flag, because the same flag is right on one
+/// command and wrong on another — `--use` belongs to `version install` and not to
+/// `version use`, and "unknown option" alone would send somebody looking for a
+/// spelling mistake that is not there.
 fn unknown_flag(command: &'static Command, argument: &str) -> String {
-    let known: Vec<&str> = command.flags.iter().map(|flag| flag.long).chain(["help"]).collect();
+    let typed = argument.trim_start_matches('-').split('=').next().unwrap_or(argument);
+    let listed = command.all_flags();
+    let guess = command::nearest::to(typed, listed.iter().map(|flag| flag.long));
 
     format!(
-        "`{argument}` is not an option of `slidx {}`.\n\nIt accepts: {}\n\nTry: slidx {} --help",
+        "`{argument}` is not an option of `slidx {}`.\n\n\
+         {}`slidx {}` — {}\n\n\
+         It accepts: {}\n\n\
+         Try: slidx {} --help",
         command.name,
-        known.iter().map(|long| format!("--{long}")).collect::<Vec<_>>().join(", "),
+        did_you_mean(guess.map(|long| format!("--{long}"))),
+        command.name,
+        command.summary,
+        listed.iter().map(|flag| format!("--{}", flag.long)).collect::<Vec<_>>().join(", "),
         command.name,
     )
+}
+
+/// The guess, on its own line, or nothing at all.
+///
+/// Nothing rather than a hedge: a suggestion slidx is not confident about costs
+/// more than it saves, because somebody follows it and reads the wrong page.
+fn did_you_mean(guess: Option<String>) -> String {
+    match guess {
+        Some(candidate) => format!("Did you mean `{candidate}`?\n\n"),
+        None => String::new(),
+    }
 }
 
 fn missing_value(command: &'static Command, flag: &'static Flag) -> String {
@@ -455,11 +496,65 @@ mod tests {
     }
 
     #[test]
+    fn a_mistyped_command_is_answered_with_the_one_that_was_meant() {
+        // The list is the fallback. Naming the command ends the search instead
+        // of handing it back to the person who made the typo.
+        assert!(misuse_of("lnit").contains("Did you mean `lint`?"), "{}", misuse_of("lnit"));
+        assert!(misuse_of("doctro").contains("Did you mean `doctor`?"));
+    }
+
+    #[test]
+    fn something_that_is_not_a_misspelling_gets_the_list_and_no_guess() {
+        // A wrong guess is worse than none: somebody follows it and reads a page
+        // that cannot help them.
+        let message = misuse_of("frobnicate");
+
+        assert!(!message.contains("Did you mean"), "{message}");
+        assert!(message.contains("slidx has:"), "{message}");
+    }
+
+    #[test]
     fn an_unknown_flag_lists_what_the_command_does_accept() {
         let message = misuse_of("lint --strcit");
 
         assert!(message.contains("`--strcit` is not an option"), "{message}");
         assert!(message.contains("--strict"), "{message}");
+    }
+
+    #[test]
+    fn an_unknown_flag_names_the_command_and_says_what_that_command_is_for() {
+        // The same flag is right on one command and wrong on another, so the
+        // message has to say which command refused it — and what that command
+        // does, because the answer is often "you wanted the other one".
+        let message = misuse_of("lint --web");
+
+        assert!(message.contains("`slidx lint`"), "{message}");
+        assert!(message.contains("check a deck for what a room will do to it"), "{message}");
+    }
+
+    #[test]
+    fn a_mistyped_flag_is_answered_with_the_one_that_was_meant() {
+        assert!(misuse_of("lint --strcit").contains("Did you mean `--strict`?"));
+        assert!(misuse_of("lint --thmee x").contains("Did you mean `--theme`?"));
+    }
+
+    #[test]
+    fn a_mistyped_flag_given_a_value_inline_is_still_recognised() {
+        // `--thmee=editorial` is the same typo and has to get the same answer;
+        // the value is not part of the name.
+        assert!(misuse_of("lint --thmee=editorial").contains("Did you mean `--theme`?"));
+    }
+
+    #[test]
+    fn a_mistyped_subcommand_is_answered_with_the_one_that_was_meant() {
+        let message = misuse_of("version instal");
+
+        assert!(message.contains("Did you mean `version install`?"), "{message}");
+    }
+
+    #[test]
+    fn a_mistyped_root_option_is_answered_with_the_one_that_was_meant() {
+        assert!(misuse_of("--verson").contains("Did you mean `--version`?"));
     }
 
     #[test]

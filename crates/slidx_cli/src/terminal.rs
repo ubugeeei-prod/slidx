@@ -33,6 +33,7 @@
 use std::fs::File;
 use std::io::{IsTerminal, Read};
 use std::process::{Command, Stdio};
+use std::sync::Mutex;
 
 /// The terminal, by name rather than by inherited handle.
 ///
@@ -95,6 +96,10 @@ pub enum Key {
     /// same and a viewer might not.
     Interrupt,
     Char(char),
+    /// A wheel notch. Reported only while a caller has asked for mouse
+    /// reporting; without that a terminal sends nothing and these never arrive.
+    ScrollUp,
+    ScrollDown,
     /// A byte nobody pressed on purpose, or the tail of something unrecognised.
     Ignored,
 }
@@ -156,7 +161,67 @@ fn escape(tty: &mut File) -> Key {
         // `\x1b[5~`, `\x1b[6~`, `\x1b[1~`, `\x1b[4~`: a digit and a trailing
         // tilde that has to be consumed or it arrives as the next keypress.
         (b'[', digit @ b'0'..=b'9') => numbered(tty, digit),
+        // `\x1b[<64;12;3M` — a mouse report in SGR encoding, which is the only
+        // encoding worth decoding: the older one packs coordinates into single
+        // bytes and cannot describe a window wider than 223 columns.
+        (b'[', b'<') => mouse(tty),
         _ => Key::Escape,
+    }
+}
+
+/// An SGR mouse report: `<button>;<column>;<row>` and an `M` or an `m`.
+///
+/// Only the wheel is decoded. A click would have to mean something, and in a
+/// view that is one box and a status line there is nothing to click on that a
+/// key does not already do — while a wheel is what hands reach for without
+/// being told.
+///
+/// The whole report is consumed either way. Bytes left behind arrive as the
+/// next keypress, and a stray `M` would read as a character somebody typed.
+fn mouse(tty: &mut File) -> Key {
+    let mut button = String::new();
+    let mut still_the_button = true;
+    let mut byte = [0u8; 1];
+
+    loop {
+        if tty.read(&mut byte).unwrap_or(0) == 0 {
+            return Key::Ignored;
+        }
+
+        match byte[0] {
+            b'M' | b'm' => break,
+            digit @ b'0'..=b'9' if still_the_button => button.push(digit as char),
+            // The first `;`, and everything after it: the column and the row,
+            // which nothing here uses and which run to three digits on a large
+            // screen.
+            _ => still_the_button = false,
+        }
+    }
+
+    match button.parse::<u8>() {
+        Ok(64) => Key::ScrollUp,
+        Ok(65) => Key::ScrollDown,
+        _ => Key::Ignored,
+    }
+}
+
+/// The terminal's size in cells, as rows and columns.
+///
+/// Asked of the terminal rather than of the environment. `COLUMNS` and `LINES`
+/// are set by an interactive shell and **not exported**, so a child process
+/// reading them almost always sees nothing and falls back — which is how a view
+/// ends up drawn at 80×24 inside a window that is neither.
+///
+/// One subprocess per call, which is the trade: a fork is a millisecond and it
+/// happens once per keypress, and the alternative is a view that ignores the
+/// window it is in.
+pub fn size() -> Option<(usize, usize)> {
+    let reported = stty(&["size"])?;
+    let mut numbers = reported.split_whitespace().filter_map(|word| word.parse::<usize>().ok());
+
+    match (numbers.next(), numbers.next()) {
+        (Some(rows), Some(columns)) if rows > 0 && columns > 0 => Some((rows, columns)),
+        _ => None,
     }
 }
 
@@ -174,10 +239,25 @@ fn numbered(tty: &mut File, digit: u8) -> Key {
     }
 }
 
+/// What the terminal was set to before slidx touched it.
+///
+/// Kept here as well as in the guard because **the release profile aborts on
+/// panic**, so `Drop` never runs there and a panic hook is the only thing left
+/// standing — and a hook cannot borrow a guard that lives on somebody's stack.
+///
+/// A `Mutex` rather than a channel or a thread-local: the hook may run on any
+/// thread, and this is written once per session and read once per disaster.
+static SAVED: Mutex<Option<String>> = Mutex::new(None);
+
 /// Raw mode, and putting it back.
+///
+/// Carries nothing: the settings it will restore live in [`SAVED`], because the
+/// panic hook has to reach them and cannot reach a guard on somebody's stack.
+/// What this owns is the *moment* — dropping it is what puts them back on the
+/// ordinary path.
 #[derive(Debug)]
 pub struct RawMode {
-    saved: String,
+    _private: (),
 }
 
 impl RawMode {
@@ -187,16 +267,36 @@ impl RawMode {
 
         // -echo so typing does not appear twice; -icanon so a keypress arrives
         // without waiting for Enter; -isig so Ctrl-C reaches us as a byte
-        // rather than as a signal that would skip the restore below.
+        // rather than as a signal that would skip every restore below.
         stty(&["-echo", "-icanon", "-isig", "min", "1", "time", "0"])?;
 
-        Some(Self { saved: saved.trim().to_string() })
+        if let Ok(mut held) = SAVED.lock() {
+            *held = Some(saved.trim().to_string());
+        }
+
+        Some(Self { _private: () })
     }
 }
 
 impl Drop for RawMode {
     fn drop(&mut self) {
-        let _ = stty(&[self.saved.as_str()]);
+        restore();
+    }
+}
+
+/// Puts the terminal back the way it was found, from anywhere.
+///
+/// Idempotent, and safe to call when nothing was ever changed: the settings are
+/// taken rather than copied, so the second call has nothing to do. That matters
+/// because the ordinary path and the panic path both go through here, and on a
+/// panic that unwinds they both run.
+pub fn restore() {
+    let saved = SAVED.lock().ok().and_then(|mut held| held.take());
+
+    // Their settings, not `stty sane`. Sane restores *a* working terminal;
+    // this restores the one somebody had, including whatever they had bound.
+    if let Some(saved) = saved {
+        let _ = stty(&[saved.as_str()]);
     }
 }
 
@@ -337,6 +437,31 @@ mod tests {
         // Exported-but-empty is how a variable looks when a script unset it
         // badly, the same reading `NO_COLOR` gets.
         assert!(!watching(false, Some("")));
+    }
+
+    #[test]
+    fn a_wheel_notch_is_decoded_from_an_sgr_mouse_report() {
+        // `\x1b[<64;12;3M` — button 64 is a wheel up, 65 a wheel down, and the
+        // two numbers after them are where the pointer was, which nothing here
+        // cares about.
+        assert_eq!(key_of(b"\x1b[<64;12;3M"), Key::ScrollUp);
+        assert_eq!(key_of(b"\x1b[<65;12;3M"), Key::ScrollDown);
+    }
+
+    #[test]
+    fn a_wheel_report_from_a_wide_window_is_still_one_keypress() {
+        // The coordinates run to three digits and more on a large screen. A
+        // decoder that stopped at a fixed length would leave `7M` behind, and
+        // the `M` would arrive as a character somebody typed.
+        assert_eq!(key_of(b"\x1b[<64;237;115M"), Key::ScrollUp);
+    }
+
+    #[test]
+    fn a_mouse_button_nothing_is_bound_to_is_ignored_rather_than_guessed_at() {
+        // A click, a drag, a middle button. Consumed whole either way, because
+        // bytes left behind arrive as the next keypress.
+        assert_eq!(key_of(b"\x1b[<0;10;5M"), Key::Ignored);
+        assert_eq!(key_of(b"\x1b[<0;10;5m"), Key::Ignored);
     }
 
     #[test]

@@ -127,6 +127,8 @@ impl Command {
 /// A leaf command with no children, which is most of them.
 mod table;
 
+pub mod nearest;
+
 pub use table::{declined, find, names, taking_the_caller_with_them, ALL, DECLINED, GLOBAL, ROOT};
 
 #[cfg(test)]
@@ -156,18 +158,73 @@ mod tests {
         }
     }
 
+    /// Every command and every subcommand, because a nested one is somebody's
+    /// whole answer too and has been the one left undocumented before.
+    fn every_command() -> impl Iterator<Item = &'static Command> {
+        ALL.iter().flat_map(|command| std::iter::once(command).chain(command.subcommands.iter()))
+    }
+
     #[test]
     fn every_command_says_what_it_is_for() {
         // `summary` is the root help column and `about` is the page someone
         // reads before deciding to run it. Neither can be blank.
-        for command in ALL {
+        for command in every_command() {
             assert!(!command.summary.is_empty(), "{} has no summary", command.name);
             assert!(!command.about.is_empty(), "{} has no about text", command.name);
             assert!(
-                command.usage.starts_with(command.name),
+                command.usage.starts_with(command.name)
+                    || command.usage.contains(&format!(" {}", command.name)),
                 "{} misstates its usage",
                 command.name
             );
+        }
+    }
+
+    #[test]
+    fn no_command_is_documented_with_a_label_instead_of_an_explanation() {
+        // The failure this catches is a command added in a hurry with `about`
+        // set to a copy of its summary. That reads as documented and answers
+        // nothing, and it fails CI here rather than shipping.
+        for command in every_command() {
+            assert_ne!(command.about, command.summary, "{}'s page is its summary", command.name);
+            assert!(
+                command.about.chars().count() > 80,
+                "{}'s page is {} characters — too short to say why",
+                command.name,
+                command.about.chars().count()
+            );
+        }
+    }
+
+    #[test]
+    fn every_command_shows_at_least_one_worked_example() {
+        // A flag list says what exists. An example says what a whole line looks
+        // like, which is what somebody is actually trying to write.
+        for command in every_command() {
+            let has_one = command
+                .about
+                .lines()
+                .any(|line| line.starts_with("    ") && line.contains("slidx"));
+
+            assert!(has_one, "{} documents no example anybody could copy", command.name);
+        }
+    }
+
+    #[test]
+    fn an_example_fits_the_page_it_is_printed_on() {
+        // `about` is printed as written — the help text wraps nothing, because
+        // reflowing it would reflow the examples in it too. So the 80 columns
+        // the page is fixed at are this string's to keep, and a long example is
+        // the one thing that overhangs them.
+        for command in every_command() {
+            for line in command.about.lines() {
+                assert!(
+                    line.chars().count() <= 80,
+                    "{}: {} characters is past the page: {line}",
+                    command.name,
+                    line.chars().count()
+                );
+            }
         }
     }
 
@@ -260,14 +317,16 @@ mod tests {
     }
 
     #[test]
-    fn a_command_that_takes_the_caller_with_it_says_where_it_is_going() {
-        // Its standard output is captured by a shell function and read as a
-        // path, so anything else it printed there would be read as one too.
-        // Saying so in the help is what stops somebody adding a banner to it.
+    fn a_command_that_takes_the_caller_with_it_names_the_thing_that_carries_it() {
+        // These commands are half a feature on their own: they print where to go
+        // and cannot go there. `slidx shell` is the other half, and somebody
+        // reading this page is exactly the person who needs to know it exists —
+        // otherwise they write the command substitution and never learn that
+        // they did not have to.
         for command in ALL.iter().filter(|entry| entry.takes_the_caller_with_it) {
             assert!(
-                command.about.contains("standard output"),
-                "{} is captured by the shell integration and does not say so",
+                command.about.contains("slidx shell"),
+                "{} is followed by the shell integration and never mentions it",
                 command.name
             );
         }
