@@ -115,6 +115,17 @@ export function createArrange(handlers: ArrangeHandlers, options: ArrangeOptions
     // A destroyed editor leaves this listening on a window that outlives it.
     if (!root.isConnected && options.geometry === undefined) return;
 
+    // A gesture owns the overlay while it is running. `paint` rebuilds every
+    // grip, and a browser sends the rest of a drag to the element that took the
+    // pointer capture — so replacing that element mid-drag ends the gesture with
+    // the ghost still on screen and nothing written.
+    //
+    // This is reached mid-drag by the feature next to it: a warning about the
+    // landing is session state, so the answer to a measurement re-renders every
+    // surface, including this one. Nothing is lost by declining, because the
+    // canvas cannot have re-laid out while a pointer is down on it.
+    if (moving !== undefined) return;
+
     geometry = read();
     paint();
   }

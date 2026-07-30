@@ -281,6 +281,34 @@ describe("warning before the block lands", () => {
     expect(opened.foreseen.at(-1)).toEqual([]);
   });
 
+  it("keeps the grip a browser is sending pointer events to while the drag runs", async () => {
+    // The one thing that made this feature's most interesting path unusable. A
+    // warning is session state, so the answer to a measurement re-renders every
+    // surface — this one, in the middle of a gesture. Rebuilding the grips then
+    // replaces the element that took the pointer capture, and a browser releases
+    // a capture whose element leaves the document: the pointerup that follows
+    // goes to the overlay, which takes no pointer events, so the block never
+    // lands and the ghost is left on screen.
+    //
+    // Stated as identity because that is the contract a pointer capture is: the
+    // events go to the element that took it. `scripts/record-editor.mjs` is the
+    // check in a real browser — it drags this gesture and fails to produce a
+    // frame if nothing lands.
+    const opened = open(narrow(), clipped);
+    const handle = opened.grip(0);
+
+    handle.dispatchEvent(pointer("pointerdown", 0, 0));
+    handle.dispatchEvent(pointer("pointermove", 600, 400));
+    await settled();
+    opened.render();
+
+    expect(opened.grip(0)).toBe(handle);
+    expect(opened.root.getAttribute("data-dragging")).toBe("true");
+
+    handle.dispatchEvent(pointer("pointerup", 600, 400));
+    expect(opened.ops).toEqual([{ op: "moveBlock", slide: 0, block: 0, to: 2, region: "right" }]);
+  });
+
   it("asks nothing at all when there is nothing exact to say", async () => {
     // Whether a paragraph still fits depends on where its lines break, and this
     // side of the boundary cannot know. Silence rather than a guess.

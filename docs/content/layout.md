@@ -91,9 +91,29 @@ region. "The slide is too tall" sends you to the wrong half of it; the help says
 to move a block rather than to split the slide. See [Lint rules](lint.md) for
 what else the overflow group covers, and for why _unchecked_ is not _clean_.
 
-## What is not here yet
+## Dragging a block into a region
 
-Dragging a block into a region. The regions exist and a block can be placed by
-editing the file, and the visual editor's gesture for it is the half with no
-implementation — [ROADMAP.md](../../ROADMAP.md) is where that lives, along with
-everything else that is stated rather than shipped.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../media/editor-arrange-dark.png">
+  <img alt="A paragraph dragged from the left column of a slide into the right one, while the Markdown file beside it gains the line {.right}" src="../media/editor-arrange-light.png">
+</picture>
+
+The canvas and the file are two views of one document, and that is the claim this
+recording exists to settle. The ghost snaps to the region and the position the
+file is about to say — not to the cursor — so what you see under the pointer
+mid-drag is what the diff will be. The drop is one operation, so it is one press
+of undo, and it writes `{.right}`: one line, above the block it moves.
+
+Everything about the gesture has a key as well. The grips are buttons, so the tab
+order walks the blocks of the slide and the arrow keys move one — up and down
+through its region, left and right between regions. A deck that could only be
+arranged with a pointer would be a deck half the people who write one cannot
+arrange at all.
+
+Dragging into the **default** region takes the class away rather than writing
+one, because the two say the same thing to the renderer and only one of them is a
+line in the diff. So a drag out of a region and back again costs nothing at all.
+
+`vp run record:editor` regenerates the recording by performing the drag against a
+real dev server, so a gesture that stopped working fails to reproduce rather than
+leaving a picture of something that no longer happens.
