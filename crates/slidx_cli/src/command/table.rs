@@ -161,7 +161,12 @@ configuration for VS Code, Zed and Neovim is in docs/content/editors.md.
 
 It serves Markdown under a slides directory and nothing else. A deck is
 Markdown and most Markdown is not a deck, so a language server that claimed
-every .md file would put slide diagnostics on somebody's README.",
+every .md file would put slide diagnostics on somebody's README.
+
+An editor's configuration names it, so the worked example is the line that goes
+in one:
+
+    slidx lsp",
         &[],
     ),
     leaf(
@@ -259,7 +264,10 @@ pass through, and everything the linter says about its colours and its type.
 That last part is what a theme's author wants and a build cannot give them. A
 build judges a theme in the room the deck is being built for; a published theme
 is shown in all of them, so this runs every room slidx models. It exits
-non-zero when it found something, which is the form for CI.",
+non-zero when it found something, which is the form for CI.
+
+    slidx theme               # the theme document beside you
+    slidx theme ./my-theme    # one somewhere else",
         &[],
     ),
     leaf(
@@ -672,7 +680,10 @@ still be moved when the grammar needs it.
 
 Run over an existing catalogue, it keeps every translation whose string has not
 changed, so re-extracting after fixing a typo does not throw away a week of
-somebody's work.",
+somebody's work.
+
+    slidx i18n extract --lang ja
+    slidx i18n extract ./slides --lang ko --out ko.po",
                 &[
                     Flag::taking("lang", "<tag>", "BCP 47 tag being translated into. Required"),
                     Flag::taking("out", "<path>", "Where to write it. Default: standard output"),
@@ -705,7 +716,9 @@ change legible: `slides.ja/0001.md` diffs against `slides/0001.md` line for
 line. Two things do not come across and are reported instead: per-slide
 budgets, because speaking rate is not language independent, and the linter's
 overflow verdict, because a slide that fitted in one language may not in
-another.",
+another.
+
+    slidx i18n apply --catalogue ja.po --out slides.ja",
                 &[
                     Flag::taking("catalogue", "<path>", "The translated PO file. Required"),
                     Flag::taking(
