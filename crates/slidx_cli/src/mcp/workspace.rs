@@ -8,14 +8,16 @@
 //! Two sets, because reading and writing are not the same risk:
 //!
 //! **The roots** are the directories `slidx mcp` was started in or pointed at.
+//! They are the only places it will ever write, and only when [`Authority`] says
+//! so.
 //!
 //! **The index** is every project this machine has run a slidx command on,
 //! which [`crate::index`] fills by itself. Reading those is the feature that
 //! makes reusing a slide from a talk given eighteen months ago possible at all,
 //! and they are the speaker's own decks by construction — nothing gets into that
-//! file except by them running slidx on it.
-//!
-//! Both are read. Nothing here writes.
+//! file except by them running slidx on it. They are readable and never
+//! writable: a server pointed at one project must not be able to rewrite a talk
+//! somebody gave last year because a slide in front of it mentioned the path.
 
 use std::path::{Path, PathBuf};
 
@@ -28,6 +30,26 @@ use crate::lint::source::{self, DEFAULT_DIR};
 /// The default slide separator, matching the plugin and `slidx lint`.
 pub const SEPARATOR: &str = "---";
 
+/// What this server is allowed to do to a deck.
+///
+/// Read-only unless the person who started it said otherwise, because an MCP
+/// server that will rewrite a conference talk because something in the deck told
+/// it to is a liability. Nothing a resource contains can change this: the value
+/// comes from the command line and is never recomputed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Authority {
+    #[default]
+    ReadOnly,
+    /// Operations may be applied to decks under a root.
+    Write,
+}
+
+impl Authority {
+    pub fn writes(self) -> bool {
+        self == Self::Write
+    }
+}
+
 /// A deck the server has read, and where it came from.
 #[derive(Debug, Clone)]
 pub struct Reading {
@@ -38,6 +60,14 @@ pub struct Reading {
     /// The joined source, exactly as the parser saw it.
     pub source: String,
     pub deck: Deck,
+    /// The files it came from, in deck order. Empty for a single-file deck.
+    ///
+    /// Held because a splice is measured in the joined source and has to be cut
+    /// back into the files it came from — see [`super::deck`].
+    pub files: Vec<PathBuf>,
+    /// The separator the deck was joined with, so a later edit measures the same
+    /// document this reading did.
+    pub separator: String,
 }
 
 /// The directories this server will open a file in.
@@ -45,6 +75,7 @@ pub struct Reading {
 pub struct Workspace {
     roots: Vec<PathBuf>,
     index: PathBuf,
+    authority: Authority,
 }
 
 impl Workspace {
@@ -58,6 +89,7 @@ impl Workspace {
         Self {
             roots: roots.iter().map(|root| resolved(root)).collect(),
             index: Home::discover().index(),
+            authority: Authority::default(),
         }
     }
 
@@ -65,6 +97,16 @@ impl Workspace {
     pub fn with_index(mut self, path: PathBuf) -> Self {
         self.index = path;
         self
+    }
+
+    /// Lets operations be applied. `slidx mcp --write`, and nothing else.
+    pub fn writing(mut self) -> Self {
+        self.authority = Authority::Write;
+        self
+    }
+
+    pub fn authority(&self) -> Authority {
+        self.authority
     }
 
     pub fn roots(&self) -> &[PathBuf] {
@@ -117,7 +159,37 @@ impl Workspace {
     /// `@slidx/vite-plugin` builds and the one `slidx lint` defaults to. A model
     /// that passes the project directory means the deck in it.
     pub fn read_deck(&self, path: &str, separator: Option<&str>) -> Result<Reading, String> {
+        self.deck_at(self.readable(path)?, separator)
+    }
+
+    /// Reads a deck this server is allowed to change.
+    ///
+    /// Two refusals rather than one, because they are different problems and a
+    /// model can only act on the second: a server started read-only has to be
+    /// restarted, and a deck outside every root is the wrong path.
+    pub fn edit_deck(&self, path: &str, separator: Option<&str>) -> Result<Reading, String> {
+        if !self.authority.writes() {
+            return Err(format!(
+                "This server is read-only, so nothing was changed. `{path}` was not written. \
+                 Whoever started it can allow writes with `slidx mcp --write`; that is their \
+                 decision to make and not one a deck or a tool call can make for them."
+            ));
+        }
+
         let resolved = self.readable(path)?;
+
+        if !self.roots.iter().any(|root| resolved.starts_with(root)) {
+            return Err(format!(
+                "{path} can be read but not written: it is a project the deck index knows \
+                 about rather than one this server was pointed at. Start `slidx mcp` there, or \
+                 pass --root, if it is meant to be edited."
+            ));
+        }
+
+        self.deck_at(resolved, separator)
+    }
+
+    fn deck_at(&self, resolved: PathBuf, separator: Option<&str>) -> Result<Reading, String> {
         let separator = separator.unwrap_or(SEPARATOR);
 
         let slides = resolved.join(DEFAULT_DIR);
@@ -126,11 +198,18 @@ impl Workspace {
         let read = source::read(&target, separator)?;
         let options = DeckParseOptions { separator: separator.to_string(), ..Default::default() };
 
+        // Joined the way the build joins, not the way `source::read` does. The
+        // two differ, and the one that matters is the deck a browser gets.
+        let files = super::deck::read_files(&target, &read.files)?;
+        let source = super::deck::join(&files, separator).source;
+
         Ok(Reading {
             path: target,
             label: read.label,
-            deck: parse_deck(&read.source, &options),
-            source: read.source,
+            deck: parse_deck(&source, &options),
+            source,
+            files: read.files,
+            separator: separator.to_string(),
         })
     }
 }
