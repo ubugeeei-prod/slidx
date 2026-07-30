@@ -23,7 +23,10 @@
  * spans depend on not existing.
  */
 
-import { hasGit, isRevision, openRepository, type Commit } from "./git";
+import { basename } from "node:path";
+
+import { readDeck, type DeckSource } from "./deck";
+import { hasGit, isRevision, openRepository, type Commit, type Repository } from "./git";
 import { joinDeck } from "./files";
 import type { ResolvedOptions } from "./options";
 import { summarise, type DeckSummary } from "./pipeline";
@@ -50,6 +53,22 @@ export interface HistoryAnswer {
   commits: Commit[];
 }
 
+/** What happened when the deck was asked to go back. */
+export interface RestoreAnswer {
+  /** The commit the deck now matches. Absent when nothing was done. */
+  restored?: string;
+  /**
+   * The commit to name to undo this, which is where the deck was a moment ago.
+   *
+   * Undo is not a special path: it is the same operation naming this.
+   */
+  previous?: string;
+  /** Why nothing was done, written for an author. */
+  refused?: string;
+  /** What is unsaved, when that is the reason. */
+  changed?: string[];
+}
+
 /** Reads one project's deck history for as long as the dev server runs. */
 export interface DeckHistory {
   commits(): Promise<HistoryAnswer>;
@@ -60,20 +79,69 @@ export interface DeckHistory {
    * every revision that is not an object name at all.
    */
   changeAt(rev: string): Promise<DeckSummary | null>;
+  /**
+   * The deck's files as one commit had them, for rendering the pages it was.
+   *
+   * Shaped exactly like a read from disk, because it is handed to the same
+   * renderer: the preview at a commit has to be the deck's own page, produced
+   * by the same WebAssembly module through the same shell and the same theme.
+   * A second way of drawing it would be a second answer about layout, which is
+   * the bug this architecture exists to prevent.
+   */
+  deckAt(rev: string): Promise<DeckSource | null>;
+  /** Puts the deck back to a commit, or says why it did not. */
+  restore(rev: string): Promise<RestoreAnswer>;
 }
 
 export function createDeckHistory(root: string, options: ResolvedOptions): DeckHistory {
-  /** The deck as one commit had it, joined the way the parser reads it. */
-  async function sourceAt(
-    repository: NonNullable<Awaited<ReturnType<typeof openRepository>>>,
-    rev: string,
-  ): Promise<string> {
-    const files = await repository.filesAt(rev, options.srcDir, options.extensions);
+  /**
+   * The commit this session last put in the working copy.
+   *
+   * Remembered so that undoing a restore is possible at all. A restore leaves
+   * the deck dirty by construction — that is what an author reviews and
+   * commits — and the guard below refuses to write over anything unsaved. So
+   * without knowing which dirt is its own, the panel would offer an undo that
+   * always refused.
+   */
+  let placed: string | undefined;
 
-    return joinDeck(
-      files.map((file) => ({ path: file.name, label: file.name, source: file.source })),
-      options.separator,
-    ).source;
+  /** The deck's files as one commit had them, shaped like a read from disk. */
+  async function filesAt(repository: Repository, rev: string): Promise<DeckSource> {
+    const found = await repository.filesAt(rev, options.srcDir, options.extensions);
+    const files = found.map((file) => ({
+      path: file.name,
+      label: file.name,
+      source: file.source,
+    }));
+
+    return { files, source: joinDeck(files, options.separator).source };
+  }
+
+  /** The deck as one commit had it, joined the way the parser reads it. */
+  async function sourceAt(repository: Repository, rev: string): Promise<string> {
+    return (await filesAt(repository, rev)).source;
+  }
+
+  /**
+   * True when the deck on disk is what a commit had, as git counts it.
+   *
+   * Compared file by file rather than through the joined source, because the
+   * joined source is trimmed at every file's edges — and a guard about not
+   * losing an author's bytes cannot be built on a comparison that ignores some
+   * of them.
+   */
+  async function matches(repository: Repository, rev: string): Promise<boolean> {
+    const [tree, disk] = await Promise.all([
+      filesAt(repository, rev),
+      readDeck(root, options.srcDir, options.extensions, options.separator),
+    ]);
+
+    if (tree.files.length !== disk.files.length) return false;
+
+    return disk.files.every((file, index) => {
+      const committed = tree.files[index];
+      return committed?.label === basename(file.label) && sameLines(committed.source, file.source);
+    });
   }
 
   return {
@@ -116,5 +184,74 @@ export function createDeckHistory(root: string, options: ResolvedOptions): DeckH
 
       return summarise(before, after, { separator: options.separator });
     },
+
+    async deckAt(rev) {
+      if (!isRevision(rev)) return null;
+
+      const repository = await openRepository(root);
+      if (repository === null) return null;
+      if ((await repository.resolve(rev)) === null) return null;
+
+      return filesAt(repository, rev);
+    },
+
+    async restore(rev) {
+      if (!isRevision(rev)) return { refused: "That is not a commit this deck has." };
+
+      const repository = await openRepository(root);
+      if (repository === null) {
+        return {
+          refused: "This deck is not in a git repository, so there is nothing to go back to.",
+        };
+      }
+
+      if ((await repository.resolve(rev)) === null) {
+        return { refused: "This repository does not have that commit any more." };
+      }
+
+      // Where the deck is now, which is the commit an undo would name. Clean
+      // means HEAD; otherwise the only acceptable dirt is a restore this
+      // session made, which is not work anybody would lose.
+      const changed = await repository.changesIn(options.srcDir);
+      const previous =
+        changed.length === 0
+          ? await repository.head()
+          : placed !== undefined && (await matches(repository, placed))
+            ? placed
+            : null;
+
+      if (previous === null) {
+        return {
+          refused:
+            "The deck has changes that are not committed. Save or discard them first — " +
+            "going back would write over them.",
+          changed,
+        };
+      }
+
+      if (!(await repository.restore(rev, options.srcDir))) {
+        return { refused: "git would not put the deck back." };
+      }
+
+      placed = rev;
+
+      return { restored: rev, previous };
+    },
   };
+}
+
+/**
+ * The same slide, whichever line ending is on disk.
+ *
+ * A commit holds what git stored, while the working copy holds what git
+ * *wrote* — and on a machine with `core.autocrlf` on, which is how git for
+ * Windows installs itself, those differ by a carriage return per line for the
+ * very same blob. Comparing raw bytes there calls a file git itself reports as
+ * unmodified a change, so the undo this guards would be refused on Windows and
+ * nowhere else. Normalising both sides is what git does before it compares
+ * them; the guard is about not losing an author's work, and a carriage return
+ * git put there is not their work.
+ */
+function sameLines(committed: string, disk: string): boolean {
+  return committed.replace(/\r\n/g, "\n") === disk.replace(/\r\n/g, "\n");
 }
