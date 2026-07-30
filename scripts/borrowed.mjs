@@ -46,6 +46,7 @@ export const PALETTE_SOURCES = [
   "crates/slidx_theme/src/builtin.rs",
   "crates/slidx_theme/src/builtin/recipe.rs",
   "crates/slidx_theme/src/palette.rs",
+  "crates/slidx_theme/src/published.rs",
   "crates/slidx_brand/src/palette.rs",
 ];
 
