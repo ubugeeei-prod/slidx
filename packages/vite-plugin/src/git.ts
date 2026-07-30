@@ -74,6 +74,27 @@ export interface Repository {
   filesAt(rev: string, directory: string, extensions: string[]): Promise<TreeFile[]>;
   /** The commit before this one, or `null` for the first commit of all. */
   parentOf(rev: string): Promise<string | null>;
+  /**
+   * What is uncommitted under a directory, tracked or not.
+   *
+   * The read that decides whether putting an old version back would destroy
+   * anything, so a file git has never been told about counts as much as an
+   * edit to one it has.
+   *
+   * Paths are relative to the repository, which is where `--porcelain` puts
+   * them and — unlike the names [`filesAt`] returns — is also what an author
+   * would see if they ran `git status` themselves. These end up in a sentence
+   * naming what is unsaved, so agreeing with git is the point.
+   */
+  changesIn(directory: string): Promise<string[]>;
+  /**
+   * Puts a directory back exactly as a commit had it, staged and on disk.
+   *
+   * The whole file set, deletions included — a restore that left behind the
+   * slide added since then would produce a deck that never existed. `false`
+   * when git would not do it.
+   */
+  restore(rev: string, directory: string): Promise<boolean>;
 }
 
 /**
@@ -183,6 +204,51 @@ function repository(root: string): Repository {
       );
 
       return files.filter((file): file is TreeFile => file !== null);
+    },
+
+    async changesIn(directory) {
+      // `-z` rather than the default quoting: git escapes unusual bytes in a
+      // path unless asked not to, and a deck in a directory with a space or a
+      // non-ASCII name is ordinary.
+      const output = await git(root, [
+        "status",
+        "--porcelain",
+        "-z",
+        "--untracked-files=all",
+        "--",
+        directory,
+      ]);
+
+      if (output === null) return [];
+
+      // Each record is `XY <path>`, and a rename carries a second NUL-separated
+      // path. Only the path matters here — this is a question about whether
+      // anything is unsaved, not about what happened to it.
+      return output
+        .split("\0")
+        .filter((record) => record.length > 3)
+        .map((record) => record.slice(3));
+    },
+
+    async restore(rev, directory) {
+      // Resolved first so a well-formed revision this repository does not have
+      // is refused rather than handed to a command that writes files.
+      if ((await repository(root).resolve(rev)) === null) return false;
+
+      // `--staged --worktree` together are what make this the whole file set
+      // rather than an overlay: a file the commit did not have is removed
+      // rather than left behind. It is also exactly its own inverse, which is
+      // what lets the panel offer to undo a restore with another restore.
+      const done = await git(root, [
+        "restore",
+        `--source=${rev}`,
+        "--staged",
+        "--worktree",
+        "--",
+        directory,
+      ]);
+
+      return done !== null;
     },
 
     async parentOf(rev) {
