@@ -68,6 +68,15 @@ function stateOf(over: Partial<EditorState> = {}): EditorState {
   };
 }
 
+/**
+ * Waits for the round trip to the route to finish.
+ *
+ * Bringing the frame up to date is a fetch, so it settles a task later rather
+ * than a microtask later — and a test that only awaited a microtask would pass
+ * while nothing had happened yet.
+ */
+const settled = () => new Promise((resolve) => setTimeout(resolve, 0));
+
 afterEach(() => document.body.replaceChildren());
 
 describe("bringing the canvas up to date", () => {
@@ -169,10 +178,43 @@ describe("the canvas, when the deck changes", () => {
     const was = frame.getAttribute("src");
 
     canvas.render(stateOf({ source: "# One\n\nThird." }));
-    await Promise.resolve();
+    await settled();
 
     expect(frame.getAttribute("src")).toBe(was);
     expect(server.asked).toEqual(["/slides/"]);
+    expect(frame.contentDocument!.body.textContent).toContain("Third.");
+  });
+
+  it("tells the frame it changed, so what measures inside it measures again", async () => {
+    // The lines that become editable, the grips the arrange overlay draws and
+    // the handles the resize overlay draws all wait for a load, and a slide
+    // replaced in place never loads. Asserted through the lines because they
+    // are the consequence this file can see: a `contenteditable` on markup that
+    // arrived after the swap could only have been put there by that signal.
+    let body = "# One\n\nSecond.";
+    const server = serving(SLIDE.replace("Second.", "Third."));
+    const canvas = createCanvas(
+      { run: () => {}, selected: () => {} },
+      {
+        deckBase: "slides",
+        bodyOf: () => body,
+        blocksOf: () => [{ span: { start: 0, end: 5 } }, { span: { start: 7, end: 13 } }],
+        fetch: server.send,
+      },
+    );
+    document.body.append(canvas.root);
+
+    const frame = canvas.root.querySelector<HTMLIFrameElement>(".slidx-canvas-frame")!;
+    canvas.render(stateOf());
+    frame.contentDocument!.body.innerHTML = SLIDE;
+
+    body = "# One\n\nThird.";
+    canvas.render(stateOf({ source: body }));
+    await settled();
+
+    const line = frame.contentDocument!.querySelector("p")!;
+    expect(line.textContent).toBe("Third.");
+    expect(line.getAttribute("contenteditable")).toBe("true");
   });
 
   it("reloads the frame when the author moved to another slide", async () => {
@@ -189,6 +231,7 @@ describe("the canvas, when the deck changes", () => {
     frame.contentDocument!.body.innerHTML = SLIDE;
 
     canvas.render(stateOf({ selection: { slide: 1 } }));
+    await settled();
 
     expect(frame.getAttribute("src")).toContain("/slides/2/");
     expect(server.asked).toEqual([]);
@@ -211,6 +254,7 @@ describe("the canvas, when the deck changes", () => {
     const was = frame.getAttribute("src");
 
     canvas.render({ ...staged, source: "# One\n\nChanged." });
+    await settled();
 
     expect(frame.getAttribute("src")).not.toBe(was);
     expect(server.asked).toEqual([]);
