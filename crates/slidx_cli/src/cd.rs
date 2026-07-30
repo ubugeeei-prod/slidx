@@ -27,9 +27,15 @@
 //!   sake of a scruple: matching is a subsequence search, so an unrelated
 //!   project sharing three letters with the query is ordinary, and it ranks
 //!   nowhere near the deck somebody meant.
-//! - Nothing is printed when nothing matched, so `cd "$(slidx cd nonsense)"`
-//!   fails loudly instead of entering the empty string, which is somebody's
-//!   home directory.
+//! - Nothing is printed when nothing matched, and the exit code is non-zero.
+//!   That code is the part a caller has to read, because neither shell form
+//!   fails on its own: `cd "$(slidx cd nonsense)"` passes an empty string,
+//!   which bash and zsh treat as staying put and exiting 0 — quiet, but at
+//!   least still where you were. **Unquoted is the one that hurts.** In
+//!   `cd $(slidx cd nonsense)` the empty word disappears before `cd` sees it,
+//!   leaving `cd` with no operand at all, which means your home directory. That
+//!   is the mistake somebody will actually make, and it is why a wrapper checks
+//!   the status rather than the output.
 //!
 //! The path is not quoted or escaped. Quoting is the caller's job and only the
 //! caller knows which shell it is in — a path escaped for bash is wrong in
@@ -161,8 +167,10 @@ mod tests {
 
     #[test]
     fn nothing_matched_prints_nothing_at_all_on_standard_output() {
-        // So `cd "$(slidx cd nonsense)"` fails rather than entering the empty
-        // string, which is somebody's home directory.
+        // With a non-zero status, which is the part a caller reads: quoted, an
+        // empty answer makes `cd` stay put and exit 0; unquoted, the empty word
+        // vanishes and `cd` goes to somebody's home directory. Neither shell
+        // form reports the failure on its own.
         let outcome = Outcome { stderr: no_match("nonsense"), code: FOUND, ..Outcome::default() };
 
         assert!(outcome.stdout.is_empty());

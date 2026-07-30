@@ -143,6 +143,101 @@ a number in the table is the number in the file.",
         &[Flag::switch("json", "Print the list as JSON")],
     ),
     leaf(
+        "create",
+        "start a deck that already builds",
+        "create <path> [options]",
+        "\
+Makes a project at `path`: a deck, a vite config that is one line long, and a
+package.json that names the plugin. It is registered in the index on the way
+out, so it is in `slidx list` before anything else has been run on it.
+
+What it leaves behind parses, lints clean and builds. A scaffold that needs
+fixing before it works is a scaffold that has to be read, and the first thing
+somebody does with a new deck should be writing the talk.
+
+Everything you pass goes into the frontmatter through the same edit operations
+the visual editor writes through, so a title with a colon in it is quoted the
+way YAML needs rather than the way a template guessed.
+
+It installs nothing and runs no package manager. That is the author's to choose,
+and it is the one step that needs the network.",
+        &[
+            Flag::taking("title", "<text>", "The deck's title. Default: the directory name"),
+            Flag::taking("event", "<name>", "The event this talk is for"),
+            Flag::taking("duration", "<length>", "The slot, written as 20m or 45m"),
+            Flag::taking("theme", "<name>", "minimal, editorial, terminal or contrast"),
+        ],
+    ),
+    leaf(
+        "add",
+        "add a slide to a deck",
+        "add [path] [options]",
+        "\
+Adds a slide, and composes none of it. The bytes are a splice computed by the
+same operation set the visual editor writes through, which is what keeps an
+author's blank lines, their `*` bullets and their hand-wrapped paragraphs
+untouched — a second writer of deck Markdown is the one thing that would break
+that, quietly, in somebody's diff months later.
+
+A deck kept as one file per slide gets one new file, and the files after the new
+slide move along a number so the deck stays in order. `path` is a deck file or a
+directory of slide files, and defaults to ./slides.
+
+`--at` counts from one, the way a speaker counts slides.",
+        &[
+            Flag::taking("title", "<text>", "The slide's heading"),
+            Flag::taking("at", "<number>", "Where it goes, counting from one. Default: the end"),
+            Flag::taking("notes", "<text>", "What the speaker says over it"),
+            Flag::taking("separator", "<text>", "Slide separator in a single-file deck"),
+        ],
+    ),
+    leaf(
+        "mv",
+        "rename a project, and the deck with it",
+        "mv <query> <name> [options]",
+        "\
+Renames a project's directory and follows it in the index, so the deck you look
+for tomorrow is the one you renamed today. `name` is a new directory name beside
+the old one, or a path when the project is moving somewhere else.
+
+With --title the deck's own title changes too, through the same edit operation
+the editor uses. A rename that leaves the title slide saying the old name is half
+a rename.
+
+Nothing is overwritten: a destination that already exists is a refusal, not a
+merge.",
+        &[Flag::taking("title", "<text>", "Retitle the deck's frontmatter as well")],
+    ),
+    leaf(
+        "save",
+        "commit the deck, described in the deck's own terms",
+        "save [path] [options]",
+        "\
+Commits the deck and writes the message itself — the part git cannot do. git sees
+lines; slidx has a parser, so the commit says `Add two slides and retime the
+demo` rather than `+34 -6`. Slides added, dropped or reordered, budgets changed,
+notes written: all of it comes from comparing the deck on disk with the deck at
+HEAD.
+
+The message is yours to overrule with --message, and nothing is ever appended to
+it — no trailer, no footer, no attribution. It is your record of your own talk.
+
+Only the deck is committed. Something else you had staged stays staged, because
+one command sweeping up half-finished work is how a tool loses the right to be
+typed without thinking. --all widens it to the whole project.
+
+With no repository it offers to start one rather than failing, which is the state
+a deck written this morning is in.",
+        &[
+            Flag::taking("message", "<text>", "Use this message instead of the written one")
+                .short('m'),
+            Flag::switch("all", "Commit everything in the project, not only the deck"),
+            Flag::switch("init", "Start a repository when there is none, without asking"),
+            Flag::switch("dry-run", "Print the message and commit nothing"),
+            Flag::taking("separator", "<text>", "Slide separator in a single-file deck"),
+        ],
+    ),
+    leaf(
         "cd",
         "print a deck's directory, for a shell to enter",
         "cd [query]",
@@ -161,8 +256,11 @@ in it is otherwise split into two arguments, and `cd` is handed the first half.
 Exactly one path is printed, ever. A query matching several projects opens a
 picker — on the terminal, which is why it works inside a substitution — and
 where there is no terminal to pick on it takes the closest match and names it on
-standard error. A query matching nothing prints nothing and exits non-zero, so a
-substitution fails loudly rather than entering the empty string.",
+standard error.
+
+A query matching nothing prints nothing and exits non-zero. Read that status:
+quoted, an empty answer leaves `cd` where it was; unquoted, the empty word
+vanishes and `cd` takes you home.",
         &[],
     ),
     leaf(

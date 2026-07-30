@@ -80,10 +80,23 @@ pub fn read(path: &Path, separator: &str) -> Result<DeckSource, String> {
     let mut sources = Vec::with_capacity(files.len());
     for file in &files {
         let source = fs::read_to_string(file).map_err(|error| unreadable(file, &error))?;
-        sources.push(source.trim().to_string());
+        sources.push(source);
     }
 
-    Ok(DeckSource { label, files, source: sources.join(&format!("\n\n{separator}\n")) })
+    Ok(DeckSource { label, files, source: join(&sources, separator) })
+}
+
+/// Joins slide sources into one deck, as rule 2 above states it.
+///
+/// Public because the joining is the rule, and a second caller has appeared:
+/// `slidx save` reads a deck out of a git commit to compare it with the one on
+/// disk, and a deck assembled two different ways would diff against itself.
+pub fn join(sources: &[String], separator: &str) -> String {
+    sources
+        .iter()
+        .map(|source| source.trim())
+        .collect::<Vec<_>>()
+        .join(&format!("\n\n{separator}\n"))
 }
 
 /// Slide files in one directory, in deck order.
