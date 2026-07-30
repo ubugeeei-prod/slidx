@@ -14,6 +14,21 @@
 
 export const STORYBOARD_STYLESHEET = `
 /*
+ * Two colours of its own, for the two things only this surface draws. Both are
+ * laid over something else, so they are alpha rather than tokens: the stripe
+ * goes over a segment, which is a mid tone in either scheme, and the hatch goes
+ * over the page, which is not.
+ */
+:root {
+  --slidx-sb-stripe: rgb(255 255 255 / 0.34);
+  --slidx-sb-hatch: rgb(22 24 29 / 0.34);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root { --slidx-sb-hatch: rgb(232 234 237 / 0.34); }
+}
+
+/*
  * Fixed rather than a fourth column in the editor's grid.
  *
  * Working out where a talk's time goes is a whole-deck job, and the panel that
@@ -99,9 +114,15 @@ export const STORYBOARD_STYLESHEET = `
 
 .slidx-sb-bar[data-slot="none"] .slidx-sb-track { border-style: dashed; }
 
+/*
+ * Inset inside the band, so the band's rim shows above and below every slide
+ * that is inside the slot. Where the band stops, the rim stops, and the slides
+ * past it are visibly out of the trough rather than merely to the right of a
+ * line — which is the difference between seeing an overrun and reading about it.
+ */
 .slidx-sb-segments {
   position: absolute;
-  inset: 0;
+  inset: 4px 0;
   display: flex;
 }
 
@@ -119,8 +140,24 @@ export const STORYBOARD_STYLESHEET = `
 .slidx-sb-segment:hover { background: var(--slidx-e-accent); filter: brightness(1.15); }
 .slidx-sb-segment[aria-current="true"] { outline: 2px solid var(--slidx-e-text); outline-offset: -2px; }
 
-/* Slack, in the colour of everything else that is not the talk itself. */
-.slidx-sb-segment[data-optional="true"] { background: var(--slidx-e-muted); }
+/*
+ * Slack, drawn as the hole in the talk that it is: the band's own colour with a
+ * muted outline, so it reads as time that is there and not committed. A filled
+ * block in a second colour was the first attempt and it read as *more*
+ * emphatic than the talk, which is exactly backwards.
+ */
+.slidx-sb-segment[data-optional="true"] {
+  background: var(--slidx-e-surface);
+  border: 1px solid var(--slidx-e-muted);
+}
+
+.slidx-sb-segment[data-optional="true"][data-source="estimate"] {
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--slidx-sb-hatch) 0 1px,
+    rgb(255 255 255 / 0) 1px 6px
+  );
+}
 
 /*
  * Striped where the width came from an estimate rather than a budget the author
@@ -130,8 +167,24 @@ export const STORYBOARD_STYLESHEET = `
 .slidx-sb-segment[data-source="estimate"] {
   background-image: repeating-linear-gradient(
     135deg,
-    rgb(255 255 255 / 0.34) 0 3px,
+    var(--slidx-sb-stripe) 0 3px,
     rgb(255 255 255 / 0) 3px 7px
+  );
+}
+
+/* Everything past where the slot ended. Over the segments, since they cover the
+ * band that would otherwise show it. */
+.slidx-sb-overrun {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  pointer-events: none;
+  border-radius: 0 var(--slidx-e-radius) var(--slidx-e-radius) 0;
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--slidx-sb-hatch) 0 3px,
+    rgb(255 255 255 / 0) 3px 8px
   );
 }
 

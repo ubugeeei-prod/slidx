@@ -42,6 +42,20 @@ export function timeBar(plan: Plan, selected: number, jump: (slide: number) => v
     ),
   ];
 
+  // Hatched over whatever is past the slot, because a segment is opaque: the
+  // band ending underneath it is not something a reader can see, and "the last
+  // two slides are outside your twenty minutes" is the whole point of the
+  // picture.
+  if (plan.overSeconds > 0 && plan.slotShare !== undefined) {
+    children.push(
+      element("div", {
+        class: "slidx-sb-overrun",
+        style: `left: ${percent(plan.slotShare)}`,
+        "aria-hidden": "true",
+      }),
+    );
+  }
+
   // The label sits inside the band, to the left of the line that ends it, so it
   // has somewhere to go whether the slot ends at the far right or a third of
   // the way along.

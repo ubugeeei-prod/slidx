@@ -223,6 +223,16 @@ describe("the storyboard", () => {
     expect(segments[1]!.getAttribute("data-source")).toBe("estimate");
   });
 
+  it("marks off the part of the bar that is past the end of the slot", () => {
+    // A segment is opaque, so the band ending underneath one is not something a
+    // reader can see. Without this the overrun is a 1px line and a sentence.
+    const over = open(stateOf({ durationSeconds: 220 }));
+    expect(over.root.querySelector<HTMLElement>(".slidx-sb-overrun")!.style.left).toBe("91.6667%");
+
+    const fits = open();
+    expect(fits.root.querySelector(".slidx-sb-overrun")).toBeNull();
+  });
+
   it("shows the deck against the slot in words as well as in width", () => {
     const { root } = open();
 
