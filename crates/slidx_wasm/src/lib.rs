@@ -448,6 +448,24 @@ mod tests {
     }
 
     #[test]
+    fn dialect_findings_come_back_from_a_build_too() {
+        // The build is the last chance anything has to say this: a `steps:`
+        // entry addressing a mark that is not there compiles, ships, and then
+        // does nothing when the presenter clicks.
+        let result = build(
+            "---\nsteps:\n  - reveal: \"#reuslt\"\n---\n\nThe [result]{#result}.\n",
+            &BuildOptions::default(),
+        );
+
+        assert!(
+            result.diagnostics.iter().any(|finding| finding.code == "dialect/unknown-target"),
+            "{:?}",
+            result.diagnostics
+        );
+        assert!(!result.has_blocking, "a step that will not play still ships a deck");
+    }
+
+    #[test]
     fn the_theme_padding_is_what_a_declared_caption_strip_is_checked_against() {
         // The safe area is not a second number: it is the padding the shell
         // already enforces. Resolving the theme is the only place that number

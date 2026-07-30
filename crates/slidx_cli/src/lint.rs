@@ -119,12 +119,20 @@ pub fn project_root(linted: &Path) -> Option<PathBuf> {
     }
 }
 
-/// Parse diagnostics and lint findings, in that order.
+/// Parse diagnostics, dialect findings, and lint findings, in that order.
 ///
 /// The same order and the same set the wasm pipeline reports, so a deck that is
 /// clean here is a deck that builds clean. A parse problem comes first because
-/// it explains the lint findings underneath it: a slide that failed to parse
-/// lints as an empty slide.
+/// it explains everything underneath it: a slide that failed to parse lints as
+/// an empty slide.
+///
+/// The dialect check runs from this command rather than from one of its own, and
+/// the reason is what a person types. `slidx lint` is already what a CI job runs
+/// and already what an author runs before pushing; a `slidx check` beside it
+/// would mean a green `lint` did not say the deck was fine, and half the world's
+/// CI configs would only ever run one of the two. They answer different
+/// questions — the room, and the dialect — but both answer "is this deck ready",
+/// and that question has one command.
 fn collect(deck: &Deck, matches: &Matches) -> Vec<Diagnostic> {
     let theme = resolve_theme(matches.value("theme"), deck.meta.theme.as_deref());
     let surfaces = theme.surfaces();
@@ -136,6 +144,7 @@ fn collect(deck: &Deck, matches: &Matches) -> Vec<Diagnostic> {
     };
 
     let mut diagnostics: Vec<Diagnostic> = deck.diagnostics.iter().cloned().collect();
+    diagnostics.extend(slidx_dialect::check(deck, &options.allow));
     diagnostics.extend(lint(&LintInput::new(deck, &surfaces), &options));
 
     // A block placed in a region its layout does not have is decidable from the
@@ -379,9 +388,52 @@ mod tests {
 
     #[test]
     fn an_unknown_theme_name_falls_back_rather_than_failing_the_run() {
-        // A typo in `theme:` is already reported by the parser. Refusing to
-        // lint on top of that would hide every other finding behind it.
+        // Refusing to lint would hide every other finding behind one typo. The
+        // typo itself is reported by the dialect check, which is why falling
+        // back here is no longer silent.
         assert_eq!(resolve_theme(Some("no-such-theme"), None).id, slidx_theme::default_theme().id);
+    }
+
+    #[test]
+    fn a_dialect_mistake_is_reported_by_this_command() {
+        // Reachability, as a test rather than as an intention. A checker nothing
+        // runs is the failure this repository has already had three times.
+        let deck = parse("---\ntheme: editoral\ntransition: cube\n---\n\n# One\n");
+        let found = collect(&deck, &matches_for(""));
+        let codes: Vec<&str> = found.iter().map(|d| d.code.as_str()).collect();
+
+        assert!(codes.contains(&"dialect/unknown-theme"), "{codes:?}");
+        assert!(codes.contains(&"dialect/unknown-transition"), "{codes:?}");
+    }
+
+    #[test]
+    fn a_dialect_mistake_is_worth_a_look_rather_than_a_failed_run() {
+        // Blocking means content was dropped or the deck reaches the network.
+        // A misspelt transition renders — as a cut — so it must not fail
+        // somebody's CI build the way a remote asset does.
+        let deck = parse("---\ntransition: cube\n---\n\n# One\n");
+
+        assert_eq!(exit_code(&collect(&deck, &matches_for(""))), OK);
+    }
+
+    #[test]
+    fn the_dialect_group_can_be_switched_off_without_the_room_rules() {
+        // The reason they are their own group. An author concentrating on
+        // writing turns one of the two down, not both.
+        let deck = parse("---\ntransition: cube\n---\n\n# One\n\n![](./a.png)\n");
+        let quiet = collect(&deck, &matches_for("--allow dialect"));
+
+        assert!(quiet.iter().all(|d| !d.code.starts_with("dialect/")), "{quiet:?}");
+        assert!(quiet.iter().any(|d| d.code == "structure/missing-alt"), "{quiet:?}");
+    }
+
+    #[test]
+    fn the_room_rules_can_be_switched_off_without_the_dialect_group() {
+        let deck = parse("---\ntransition: cube\n---\n\n# One\n\n![](./a.png)\n");
+        let quiet = collect(&deck, &matches_for("--allow structure"));
+
+        assert!(quiet.iter().any(|d| d.code == "dialect/unknown-transition"), "{quiet:?}");
+        assert!(quiet.iter().all(|d| !d.code.starts_with("structure/")), "{quiet:?}");
     }
 
     #[test]

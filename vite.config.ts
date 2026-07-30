@@ -124,7 +124,13 @@ export default defineConfig({
         "check:dead-config",
         "check:flat",
       ]),
-      "ci:rust": group(["fmt:rust-check", "lint:rust", "test:rust", "check:deck-fmt"]),
+      "ci:rust": group([
+        "fmt:rust-check",
+        "lint:rust",
+        "test:rust",
+        "check:deck-fmt",
+        "check:deck-lint",
+      ]),
       "ci:ts": group(["fmt:ts-check", "check:ts", "check:types", "test:ts"]),
       "ci:build": group(["build:rust", "build:packages", "check:packages-built"]),
 
@@ -138,6 +144,7 @@ export default defineConfig({
         "fmt:ts-check",
         "lint:rust",
         "check:deck-fmt",
+        "check:deck-lint",
         "check:ts",
         "check:types",
       ]),
@@ -181,6 +188,17 @@ export default defineConfig({
       // task that blocks on a lock belongs beside the ones holding it.
       "check:deck-fmt": uncached(
         "cargo run -q -p slidx_cli --bin slidx -- fmt examples/deck/slides --check",
+        { dependsOn: ["check:rust"] },
+      ),
+
+      // And to slidx's own rules, which is the half a formatter cannot see.
+      //
+      // Both halves of what `slidx lint` reports: what a room does to a slide,
+      // and whether the deck asks for something that will happen. An example
+      // deck naming a theme or a step target that does not exist teaches
+      // whoever copies it to do the same.
+      "check:deck-lint": uncached(
+        "cargo run -q -p slidx_cli --bin slidx -- lint examples/deck/slides",
         { dependsOn: ["check:rust"] },
       ),
       "test:rust-verbose": uncached("cargo test --workspace -- --nocapture"),

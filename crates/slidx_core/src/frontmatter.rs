@@ -65,15 +65,22 @@ pub fn parse(source: &str, line: u32, diagnostics: &mut Diagnostics) -> JsonValu
 /// Authors reasonably write either, and rejecting one of them is the kind of
 /// papercut that makes a tool feel hostile.
 pub fn string(value: &JsonValue, key: &str) -> Option<String> {
-    lookup(value, key).and_then(JsonValue::as_str).map(str::to_string)
+    field(value, key).and_then(JsonValue::as_str).map(str::to_string)
 }
 
 /// Reads a boolean field.
 pub fn boolean(value: &JsonValue, key: &str) -> Option<bool> {
-    lookup(value, key).and_then(JsonValue::as_bool)
+    field(value, key).and_then(JsonValue::as_bool)
 }
 
-fn lookup<'a>(value: &'a JsonValue, key: &str) -> Option<&'a JsonValue> {
+/// Finds a field under either spelling an author may have written.
+///
+/// The one place that knows `autoSteps` and `auto-steps` are the same key, so
+/// every reader agrees. Public because asking *whether a key was written at
+/// all* is a different question from reading its value, and the dialect check
+/// needs it: a `duration:` nobody can parse is silently dropped, and the only
+/// way to tell that from a deck that named no duration is to look for the key.
+pub fn field<'a>(value: &'a JsonValue, key: &str) -> Option<&'a JsonValue> {
     value.get(key).or_else(|| value.get(kebab_case(key)))
 }
 
@@ -95,7 +102,7 @@ fn kebab_case(key: &str) -> String {
 /// Slot lengths are quoted in minutes in every CFP, and typing `1500` for a
 /// 25-minute talk is an invitation to get it wrong.
 pub fn duration_seconds(value: &JsonValue, key: &str) -> Option<u32> {
-    let field = lookup(value, key)?;
+    let field = field(value, key)?;
 
     if let Some(number) = field.as_u64() {
         return Some(number as u32);
@@ -170,7 +177,7 @@ pub fn parse_duration(text: &str) -> Option<u32> {
 /// a silent failure that looks like a transition bug rather than a spelling
 /// one.
 pub fn transition(value: &JsonValue, diagnostics: &mut Diagnostics) -> Option<String> {
-    let field = lookup(value, "transition")?;
+    let field = field(value, "transition")?;
 
     if field == &JsonValue::Bool(false) {
         return Some("none".to_string());
@@ -235,7 +242,7 @@ pub fn deck_meta(value: &JsonValue, diagnostics: &mut Diagnostics) -> DeckMeta {
 /// deck-wide default — the slide would look identical to one that never
 /// mentioned the option.
 pub fn auto_steps(value: &JsonValue, diagnostics: &mut Diagnostics) -> Option<Option<AutoSteps>> {
-    let field = lookup(value, "autoSteps")?;
+    let field = field(value, "autoSteps")?;
 
     if field == &JsonValue::Bool(false) {
         return Some(None);

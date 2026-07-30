@@ -139,7 +139,11 @@ pub fn analyze(source: &str) -> Analysis {
         })
         .collect();
 
+    // Parse, then dialect, then room. The dialect findings come second because
+    // they explain the ones under them: a `theme:` nobody can resolve is why the
+    // contrast findings below it are the default theme's.
     let mut findings = deck.diagnostics.clone();
+    findings.extend(slidx_dialect::check(&deck, &[]));
     findings.extend(lint_deck(&deck));
 
     Analysis {
@@ -156,11 +160,12 @@ pub fn analyze(source: &str) -> Analysis {
 ///
 /// Resolving the theme is what makes contrast and font-size findings real: a
 /// deck on `terminal` and one on `contrast` fail different rules, and linting
-/// both against the default would report the wrong answer for one of them. An
-/// unknown name falls back to the default rather than reporting a second
-/// problem — the completion list for `theme:` is where a typo gets caught, and
-/// a language server that invents diagnostics is a fourth opinion nobody
-/// asked for.
+/// both against the default would report the wrong answer for one of them.
+///
+/// An unknown name falls back to the default here rather than being reported
+/// here. It is reported — `slidx_dialect` says so, above — and this crate still
+/// invents nothing: the finding carries that crate's code and remedy, the same
+/// ones `slidx lint` prints.
 fn lint_deck(deck: &Deck) -> Diagnostics {
     let theme = deck
         .meta
@@ -332,10 +337,30 @@ mod tests {
     }
 
     #[test]
-    fn an_unknown_theme_falls_back_rather_than_adding_an_opinion() {
+    fn an_unknown_theme_is_reported_once_and_still_lints_against_the_default() {
+        // The completion list is where a typo is *prevented*; the dialect check
+        // is where a typo already in the file is reported. This crate invents
+        // neither — it publishes the finding that crate produced, so the editor
+        // and `slidx lint` say the same sentence.
         let analysis = analyze("---\ntheme: termnal\n---\n\n# One\n");
+        let codes: Vec<&str> =
+            analysis.findings.iter().map(|finding| finding.code.as_str()).collect();
 
-        assert!(analysis.findings.is_empty(), "the completion list is where a typo is caught");
+        assert_eq!(codes, vec!["dialect/unknown-theme"], "and no second opinion beside it");
+    }
+
+    #[test]
+    fn a_step_addressing_a_mark_that_is_not_there_is_reported_as_the_author_types() {
+        // The finding worth having in an editor: the stop exists, so nothing
+        // downstream complains, and the presenter discovers it on stage.
+        let analysis =
+            analyze("---\nsteps:\n  - reveal: \"#reuslt\"\n---\n\nThe [result]{#result}.\n");
+
+        assert!(
+            analysis.findings.iter().any(|finding| finding.code == "dialect/unknown-target"),
+            "{:?}",
+            analysis.findings
+        );
     }
 
     #[test]

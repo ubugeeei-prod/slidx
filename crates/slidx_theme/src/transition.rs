@@ -29,7 +29,6 @@
 use std::fmt::Write as _;
 
 use serde::{Deserialize, Serialize};
-use slidx_core::{Diagnostic, Diagnostics, SourceSpan};
 
 use crate::theme::Theme;
 
@@ -96,30 +95,15 @@ impl Transition {
     }
 }
 
-/// Resolves an authored token, reporting a typo rather than absorbing it.
-///
-/// Takes a span because a deck is sixty slides long and "unknown transition"
-/// without a line number is a diagnostic the author has to go looking for.
-pub fn resolve(token: Option<&str>, span: SourceSpan, diagnostics: &mut Diagnostics) -> Transition {
-    let Some(token) = token else {
-        return Transition::None;
-    };
-
-    Transition::parse(token).unwrap_or_else(|| {
-        diagnostics.push(
-            Diagnostic::warning(
-                "theme/unknown-transition",
-                format!("unknown transition `{token}`"),
-            )
-            .at(span)
-            .with_help(format!("use one of {}", vocabulary())),
-        );
-        Transition::None
-    })
-}
-
 /// The offered tokens, as help text. Derived so it cannot drift from [`Transition::ALL`].
-fn vocabulary() -> String {
+///
+/// Read by `slidx_dialect`, which is where a token outside the set is reported.
+/// This module used to carry a `resolve` that reported it and had no caller
+/// anywhere: the shell resolves with `parse().unwrap_or_default()`, so a typo was
+/// an instant cut and the author concluded their browser lacked the feature.
+/// Reporting now happens in the one place that reports on a deck's dialect, and
+/// this file keeps the vocabulary — which is the part nobody should restate.
+pub fn vocabulary() -> String {
     let tokens: Vec<String> =
         Transition::ALL.iter().map(|kind| format!("`{}`", kind.as_token())).collect();
 
@@ -351,41 +335,14 @@ mod tests {
     }
 
     #[test]
-    fn resolving_an_unknown_token_warns_and_falls_back() {
-        let mut diagnostics = Diagnostics::default();
-        let resolved = resolve(Some("cube"), SourceSpan::default(), &mut diagnostics);
-
-        assert_eq!(resolved, Transition::None);
-        assert_eq!(diagnostics.as_slice()[0].code, "theme/unknown-transition");
-        assert!(!diagnostics.has_blocking(), "a typo must not stop a deck rendering");
-    }
-
-    #[test]
-    fn the_warning_names_every_transition_on_offer() {
-        let mut diagnostics = Diagnostics::default();
-        resolve(Some("cube"), SourceSpan::default(), &mut diagnostics);
-        let help = diagnostics.as_slice()[0].help.clone().unwrap();
+    fn the_vocabulary_names_every_transition_on_offer() {
+        // It is help text in somebody's terminal, and a transition missing from
+        // it is one they will never find out exists.
+        let help = vocabulary();
 
         for kind in Transition::ALL {
             assert!(help.contains(kind.as_token()), "help omits `{}`", kind.as_token());
         }
-    }
-
-    #[test]
-    fn the_warning_points_at_the_slide_that_carries_the_typo() {
-        let mut diagnostics = Diagnostics::default();
-        resolve(Some("cube"), SourceSpan::line(12).on_slide(3), &mut diagnostics);
-
-        assert_eq!(diagnostics.as_slice()[0].span.line, 12);
-        assert_eq!(diagnostics.as_slice()[0].span.slide_index, Some(3));
-    }
-
-    #[test]
-    fn a_deck_that_names_no_transition_resolves_quietly() {
-        let mut diagnostics = Diagnostics::default();
-
-        assert_eq!(resolve(None, SourceSpan::default(), &mut diagnostics), Transition::None);
-        assert!(diagnostics.is_empty(), "silence is not a mistake");
     }
 
     #[test]
