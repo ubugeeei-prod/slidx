@@ -5,12 +5,24 @@ to both registries with GitHub OIDC — **no publish token is stored in this
 repository, and none should ever be added**.
 
 ```bash
-git tag v0.1.0 && git push origin v0.1.0
+vp run release minor
 ```
 
-The tag must match `version` in `[workspace.package]`. CI checks it before it
-publishes anything, because a mismatch is only visible once it is permanent on
-a registry.
+`major`, `minor` or `patch`. It writes the version into every place one lives —
+the Cargo workspace, the version each crate is required at by its siblings, the
+lockfile, and every publishable `package.json` — commits that, and pushes the
+tag. `--dry-run` writes the tree and stops before the commit.
+
+It refuses for the four reasons a release goes wrong before it starts: a dirty
+tree, a branch that is not `main`, a tag that already exists, and a `HEAD` that
+is not `origin/main`. Then it runs `check:version` against the tag it is about
+to create — the same check the release workflow runs before it publishes — so a
+version living somewhere this script does not know about stops the release
+here rather than halfway through a registry.
+
+The tag must match `version` in `[workspace.package]`; that is what
+`check:version` is asserting. A mismatch is otherwise only visible once it is
+permanent on a registry.
 
 ## What CI does
 

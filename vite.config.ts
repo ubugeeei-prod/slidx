@@ -307,6 +307,12 @@ export default defineConfig({
       // reporting a miss on every run.
       "test:ts": uncached(builtin("vp test"), { dependsOn: ["build:packages"] }),
 
+      // Cutting a release. `vp run release minor` writes the version everywhere
+      // it lives, runs `check:version` against the tag it is about to create,
+      // and pushes that tag — which starts a publish nobody can take back.
+      // Uncached for the obvious reason: it is not a function of the tree.
+      release: uncached("node scripts/release.mjs"),
+
       "check:conventions": task("node scripts/check-conventions.mjs"),
       "check:dead-config": task("node scripts/check-dead-config.mjs"),
 
