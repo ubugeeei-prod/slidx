@@ -30,6 +30,15 @@
 //! exactly, in the browser the build already launches for the PDF and the
 //! social cards, and it reports `overflow/clipped` from there. Where there is
 //! no browser there is no finding, rather than a guess wearing a number.
+//!
+//! # A region is its own box
+//!
+//! A layout gives each region its own grid track, so a region can lose content
+//! while the slide as a whole fits: a column a third of the width holds a third
+//! of the line, and the body's own scroll height never notices. So the browser
+//! measures each region as well as the slide, every box gets its own finding, and
+//! the finding names the region — "the slide is too tall" would send an author
+//! looking at the wrong half of it.
 
 use slidx_core::{Diagnostic, Diagnostics, Severity, Slide, SourceSpan};
 
@@ -125,10 +134,14 @@ pub fn check_measured(input: &LintInput<'_>, _options: &LintOptions, sink: &mut 
             // The worst stop rather than every stop: ten reveals over the same
             // box is one problem with one slide, and ten copies of it is a
             // report nobody reads to the end of.
-            let Some(worst) = worst_stop(input.measured, slide.index, axis) else { continue };
-
-            if axis.of(worst) >= ROUNDING {
-                sink.push(clipped(slide, worst, axis));
+            //
+            // The slide and each of its regions are separate boxes, so each gets
+            // its own worst stop — a region that loses a column of text while
+            // the slide as a whole fits is invisible in the slide's own numbers.
+            for measured in worst_per_box(input.measured, slide.index, axis) {
+                if axis.of(measured) >= ROUNDING {
+                    sink.push(clipped(slide, measured, axis));
+                }
             }
         }
     }
@@ -142,7 +155,7 @@ enum Axis {
 }
 
 impl Axis {
-    fn of(self, measured: Measurement) -> f64 {
+    fn of(self, measured: &Measurement) -> f64 {
         match self {
             Self::Height => measured.over_height,
             Self::Width => measured.over_width,
@@ -150,15 +163,35 @@ impl Axis {
     }
 }
 
-fn worst_stop(measured: &[Measurement], slide_index: u32, axis: Axis) -> Option<Measurement> {
-    measured
+/// The worst stop for the slide's own box and for each of its regions.
+///
+/// Ordered slide-first and then by region name, so a report is stable across
+/// runs: the browser hands back regions in document order, which is the layout's
+/// order and not something a reader can predict.
+fn worst_per_box(measured: &[Measurement], slide_index: u32, axis: Axis) -> Vec<&Measurement> {
+    let mut boxes: Vec<Option<&str>> = measured
         .iter()
         .filter(|found| found.slide_index == slide_index)
-        .max_by(|a, b| axis.of(**a).total_cmp(&axis.of(**b)))
-        .copied()
+        .map(|found| found.region.as_deref())
+        .collect();
+
+    boxes.sort_unstable();
+    boxes.dedup();
+
+    boxes
+        .into_iter()
+        .filter_map(|region| {
+            measured
+                .iter()
+                .filter(|found| {
+                    found.slide_index == slide_index && found.region.as_deref() == region
+                })
+                .max_by(|a, b| axis.of(a).total_cmp(&axis.of(b)))
+        })
+        .collect()
 }
 
-fn clipped(slide: &Slide, found: Measurement, axis: Axis) -> Diagnostic {
+fn clipped(slide: &Slide, found: &Measurement, axis: Axis) -> Diagnostic {
     let over = axis.of(found);
     let severity = if over >= CUTTING_SHARE { Severity::Error } else { Severity::Warning };
 
@@ -166,23 +199,40 @@ fn clipped(slide: &Slide, found: Measurement, axis: Axis) -> Diagnostic {
     // it. Repeating it here would read as two slides.
     let at = if found.stop == 0 { String::new() } else { format!("at stop {}, ", found.stop + 1) };
 
-    let (bigger, edge, help) = match axis {
-        Axis::Height => (
+    // A region is its own box, so its own overflow. Saying "the slide" when one
+    // column of two is the problem sends an author looking at the wrong half.
+    let (what, box_) = match &found.region {
+        Some(region) => (format!("the `{region}` region's content"), "region"),
+        None => ("the content".to_string(), "design box"),
+    };
+
+    let (bigger, edge, help) = match (axis, found.region.is_some()) {
+        (Axis::Height, false) => (
             "taller",
             "the bottom of it is cut off",
             "split the slide, or move something to the next one — the shell will not shrink type to fit",
         ),
-        Axis::Width => (
+        (Axis::Height, true) => (
+            "taller",
+            "the bottom of it is cut off",
+            "move a block to another region, or split the slide — a region does not shrink type to fit either",
+        ),
+        (Axis::Width, false) => (
             "wider",
             "the right of it is cut off",
             "shorten the longest line; a code block that scrolls on a laptop is simply missing on a wall",
+        ),
+        (Axis::Width, true) => (
+            "wider",
+            "the right of it is cut off",
+            "a region is narrower than the slide, so a line that fitted before the block was moved need not fit now",
         ),
     };
 
     Diagnostic::new(
         "overflow/clipped",
         severity,
-        format!("{at}the content is {} {bigger} than the design box, and {edge}", percent(over)),
+        format!("{at}{what} is {} {bigger} than the {box_}, and {edge}", percent(over)),
     )
     .at(SourceSpan::line(slide.source_line).on_slide(slide.index))
     .with_help(help)
@@ -464,6 +514,56 @@ mod tests {
             // reporting nothing.
             let measured = [Measurement::new(9, 0).over(0.5, 0.0)];
             assert!(lint_deck_measured(DECK, &measured).is_empty());
+        }
+
+        #[test]
+        fn a_region_that_overflows_while_the_slide_fits_is_still_reported() {
+            // The failure a layout introduces: a two-column slide whose right
+            // column has lost its last three lines fits perfectly as a slide.
+            let measured =
+                [Measurement::new(0, 0), Measurement::new(0, 0).over(0.2, 0.0).in_region("right")];
+            let diagnostics = lint_deck_measured(DECK, &measured);
+
+            assert_eq!(diagnostics.len(), 1);
+            assert!(diagnostics.as_slice()[0].message.contains("`right`"));
+        }
+
+        #[test]
+        fn a_regions_finding_says_to_move_a_block_rather_than_to_split_the_slide() {
+            // Splitting a slide whose other column is half empty is the wrong
+            // fix, and help nobody follows is help that teaches them to stop
+            // reading it.
+            let measured = [Measurement::new(0, 0).over(0.2, 0.0).in_region("side")];
+            let help = lint_deck_measured(DECK, &measured).as_slice()[0].help.clone().unwrap();
+
+            assert!(help.contains("another region"), "got: {help}");
+        }
+
+        #[test]
+        fn the_slide_and_a_region_over_the_same_box_are_two_findings() {
+            // Two boxes, two fixes: the slide is too tall *and* one region of it
+            // is losing content on its own.
+            let measured = [
+                Measurement::new(0, 0).over(0.2, 0.0),
+                Measurement::new(0, 0).over(0.3, 0.0).in_region("side"),
+            ];
+            let diagnostics = lint_deck_measured(DECK, &measured);
+
+            assert_eq!(diagnostics.len(), 2);
+            assert!(diagnostics.iter().any(|d| !d.message.contains("region")));
+            assert!(diagnostics.iter().any(|d| d.message.contains("`side`")));
+        }
+
+        #[test]
+        fn one_region_is_reported_once_however_many_stops_overflow() {
+            let measured = [
+                Measurement::new(0, 1).over(0.18, 0.0).in_region("side"),
+                Measurement::new(0, 2).over(0.24, 0.0).in_region("side"),
+            ];
+            let diagnostics = lint_deck_measured(DECK, &measured);
+
+            assert_eq!(diagnostics.len(), 1);
+            assert!(diagnostics.as_slice()[0].message.contains("24%"));
         }
 
         #[test]

@@ -13,7 +13,8 @@ use slidx_core::{Deck, Slide, DEMO_ATTRIBUTE};
 use slidx_theme::{css, transition, Theme};
 
 use crate::layout;
-use crate::markdown::{render, MarkdownOptions};
+use crate::markdown::MarkdownOptions;
+use crate::region;
 
 /// How to build a slide page.
 #[derive(Debug, Clone)]
@@ -40,7 +41,15 @@ impl Default for ShellOptions {
 
 /// Renders one slide as a complete HTML document.
 pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> String {
-    let body = render(&crate::snippet::stage(deck, slide, &options.theme), &options.markdown);
+    let slide_layout = region::layout_of(slide);
+    let body = region::body(
+        deck,
+        slide,
+        &slide_layout,
+        &options.theme,
+        &options.markdown,
+        &demo_markup(slide),
+    );
     let (width, height) = deck.meta.aspect.dimensions();
 
     let title = match (&slide.title, &deck.meta.title) {
@@ -62,6 +71,7 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
 {description}<style>
 {theme_css}
 {shell_css}
+{layout_css}
 {transition_css}
 </style>
 </head>
@@ -69,8 +79,7 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
 <main class="slidx-deck">
   <article class="slidx-slide" data-slidx-layout="{slide_layout}" style="--slidx-slide-width: {width}; --slidx-slide-height: {height}">
     <div class="slidx-slide-body">
-{body}
-{demo}    </div>
+{body}    </div>
     <footer class="slidx-slide-footer">
       <span class="slidx-slide-brand">{brand}</span>
       <span class="slidx-slide-number">{number} / {count}</span>
@@ -91,12 +100,12 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
             .unwrap_or_default(),
         theme_css = css::render(&options.theme),
         shell_css = layout::STYLESHEET,
+        layout_css = slidx_theme::layout::css(&slidx_theme::layout::all()),
         transition_css = transition_css(deck, slide, &options.theme),
-        slide_layout = slide.layout.as_deref().unwrap_or("stack"),
+        slide_layout = slide_layout.id,
         width = width,
         height = height,
         body = body,
-        demo = demo_markup(slide),
         brand = escape(
             deck.meta
                 .talk

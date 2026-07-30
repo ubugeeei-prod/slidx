@@ -108,7 +108,8 @@ impl Mark {
     ///
     /// Order is fixed — key, then classes as written, then properties sorted —
     /// so re-saving a deck never reorders an attribute list and never produces
-    /// a diff the author did not ask for.
+    /// a diff the author did not ask for. The ordering itself lives in
+    /// [`crate::attributes`], which every place that writes a group shares.
     pub fn to_source(&self) -> String {
         if self.is_bare() {
             return escape_text(&self.text);
@@ -119,37 +120,14 @@ impl Mark {
 
     /// Canonical attribute list, without the braces around it.
     ///
-    /// Split out from [`Mark::to_source`] for the formatter, which rewrites
-    /// the attribute group in place and must not touch the marked text: the
-    /// text is prose, and re-emitting it would escape brackets the author
-    /// typed. Both callers therefore agree on the order by construction.
+    /// Split out from [`Mark::to_source`] for the formatter, which rewrites the
+    /// attribute group in place and must not touch the marked text: the text is
+    /// prose, and re-emitting it would escape brackets the author typed. Both
+    /// callers agree on the order by construction, because both get it from
+    /// [`crate::attributes`].
     pub fn attributes_source(&self) -> String {
-        let mut attributes = Vec::new();
-
-        if let Some(key) = &self.key {
-            attributes.push(format!("#{key}"));
-        }
-        for class in &self.classes {
-            attributes.push(format!(".{class}"));
-        }
-        for (name, value) in &self.properties {
-            attributes.push(format!("{name}={}", quote(value)));
-        }
-
-        attributes.join(" ")
+        crate::attributes::render(self.key.as_deref(), &self.classes, &self.properties)
     }
-}
-
-/// Wraps a value in quotes only when it needs them.
-fn quote(value: &str) -> String {
-    let needs_quotes = value.is_empty()
-        || value.chars().any(|c| c.is_whitespace() || matches!(c, '"' | '\'' | '}' | '='));
-
-    if !needs_quotes {
-        return value.to_string();
-    }
-
-    format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
 }
 
 /// Escapes the characters that would otherwise start a mark.

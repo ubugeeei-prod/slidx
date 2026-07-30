@@ -14,8 +14,9 @@
 use slidx_core::Deck;
 use slidx_theme::{css, Theme};
 
-use crate::markdown::{render, MarkdownOptions};
+use crate::markdown::MarkdownOptions;
 use crate::print_layout;
+use crate::region;
 
 /// How to build the print shell.
 #[derive(Debug, Clone)]
@@ -56,6 +57,8 @@ pub fn render_print(deck: &Deck, options: &PrintOptions) -> String {
         .slides
         .iter()
         .map(|slide| {
+            let slide_layout = region::layout_of(slide);
+
             format!(
                 // The size custom properties go on the *page*, because that is
                 // the element whose `aspect-ratio` uses them. Putting them on
@@ -64,8 +67,7 @@ pub fn render_print(deck: &Deck, options: &PrintOptions) -> String {
                 r#"  <section class="slidx-page" data-slidx-slide="{index}" data-slidx-stops="{stops}" style="--slidx-slide-width: {width}; --slidx-slide-height: {height}">
     <article class="slidx-slide" data-slidx-layout="{layout}">
       <div class="slidx-slide-body">
-{body}
-      </div>
+{body}      </div>
       <footer class="slidx-slide-footer">
         <span class="slidx-slide-brand">{brand}</span>
         <span class="slidx-slide-number">{number}</span>
@@ -74,12 +76,16 @@ pub fn render_print(deck: &Deck, options: &PrintOptions) -> String {
   </section>"#,
                 index = slide.index,
                 stops = slide.timeline.len(),
-                layout = slide.layout.as_deref().unwrap_or("stack"),
+                layout = slide_layout.id,
                 width = width,
                 height = height,
-                body = render(
-                    &crate::snippet::stage(deck, slide, &options.theme),
+                body = region::body(
+                    deck,
+                    slide,
+                    &slide_layout,
+                    &options.theme,
                     &options.markdown,
+                    "",
                 ),
                 brand = escape(&brand(deck)),
                 number = slide.index + 1,
@@ -97,6 +103,7 @@ pub fn render_print(deck: &Deck, options: &PrintOptions) -> String {
 <style>
 {theme_css}
 {print_css}
+{layout_css}
 @page {{ size: {page_size}; margin: 0; }}
 </style>
 </head>
@@ -113,6 +120,7 @@ pub fn render_print(deck: &Deck, options: &PrintOptions) -> String {
         title = escape(deck.meta.title.as_deref().unwrap_or("slidx")),
         theme_css = css::render(&options.theme),
         print_css = print_layout::STYLESHEET,
+        layout_css = slidx_theme::layout::css(&slidx_theme::layout::all()),
         page_size = options
             .page_size
             .clone()

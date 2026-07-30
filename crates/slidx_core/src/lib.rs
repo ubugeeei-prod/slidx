@@ -46,6 +46,8 @@
 #![deny(missing_debug_implementations)]
 #![warn(clippy::all)]
 
+pub mod attributes;
+pub mod block;
 pub mod demo;
 pub mod diagnostic;
 pub mod frontmatter;
@@ -60,6 +62,8 @@ pub mod slug;
 pub mod span;
 pub mod steps;
 
+pub use attributes::Attributes;
+pub use block::{extract_blocks, find_blocks, Block, ExtractedBlocks, FoundBlock};
 pub use demo::{Demo, DEMO_ATTRIBUTE};
 pub use diagnostic::{Diagnostic, Diagnostics, Severity, SourceSpan};
 pub use grid::{step_grid, StepGrid, StepKind, StepPlacement, StepRow};

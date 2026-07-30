@@ -107,76 +107,20 @@ fn matching_bracket(bytes: &[u8], open: usize) -> Option<usize> {
     None
 }
 
+/// Builds a mark from the two halves a `[text]{attributes}` match yields.
+///
+/// The attribute grammar is [`crate::attributes`]'s and is not repeated here.
+/// One grammar with two parsers is one grammar with two answers, and the mark's
+/// spelling is the one an author learns first.
 fn build(text: &str, attributes: &str) -> Option<Mark> {
-    let mut mark = Mark::new(unescape(text));
-    let mut saw_attribute = false;
+    let parsed = crate::attributes::parse(attributes)?;
 
-    for token in tokenize(attributes) {
-        saw_attribute = true;
-        if let Some(key) = token.strip_prefix('#') {
-            if key.is_empty() {
-                return None;
-            }
-            mark.key = Some(key.to_string());
-        } else if let Some(class) = token.strip_prefix('.') {
-            if class.is_empty() {
-                return None;
-            }
-            mark.classes.push(class.to_string());
-        } else if let Some((name, value)) = token.split_once('=') {
-            if name.is_empty() {
-                return None;
-            }
-            mark.properties.insert(name.to_string(), unquote(value));
-        } else {
-            // A bare word is shorthand for a class, so `[x]{accent}` works.
-            mark.classes.push(token);
-        }
-    }
-
-    saw_attribute.then_some(mark)
-}
-
-/// Splits an attribute list, keeping quoted values whole.
-fn tokenize(attributes: &str) -> Vec<String> {
-    let mut tokens = Vec::new();
-    let mut current = String::new();
-    let mut quoted = false;
-    let mut escaped = false;
-
-    for character in attributes.chars() {
-        match character {
-            _ if escaped => {
-                current.push(character);
-                escaped = false;
-            }
-            '\\' => escaped = true,
-            '"' => {
-                quoted = !quoted;
-                current.push(character);
-            }
-            c if c.is_whitespace() && !quoted => {
-                if !current.is_empty() {
-                    tokens.push(std::mem::take(&mut current));
-                }
-            }
-            c => current.push(c),
-        }
-    }
-
-    if !current.is_empty() {
-        tokens.push(current);
-    }
-
-    tokens
-}
-
-fn unquote(value: &str) -> String {
-    let trimmed = value.trim();
-    match trimmed.strip_prefix('"').and_then(|rest| rest.strip_suffix('"')) {
-        Some(inner) => inner.replace("\\\"", "\"").replace("\\\\", "\\"),
-        None => trimmed.to_string(),
-    }
+    Some(Mark {
+        text: unescape(text),
+        key: parsed.key,
+        classes: parsed.classes,
+        properties: parsed.properties,
+    })
 }
 
 fn unescape(text: &str) -> String {

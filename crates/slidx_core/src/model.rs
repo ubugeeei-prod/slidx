@@ -145,6 +145,15 @@ pub struct Slide {
     /// Inline marks in source order, so the editor can list what a slide
     /// addresses without re-parsing it.
     pub marks: Vec<crate::mark::Mark>,
+    /// Top-level blocks in source order, spanning [`content`](Self::content),
+    /// each with whatever its attribute line said about it.
+    ///
+    /// Carried for the same reason `marks` is: the editor and the renderer both
+    /// need to point at part of a slide, and re-deriving it is work every reader
+    /// would repeat. Which class names a layout region is *not* resolved here —
+    /// a region belongs to a theme, and this crate has never heard of one.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub blocks: Vec<crate::block::Block>,
     pub steps: StepSource,
     pub timeline: StepTimeline,
     /// One-based line in the source file, for diagnostics and editor jumps.

@@ -1,0 +1,293 @@
+//! A slide body, rendered block by block into the regions its layout declares.
+//!
+//! Not to be confused with [`crate::layout`], which is the shell *stylesheet*.
+//! This module is about slide layout: where on the slide a block ends up.
+//!
+//! # What the markup has to make true
+//!
+//! **A block is a box.** Each one gets a wrapper element carrying its index, so
+//! the editor can measure a block, highlight it, and drop it somewhere without
+//! guessing which rendered element came from which line of Markdown. A block that
+//! did not lay out — `display: contents` — would measure as zero and be
+//! invisible to every overlay.
+//!
+//! **A region is a box.** The regions are the direct children of the body, which
+//! is the grid, so a region is one `grid-area` and the theme owns where it is.
+//!
+//! **Anchors stay with what they stage.** A step marker on its own line resolves
+//! to the anchor's previous element sibling, so `slidx_core` keeps an
+//! anchor-only chunk inside the block above it and the two land in the same
+//! region however the block is moved.
+//!
+//! # Why per region rather than per block
+//!
+//! Markdown is parsed once per region rather than once per block: a footnote
+//! definition, a reference link, and a loose list all mean something across
+//! blocks, and rendering each block alone would break them for no gain. A region
+//! is the smallest unit whose content is genuinely independent, because it is
+//! laid out independently.
+
+use slidx_core::{Block, Deck, Slide};
+use slidx_theme::layout::{css::REGION_ATTRIBUTE, place, Layout};
+use slidx_theme::Theme;
+
+use crate::markdown::{render, MarkdownOptions};
+
+/// Attribute carrying a block's index in source order.
+pub const BLOCK_ATTRIBUTE: &str = "data-slidx-block";
+
+/// The layout a slide renders with.
+///
+/// An unknown name falls back to the default rather than failing: the diagnostic
+/// was already reported by [`slidx_theme::layout::diagnose`], and a slide that
+/// refused to render because of a typo is a speaker with nothing on the wall.
+pub fn layout_of(slide: &Slide) -> Layout {
+    slide
+        .layout
+        .as_deref()
+        .and_then(slidx_theme::layout::find)
+        .unwrap_or_else(slidx_theme::layout::default_layout)
+}
+
+/// The inner HTML of `.slidx-slide-body`, one element per region.
+///
+/// `appended` goes into the default region rather than beside the regions: a
+/// direct child of the grid that no layout has an area for would be placed in an
+/// implicit track, which moves everything else down.
+pub fn body(
+    deck: &Deck,
+    slide: &Slide,
+    layout: &Layout,
+    theme: &Theme,
+    options: &MarkdownOptions,
+    appended: &str,
+) -> String {
+    let placement = place(&slide.blocks, layout);
+    let sources = block_sources(deck, slide, theme);
+    let default = layout.fallback().name.clone();
+
+    placement
+        .regions
+        .iter()
+        .map(|region| {
+            let blocks: String = region
+                .blocks
+                .iter()
+                .filter_map(|at| sources.get(*at).map(|markdown| (*at, markdown)))
+                .map(|(at, markdown)| wrap(at, &render(markdown, options)))
+                .collect();
+
+            let extra = if region.region.name == default { appended } else { "" };
+
+            format!(
+                "      <div class=\"slidx-region\" {REGION_ATTRIBUTE}=\"{name}\">\n{blocks}{extra}      </div>\n",
+                name = region.region.name,
+            )
+        })
+        .collect()
+}
+
+fn wrap(index: usize, html: &str) -> String {
+    // The rendered Markdown is emitted verbatim. Indenting it would indent the
+    // inside of every `<pre>`, where whitespace is content.
+    format!("        <div class=\"slidx-block\" {BLOCK_ATTRIBUTE}=\"{index}\">\n{html}\n        </div>\n")
+}
+
+/// Each block's Markdown, with any shared-code figure that belongs to it.
+///
+/// The figures are placed here rather than by [`crate::snippet::stage`] because a
+/// block that moves region has to take its code with it. Their offsets are into
+/// the slide's own content, which is what the block spans are measured in.
+fn block_sources(deck: &Deck, slide: &Slide, theme: &Theme) -> Vec<String> {
+    let figures = crate::snippet::figures(deck, slide, theme);
+
+    let mut sources: Vec<String> = slide
+        .blocks
+        .iter()
+        .map(|block: &Block| block.span.slice(&slide.content).to_string())
+        .collect();
+
+    for figure in figures {
+        // The last block that begins before the code does. A figure sits just
+        // past the fence it belongs to, which is inside or at the end of that
+        // block's span.
+        let owner = slide.blocks.iter().rposition(|block| block.span.start < figure.after);
+
+        match owner.and_then(|at| sources.get_mut(at)) {
+            Some(source) => source.push_str(&figure.html),
+            // No block to attach to, which means the slide is nothing but a
+            // fence the parser could not close. The code still ships.
+            None => sources.push(figure.html),
+        }
+    }
+
+    sources
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use slidx_core::{parse_deck, DeckParseOptions};
+
+    fn rendered(source: &str) -> String {
+        let deck = parse_deck(source, &DeckParseOptions::default());
+        let slide = &deck.slides[0];
+
+        body(
+            &deck,
+            slide,
+            &layout_of(slide),
+            &slidx_theme::default_theme(),
+            &MarkdownOptions::default(),
+            "",
+        )
+    }
+
+    /// What is inside one region of the rendered body.
+    fn region(html: &str, name: &str) -> String {
+        let open = format!("{REGION_ATTRIBUTE}=\"{name}\"");
+        let at = html.find(&open).unwrap_or_else(|| panic!("no {name} region in {html}"));
+        let rest = &html[at..];
+
+        rest[..rest.find("</div>\n      </div>").map_or(rest.len(), |end| end)].to_string()
+    }
+
+    #[test]
+    fn a_slide_that_places_nothing_puts_everything_in_the_default_region() {
+        let html = rendered("# One\n\n- a\n- b\n");
+
+        assert!(html.contains("data-slidx-region=\"body\""));
+        assert!(html.contains("<h1"));
+        assert!(html.contains("<li>a</li>"));
+    }
+
+    #[test]
+    fn a_block_that_names_a_region_is_rendered_inside_it() {
+        let html = rendered("---\nlayout: split\n---\n\n# Left\n\n{.right}\nBeside it.\n");
+
+        assert!(region(&html, "left").contains("<h1"));
+        assert!(region(&html, "right").contains("Beside it."));
+        assert!(!region(&html, "left").contains("Beside it."));
+    }
+
+    #[test]
+    fn a_region_with_nothing_in_it_is_still_in_the_markup() {
+        // The editor draws the grid an author is dropping into, and a region that
+        // only exists once something is in it is a region nobody can aim at.
+        let html = rendered("---\nlayout: quad\n---\n\n# One\n");
+
+        for name in ["top-left", "top-right", "bottom-left", "bottom-right"] {
+            assert!(html.contains(&format!("data-slidx-region=\"{name}\"")), "no {name}");
+        }
+    }
+
+    #[test]
+    fn every_block_carries_its_index_in_source_order() {
+        let html = rendered("# One\n\nSecond.\n\nThird.\n");
+
+        for index in 0..3 {
+            assert!(html.contains(&format!("data-slidx-block=\"{index}\"")), "no block {index}");
+        }
+    }
+
+    #[test]
+    fn a_block_that_names_a_region_the_layout_lacks_still_renders() {
+        // Dropping it would punish an author on stage for changing `layout:` and
+        // leaving one class behind.
+        let html = rendered("---\nlayout: split\n---\n\n{.side}\n# Stranded\n");
+
+        assert!(region(&html, "left").contains("Stranded"));
+    }
+
+    #[test]
+    fn a_code_fence_keeps_its_indentation() {
+        // Pretty-printing the body would indent the inside of every `<pre>`,
+        // where whitespace is content: every code block on every slide would gain
+        // a phantom indent.
+        let html = rendered("```rust\nfn main() {\n    let x = 1;\n}\n```\n");
+        let block = html.split_once("<code class=\"language-rust\">").expect("a block").1;
+
+        assert!(block.contains("\n    "), "the indent was reflowed:\n{block}");
+    }
+
+    #[test]
+    fn a_step_anchor_stays_next_to_the_block_it_stages() {
+        // The runtime resolves a block anchor to the previous element sibling, so
+        // an anchor that ended up in another region would stage the wrong thing —
+        // or nothing.
+        let deck = parse_deck(
+            "---\nlayout: split\nautoSteps: block\n---\n\n{.right}\n# Placed\n",
+            &DeckParseOptions::default(),
+        );
+        let slide = &deck.slides[0];
+        let html = body(
+            &deck,
+            slide,
+            &layout_of(slide),
+            &slidx_theme::default_theme(),
+            &MarkdownOptions::default(),
+            "",
+        );
+
+        let right = region(&html, "right");
+        assert!(right.contains("<h1"), "the heading left its region: {html}");
+        assert!(right.contains("data-slidx-step"), "the anchor left its block: {html}");
+    }
+
+    #[test]
+    fn a_shared_block_takes_its_code_into_the_region_it_moved_to() {
+        // A QR on one half of the slide for a block on the other is a code the
+        // audience cannot connect to anything.
+        let source = concat!(
+            "---\nurl: https://example.com/talk/\nlayout: split\n---\n\n",
+            "# Two halves\n\n{.right}\n```rust {#retry .share}\nfn retry() {}\n```\n",
+        );
+        let deck = parse_deck(source, &DeckParseOptions::default());
+        let slide = &deck.slides[0];
+        let html = body(
+            &deck,
+            slide,
+            &layout_of(slide),
+            &slidx_theme::default_theme(),
+            &MarkdownOptions::default(),
+            "",
+        );
+
+        assert!(region(&html, "right").contains("snippets/retry.html"));
+        assert!(!region(&html, "left").contains("snippets/retry.html"));
+    }
+
+    #[test]
+    fn appended_markup_goes_into_the_default_region() {
+        // A direct child of the grid with no area lands in an implicit track,
+        // which pushes every region down by one row.
+        let deck = parse_deck("---\nlayout: split\n---\n\n# One\n", &DeckParseOptions::default());
+        let slide = &deck.slides[0];
+        let html = body(
+            &deck,
+            slide,
+            &layout_of(slide),
+            &slidx_theme::default_theme(),
+            &MarkdownOptions::default(),
+            "      <figure class=\"slidx-demo\"></figure>\n",
+        );
+
+        assert!(region(&html, "left").contains("slidx-demo"));
+        assert!(!region(&html, "right").contains("slidx-demo"));
+    }
+
+    #[test]
+    fn an_unknown_layout_name_renders_with_the_default() {
+        let deck =
+            parse_deck("---\nlayout: nonsense\n---\n\n# One\n", &DeckParseOptions::default());
+        assert_eq!(layout_of(&deck.slides[0]).id, "full");
+    }
+
+    #[test]
+    fn an_empty_slide_renders_an_empty_region_rather_than_nothing() {
+        let html = rendered("");
+
+        assert!(html.contains("data-slidx-region=\"body\""));
+        assert!(!html.contains("data-slidx-block"));
+    }
+}

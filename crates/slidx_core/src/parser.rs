@@ -10,6 +10,7 @@ pub use segment::{split, RawFrontmatter, Segment};
 
 use serde_json::Value as JsonValue;
 
+use crate::block::extract_blocks;
 use crate::diagnostic::{Diagnostic, Diagnostics, Severity, SourceSpan};
 use crate::frontmatter;
 use crate::mark::{compile_marks, find_marks, stage_takes, strip_marks, Mark};
@@ -92,11 +93,17 @@ fn build_slide(
     let marks: Vec<Mark> = find_marks(&steps.content).into_iter().map(|found| found.mark).collect();
     let mut next_key = 1u32;
 
+    // Blocks are taken last, from the content that will actually be rendered.
+    // Anything earlier would record spans that the anchors and marks compiled
+    // after it then shift out from under.
+    let blocked = extract_blocks(&compile_marks(&steps.content, &mut next_key));
+
     Slide {
         id: allocate_id(slugs, title.as_deref(), index),
         index,
         title,
-        content: compile_marks(&steps.content, &mut next_key),
+        content: blocked.content,
+        blocks: blocked.blocks,
         marks,
         notes: extracted.notes,
         layout: frontmatter::string(&matter, "layout"),

@@ -48,12 +48,20 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
     let findings = lint(&input, &LintOptions::default());
     diagnostics.extend(findings.iter().map(finding));
 
-    // Both sources, and after both have been collected. This was read off the
-    // parse diagnostics alone, above the lint call, so a deck whose only
-    // blocking problem was a rule — a remote asset, text unreadable from the
-    // back row — reported that nothing blocked it. Nothing consumed the field,
-    // which is the only reason it never cost anyone a broken build.
-    let has_blocking = deck.diagnostics.has_blocking() || findings.has_blocking();
+    // Placement is checked here rather than inside the linter because it needs
+    // the resolved theme: which regions exist is the layout's answer, and the
+    // linter deliberately knows nothing about themes.
+    let placement = slidx_theme::layout::diagnose(&deck);
+    diagnostics.extend(placement.iter().map(finding));
+
+    // Every source, and after all of them have been collected. This was read
+    // off the parse diagnostics alone, above the lint call, so a deck whose
+    // only blocking problem was a rule — a remote asset, text unreadable from
+    // the back row — reported that nothing blocked it. Placement joins the same
+    // list for the same reason: a source added after this line is a source that
+    // does not count.
+    let has_blocking =
+        deck.diagnostics.has_blocking() || findings.has_blocking() || placement.has_blocking();
 
     let runtime_src = options.runtime_src.clone().unwrap_or_else(|| "./runtime.js".to_string());
     let shell = ShellOptions {

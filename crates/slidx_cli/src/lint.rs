@@ -138,6 +138,11 @@ fn collect(deck: &Deck, matches: &Matches) -> Vec<Diagnostic> {
     let mut diagnostics: Vec<Diagnostic> = deck.diagnostics.iter().cloned().collect();
     diagnostics.extend(lint(&LintInput::new(deck, &surfaces), &options));
 
+    // A block placed in a region its layout does not have is decidable from the
+    // source and the theme, which is exactly what this command is for. It comes
+    // from the theme rather than the linter because the regions are the layout's.
+    diagnostics.extend(slidx_theme::layout::diagnose(deck));
+
     // Worst first, then in deck order. The plugin emits findings in rule order,
     // which is right for a build log interleaved with everything else Vite is
     // saying; a report read on its own has to put the thing that fails the run
