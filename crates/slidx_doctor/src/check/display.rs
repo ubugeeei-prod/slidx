@@ -269,8 +269,8 @@ mod tests {
 
         assert_eq!(finding.status, Status::Pass);
         assert!(finding.detail.contains("2 displays"), "got: {}", finding.detail);
-        assert!(finding.detail.contains("Color LCD 1512x982 (3024x1964 pixels)"));
-        assert!(finding.detail.contains("EPSON 1920x1080"));
+        assert!(finding.detail.contains("Color LCD 1512x982 at 2x"), "got: {}", finding.detail);
+        assert!(finding.detail.contains("EPSON 1920x1080"), "got: {}", finding.detail);
     }
 
     #[test]

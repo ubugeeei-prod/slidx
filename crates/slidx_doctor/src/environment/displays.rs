@@ -97,19 +97,26 @@ impl Display {
             .flatten()
     }
 
-    /// One line naming this screen for the report.
-    ///
-    /// The pixel count is only mentioned where it differs from the points. On
-    /// an unscaled screen the two are the same number, and printing it twice
-    /// reads as a bug in the line rather than as a fact about the display.
+    /// The scale as a speaker says it — `2x`, `1.5x` — or `None` on a screen
+    /// drawn one point per pixel, where printing `1x` on every ordinary monitor
+    /// is noise in a line that has to be scanned.
+    pub fn scale_label(&self) -> Option<String> {
+        let percent = self.scale_percent().filter(|percent| *percent != 100)?;
+
+        Some(match percent % 100 {
+            0 => format!("{}x", percent / 100),
+            _ => format!("{:.1}x", f32::from(percent) / 100.0),
+        })
+    }
+
+    /// One line naming this screen for the report: the room the deck gets, and
+    /// the scale it is drawn at where that is not one to one.
     pub fn label(&self) -> String {
-        let size = match self.points {
-            Some(points) if points != self.pixels => {
-                format!("{} ({} pixels)", points.label(), self.pixels.label())
-            }
-            Some(points) => points.label(),
-            None => self.pixels.label(),
-        };
+        let mut size = self.drawn_size().label();
+
+        if let Some(scale) = self.scale_label() {
+            size = format!("{size} at {scale}");
+        }
 
         match &self.name {
             Some(name) => format!("{name} {size}"),
@@ -231,12 +238,12 @@ mod tests {
     }
 
     #[test]
-    fn a_labelled_screen_says_its_name_and_both_sizes() {
+    fn a_labelled_screen_says_its_name_the_room_it_gives_and_its_scale() {
         // A speaker with two screens has to be able to tell which line is the
-        // projector, and a scaled panel's two numbers are both real.
+        // projector, and the scale is what tells a laptop panel from one.
         let screen = Display::new(3024, 1964).drawn_at(1512, 982).named("Color LCD");
 
-        assert_eq!(screen.label(), "Color LCD 1512x982 (3024x1964 pixels)");
+        assert_eq!(screen.label(), "Color LCD 1512x982 at 2x");
     }
 
     #[test]
@@ -245,13 +252,23 @@ mod tests {
     }
 
     #[test]
-    fn a_screen_drawn_at_its_own_pixel_size_says_that_size_once() {
-        // An external monitor at 1:1 reports both numbers and they are the same
-        // number. "2560x1080 (2560x1080 pixels)" reads as a bug in the line.
+    fn a_screen_drawn_one_point_per_pixel_does_not_say_so() {
+        // Every ordinary monitor is 1x. Printing it on each of them is noise in
+        // a line whose only job is to be scanned.
         let screen = Display::new(2560, 1080).drawn_at(2560, 1080).named("LG");
 
         assert_eq!(screen.label(), "LG 2560x1080");
         assert_eq!(screen.scale_percent(), Some(100));
+        assert_eq!(screen.scale_label(), None);
+    }
+
+    #[test]
+    fn a_scale_that_is_not_a_whole_multiple_keeps_its_fraction() {
+        // Windows at 150% and a scaled laptop mode both land here, and "1x"
+        // would be wrong by half a screen.
+        let screen = Display::new(2880, 1620).drawn_at(1920, 1080);
+
+        assert_eq!(screen.scale_label(), Some("1.5x".to_string()));
     }
 
     #[test]
