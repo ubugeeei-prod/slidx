@@ -139,6 +139,13 @@ pub const KEYS: &[Key] = &[
         values: Values::Text("https://…"),
     },
     Key {
+        name: "id",
+        scope: Scope::Slide,
+        summary: "This slide's id, instead of the slug of its heading. Pins an address the deck \
+                  has already published, so retitling or translating the slide does not move it.",
+        values: Values::Text("a url-safe id"),
+    },
+    Key {
         name: "transition",
         scope: Scope::Slide,
         summary: "How this slide arrives. A slide that names one decides for itself, including \
@@ -234,6 +241,27 @@ mod tests {
 
         assert!(deck.contains(&"title"));
         assert!(deck.contains(&"budget"));
+    }
+
+    #[test]
+    fn a_slide_is_offered_the_id_that_keeps_its_url_when_its_title_changes() {
+        // An author retitling or translating a slide has no way to know its URL
+        // moved unless the editor offers them the key that stops it.
+        let deck = parse("---\nid: getting-started\n---\n\n## はじめに\n");
+
+        assert!(keys_for(false).iter().any(|key| key.name == "id"));
+        assert_eq!(deck.slides[0].id, "getting-started");
+    }
+
+    #[test]
+    fn the_keys_that_say_a_deck_is_a_translation_are_offered_at_deck_level() {
+        let deck = parse("---\nlang: ja\ntranslationOf: ../slides\n---\n\n# はじめに\n");
+        let offered: Vec<&str> = keys_for(true).iter().map(|key| key.name).collect();
+
+        assert!(offered.contains(&"lang"));
+        assert!(offered.contains(&"translationOf"));
+        assert_eq!(deck.meta.lang.as_deref(), Some("ja"));
+        assert_eq!(deck.meta.translation_of.as_deref(), Some("../slides"));
     }
 
     #[test]
