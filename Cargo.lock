@@ -442,7 +442,7 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "slidx_cli"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -456,7 +456,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_core"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "insta",
  "serde",
@@ -467,7 +467,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_doctor"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -475,7 +475,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_edit"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -484,11 +484,11 @@ dependencies = [
 
 [[package]]
 name = "slidx_highlight"
-version = "0.0.1"
+version = "0.1.0"
 
 [[package]]
 name = "slidx_lint"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -497,7 +497,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_lsp"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -508,7 +508,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_publish"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -517,7 +517,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_qr"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -525,7 +525,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_render"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "ox_content_allocator",
  "ox_content_parser",
@@ -541,7 +541,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_theme"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -552,7 +552,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_wasm"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "serde",
  "serde-wasm-bindgen",

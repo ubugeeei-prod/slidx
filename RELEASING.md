@@ -184,10 +184,21 @@ environment — npm prefers it and skips OIDC without saying so.
 
 ## Versioning
 
-One version across the whole workspace, Rust and TypeScript alike. Bump
-`[workspace.package]` in `Cargo.toml` and every publishable `package.json`
-together; `node scripts/check-version.mjs` is what stops them drifting and runs
-as part of `vp check`.
+One version across the whole workspace, Rust and TypeScript alike. The number
+appears in four kinds of place, and a bump has to reach all of them:
+
+- `[workspace.package]` in `Cargo.toml`
+- every `slidx_*` entry in `[workspace.dependencies]`, which states the version
+  each crate is required at by its siblings; cargo will not publish a path
+  dependency without one
+- every publishable `package.json`, including the `slidx` wrapper's
+  `optionalDependencies` on the platform packages the release builds
+- `Cargo.lock`, via `cargo update --workspace`
+
+Nothing here has to be remembered. `node scripts/check-version.mjs` fails on any
+of them drifting except the wrapper's optional dependencies, which
+`packages/cli/test/platforms.test.mjs` holds to the wrapper's own version, and
+both run in CI as part of `vp check`.
 
 Pre-1.0, a breaking change is a patch bump. Say what broke in the release
 notes.
