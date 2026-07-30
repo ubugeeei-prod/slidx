@@ -1,7 +1,7 @@
 /**
  * Angular as one slide's island.
  *
- * The framework is injected here, the way it is for the other four. Angular is
+ * The framework is injected here, the way it is for the other five. Angular is
  * an optional peer dependency, so an adapter has to work against a package this
  * one does not depend on — and Angular in particular could not be bootstrapped
  * from a test even if it were depended on, because its published modules do not
@@ -126,7 +126,11 @@ function fakeAngular(overrides: { refuseInput?: string } = {}): FakeAngular {
 
 /** An Angular below the version floor: everything but the zoneless provider. */
 function withoutZonelessProvider(angular: FakeAngular): AngularCoreRuntime {
-  return { createComponent: angular.core.createComponent };
+  return {
+    createComponent(component, options) {
+      return angular.core.createComponent(component, options);
+    },
+  };
 }
 
 function target(): HTMLElement {
@@ -232,7 +236,7 @@ describe("mounting", () => {
   });
 
   it("waits for the component and the framework together", async () => {
-    // Angular is the largest of the five runtimes, so the slide reached
+    // Angular is the largest of the six runtimes, so the slide reached
     // mid-talk pays the most here and the round trips must overlap.
     const order: string[] = [];
     const angular = fakeAngular();
@@ -383,7 +387,7 @@ describe("failing", () => {
   });
 
   it("releases everything when a prop names something that is not an input", async () => {
-    // Angular is the only one of the five that knows which props are real, and
+    // Angular is the only one of the six that knows which props are real, and
     // it throws on an undeclared one in a development build. Left alone that
     // would abandon a live application on the way out.
     const angular = fakeAngular({ refuseInput: "titel" });

@@ -249,7 +249,7 @@ matters least — a laptop the night before, on conference wifi.
 
 ## M6 — Integrations and reach
 
-- [x] Opt-in islands: Vue, React, Svelte, Three.js, Angular — #21
+- [x] Opt-in islands: Vue, React, Svelte, Solid, Three.js, Angular — #21
 - [x] Language server: diagnostics, completion, outline, hover — #23
 - [x] Browser matrix: Chromium, Firefox, WebKit — verified, not assumed — #23
 - [x] Runtime matrix: Node, Bun, Deno; macOS, Linux, Windows — #23
