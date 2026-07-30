@@ -213,41 +213,48 @@ describe("the dev server", () => {
     expect(page).not.toContain('src="/__slidx/islands.js"');
   });
 
-  it.skipIf(!hasChromium)("mounts the registered island in dev and production", async () => {
-    const { chromium } = await import("playwright");
-    const browser = await chromium.launch();
+  it.skipIf(!hasChromium)(
+    "mounts the registered island in dev and production",
+    async () => {
+      const { chromium } = await import("playwright");
+      const browser = await chromium.launch();
 
-    try {
-      const tab = await browser.newPage();
-      const errors: string[] = [];
-      tab.on("console", (message) => {
-        if (message.type() === "error") errors.push(message.text());
-      });
-      tab.on("pageerror", (error) => errors.push(error.message));
+      try {
+        const tab = await browser.newPage();
+        const errors: string[] = [];
+        tab.on("console", (message) => {
+          if (message.type() === "error") errors.push(message.text());
+        });
+        tab.on("pageerror", (error) => errors.push(error.message));
 
-      for (const [surface, base] of [
-        ["dev", fixture.url],
-        ["production", fixture.previewUrl],
-      ] as const) {
-        errors.length = 0;
-        await tab.goto(new URL("slides/", base).href);
+        for (const [surface, base] of [
+          ["dev", fixture.url],
+          ["production", fixture.previewUrl],
+        ] as const) {
+          errors.length = 0;
+          await tab.goto(new URL("slides/", base).href);
 
-        await expect
-          .poll(() => tab.locator('[data-slidx-island="counter"]').textContent(), {
-            // On a saturated Windows matrix the module fetch can begin after
-            // Vitest's one-second polling default. This is a real browser
-            // boundary, so wait for the observable mount instead of racing
-            // the runner's process scheduler.
-            timeout: 10_000,
-            interval: 100,
-          })
-          .toBe("Mounted 7");
-        expect(errors, `${surface} island client errors`).toEqual([]);
+          await expect
+            .poll(() => tab.locator('[data-slidx-island="counter"]').textContent(), {
+              // On a saturated Windows matrix the module fetch can begin after
+              // Vitest's one-second polling default. This is a real browser
+              // boundary, so wait for the observable mount instead of racing
+              // the runner's process scheduler.
+              timeout: 10_000,
+              interval: 100,
+            })
+            .toBe("Mounted 7");
+          expect(errors, `${surface} island client errors`).toEqual([]);
+        }
+      } finally {
+        await browser.close();
       }
-    } finally {
-      await browser.close();
-    }
-  });
+    },
+    // This launches a real browser and visits both a dev and preview server.
+    // A fresh Windows VM can spend the default five seconds launching Chromium
+    // before either hydration assertion has had a chance to run.
+    20_000,
+  );
 });
 
 async function built(file: string): Promise<string> {
