@@ -250,7 +250,7 @@ fn yaml_string(value: &str) -> String {
 }
 
 /// Automatic staging derived from slide structure rather than explicit actions.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 pub enum AutoSteps {
     /// Reveal top-level list items one at a time.

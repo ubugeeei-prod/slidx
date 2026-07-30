@@ -49,6 +49,7 @@
 pub mod demo;
 pub mod diagnostic;
 pub mod frontmatter;
+pub mod grid;
 pub mod mark;
 pub mod markers;
 pub mod model;
@@ -61,6 +62,7 @@ pub mod steps;
 
 pub use demo::{Demo, DEMO_ATTRIBUTE};
 pub use diagnostic::{Diagnostic, Diagnostics, Severity, SourceSpan};
+pub use grid::{step_grid, StepGrid, StepKind, StepPlacement, StepRow};
 pub use mark::{compile_marks, find_marks, Mark, MARK_ATTRIBUTE};
 pub use markers::{anchor_selector, StagedContent, ANCHOR_ATTRIBUTE};
 pub use model::{estimate_speaking_seconds, AspectRatio, Deck, DeckMeta, Slide, TalkMeta};
