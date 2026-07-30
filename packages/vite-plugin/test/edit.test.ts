@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vite-plus/test";
 
-import { applyOperation, revertOperation, type DeckFile } from "../src/edit";
+import { applyOperation, locate, revertOperation, type DeckFile } from "../src/edit";
 import { joinDeck } from "../src/files";
 
 const SEPARATOR = "---";
@@ -251,6 +251,33 @@ describe("taking an edit back", () => {
     }
 
     expect(files).toEqual(deck());
+  });
+
+  it("moves, undoes and redoes one slide without multiplying a multi-slide file", async () => {
+    let files = deck();
+
+    const inserted = await edited(files, {
+      op: "insertSlide",
+      at: 1,
+      body: "## Edited in Markdown\n\nBoth views stay synchronized.",
+    });
+    files = applied(files, inserted.writes);
+
+    const duplicated = await edited(files, { op: "duplicateSlide", slide: 1 });
+    expect((await locate(duplicated.source, SEPARATOR)).slides).toHaveLength(5);
+    files = applied(files, duplicated.writes);
+    expect(joinDeck(files, SEPARATOR).source).toBe(duplicated.source);
+
+    const moved = await edited(files, { op: "moveSlide", slide: 3, to: 2 });
+    files = applied(files, moved.writes);
+
+    const undone = await revertOperation(files, SEPARATOR, moved.undo);
+    files = applied(files, undone.writes);
+
+    const redone = await revertOperation(files, SEPARATOR, undone.undo);
+    files = applied(files, redone.writes);
+
+    expect(joinDeck(files, SEPARATOR).source).toBe(moved.source);
   });
 });
 

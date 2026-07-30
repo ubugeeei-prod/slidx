@@ -215,11 +215,17 @@ function assign(
     if (index >= newRunEnd) return owner[index - after.length + before.length]!;
     if (oldRunEnd > prefix) return owner[Math.min(index, oldRunEnd - 1)]!;
 
-    // Nothing was replaced, so these slides are new. They go where the slide
-    // they displaced starts, or in the last file when there is nothing after
-    // them to displace.
-    const landing = opens.findIndex((from) => from >= prefix);
-    return landing === -1 ? owner.length - 1 : landing;
+    // Nothing was replaced, so these slides are new. An exact opening keeps
+    // undo able to restore a slide into the empty file that used to hold it.
+    // Between openings, however, the insertion is inside a multi-slide file
+    // and belongs to that file — assigning it to the next one would make one
+    // file own two non-contiguous runs, which `cut` cannot write without
+    // repeating every slide between them.
+    const exact = opens.indexOf(prefix);
+    if (exact !== -1) return exact;
+
+    const next = opens.findIndex((from) => from > prefix);
+    return next === -1 ? owner.length - 1 : Math.max(next - 1, 0);
   });
 }
 
