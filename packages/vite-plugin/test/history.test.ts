@@ -8,7 +8,7 @@
  */
 
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -191,6 +191,154 @@ describe("the deck's history in the editor", () => {
     );
 
     expect(hostile.status).toBe(404);
+  });
+});
+
+describe("the deck as a commit had it", () => {
+  let session: Session;
+
+  beforeAll(async () => {
+    session = await withHistory();
+  }, 60_000);
+
+  afterAll(async () => {
+    await session?.server.close();
+  });
+
+  it("renders an old commit through the route that renders the working copy", async () => {
+    // The whole property this feature rests on: the renderer is a pure
+    // function of the source, so the page for an old commit is the real page —
+    // the same URL, the same shell, the same theme, the same WebAssembly
+    // module. A second way of drawing it would be a second answer about
+    // layout, which is the bug this architecture exists to prevent.
+    const { commits } = (await get(session, "__slidx/history")) as { commits: { rev: string }[] };
+    const first = commits[1]!.rev;
+
+    const now = await (await fetch(`${session.url}slides/2/`)).text();
+    const then = await (await fetch(`${session.url}slides/2/?rev=${first}`)).text();
+
+    expect(now).toContain("What actually goes wrong");
+    expect(then).toContain("What goes wrong");
+    expect(then).not.toContain("What actually goes wrong");
+
+    // Same document, not a preview of one: everything the real page has.
+    expect(then).toContain("<!doctype html>");
+    expect(then).toContain("slidx-slide-body");
+  });
+
+  it("leaves the working copy alone when it renders the past", async () => {
+    const { commits } = (await get(session, "__slidx/history")) as { commits: { rev: string }[] };
+    await fetch(`${session.url}slides/2/?rev=${commits[1]!.rev}`);
+
+    const source = await readFile(join(session.root, "slides", "0002.md"), "utf8");
+    expect(source).toContain("What actually goes wrong");
+  });
+
+  it("says there is no such revision rather than quietly showing the present", async () => {
+    // A page that silently fell back to the working copy would be the worst
+    // possible answer: it looks like history and is not.
+    const missing = await fetch(
+      `${session.url}slides/2/?rev=0123456789abcdef0123456789abcdef01234567`,
+    );
+
+    expect(missing.status).toBe(404);
+    expect(await missing.text()).toContain("revision");
+  });
+});
+
+describe("putting the deck back", () => {
+  let session: Session;
+
+  beforeAll(async () => {
+    session = await withHistory();
+  }, 60_000);
+
+  afterAll(async () => {
+    await session?.server.close();
+  });
+
+  const restore = async (rev: string) => {
+    const response = await fetch(`${session.url}__slidx/history/restore`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ rev }),
+    });
+
+    return (await response.json()) as {
+      restored?: string;
+      previous?: string;
+      refused?: string;
+      changed?: string[];
+    };
+  };
+
+  it("refuses rather than writing over work that is not committed", async () => {
+    // Looking at history invites going back, and going back must never be the
+    // thing that loses an afternoon. The refusal names what is at risk.
+    await writeFile(
+      join(session.root, "slides", "0003.md"),
+      "## The fix\n\nsomething written since the last commit\n",
+    );
+
+    const { commits } = (await get(session, "__slidx/history")) as { commits: { rev: string }[] };
+    const answer = await restore(commits[1]!.rev);
+
+    expect(answer.restored).toBeUndefined();
+    expect(answer.refused).toContain("not committed");
+    expect(answer.changed?.join(" ")).toContain("0003.md");
+
+    // And the file it refused to overwrite is exactly as it was.
+    expect(await readFile(join(session.root, "slides", "0003.md"), "utf8")).toContain(
+      "since the last commit",
+    );
+  });
+
+  /** Where the deck was before the restore below, for the undo that follows. */
+  let undoTarget: string;
+
+  it("puts the deck back to a commit, and says what undoes it", async () => {
+    await writeFile(join(session.root, "slides", "0003.md"), "## The fix\n");
+    const before = await readFile(join(session.root, "slides", "0002.md"), "utf8");
+
+    const { commits } = (await get(session, "__slidx/history")) as { commits: { rev: string }[] };
+    const answer = await restore(commits[1]!.rev);
+
+    expect(answer.restored).toBe(commits[1]!.rev);
+    // Where the working copy was, which is HEAD rather than the newest commit
+    // that touched the deck — a commit that changed nothing under the deck is
+    // still the tree the author's files came from.
+    expect(answer.previous).toMatch(/^[0-9a-f]{40}$/);
+    undoTarget = answer.previous!;
+
+    const restored = await readFile(join(session.root, "slides", "0002.md"), "utf8");
+    expect(restored).toContain("What goes wrong");
+    expect(restored).not.toContain("What actually goes wrong");
+    expect(restored).not.toBe(before);
+  });
+
+  it("undoes a restore with one more restore, back to the byte", async () => {
+    // The reason a restore may leave the deck dirty and still be safe: this
+    // session knows which dirt is its own, so it can offer to put it back. And
+    // undo is not a special path — it is this operation naming the commit the
+    // deck was at.
+    const undone = await restore(undoTarget);
+
+    expect(undone.restored).toBe(undoTarget);
+    expect(await readFile(join(session.root, "slides", "0002.md"), "utf8")).toContain(
+      "What actually goes wrong",
+    );
+
+    // Nothing left over: the round trip is byte for byte, so git has nothing
+    // to report about the deck at all.
+    const clean = await git(session.root, "status", "--porcelain", "--", "slides");
+    expect(clean).toBe("");
+  });
+
+  it("refuses a revision that is a git option rather than an object name", async () => {
+    const answer = await restore("--upload-pack=touch /tmp/slidx-restore-route");
+
+    expect(answer.restored).toBeUndefined();
+    expect(answer.refused).toBeTruthy();
   });
 });
 

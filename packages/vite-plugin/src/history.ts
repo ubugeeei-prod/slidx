@@ -23,6 +23,8 @@
  * spans depend on not existing.
  */
 
+import { basename } from "node:path";
+
 import { readDeck, type DeckSource } from "./deck";
 import { hasGit, isRevision, openRepository, type Commit, type Repository } from "./git";
 import { joinDeck } from "./files";
@@ -93,14 +95,15 @@ export interface DeckHistory {
 
 export function createDeckHistory(root: string, options: ResolvedOptions): DeckHistory {
   /**
-   * The last thing this session put in the working copy.
+   * The commit this session last put in the working copy.
    *
    * Remembered so that undoing a restore is possible at all. A restore leaves
-   * the deck dirty by construction, and the guard below refuses to write over
-   * anything unsaved — so without knowing which dirt is its own, the panel
-   * would offer an undo that always refused.
+   * the deck dirty by construction — that is what an author reviews and
+   * commits — and the guard below refuses to write over anything unsaved. So
+   * without knowing which dirt is its own, the panel would offer an undo that
+   * always refused.
    */
-  let placed: { rev: string; previous: string } | undefined;
+  let placed: string | undefined;
 
   /** The deck's files as one commit had them, shaped like a read from disk. */
   async function filesAt(repository: Repository, rev: string): Promise<DeckSource> {
@@ -180,6 +183,57 @@ export function createDeckHistory(root: string, options: ResolvedOptions): DeckH
       const before = parent === null ? undefined : await sourceAt(repository, parent);
 
       return summarise(before, after, { separator: options.separator });
+    },
+
+    async deckAt(rev) {
+      if (!isRevision(rev)) return null;
+
+      const repository = await openRepository(root);
+      if (repository === null) return null;
+      if ((await repository.resolve(rev)) === null) return null;
+
+      return filesAt(repository, rev);
+    },
+
+    async restore(rev) {
+      if (!isRevision(rev)) return { refused: "That is not a commit this deck has." };
+
+      const repository = await openRepository(root);
+      if (repository === null) {
+        return { refused: "This deck is not in a git repository, so there is nothing to go back to." };
+      }
+
+      if ((await repository.resolve(rev)) === null) {
+        return { refused: "This repository does not have that commit any more." };
+      }
+
+      // Where the deck is now, which is the commit an undo would name. Clean
+      // means HEAD; otherwise the only acceptable dirt is a restore this
+      // session made, which is not work anybody would lose.
+      const changed = await repository.changesIn(options.srcDir);
+      const previous =
+        changed.length === 0
+          ? await repository.head()
+          : placed !== undefined && (await matches(repository, placed))
+            ? placed
+            : null;
+
+      if (previous === null) {
+        return {
+          refused:
+            "The deck has changes that are not committed. Save or discard them first — " +
+            "going back would write over them.",
+          changed,
+        };
+      }
+
+      if (!(await repository.restore(rev, options.srcDir))) {
+        return { refused: "git would not put the deck back." };
+      }
+
+      placed = rev;
+
+      return { restored: rev, previous };
     },
   };
 }

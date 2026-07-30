@@ -70,6 +70,14 @@ export interface Repository {
    * otherwise be indistinguishable from a commit whose deck was empty.
    */
   resolve(rev: string): Promise<string | null>;
+  /**
+   * The commit HEAD points at, or `null` in a repository with no commits.
+   *
+   * Separate from [`resolve`] because `HEAD` is not an object name, and the
+   * rule there admits nothing but one. This argument is a constant rather than
+   * anything a caller chose, so it needs no rule.
+   */
+  head(): Promise<string | null>;
   /** The deck's files as a commit had them, in the order a deck is read. */
   filesAt(rev: string, directory: string, extensions: string[]): Promise<TreeFile[]>;
   /** The commit before this one, or `null` for the first commit of all. */
@@ -204,6 +212,12 @@ function repository(root: string): Repository {
       );
 
       return files.filter((file): file is TreeFile => file !== null);
+    },
+
+    async head() {
+      const found = await git(root, ["rev-parse", "--verify", "--quiet", "HEAD^{commit}"]);
+
+      return found === null ? null : found.trim() || null;
     },
 
     async changesIn(directory) {
