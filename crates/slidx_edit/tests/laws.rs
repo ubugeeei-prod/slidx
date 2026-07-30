@@ -43,6 +43,8 @@ fn corpus() -> Vec<&'static str> {
         "# Slides\n\n```md\n# a\n\n---\n\n# b\n```\n\n---\n\n# After\n",
         // Marks, notes, and steps together.
         "---\nsteps:\n  - reveal: \".a\"\n  - hide: \".b\"\n---\n\n# One\n\nA [word]{#hero .accent} here.\n\n<!-- notes: remember -->\n",
+        // Slide-local visual state in the Markdown body.
+        "<style data-slidx>\n:root {\n  --slidx-layout: aside;\n  --slidx-color-surface: oklch(20% 0.02 260);\n}\n</style>\n\n# Styled\n",
         // Staged with markers rather than a list.
         "# One\n\n- a <!-- step -->\n- b <!-- step -->\n",
         // Ragged blank lines the author chose.
@@ -73,6 +75,16 @@ fn operations(source: &str) -> Vec<EditOp> {
         EditOp::MoveSlide { slide: last.into(), to: 0 },
         EditOp::SetField { slide: 0.into(), key: "theme".into(), value: "terminal".into() },
         EditOp::SetField { slide: last.into(), key: "budget".into(), value: "45s".into() },
+        EditOp::SetStyle {
+            slide: 0.into(),
+            property: "layout".into(),
+            value: Some("aside".into()),
+        },
+        EditOp::SetStyle {
+            slide: last.into(),
+            property: "color-surface".into(),
+            value: Some("oklch(20% 0.02 260)".into()),
+        },
         EditOp::AddStep { slide: 0.into(), at: None, action: StepAction::reveal(".added") },
         EditOp::AddStep { slide: 0.into(), at: Some(0), action: StepAction::reveal(".added") },
         EditOp::AdoptSteps { slide: 0.into() },
@@ -280,6 +292,11 @@ fn a_file_written_with_windows_line_endings_stays_that_way() {
     let writes = [
         EditOp::InsertSlide { at: 1, body: "# Added".into() },
         EditOp::SetField { slide: 0.into(), key: "theme".into(), value: "terminal".into() },
+        EditOp::SetStyle {
+            slide: 0.into(),
+            property: "layout".into(),
+            value: Some("aside".into()),
+        },
         EditOp::SetNotes { slide: 0.into(), notes: "spoken".into() },
         EditOp::AddStep { slide: 0.into(), at: None, action: StepAction::reveal(".a") },
     ];
@@ -322,6 +339,20 @@ fn what_the_source_says_after_an_edit_is_what_the_operation_asked_for() {
                 parse(&edited(source, &budgeted)).slides[index].budget_seconds,
                 Some(45),
                 "{budgeted:?} on {source:?}"
+            );
+
+            let styled = EditOp::SetStyle {
+                slide: index.into(),
+                property: "layout".into(),
+                value: Some("aside".into()),
+            };
+            assert_eq!(
+                parse(&edited(source, &styled)).slides[index]
+                    .style
+                    .get("layout")
+                    .map(String::as_str),
+                Some("aside"),
+                "{styled:?} on {source:?}"
             );
 
             let staged = EditOp::AddStep {
@@ -477,6 +508,13 @@ fn setting_something_to_what_it_already_says_is_not_an_edit() {
             if let Some(title) = &slide.title {
                 ops.push(EditOp::SetHeading { slide: index.into(), text: title.clone() });
             }
+            for (property, value) in &slide.style {
+                ops.push(EditOp::SetStyle {
+                    slide: index.into(),
+                    property: property.clone(),
+                    value: Some(value.clone()),
+                });
+            }
 
             // A block retyped with the words already in it. The editor sends
             // the whole run rather than a diff, so this is the shape of every
@@ -509,6 +547,11 @@ fn doing_a_set_twice_is_the_same_as_doing_it_once() {
             EditOp::SetHeading { slide: 0.into(), text: "Settled".into() },
             EditOp::SetBody { slide: 0.into(), body: "# Settled\n\nBody.".into() },
             EditOp::SetField { slide: 0.into(), key: "theme".into(), value: "terminal".into() },
+            EditOp::SetStyle {
+                slide: 0.into(),
+                property: "layout".into(),
+                value: Some("aside".into()),
+            },
             EditOp::SetNotes { slide: 0.into(), notes: "settled".into() },
         ];
 
@@ -531,6 +574,11 @@ fn an_operation_naming_something_that_is_not_there_is_an_error_not_a_crash() {
         EditOp::MoveSlide { slide: 0.into(), to: 99 },
         EditOp::MoveSlide { slide: 99.into(), to: 0 },
         EditOp::SetField { slide: 99.into(), key: "a".into(), value: "b".into() },
+        EditOp::SetStyle {
+            slide: 99.into(),
+            property: "layout".into(),
+            value: Some("aside".into()),
+        },
         EditOp::AddMark {
             slide: 0.into(),
             range: (900..1000).into(),

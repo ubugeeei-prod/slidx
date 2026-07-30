@@ -109,6 +109,13 @@ export type EditOp =
   | { op: "removeSlide"; slide: SlideRef }
   | { op: "moveSlide"; slide: SlideRef; to: number }
   | { op: "setField"; slide: SlideRef; key: string; value: unknown }
+  /**
+   * One slide-local `--slidx-*` property in the Markdown style block.
+   *
+   * The prefix is implied. An absent value removes the declaration, and a
+   * missing block is created by the Rust writer rather than composed here.
+   */
+  | { op: "setStyle"; slide: SlideRef; property: string; value?: string }
   | { op: "addMark"; slide: SlideRef; range: ByteSpan; attributes: MarkAttributes }
   | { op: "setMark"; slide: SlideRef; mark: MarkRef; attributes: MarkAttributes }
   | { op: "removeMark"; slide: SlideRef; mark: MarkRef }

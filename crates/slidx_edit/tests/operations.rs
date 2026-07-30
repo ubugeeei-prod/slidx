@@ -207,6 +207,141 @@ fn setting_a_field_to_its_current_value_is_not_an_edit() {
     assert!(plan(DECK, &DeckParseOptions::default(), &op).unwrap().is_empty());
 }
 
+// ------------------------------------------------------------ slide style
+
+#[test]
+fn setting_a_style_creates_a_tagged_block_above_the_slide_body() {
+    let source = "# One\n\nBody.\n";
+    let result = edit(
+        source,
+        EditOp::SetStyle {
+            slide: 0.into(),
+            property: "layout".into(),
+            value: Some("aside".into()),
+        },
+    );
+
+    assert_eq!(
+        result,
+        "<style data-slidx>\n:root {\n  --slidx-layout: aside;\n}\n</style>\n\n# One\n\nBody.\n"
+    );
+    let parsed = slidx_core::parse_deck(&result, &DeckParseOptions::default());
+    assert_eq!(parsed.slides[0].layout.as_deref(), Some("aside"));
+}
+
+#[test]
+fn setting_an_existing_style_replaces_only_its_value_bytes() {
+    let source = "\
+<style data-slidx>
+:root {
+  /* authored */
+  --slidx-layout:   aside ;
+  --slidx-color-surface: oklch(20% 0.02 260);
+}
+</style>
+
+# One
+";
+    let result = edit(
+        source,
+        EditOp::SetStyle {
+            slide: 0.into(),
+            property: "layout".into(),
+            value: Some("split".into()),
+        },
+    );
+
+    assert_eq!(result, source.replace("layout:   aside ;", "layout:   split ;"));
+    assert_eq!(touched_lines(source, &result), vec![4]);
+}
+
+#[test]
+fn setting_a_missing_property_adds_one_line_to_the_existing_block() {
+    let source = "<style data-slidx>\n:root {\n  --slidx-layout: aside;\n}\n</style>\n\n# One\n";
+    let result = edit(
+        source,
+        EditOp::SetStyle {
+            slide: 0.into(),
+            property: "density".into(),
+            value: Some("compact".into()),
+        },
+    );
+
+    assert_eq!(
+        result,
+        source.replace(
+            "  --slidx-layout: aside;\n",
+            "  --slidx-layout: aside;\n  --slidx-density: compact;\n"
+        )
+    );
+}
+
+#[test]
+fn removing_a_style_removes_every_declaration_that_could_become_active() {
+    let source = concat!(
+        "<style data-slidx>\n",
+        ":root {\n",
+        "  --slidx-layout: split;\n",
+        "  --slidx-color-surface: red;\n",
+        "  --slidx-layout: aside;\n",
+        "}\n",
+        "</style>\n",
+        "\n",
+        "# One\n",
+    );
+    let result =
+        edit(source, EditOp::SetStyle { slide: 0.into(), property: "layout".into(), value: None });
+
+    assert!(!result.contains("--slidx-layout"));
+    assert!(result.contains("--slidx-color-surface: red;"));
+    assert_eq!(
+        slidx_core::parse_deck(&result, &DeckParseOptions::default()).slides[0].layout,
+        None
+    );
+}
+
+#[test]
+fn a_style_example_in_a_code_fence_is_never_edited_as_configuration() {
+    let source =
+        "```html\n<style data-slidx>\n:root {\n  --slidx-layout: split;\n}\n</style>\n```\n";
+    let result = edit(
+        source,
+        EditOp::SetStyle {
+            slide: 0.into(),
+            property: "layout".into(),
+            value: Some("aside".into()),
+        },
+    );
+
+    assert!(result.starts_with(
+        "<style data-slidx>\n:root {\n  --slidx-layout: aside;\n}\n</style>\n\n```html"
+    ));
+    assert!(result.contains("--slidx-layout: split;"), "the example changed:\n{result}");
+}
+
+#[test]
+fn invalid_style_names_and_multiline_values_are_refused_without_an_edit() {
+    let bad_name = EditOp::SetStyle {
+        slide: 0.into(),
+        property: "Layout Color".into(),
+        value: Some("aside".into()),
+    };
+    let bad_value = EditOp::SetStyle {
+        slide: 0.into(),
+        property: "layout".into(),
+        value: Some("aside;\ncolor: red".into()),
+    };
+
+    assert!(matches!(
+        plan("# One\n", &DeckParseOptions::default(), &bad_name),
+        Err(EditError::InvalidStyleProperty { .. })
+    ));
+    assert!(matches!(
+        plan("# One\n", &DeckParseOptions::default(), &bad_value),
+        Err(EditError::InvalidStyleValue { .. })
+    ));
+}
+
 // -------------------------------------------------------------------- marks
 
 #[test]
