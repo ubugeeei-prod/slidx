@@ -10,21 +10,18 @@
  *
  * # The two waits, and why neither of them is a duration
  *
- * A screenshot returns whatever the browser last composited. Dispatching an
- * input event only means the event was delivered — the handler that moves a
- * ghost runs after it, and the frame carrying the result is drawn after that. So
- * every capture waits for a *paint*, in each document that is on screen.
+ * **The editor is waited on by condition**: the file having been written, the
+ * canvas having laid the slide out again. A `waitForTimeout` before a screenshot
+ * is a race that resolves differently on a busy machine, and the whole reason
+ * these recordings are frames rather than a video is that they must not depend
+ * on how fast anything ran.
  *
- * And once, before a scene's first frame, it waits for the picture to stop
- * changing at all. Sizing the stage to the panels a scene wants resizes a window
- * holding two nested documents that composite in processes of their own, and the
- * frame straight after that resize is not always the last word.
- *
- * Everything else waits on a condition the editor answers: the file having been
- * written, the canvas having laid the slide out again. A `waitForTimeout` before
- * a screenshot is a race that resolves differently on a busy machine, and the
- * whole reason these recordings are frames rather than a video is that they must
- * not depend on how fast anything ran.
+ * **The picture is waited on until it stops changing.** Dispatching an input
+ * event only means it was delivered, and a screenshot returns whatever was last
+ * composited — of the outermost of three nested documents, which can be a frame
+ * behind one of the inner two. So a frame is taken when two screenshots agree,
+ * which is the only definition of "nothing left to arrive" that does not name a
+ * number of milliseconds.
  */
 
 import { readFileSync } from "node:fs";
@@ -51,8 +48,7 @@ export async function play(page, editor, scene, root) {
   let shown = "";
 
   const capture = async (delay) => {
-    await painted(page);
-    frames.push({ shot: await page.screenshot(SHOT), delay });
+    frames.push({ shot: await still(page), delay });
   };
 
   /** The deck file as it is on disk, with whatever the last gesture added marked. */
@@ -123,13 +119,15 @@ export async function play(page, editor, scene, root) {
   };
 
   await file();
-  await stillness(page);
   await scene.play({
     drag,
     file,
     hold: capture,
-    click: (selector) => canvas.locator(selector).click(),
+    click: async (selector) => {
+      await canvas.locator(selector).click();
+    },
     press: (key) => page.keyboard.press(key),
+    shown: (selector) => editor.waitForSelector(selector),
   });
 
   return frames;
@@ -166,20 +164,28 @@ async function painted(page) {
 }
 
 /**
- * Waits until the picture has stopped changing at all.
+ * The picture, once it has stopped changing: two screenshots that agree.
  *
- * Once, before a scene's first frame, because the settling after the stage is
- * sized is the one thing no condition in the editor answers: three pixels of an
- * anti-aliased corner arrived a beat late, which is a hundred kilobytes of diff
- * on a regeneration that changed nothing.
+ * Waiting for a paint is not enough on its own, and the reason is where the
+ * editor lives. It is a document inside the stage and the deck's page is a
+ * document inside that, each drawn on its own; a screenshot is taken of the
+ * outermost surface, which can be one frame behind a change that has already
+ * been drawn further in. What that produced was a recording where the region
+ * boxes of a finished drag were still on screen in some runs and gone in
+ * others, and three pixels of an anti-aliased corner that settled a beat after
+ * the stage was sized. Either rewrites the whole file for nothing.
+ *
+ * Nothing about a scene is timed by this: the picture is only ever waited on
+ * *after* the editor has answered the condition the step was waiting for, and
+ * two frames that agree is the definition of nothing left to arrive.
  */
-async function stillness(page) {
+async function still(page) {
   let last = await page.screenshot(SHOT);
 
   for (let attempt = 0; attempt < 20; attempt += 1) {
     await painted(page);
     const now = await page.screenshot(SHOT);
-    if (now.equals(last)) return;
+    if (now.equals(last)) return now;
 
     last = now;
   }

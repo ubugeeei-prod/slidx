@@ -133,6 +133,25 @@ optional: true
 Only those are ever offered when you are behind. The author decides what the
 talk can lose; nothing guesses.
 
+The editor's **storyboard** is where to do it, because it is the one view that
+shows the whole talk against the clock rather than one slide at a time:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../media/editor-storyboard-dark.png">
+  <img alt="The storyboard: a bar with each slide as wide as its budget against a twenty minute slot, and a slide being marked as one that can be cut" src="../media/editor-storyboard-light.png">
+</picture>
+
+Every slide is drawn as wide as the time you gave it, laid against the slot the
+deck declares, and pressing `o` on the selected one marks it optional — one line
+in the file, and a sentence saying what dropping it would actually buy. There is
+deliberately no thumbnail of any slide: the questions here are what you are
+saying, whether it fits, and what you would cut, and a wall of pictures answers
+none of them.
+
+`vp run record:editor` regenerates the recording by opening the storyboard on a
+real deck and pressing the key, so a panel that stopped saying this fails to
+reproduce rather than leaving a picture of something that no longer happens.
+
 ## Keys I will want and will not remember
 
 | Key                      | What it does                      |
