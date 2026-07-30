@@ -30,6 +30,7 @@
 pub mod declarations;
 pub mod edit;
 pub mod publish;
+pub mod summary;
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;

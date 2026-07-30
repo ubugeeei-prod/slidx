@@ -50,6 +50,7 @@ use slidx_core::{
 };
 use wasm_bindgen::prelude::wasm_bindgen;
 
+use crate::summary::DeckSummary;
 use crate::{AssetSize, BuildOptions, BuildResult, BuiltSlide, Finding, SnippetFile};
 
 // Appended verbatim to the `.d.ts` wasm-bindgen writes, which is how the types
@@ -98,6 +99,11 @@ pub fn generate() -> String {
     push::<BuiltSlide>(&mut file, &cfg);
     push::<Finding>(&mut file, &cfg);
     push::<SnippetFile>(&mut file, &cfg);
+
+    // What `deckSummary` gives back. It never travels with a build — the
+    // editor's history panel asks for it on its own — so it would otherwise
+    // drift on a schedule of its own.
+    push::<DeckSummary>(&mut file, &cfg);
 
     // The step timeline, which the renderer embeds as JSON in the page and the
     // client runtime parses back out. It crosses without going through
@@ -297,9 +303,17 @@ mod tests {
             effect: None,
         };
 
+        let summary = DeckSummary {
+            first: false,
+            slides: 0,
+            subject: String::new(),
+            changes: Vec::new(),
+        };
+
         vec![
             ("BuildOptions", json(&BuildOptions::default())),
             ("BuildResult", json(&result)),
+            ("DeckSummary", json(&summary)),
             ("BuiltSlide", json(&slide)),
             ("Finding", json(&finding)),
             ("StepTimeline", json(&StepTimeline::default())),

@@ -141,22 +141,42 @@ impl Summary {
     /// The commit message: a subject, a blank line, and what happened.
     pub fn message(&self) -> String {
         let subject = self.subject();
-        let bullets = self.bullets();
+        let body = self.body();
 
-        if bullets.len() < 2 {
-            // One change is already the whole subject. Repeating it underneath
-            // would be a body that says nothing the first line did not.
+        if body.is_empty() {
             return format!("{subject}\n");
         }
 
-        let shown: Vec<String> = bullets.iter().take(BULLET_BUDGET).cloned().collect();
-        let rest = bullets.len().saturating_sub(shown.len());
-        let more = if rest > 0 { format!("- and {rest} more\n") } else { String::new() };
-
         format!(
-            "{subject}\n\n{}{more}",
-            shown.iter().map(|line| format!("- {line}\n")).collect::<String>()
+            "{subject}\n\n{}",
+            body.iter().map(|line| format!("- {line}\n")).collect::<String>()
         )
+    }
+
+    /// What goes under the subject, one change per line.
+    ///
+    /// Empty when there is only one change, because that change is already the
+    /// whole subject and repeating it underneath would be a body that says
+    /// nothing the first line did not. Past a dozen it stops and counts the
+    /// rest: a message listing forty slides is a message nobody reads.
+    ///
+    /// Public, and the reason the rule lives here rather than in `message`: the
+    /// editor's history panel shows a subject and this list, and a panel that
+    /// decided for itself when to repeat the subject would disagree with the
+    /// commit message about what one change looks like.
+    pub fn body(&self) -> Vec<String> {
+        let bullets = self.bullets();
+        if bullets.len() < 2 {
+            return Vec::new();
+        }
+
+        let mut shown: Vec<String> = bullets.iter().take(BULLET_BUDGET).cloned().collect();
+        let rest = bullets.len().saturating_sub(shown.len());
+        if rest > 0 {
+            shown.push(format!("and {rest} more"));
+        }
+
+        shown
     }
 
     /// The one line `git log --oneline` shows.
@@ -245,10 +265,7 @@ impl Summary {
     }
 
     /// One line per change, in the same order the subject prefers them.
-    ///
-    /// The history panel renders these directly rather than wording the changes
-    /// again, which is what keeps the panel and the commit message one answer.
-    pub fn bullets(&self) -> Vec<String> {
+    fn bullets(&self) -> Vec<String> {
         let mut lines = Vec::new();
 
         for title in &self.added {
