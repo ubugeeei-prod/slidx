@@ -136,6 +136,9 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
     destroy() {
       unsubscribe();
       root.ownerDocument.removeEventListener("keydown", keys);
+      // Removing the frame is enough for a surface that is only its own DOM.
+      // Presence holds a connection, and a connection survives its element.
+      for (const surface of surfaces) surface.destroy?.();
       frame.remove();
     },
   };

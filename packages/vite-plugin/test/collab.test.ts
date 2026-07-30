@@ -17,7 +17,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { createSharedDeck, spliceBetween } from "../src/collab";
 import { createRoster, PRESENCE_TIMEOUT_MS } from "../src/collab/presence";
 import { createRoom } from "../src/collab/room";
-import { frame } from "../src/collab/stream";
+import { createStream, frame } from "../src/collab/stream";
 import { applyOperation, revertOperation, type DeckFile } from "../src/edit";
 import { Grant } from "../src/share";
 
@@ -273,6 +273,51 @@ describe("the roster", () => {
 });
 
 describe("the stream", () => {
+  it("refreshes the roster on a keep-alive that reached the browser", () => {
+    // A viewer who never changes slides sends nothing at all, and would age out
+    // of the roster while their connection is very much open — the common case
+    // while somebody is talking. The heartbeat is what says they are still here,
+    // which is what `presence.ts` claims and what this pins.
+    const stream = createStream(1);
+    const beats: number[] = [];
+    const held = { write: () => true, setHeader: () => {}, end: () => {}, on: () => {} };
+
+    stream.join("a", held as never, () => void beats.push(1));
+
+    return new Promise<void>((done) =>
+      setTimeout(() => {
+        stream.closeAll();
+        expect(beats.length).toBeGreaterThan(0);
+        done();
+      }, 20),
+    );
+  });
+
+  it("does not call a viewer present on a keep-alive that failed to send", () => {
+    // The delivery is the evidence. A write to a browser that has gone away
+    // must not be what keeps it in everybody's roster.
+    const stream = createStream(1);
+    const beats: number[] = [];
+    const gone = {
+      write: () => {
+        throw new Error("socket closed");
+      },
+      setHeader: () => {},
+      end: () => {},
+      on: () => {},
+    };
+
+    stream.join("a", gone as never, () => void beats.push(1));
+
+    return new Promise<void>((done) =>
+      setTimeout(() => {
+        stream.closeAll();
+        expect(beats).toEqual([]);
+        done();
+      }, 20),
+    );
+  });
+
   it("carries a deck source without the frame ending early on a newline", () => {
     // A blank line ends an event. A deck is nothing but newlines, so this is
     // the one mistake that looks like it works until the deck has two slides.
@@ -294,6 +339,31 @@ describe("what a room does with a reconciler before anybody edits", () => {
 
   it("reports nobody connected until somebody joins the stream", () => {
     expect(createRoom({ deckState: () => Promise.resolve({}) }).viewers()).toEqual([]);
+  });
+
+  it("reads the deck before turning the response into a stream", async () => {
+    // Joining commits event-stream headers. A deck that cannot be read after
+    // that leaves the caller unable to answer at all, because its error reply
+    // would be a second set of headers on the same response. So the failure has
+    // to arrive while the response is still an ordinary one.
+    const room = createRoom({ deckState: () => Promise.reject(new Error("unreadable")) });
+    const headers: string[] = [];
+    const response = {
+      setHeader: (name: string) => void headers.push(name),
+      flushHeaders: () => {},
+      write: () => true,
+      end: () => {},
+      on: () => {},
+    };
+
+    const request = { url: "/__slidx/live", method: "GET", socket: {} };
+    const answering = room.handle(request as never, response as never, {
+      grant: Grant.Write,
+      local: true,
+    });
+
+    await expect(answering).rejects.toThrow("unreadable");
+    expect(headers).toEqual([]);
   });
 
   it("answers no route it does not own", async () => {

@@ -146,15 +146,24 @@ export function createRoom(options: RoomOptions): Room {
 
       if (route === LIVE_ROUTE && request.method === "GET") {
         const id = randomUUID();
-        const listener = stream.join(id, response);
         const canEdit = access.grant === Grant.Write;
+
+        // Read before the response becomes a stream, and not for tidiness.
+        // Joining commits `text/event-stream` headers, and a deck that cannot
+        // be read after that leaves the caller above unable to answer at all:
+        // its error reply would be a second set of headers on a response that
+        // already sent one. Failing here is a plain 409 like any other.
+        const state = await options.deckState();
+        const listener = stream.join(id, response, () =>
+          roster.seen(id, { local: access.local, canEdit }),
+        );
 
         roster.seen(id, { local: access.local, canEdit });
         // The id is the browser's only way to say where it is later. Sent
         // rather than assigned by the browser, so a viewer cannot claim to be
         // somebody else's seat.
         listener.send(HELLO_EVENT, { id, canEdit });
-        listener.send(STATE_EVENT, await options.deckState());
+        listener.send(STATE_EVENT, state);
         tellEveryone();
 
         response.on("close", () => {
@@ -190,9 +199,28 @@ export function createRoom(options: RoomOptions): Room {
   };
 }
 
+/**
+ * The most a position report may weigh.
+ *
+ * The only body that reaches here is a seat id and a slide number, so this is
+ * two orders of magnitude of room. It exists because a share link is handed to
+ * somebody else: a viewer who posts without stopping would otherwise grow the
+ * dev server's memory by whatever they felt like sending, and that process is
+ * the one holding everybody's deck.
+ */
+const MAX_BODY_BYTES = 4_096;
+
 async function body(request: IncomingMessage): Promise<Record<string, unknown>> {
   const chunks: Buffer[] = [];
-  for await (const chunk of request) chunks.push(chunk as Buffer);
+  let size = 0;
+
+  for await (const chunk of request) {
+    size += (chunk as Buffer).length;
+    // Nonsense of any size is answered the same way, so an oversized body is
+    // dropped rather than reported: nothing here is worth a second round trip.
+    if (size > MAX_BODY_BYTES) return {};
+    chunks.push(chunk as Buffer);
+  }
 
   try {
     const parsed: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8"));

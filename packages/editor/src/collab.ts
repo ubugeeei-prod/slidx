@@ -86,6 +86,17 @@ export function createPresence(options: PresenceOptions): Surface {
   let reported = -1;
   let stopped = false;
 
+  /**
+   * The two things that keep the loop alive between attempts.
+   *
+   * Held rather than local because stopping is somebody else's decision: the
+   * read is parked on a response that only ends when the server says so, and
+   * the wait between attempts is parked on a timer. Neither notices an editor
+   * being torn down, so `destroy` has to reach both.
+   */
+  let live: AbortController | undefined;
+  let waking: { timer: ReturnType<typeof setTimeout>; wake: () => void } | undefined;
+
   const headers: Record<string, string> = credential ? { [CREDENTIAL_HEADER]: credential } : {};
 
   function draw(viewers: Viewer[]): void {
@@ -130,7 +141,8 @@ export function createPresence(options: PresenceOptions): Surface {
   async function listen(): Promise<void> {
     while (!stopped) {
       try {
-        const response = await send(`${base}live`, { headers });
+        live = new AbortController();
+        const response = await send(`${base}live`, { headers, signal: live.signal });
         const reader = response.body?.getReader();
         if (!reader) return;
 
@@ -153,7 +165,10 @@ export function createPresence(options: PresenceOptions): Surface {
       }
 
       if (stopped) return;
-      await new Promise((wake) => setTimeout(wake, options.retry ?? RETRY_MS));
+      await new Promise<void>((wake) => {
+        waking = { timer: setTimeout(wake, options.retry ?? RETRY_MS), wake };
+      });
+      waking = undefined;
     }
   }
 
@@ -162,13 +177,35 @@ export function createPresence(options: PresenceOptions): Surface {
   return {
     root,
 
+    /**
+     * Stops listening, for good.
+     *
+     * The reconnect is deliberately unbounded — a dev server the author
+     * restarted must be picked back up without them reloading anything — which
+     * is exactly why an editor that has gone away has to say so. Otherwise a
+     * remounted editor leaves the previous one's loop reconnecting behind it,
+     * asking a session that no longer exists to re-read the deck.
+     */
+    destroy() {
+      stopped = true;
+      live?.abort();
+
+      if (waking) {
+        clearTimeout(waking.timer);
+        // Woken as well as cleared, so the loop returns on its own `stopped`
+        // check rather than being left parked on a promise nothing resolves.
+        waking.wake();
+        waking = undefined;
+      }
+    },
+
     render(state: EditorState) {
       source = state.source;
 
       // Only when it changed. A render happens on every keystroke in the
       // inspector, and a post per keystroke would make presence the busiest
       // thing on the wire.
-      if (seat === undefined || state.selection.slide === reported) return;
+      if (stopped || seat === undefined || state.selection.slide === reported) return;
       reported = state.selection.slide;
 
       void send(`${base}here`, {

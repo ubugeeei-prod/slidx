@@ -37,8 +37,14 @@ export interface Listener {
 }
 
 export interface Stream {
-  /** Takes over a response and holds it open. */
-  join(id: string, response: ServerResponse): Listener;
+  /**
+   * Takes over a response and holds it open.
+   *
+   * `beat` is called each time a keep-alive actually reaches the browser, which
+   * is what the roster upstream treats as this viewer still being here. It is
+   * the delivery that means something, so a write that failed does not beat.
+   */
+  join(id: string, response: ServerResponse, beat?: () => void): Listener;
   /** Sends to everyone still connected. */
   broadcast(event: string, payload: unknown): void;
   readonly size: number;
@@ -74,7 +80,7 @@ export function createStream(heartbeat = HEARTBEAT_MS): Stream {
       return listeners.size;
     },
 
-    join(id, response) {
+    join(id, response, beat) {
       response.statusCode = 200;
       response.setHeader("content-type", "text/event-stream; charset=utf-8");
       response.setHeader("cache-control", "no-store");
@@ -85,7 +91,8 @@ export function createStream(heartbeat = HEARTBEAT_MS): Stream {
       response.flushHeaders?.();
 
       const timer = setInterval(() => {
-        if (!write(response, ": keep-alive\n\n")) drop(id);
+        if (write(response, ": keep-alive\n\n")) beat?.();
+        else drop(id);
       }, heartbeat);
       // Never the reason a process stays alive: the dev server decides when it
       // is finished, not a timer nobody can see.

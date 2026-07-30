@@ -138,6 +138,34 @@ describe("the presence surface", () => {
     expect(surface.root.getAttribute("data-empty")).toBe("true");
   });
 
+  it("stops listening when the editor that mounted it is destroyed", async () => {
+    // The reconnect is deliberately unbounded, so that a dev server the author
+    // restarted is picked back up without a reload. That is exactly why a
+    // destroyed editor has to say so: otherwise a remounted editor leaves the
+    // previous one's loop reconnecting behind it, asking a session that no
+    // longer exists to re-read the deck.
+    // A dev server that is not answering, which is the state the loop was
+    // written for: it fails, waits, and tries again until somebody stops it.
+    const attempts: string[] = [];
+    const send = ((url: string) => {
+      attempts.push(url);
+      return Promise.reject(new Error("no dev server"));
+    }) as unknown as typeof globalThis.fetch;
+
+    const surface = createPresence({
+      reload: () => {},
+      fetch: send,
+      href: "http://localhost:5173/__slidx/",
+      retry: 1,
+    });
+
+    surface.destroy?.();
+    const seen = attempts.length;
+    await new Promise((wake) => setTimeout(wake, 25));
+
+    expect(attempts.length).toBe(seen);
+  });
+
   it("says nothing about where it is until the server has given it a seat", () => {
     // The seat id is issued on the stream. Posting without one would be a
     // position nobody can attribute.
