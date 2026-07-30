@@ -16,6 +16,10 @@ path = "src/main.rs"
 [dependencies]
 slidx_core = { workspace = true }
 slidx_doctor = { workspace = true }
+# Every byte the CLI writes into an existing deck is a splice this crate
+# computed. A command that composed Markdown itself would be the second writer
+# the editor's round trip exists to prevent.
+slidx_edit = { workspace = true }
 slidx_export = { workspace = true }
 slidx_fmt = { workspace = true }
 slidx_highlight = { workspace = true }

@@ -161,6 +161,20 @@ impl Index {
         self.entries.truncate(CAPACITY);
     }
 
+    /// Drops one deck, and says whether it was there.
+    ///
+    /// For the two commands that move a project deliberately: a rename and an
+    /// archive both leave an entry pointing at a directory that is gone, and
+    /// [`Index::live`] would hide it rather than remove it. Waiting for the next
+    /// prune would mean `slidx list` showing a project that was just renamed
+    /// under both names.
+    pub fn forget(&mut self, path: &Path) -> bool {
+        let before = self.entries.len();
+        self.entries.retain(|entry| entry.path != path);
+
+        self.entries.len() != before
+    }
+
     /// The decks that are still there, most recent first.
     ///
     /// The read path, and the only one that stats. An entry whose directory has
@@ -343,6 +357,18 @@ mod tests {
 
         assert_eq!(index.len(), CAPACITY);
         assert!(index.entries().iter().all(|entry| entry.last_seen >= 10));
+    }
+
+    #[test]
+    fn a_deck_that_was_moved_on_purpose_is_dropped_rather_than_left_to_be_pruned() {
+        // A rename records the new path, and the old entry has to go with it or
+        // a list shows one project under two names until something prunes.
+        let mut index = Index::default();
+        index.record(Entry::new("/talks/old"));
+
+        assert!(index.forget(Path::new("/talks/old")));
+        assert!(!index.forget(Path::new("/talks/old")));
+        assert!(index.is_empty());
     }
 
     #[test]

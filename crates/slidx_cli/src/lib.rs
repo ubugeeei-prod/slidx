@@ -50,25 +50,31 @@
 #![deny(missing_debug_implementations)]
 #![warn(clippy::all)]
 
+pub mod add;
 pub mod args;
 pub mod cd;
 pub mod command;
 pub mod completions;
+pub mod create;
 pub mod dev;
 pub mod doctor;
 pub mod export;
 pub mod find;
 pub mod fmt;
+pub mod git;
 pub mod grep;
 pub mod help;
 pub mod home;
 pub mod index;
 pub mod lint;
 pub mod list;
+pub mod mv;
 pub mod preview;
 pub mod project;
+pub mod prompt;
 pub mod publish;
 pub mod report;
+pub mod save;
 pub mod sha256;
 pub mod shell;
 pub mod style;
@@ -135,6 +141,10 @@ pub fn run(argv: &[String], style: &Style) -> Outcome {
             (None, "lint") => lint::run(&matches, style),
             (None, "open") => find::run(&matches, style),
             (None, "list") => list::run(&matches, style),
+            (None, "add") => add::run(&matches, style),
+            (None, "create") => create::run(&matches, style),
+            (None, "mv") => mv::run(&matches, style),
+            (None, "save") => save::run(&matches, style),
             (None, "cd") => cd::run(&matches, style),
             (None, "grep") => grep::run(&matches, style),
             (None, "preview") => preview::run(&matches, style),
