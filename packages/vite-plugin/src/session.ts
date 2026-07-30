@@ -28,6 +28,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { readDeck } from "./deck";
 import { EDITOR_MODULE, EDITOR_PAGE, editorPage, readEditor } from "./editor";
 import { joinDeck } from "./files";
+import { createDeckHistory } from "./history";
 import {
   applyOperation,
   locate,
@@ -46,6 +47,8 @@ export const EDITOR_ROUTE_PREFIX = "/__slidx/";
 
 const DECK_ROUTE = `${EDITOR_ROUTE_PREFIX}deck`;
 const EDIT_ROUTE = `${EDITOR_ROUTE_PREFIX}edit`;
+const HISTORY_ROUTE = `${EDITOR_ROUTE_PREFIX}history`;
+const CHANGE_ROUTE = `${EDITOR_ROUTE_PREFIX}history/change`;
 
 /** What the editor posts: one operation, or one edit off its undo stack. */
 interface EditRequest {
@@ -61,6 +64,7 @@ export interface EditSession {
 
 export function createEditSession(root: string, options: ResolvedOptions): EditSession {
   const emptied = new Map<string, DeckFile>();
+  const history = createDeckHistory(root, options);
 
   async function files(): Promise<DeckFile[]> {
     const { files: found } = await readDeck(
@@ -95,7 +99,8 @@ export function createEditSession(root: string, options: ResolvedOptions): EditS
 
   return {
     async handle(request, response) {
-      const path = (request.url ?? "").split("?")[0]!;
+      const url = request.url ?? "";
+      const path = url.split("?")[0]!;
       if (!path.startsWith(EDITOR_ROUTE_PREFIX)) return false;
 
       try {
@@ -121,6 +126,21 @@ export function createEditSession(root: string, options: ResolvedOptions): EditS
 
         if (path === EDIT_ROUTE && request.method === "POST") {
           send(response, 200, await edit(await read(request)));
+          return true;
+        }
+
+        if (path === HISTORY_ROUTE && request.method === "GET") {
+          send(response, 200, await history.commits());
+          return true;
+        }
+
+        if (path === CHANGE_ROUTE && request.method === "GET") {
+          const change = await history.changeAt(query(url, "rev"));
+
+          // A revision this repository does not have is an answer rather than
+          // a failure: the panel builds its request from a log it read a
+          // moment ago, and a rebase since then is ordinary traffic.
+          send(response, change === null ? 404 : 200, change ?? { message: "No such revision." });
           return true;
         }
 
@@ -187,6 +207,17 @@ function remember(
   for (const file of before) {
     if (file.source.length > 0) emptied.delete(file.path);
   }
+}
+
+/**
+ * One query parameter, or an empty string.
+ *
+ * Parsed against a base that is thrown away — these URLs arrive without an
+ * origin, and `URL` is the only decoder in the runtime that agrees with the
+ * browser about what `%2F` and `+` mean.
+ */
+function query(url: string, name: string): string {
+  return new URL(url, "http://deck.invalid").searchParams.get(name) ?? "";
 }
 
 async function read(request: IncomingMessage): Promise<EditRequest> {

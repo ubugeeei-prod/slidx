@@ -114,6 +114,15 @@ export interface EditorClient {
   revert(edit: Edit): Promise<EditAnswer>;
 }
 
+/**
+ * The prefix every route the editor talks to lives under.
+ *
+ * Named here because a panel that reads something other than the deck — the
+ * history panel does — still has to find the dev server, and a second copy of
+ * this string is a second place to change when the prefix moves.
+ */
+export const EDITOR_BASE = "/__slidx/";
+
 export interface ClientOptions {
   /** Where the editing routes live. */
   base?: string;
@@ -121,7 +130,7 @@ export interface ClientOptions {
 }
 
 export function createClient(options: ClientOptions = {}): EditorClient {
-  const base = options.base ?? "/__slidx/";
+  const base = options.base ?? EDITOR_BASE;
   const send = options.fetch ?? globalThis.fetch.bind(globalThis);
 
   async function post(body: unknown): Promise<EditAnswer> {

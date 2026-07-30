@@ -179,6 +179,35 @@ export type SnippetFile = {
 };
 
 /**
+ * What changed between two versions of a deck.
+ */
+export type DeckSummary = {
+  /**
+   * True when there was nothing to compare against — the deck arriving,
+   * rather than the deck changing.
+   */
+  first: boolean;
+  /**
+   * How many slides the newer of the two decks has.
+   */
+  slides: number;
+  /**
+   * The one line, in the deck's own vocabulary.
+   *
+   * Empty when the deck did not change at all, which is an ordinary commit
+   * that touched something else in the repository.
+   */
+  subject: string;
+  /**
+   * The rest of the changes, one sentence each.
+   *
+   * Empty when the subject already said the only thing that happened, so a
+   * consumer can render both without repeating one of them.
+   */
+  changes: Array<string>;
+};
+
+/**
  * Every stop on a slide, in order.
  */
 export type StepTimeline = { frames: Array<StepFrame> };

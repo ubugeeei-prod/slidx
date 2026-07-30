@@ -27,6 +27,7 @@ import { createDiagnostics } from "./diagnostics";
 import { element } from "./dom";
 import { createInspector } from "./inspector";
 import { createOutline, type Surface } from "./outline";
+import { createRevisions } from "./revisions";
 import { occurrenceInRendered, locateSelection } from "./selection";
 import { createSession, type Session } from "./session";
 import { applyStyles } from "./styles";
@@ -82,7 +83,14 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
   const inspector = createInspector({ run }, { bodyOf });
   const diagnostics = createDiagnostics({ select });
 
-  const surfaces: Surface[] = [outline, canvas, inspector, diagnostics, createTimeline({ run })];
+  const surfaces: Surface[] = [
+    outline,
+    canvas,
+    inspector,
+    diagnostics,
+    createTimeline({ run }),
+    createRevisions(),
+  ];
   const frame = element(
     "div",
     { class: "slidx-editor" },
