@@ -466,6 +466,7 @@ dependencies = [
  "slidx_highlight",
  "slidx_i18n",
  "slidx_lint",
+ "slidx_lsp",
  "slidx_publish",
  "slidx_theme",
 ]

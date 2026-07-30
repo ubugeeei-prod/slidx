@@ -1,6 +1,10 @@
 [workspace]
 resolver = "2"
 members = ["crates/*"]
+# The Zed extension is a workspace of its own. Zed compiles it, to
+# `wasm32-wasip2`, against its own extension API — a target and a dependency
+# tree nothing else here has, and a `cdylib` nothing here links.
+exclude = ["editors/zed"]
 
 [workspace.package]
 version = "0.1.0"
