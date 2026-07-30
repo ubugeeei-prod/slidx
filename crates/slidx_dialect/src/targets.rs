@@ -23,7 +23,7 @@
 
 use slidx_core::{Deck, Diagnostic, Diagnostics, Slide, SourceSpan, StepAction, MARK_ATTRIBUTE};
 
-pub fn check(deck: &Deck, sink: &mut Diagnostics) {
+pub fn check(deck: &Deck, _installed: &crate::Installed, sink: &mut Diagnostics) {
     for slide in &deck.slides {
         let declared = keys(slide);
 
@@ -106,7 +106,7 @@ mod tests {
     fn found(source: &str) -> Diagnostics {
         let deck = parse_deck(source, &DeckParseOptions::default());
         let mut sink = Diagnostics::default();
-        check(&deck, &mut sink);
+        check(&deck, &crate::Installed::default(), &mut sink);
         sink
     }
 

@@ -187,12 +187,6 @@ impl Catalogue {
             self.diagnostics.push(repaired(source, &held.theme.id, repair));
         }
 
-        // Audited on the way in rather than on the way out, so a theme nobody
-        // ends up using still says so once. An author choosing between two
-        // installed themes should not have to switch to one to hear that it
-        // fails in the room they are speaking in.
-        self.diagnostics.extend(audited(source, &held.theme));
-
         self.installed.push(Installed { source: source.clone(), theme: held.theme });
     }
 
@@ -254,32 +248,43 @@ pub struct Resolved {
     pub source: Option<String>,
 }
 
-/// What [`crate::audit`] says about a package theme, addressed to the deck.
-///
-/// The rule's own code and message are kept: a comment colour that fails in a
-/// bright room fails for the reason the contrast rule already explains, and
-/// re-coding it under a theme namespace would put the same failure behind two
-/// names depending on where the colour came from. What is added is the origin —
-/// the one thing an author cannot work out from a finding about a colour they
-/// never wrote.
-fn audited(source: &str, theme: &Theme) -> Diagnostics {
-    let mut out = Diagnostics::default();
+impl Resolved {
+    /// What the linter says about this theme, addressed to the deck using it.
+    ///
+    /// Empty for a built-in. Those are held to these rules by this crate's own
+    /// test suite in every room slidx models, so running them again on every
+    /// build would be arithmetic nobody reads. A package has no such gate: its
+    /// author's CI is not this one, and the deck is where the failure lands.
+    ///
+    /// Only the theme actually resolved, not everything installed. A dependency
+    /// a deck never names should not be able to fail its build.
+    ///
+    /// The rule's own code and message are kept. A comment colour that
+    /// disappears in a bright room fails for the reason the contrast rule
+    /// already explains, and re-coding it under a theme namespace would put one
+    /// failure behind two names depending on where the colour came from. What
+    /// is added is the origin — the one thing an author cannot work out from a
+    /// finding about a colour they never wrote.
+    pub fn audit(&self, options: &LintOptions) -> Diagnostics {
+        let Some(source) = &self.source else {
+            return Diagnostics::default();
+        };
 
-    for diagnostic in crate::audit::audit(theme, &LintOptions::default()).iter() {
-        out.push(
-            Diagnostic::new(
-                diagnostic.code.clone(),
-                diagnostic.severity,
-                format!("theme `{}` from {source}: {}", theme.id, diagnostic.message),
-            )
-            .at(SourceSpan::default().on_slide(0))
-            .with_help(diagnostic.help.clone().unwrap_or_else(|| {
-                format!("this is {source}'s to fix, not the deck's — report it there")
-            })),
-        );
+        crate::audit::audit(&self.theme, options)
+            .iter()
+            .map(|diagnostic| {
+                Diagnostic::new(
+                    diagnostic.code.clone(),
+                    diagnostic.severity,
+                    format!("theme `{}` from {source}: {}", self.theme.id, diagnostic.message),
+                )
+                .at(SourceSpan::default().on_slide(0))
+                .with_help(diagnostic.help.clone().unwrap_or_else(|| {
+                    format!("this is {source}'s to fix, not the deck's — report it there")
+                }))
+            })
+            .collect()
     }
-
-    out
 }
 
 fn repaired(source: &str, id: &str, repair: &Repair) -> Diagnostic {
@@ -490,40 +495,69 @@ mod tests {
         }
     }
 
+    /// A theme resolved out of a package holding `broken`.
+    fn resolving(broken: impl FnOnce(&mut Theme)) -> Resolved {
+        let mut theme = builtin::minimal();
+        theme.id = "aurora".into();
+        broken(&mut theme);
+
+        Catalogue::read(&[Published::new("@example/theme-aurora", document(&theme))])
+            .resolve("aurora")
+            .expect("the package resolves")
+    }
+
     #[test]
     fn a_package_theme_faces_the_same_audit_a_built_in_does() {
         // The point of a theme being tokens. A published theme that ships text
         // nobody at the back can read is the failure this project exists to
         // catch, and it is caught by the rules that already judge a deck.
-        let mut theme = builtin::minimal();
-        theme.id = "aurora".into();
-        theme.light.text = theme.light.surface;
-
-        let catalogue =
-            Catalogue::read(&[Published::new("@example/theme-aurora", document(&theme))]);
+        let resolved = resolving(|theme| theme.light.text = theme.light.surface);
+        let audited = resolved.audit(&LintOptions::default());
 
         assert!(
-            codes(&catalogue).iter().any(|code| code.starts_with("contrast/")),
-            "{:?}",
-            codes(&catalogue)
+            audited.iter().any(|diagnostic| diagnostic.code.starts_with("contrast/")),
+            "{audited:?}"
         );
     }
 
     #[test]
     fn an_audit_finding_keeps_the_rules_own_code_and_gains_the_origin() {
-        let mut theme = builtin::minimal();
-        theme.id = "aurora".into();
-        theme.scale.base_px = 12.0;
-
-        let catalogue =
-            Catalogue::read(&[Published::new("@example/theme-aurora", document(&theme))]);
-        let finding = catalogue
-            .diagnostics()
+        let resolved = resolving(|theme| theme.scale.base_px = 12.0);
+        let audited = resolved.audit(&LintOptions::default());
+        let finding = audited
             .iter()
             .find(|d| d.code == "legibility/font-size")
             .expect("the size floor is a rule a package faces too");
 
         assert!(finding.message.contains("@example/theme-aurora"), "{}", finding.message);
+    }
+
+    #[test]
+    fn a_built_in_is_not_re_audited_on_every_build() {
+        // This crate's own suite already holds all four to these rules in every
+        // room slidx models, so a second pass per build is arithmetic nobody
+        // reads.
+        let catalogue = Catalogue::default();
+        let resolved = catalogue.resolve("contrast").unwrap();
+
+        assert!(resolved.audit(&LintOptions::default()).is_empty());
+    }
+
+    #[test]
+    fn a_theme_a_deck_never_names_cannot_fail_its_build() {
+        // Installing two themes and using one must not mean being judged by
+        // both. The one that renders is the one that matters.
+        let mut illegible = builtin::minimal();
+        illegible.id = "murk".into();
+        illegible.light.text = illegible.light.surface;
+
+        let catalogue = Catalogue::read(&[
+            published(),
+            Published::new("@example/theme-murk", document(&illegible)),
+        ]);
+
+        assert!(catalogue.diagnostics().is_empty(), "{:?}", catalogue.diagnostics());
+        assert!(catalogue.resolve("aurora").unwrap().audit(&LintOptions::default()).is_empty());
     }
 
     #[test]

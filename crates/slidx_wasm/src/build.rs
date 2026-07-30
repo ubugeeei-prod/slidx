@@ -15,21 +15,43 @@ use slidx_render::{
     render_snippets, OgOptions, PresenterOptions, PrintOptions, SeoOptions, ShellOptions,
     SnippetOptions,
 };
+use slidx_theme::{Catalogue, Published, Resolved};
 
 use crate::{parse_options, BuildOptions, BuildResult, BuiltSlide, Finding, SnippetFile};
 
 pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
     let deck = parse_deck(source, &parse_options(options.separator.as_deref()));
-    let theme = resolve_theme(options.theme.as_deref(), deck.meta.theme.as_deref());
+
+    let catalogue = catalogue(options);
+    let resolved = resolve_theme(&catalogue, options.theme.as_deref(), deck.meta.theme.as_deref());
+    let theme = resolved.theme.clone();
     let surfaces = theme.surfaces();
 
     let mut diagnostics: Vec<Finding> = deck.diagnostics.iter().map(finding).collect();
+
+    // What the packages themselves were found to be, before anything is said
+    // about the deck: a document that is not a theme, a name a deck could not
+    // write, a value that could have left the declaration it was written into.
+    let packaging = catalogue.diagnostics().clone();
+    diagnostics.extend(packaging.iter().map(finding));
+
+    // And the linter's own verdict on the theme this deck actually renders
+    // with. A package has no gate of its own — its author's CI is not this one
+    // — so a theme that ships text nobody at the back can read is caught in the
+    // build that uses it. Built-ins return nothing here: `slidx_theme` already
+    // holds all four to these rules in every room it models.
+    let theme_findings = resolved.audit(&LintOptions::default());
+    diagnostics.extend(theme_findings.iter().map(finding));
 
     // The dialect check runs in the build as well as in `slidx lint` and in the
     // editor, because these are the findings a build is the last chance to say
     // anything about: a `steps:` entry addressing a mark that is not there
     // compiles, ships, and then does nothing when the presenter clicks.
-    diagnostics.extend(slidx_dialect::check(&deck, &[]).iter().map(finding));
+    //
+    // It is told what the project installed, or `theme: workshop` is a typo on
+    // every build of the deck that installed `workshop`.
+    let installed = slidx_dialect::Installed { themes: catalogue.names() };
+    diagnostics.extend(slidx_dialect::check(&deck, &[], &installed).iter().map(finding));
 
     // The theme's padding is the safe area the shell enforces, and resolving
     // the theme is the only place that number exists. Without it the linter
@@ -64,11 +86,14 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
     // Every source, and after all of them have been collected. This was read
     // off the parse diagnostics alone, above the lint call, so a deck whose
     // only blocking problem was a rule — a remote asset, text unreadable from
-    // the back row — reported that nothing blocked it. Placement joins the same
-    // list for the same reason: a source added after this line is a source that
-    // does not count.
-    let has_blocking =
-        deck.diagnostics.has_blocking() || findings.has_blocking() || placement.has_blocking();
+    // the back row — reported that nothing blocked it. Placement and the theme
+    // packages join the same list for the same reason: a source added after
+    // this line is a source that does not count.
+    let has_blocking = deck.diagnostics.has_blocking()
+        || findings.has_blocking()
+        || placement.has_blocking()
+        || packaging.has_blocking()
+        || theme_findings.has_blocking();
 
     let runtime_src = options.runtime_src.clone().unwrap_or_else(|| "./runtime.js".to_string());
 
@@ -161,15 +186,35 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
     }
 }
 
+/// The themes this project can name, from the documents the caller found.
+pub(crate) fn catalogue(options: &BuildOptions) -> Catalogue {
+    let published: Vec<Published> = options
+        .theme_packages
+        .iter()
+        .map(|package| Published::new(package.source.clone(), package.document.clone()))
+        .collect();
+
+    Catalogue::read(&published)
+}
+
 /// An explicit theme wins over the deck's own, which wins over the default.
+///
+/// Within either, a built-in wins over a package — that precedence is
+/// [`Catalogue::resolve`]'s, and `slidx_theme::package` says why.
+///
+/// A name nothing answers to still falls back rather than failing, because a
+/// deck edited minutes before a talk has to render something. What stops that
+/// from being silent is `dialect/unknown-theme`, which reports the same name
+/// this function could not resolve.
 pub(crate) fn resolve_theme(
+    catalogue: &Catalogue,
     requested: Option<&str>,
     from_deck: Option<&str>,
-) -> slidx_theme::Theme {
+) -> Resolved {
     requested
         .or(from_deck)
-        .and_then(slidx_theme::resolve)
-        .unwrap_or_else(slidx_theme::default_theme)
+        .and_then(|id| catalogue.resolve(id))
+        .unwrap_or_else(|| Resolved { theme: slidx_theme::default_theme(), source: None })
 }
 
 pub(crate) fn finding(diagnostic: &slidx_core::Diagnostic) -> Finding {

@@ -13,6 +13,17 @@ export type BuildOptions = {
    */
   theme: string | null;
   /**
+   * Theme documents the caller found in the project's dependencies.
+   *
+   * There is no filesystem on this side of the boundary and no module
+   * resolver either, the same constraint that makes image sizes arrive
+   * pre-read. A caller that has both — the Vite plugin — finds the packages
+   * and hands the text over; what a theme document is allowed to say is
+   * decided here, by `slidx_theme::package`, so the editor's preview and the
+   * production build harden and audit the same bytes.
+   */
+  themePackages: Array<ThemePackage>;
+  /**
    * Separator for single-file decks.
    */
   separator: string | null;
@@ -98,6 +109,24 @@ export type AssetSize = {
    * True for a format with no resolution to run out of, which is SVG.
    */
   scalable: boolean;
+};
+
+/**
+ * One theme package, as the caller read it off disk.
+ */
+export type ThemePackage = {
+  /**
+   * The package name, for a finding to point at.
+   *
+   * Every diagnostic about a theme has to name something outside the deck,
+   * because an author reading one is looking at their own slides and the
+   * answer is not in them.
+   */
+  source: string;
+  /**
+   * The document's text, exactly as the file holds it.
+   */
+  document: string;
 };
 
 /**
