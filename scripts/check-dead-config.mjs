@@ -139,7 +139,11 @@ function isRead({ file, field, line }) {
 }
 
 const unread = declarations.filter((declaration) => !isRead(declaration));
-const { unexplained, stale } = classify(unread.map(keyOf), new Set(WRITE_ONLY.keys()));
+const { unexplained, orphaned } = classify(
+  unread.map(keyOf),
+  declarations.map(keyOf),
+  new Set(WRITE_ONLY.keys()),
+);
 
 for (const entry of unexplained) {
   process.stdout.write(
@@ -148,13 +152,13 @@ for (const entry of unexplained) {
   );
 }
 
-for (const entry of stale) {
+for (const entry of orphaned) {
   process.stdout.write(
-    `warning: ${entry} is listed as write-only and is now read — drop the exemption\n`,
+    `warning: ${entry} is recorded as write-only and no longer exists — drop the exemption\n`,
   );
 }
 
 process.stdout.write(
   `dead config: ${declarations.length} public fields checked, ${unexplained.length} unread, ` +
-    `${WRITE_ONLY.size - stale.length} write-only by design\n`,
+    `${WRITE_ONLY.size - orphaned.length} write-only by design\n`,
 );
