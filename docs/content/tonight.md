@@ -30,9 +30,9 @@ about, so read the diagnostic before you silence it.
 
 ## The venue Wi-Fi is down
 
-A built deck makes zero network requests. Fonts, images, styles and scripts are
-inlined or bundled, and a remote asset is a build error, so a deck that built is
-already a deck that does not need a network.
+A built deck asks for nothing but its own files. Fonts, styles and scripts are
+inlined or bundled, images sit beside the deck, and a remote asset is a build
+error — so a deck that built is already a deck that needs no network.
 
 Prove it now rather than believing it: open `dist/slides/index.html` straight
 from the filesystem with your network switched off. If it renders, tomorrow's
