@@ -14,18 +14,18 @@
 
 export const STORYBOARD_STYLESHEET = `
 /*
- * Two colours of its own, for the two things only this surface draws. Both are
- * laid over something else, so they are alpha rather than tokens: the stripe
- * goes over a segment, which is a mid tone in either scheme, and the hatch goes
- * over the page, which is not.
+ * One colour of its own, for the one thing only this surface draws: the time
+ * that is past the slot. It falls over the segments and the page both, so it is
+ * an alpha wash rather than a token, and a wash rather than the texture this
+ * first was: slidx ships nothing with a gradient, and scripts/check-flat.mjs is
+ * where that stops being a preference someone wrote down.
  */
 :root {
-  --slidx-sb-stripe: rgb(255 255 255 / 0.34);
-  --slidx-sb-hatch: rgb(22 24 29 / 0.34);
+  --slidx-sb-past: rgb(22 24 29 / 0.22);
 }
 
 @media (prefers-color-scheme: dark) {
-  :root { --slidx-sb-hatch: rgb(232 234 237 / 0.34); }
+  :root { --slidx-sb-past: rgb(232 234 237 / 0.22); }
 }
 
 /*
@@ -134,11 +134,22 @@ export const STORYBOARD_STYLESHEET = `
   border-radius: 2px;
   background: var(--slidx-e-accent);
   /* Drawn inside the segment, so a separator never widens one. */
-  box-shadow: inset -1px 0 0 var(--slidx-e-canvas);
+  border-right: var(--slidx-e-hairline) solid var(--slidx-e-canvas);
 }
 
 .slidx-sb-segment:hover { background: var(--slidx-e-accent); filter: brightness(1.15); }
 .slidx-sb-segment[aria-current="true"] { outline: 2px solid var(--slidx-e-text); outline-offset: -2px; }
+
+/*
+ * Dashed where the width came from an estimate rather than a budget the author
+ * set. A provisional number that looked identical to a decided one would make
+ * the bar more confident than the deck is, and dashed is already what this
+ * surface wears for a number nobody declared: it is how the band is drawn for a
+ * deck with no slot.
+ */
+.slidx-sb-segment[data-source="estimate"] {
+  border: var(--slidx-e-hairline) dashed var(--slidx-e-canvas);
+}
 
 /*
  * Slack, drawn as the hole in the talk that it is: the band's own colour with a
@@ -148,32 +159,15 @@ export const STORYBOARD_STYLESHEET = `
  */
 .slidx-sb-segment[data-optional="true"] {
   background: var(--slidx-e-surface);
-  border: 1px solid var(--slidx-e-muted);
+  border: var(--slidx-e-hairline) solid var(--slidx-e-muted);
 }
 
-.slidx-sb-segment[data-optional="true"][data-source="estimate"] {
-  background-image: repeating-linear-gradient(
-    135deg,
-    var(--slidx-sb-hatch) 0 1px,
-    rgb(255 255 255 / 0) 1px 6px
-  );
-}
+/* Both at once: a hole in the talk whose width is also a guess. */
+.slidx-sb-segment[data-optional="true"][data-source="estimate"] { border-style: dashed; }
 
-/*
- * Striped where the width came from an estimate rather than a budget the author
- * set. A provisional number that looked identical to a decided one would make
- * the bar more confident than the deck is.
- */
-.slidx-sb-segment[data-source="estimate"] {
-  background-image: repeating-linear-gradient(
-    135deg,
-    var(--slidx-sb-stripe) 0 3px,
-    rgb(255 255 255 / 0) 3px 7px
-  );
-}
-
-/* Everything past where the slot ended. Over the segments, since they cover the
- * band that would otherwise show it. */
+/* Everything past where the slot ended, washed over. Over the segments, since
+ * they cover the band that would otherwise show it — and flat, so what a
+ * projector has to carry is one tone rather than an edge it will lose. */
 .slidx-sb-overrun {
   position: absolute;
   top: 0;
@@ -181,11 +175,7 @@ export const STORYBOARD_STYLESHEET = `
   right: 0;
   pointer-events: none;
   border-radius: 0 var(--slidx-e-radius) var(--slidx-e-radius) 0;
-  background-image: repeating-linear-gradient(
-    45deg,
-    var(--slidx-sb-hatch) 0 3px,
-    rgb(255 255 255 / 0) 3px 8px
-  );
+  background: var(--slidx-sb-past);
 }
 
 .slidx-sb-slot {
@@ -223,7 +213,15 @@ export const STORYBOARD_STYLESHEET = `
 }
 
 .slidx-sb-slide[aria-current="true"] { background: var(--slidx-e-surface); }
-.slidx-sb-slide[data-optional="true"] { box-shadow: inset 2px 0 0 var(--slidx-e-muted); }
+
+/*
+ * The same rail its segment wears, down the row's left edge. A border with the
+ * padding paid back, so marking a row optional never moves its text.
+ */
+.slidx-sb-slide[data-optional="true"] {
+  padding-left: 6px;
+  border-left: 2px solid var(--slidx-e-muted);
+}
 
 .slidx-sb-grip {
   color: var(--slidx-e-muted);

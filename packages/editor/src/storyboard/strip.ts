@@ -44,7 +44,7 @@ export function timeBar(plan: Plan, selected: number, jump: (slide: number) => v
     ),
   ];
 
-  // Hatched over whatever is past the slot, because a segment is opaque: the
+  // Washed over whatever is past the slot, because a segment is opaque: the
   // band ending underneath it is not something a reader can see, and "the last
   // two slides are outside your twenty minutes" is the whole point of the
   // picture.
