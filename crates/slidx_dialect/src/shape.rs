@@ -20,7 +20,7 @@ use slidx_core::{frontmatter, AspectRatio, Deck, Diagnostic, Diagnostics, Source
 const DURATIONS: [(&str, &str); 2] =
     [("duration", "the talk's slot length"), ("budget", "this slide's share of the slot")];
 
-pub fn check(deck: &Deck, sink: &mut Diagnostics) {
+pub fn check(deck: &Deck, _installed: &crate::Installed, sink: &mut Diagnostics) {
     check_aspect(deck, sink);
 
     for slide in &deck.slides {
@@ -105,7 +105,7 @@ mod tests {
     fn found(source: &str) -> Vec<String> {
         let deck = parse_deck(source, &DeckParseOptions::default());
         let mut sink = Diagnostics::default();
-        check(&deck, &mut sink);
+        check(&deck, &crate::Installed::default(), &mut sink);
 
         sink.iter().map(|diagnostic| diagnostic.code.clone()).collect()
     }
@@ -113,7 +113,7 @@ mod tests {
     fn one(source: &str) -> Diagnostic {
         let deck = parse_deck(source, &DeckParseOptions::default());
         let mut sink = Diagnostics::default();
-        check(&deck, &mut sink);
+        check(&deck, &crate::Installed::default(), &mut sink);
 
         assert_eq!(sink.len(), 1, "{:?}", sink);
         sink.as_slice()[0].clone()

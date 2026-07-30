@@ -20,11 +20,18 @@
  * `build:wasm` runs `node scripts/build-wasm.mjs` and never names the package
  * it produces.
  *
- * The list is derived. A package counts when TypeScript outside its own
- * directory imports it by name — which is what makes its `dist/` load-bearing
- * for this repository rather than only for whoever installs it later.
- * `@slidx/audience`, `@slidx/islands` and `@slidx/rehearsal` are published and
- * imported by nobody here, and are correctly absent.
+ * The list is derived, and the rule is about **publishing** rather than about
+ * this repository. It was "a package TypeScript outside its own directory
+ * imports", which is the invariant that keeps a check honest and the wrong one
+ * for a registry: `@slidx/audience`, `@slidx/islands`, `@slidx/rehearsal` and
+ * `@slidx/publish` are imported by nobody here, were built by nothing, and a
+ * publish dry run found all four would ship a tarball holding one
+ * `package.json` — a permanently broken version, fixable only by publishing
+ * another.
+ *
+ * So a package counts when it is publishable and says its contents live in
+ * `dist/`. Being imported here is no longer part of it: the people that rule
+ * protects are the ones who install these, not us.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -36,35 +43,30 @@ function tracked(...paths) {
   return output.split("\0").filter(Boolean);
 }
 
-/** Every workspace package that is consumed through a built `dist/`. */
+/**
+ * Every package that would be published, and that says its contents are in
+ * `dist/` — through `files`, which decides what goes in the tarball, or through
+ * `exports`, which decides what resolves once it is installed.
+ */
 const packages = tracked("packages")
   .filter((file) => /^packages\/[^/]+\/package\.json$/.test(file))
   .map((file) => ({ manifest: file, ...JSON.parse(readFileSync(file, "utf8")) }))
-  .filter(({ exports }) => JSON.stringify(exports ?? {}).includes("./dist/"));
-
-const sources = tracked("packages", "crates", "examples", "scripts").filter((file) =>
-  /\.(ts|mts|mjs|js)$/.test(file),
-);
-
-/** True when TypeScript outside `directory` imports `name`. */
-function importedElsewhere(name, directory) {
-  const specifier = new RegExp(`from ["']${name}(/[^"']*)?["']`);
-
-  return sources.some(
-    (file) => !file.startsWith(`${directory}/`) && specifier.test(readFileSync(file, "utf8")),
+  .filter(({ private: hidden }) => hidden !== true)
+  .filter(({ files, exports }) =>
+    [JSON.stringify(files ?? []), JSON.stringify(exports ?? {})].some((declared) =>
+      declared.includes("dist"),
+    ),
   );
-}
 
 const missing = [];
 
 for (const { manifest, name } of packages) {
   const directory = dirname(manifest);
-  if (!importedElsewhere(name, directory)) continue;
 
   if (!existsSync(join(directory, "dist"))) {
     missing.push(
-      `${name} is imported outside ${directory} and has no dist/ after a build — ` +
-        "add it to build:packages in vite.config.ts",
+      `${name} would be published from ${directory} and has no dist/ after a build — ` +
+        "add it to build:packages in vite.config.ts, or it ships as one package.json",
     );
   }
 }

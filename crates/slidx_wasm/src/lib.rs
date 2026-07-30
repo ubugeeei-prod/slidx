@@ -45,6 +45,15 @@ use slidx_lint::{LintOptions, Measurement};
 pub struct BuildOptions {
     /// Theme name. Falls back to the deck's own `theme:`, then the default.
     pub theme: Option<String>,
+    /// Theme documents the caller found in the project's dependencies.
+    ///
+    /// There is no filesystem on this side of the boundary and no module
+    /// resolver either, the same constraint that makes image sizes arrive
+    /// pre-read. A caller that has both — the Vite plugin — finds the packages
+    /// and hands the text over; what a theme document is allowed to say is
+    /// decided here, by `slidx_theme::package`, so the editor's preview and the
+    /// production build harden and audit the same bytes.
+    pub theme_packages: Vec<ThemePackage>,
     /// Separator for single-file decks.
     pub separator: Option<String>,
     /// Skip rendering and return only the model and diagnostics. The editor
@@ -113,6 +122,23 @@ pub struct BuiltSlide {
     /// own, because a grid drawn from a second call would be a second snapshot
     /// and could describe a deck the rest of the payload no longer agrees with.
     pub steps: slidx_core::StepGrid,
+    /// Seconds the author budgeted this slide, from `budget:`.
+    ///
+    /// Resolved here rather than left as the text a slide wrote, because
+    /// `budget:` accepts `90`, `90s`, `1m30s` and `1:30`. A caller that drew a
+    /// width from the text would be the project's second duration parser, and
+    /// the one that disagreed with the linter.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub budget_seconds: Option<u32>,
+    /// Roughly how long this slide's notes take to say aloud.
+    ///
+    /// The only number available before a rehearsal exists for a slide with no
+    /// budget, which is most slides while a talk is being written. An estimate
+    /// rather than a measurement, and the same one the linter reasons about.
+    pub estimated_seconds: u32,
+    /// Safe to skip when running behind, from `optional:`.
+    pub optional: bool,
     /// The frontmatter keys the author wrote, whether or not slidx knows them.
     ///
     /// The editor's inspector shows these, so a key this version has never
@@ -145,6 +171,14 @@ pub struct BuiltSlide {
 pub struct BuildResult {
     pub title: Option<String>,
     pub description: Option<String>,
+    /// Length of the speaking slot, from `duration:`.
+    ///
+    /// What the per-slide budgets are laid against. Absent for a deck whose
+    /// author never had a slot, and absent means nothing can be said about
+    /// whether the talk fits — which is silence rather than a guess.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub duration_seconds: Option<u32>,
     pub slides: Vec<BuiltSlide>,
     /// Parse diagnostics and lint findings, in that order.
     pub diagnostics: Vec<Finding>,
@@ -188,6 +222,20 @@ pub struct SnippetFile {
     /// Relative to the deck's own output root, separators already `/`.
     pub path: String,
     pub html: String,
+}
+
+/// One theme package, as the caller read it off disk.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct ThemePackage {
+    /// The package name, for a finding to point at.
+    ///
+    /// Every diagnostic about a theme has to name something outside the deck,
+    /// because an author reading one is looking at their own slides and the
+    /// answer is not in them.
+    pub source: String,
+    /// The document's text, exactly as the file holds it.
+    pub document: String,
 }
 
 /// One image, as the caller measured it.
@@ -308,9 +356,16 @@ pub fn lint_measured(
 }
 
 /// The CSS a theme resolves to, for callers that render their own shells.
+///
+/// Built-ins only. A package theme's CSS comes out of a build, which is where
+/// the document it was hardened from arrived — this is for a caller that has a
+/// name and nothing else.
 #[wasm_bindgen(js_name = themeCss)]
 pub fn theme_css(name: Option<String>) -> String {
-    slidx_theme::css::render(&resolve_theme(name.as_deref(), None))
+    let theme =
+        name.as_deref().and_then(slidx_theme::resolve).unwrap_or_else(slidx_theme::default_theme);
+
+    slidx_theme::css::render(&theme)
 }
 
 /// Theme names built in to slidx.
@@ -342,7 +397,7 @@ pub(crate) fn parse_options(separator: Option<&str>) -> DeckParseOptions {
 
 mod build;
 
-use build::{build, finding, resolve_theme};
+use build::{build, finding};
 
 #[cfg(test)]
 mod tests {
@@ -552,6 +607,126 @@ mod tests {
         assert!(build("# One\n", &options).slides[0].html.is_some());
     }
 
+    /// A deck built with the theme package this repository publishes installed.
+    fn with_workshop(source: &str) -> BuildResult {
+        let options = BuildOptions {
+            theme_packages: vec![ThemePackage {
+                source: slidx_theme::published::PACKAGE.to_string(),
+                document: slidx_theme::published::document(),
+            }],
+            ..BuildOptions::default()
+        };
+
+        build(source, &options)
+    }
+
+    #[test]
+    fn a_deck_naming_an_installed_theme_package_is_rendered_with_it() {
+        // The whole path, end to end: a document read off disk by the caller,
+        // hardened here, and a page that is demonstrably not the default.
+        let built = with_workshop("---\ntheme: workshop\n---\n\n# One\n");
+        let default = build("# One\n", &BuildOptions::default());
+
+        let html = built.slides[0].html.as_ref().unwrap();
+        assert!(
+            html.contains(&slidx_theme::published::workshop().light.accent.to_hex()),
+            "the package's own accent is not in the page"
+        );
+        assert_ne!(html, default.slides[0].html.as_ref().unwrap());
+    }
+
+    #[test]
+    fn naming_an_installed_theme_is_not_reported_as_a_typo() {
+        // The failure this would otherwise have: `dialect/unknown-theme` on
+        // every build of a deck that installed exactly the theme it named.
+        let built = with_workshop("---\ntheme: workshop\n---\n\n# One\n");
+
+        assert!(
+            built.diagnostics.iter().all(|finding| finding.code != "dialect/unknown-theme"),
+            "{:?}",
+            built.diagnostics
+        );
+        assert!(!built.has_blocking);
+    }
+
+    #[test]
+    fn naming_a_theme_package_that_is_not_installed_is_still_reported() {
+        // The other direction of the same rule. A package disappearing must not
+        // quietly hand the deck something else instead.
+        let built = build("---\ntheme: workshop\n---\n\n# One\n", &BuildOptions::default());
+
+        assert!(
+            built.diagnostics.iter().any(|finding| finding.code == "dialect/unknown-theme"),
+            "{:?}",
+            built.diagnostics
+        );
+    }
+
+    #[test]
+    fn a_theme_package_cannot_take_over_a_built_in_name() {
+        // A dependency that could claim `minimal` could repaint every deck in a
+        // repository without changing a line of any of them.
+        let mut impostor = slidx_theme::published::workshop();
+        impostor.id = "minimal".into();
+
+        let options = BuildOptions {
+            theme_packages: vec![ThemePackage {
+                source: "@evil/theme".into(),
+                document: serde_json::to_string(&impostor).unwrap(),
+            }],
+            ..BuildOptions::default()
+        };
+
+        let built = build("---\ntheme: minimal\n---\n\n# One\n", &options);
+        let untouched = build("---\ntheme: minimal\n---\n\n# One\n", &BuildOptions::default());
+
+        assert_eq!(built.slides[0].html, untouched.slides[0].html);
+        assert!(built.has_blocking, "the attempt is reported rather than ignored");
+    }
+
+    #[test]
+    fn a_theme_package_that_tries_to_write_script_into_a_page_stops_the_build() {
+        let mut hostile = slidx_theme::published::workshop();
+        hostile.font_sans = "sans-serif</style><script>fetch('//x')</script>".into();
+
+        let options = BuildOptions {
+            theme_packages: vec![ThemePackage {
+                source: "@evil/theme-workshop".into(),
+                document: serde_json::to_string(&hostile).unwrap(),
+            }],
+            ..BuildOptions::default()
+        };
+
+        let built = build("---\ntheme: workshop\n---\n\n# One\n", &options);
+
+        assert!(built.has_blocking);
+        assert!(!built.slides[0].html.as_ref().unwrap().contains("<script>fetch"));
+    }
+
+    #[test]
+    fn a_package_theme_that_ships_illegible_text_fails_the_deck_that_uses_it() {
+        // A package has no gate of its own, so the build that renders with it is
+        // where the linter's verdict has to land.
+        let mut illegible = slidx_theme::published::workshop();
+        illegible.light.text = illegible.light.surface;
+        illegible.dark.text = illegible.dark.surface;
+
+        let options = BuildOptions {
+            theme_packages: vec![ThemePackage {
+                source: "@example/theme-murk".into(),
+                document: serde_json::to_string(&illegible).unwrap(),
+            }],
+            ..BuildOptions::default()
+        };
+
+        let built = build("---\ntheme: workshop\n---\n\n# One\n", &options);
+        let contrast =
+            built.diagnostics.iter().find(|finding| finding.code.starts_with("contrast/"));
+
+        assert!(contrast.is_some(), "{:?}", built.diagnostics);
+        assert!(contrast.unwrap().message.contains("@example/theme-murk"));
+    }
+
     #[test]
     fn stop_counts_reach_the_caller() {
         // The plugin needs these to emit one PDF page per stop.
@@ -571,6 +746,46 @@ mod tests {
         assert_eq!(grid.actions.len(), 2);
         assert!(!grid.declared, "generated stops have no line to edit");
         assert_eq!(grid.auto, Some(slidx_core::AutoSteps::List));
+    }
+
+    #[test]
+    fn the_seconds_a_slide_is_budgeted_reach_the_caller() {
+        // `budget: 90s` is one of four notations, and the storyboard draws a
+        // width from the number. Sending the text and letting a browser read it
+        // would be a second duration parser.
+        let result = build("---\nbudget: 90s\n---\n\n# One\n", &BuildOptions::default());
+
+        assert_eq!(result.slides[0].budget_seconds, Some(90));
+    }
+
+    #[test]
+    fn a_slide_carries_the_spoken_length_of_its_own_notes() {
+        // The pacing model — words a minute for Latin, characters a minute for
+        // CJK — belongs to one implementation. A second one in the editor would
+        // disagree with the linter about whether a talk fits.
+        let result = build(
+            "# One\n\n<!-- notes: two and a half words per second is the figure -->\n",
+            &BuildOptions::default(),
+        );
+
+        assert_eq!(result.slides[0].estimated_seconds, 4);
+    }
+
+    #[test]
+    fn a_slide_the_speaker_can_drop_says_so() {
+        let result =
+            build("---\noptional: true\n---\n\n# One\n\n---\n\n# Two\n", &BuildOptions::default());
+
+        assert!(result.slides[0].optional);
+        assert!(!result.slides[1].optional);
+    }
+
+    #[test]
+    fn the_slot_the_talk_was_given_reaches_the_caller() {
+        let result = build("---\nduration: 20m\n---\n\n# One\n", &BuildOptions::default());
+
+        assert_eq!(result.duration_seconds, Some(1200));
+        assert_eq!(build("# One\n", &BuildOptions::default()).duration_seconds, None);
     }
 
     #[test]

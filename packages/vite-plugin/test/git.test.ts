@@ -17,7 +17,7 @@
  */
 
 import { execFile } from "node:child_process";
-import { access, mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -175,6 +175,82 @@ describe("reading a deck's history", () => {
 
     expect(await repo!.parentOf(oldest!.rev)).toBeNull();
     expect(await repo!.parentOf(newest!.rev)).toBe(oldest!.rev);
+  });
+});
+
+describe("putting the deck back to a commit", () => {
+  it("says nothing has changed under a deck nobody has touched", async () => {
+    const { project } = await repository();
+    const repo = await openRepository(project);
+
+    expect(await repo!.changesIn("slides")).toEqual([]);
+  });
+
+  it("names what is uncommitted under the deck, tracked or not", async () => {
+    // This is the read that decides whether putting an old version back would
+    // destroy anything, so a file git has never been told about counts.
+    //
+    // Named the way `git status` would name it: these reach an author in a
+    // sentence about what is unsaved, and a bare filename would not tell them
+    // which of two decks in the repository it was.
+    const { project } = await repository();
+    await writeFile(join(project, "slides", "0001.md"), "# Edited but not committed\n");
+    await writeFile(join(project, "slides", "0004.md"), "# Written but never added\n");
+
+    const repo = await openRepository(project);
+
+    expect((await repo!.changesIn("slides")).sort()).toEqual([
+      "talks/making-decks-fast/slides/0001.md",
+      "talks/making-decks-fast/slides/0004.md",
+    ]);
+  });
+
+  it("does not count changes outside the deck", async () => {
+    // A half-written README is not a reason to refuse to restore slides.
+    const { root, project } = await repository();
+    await writeFile(join(root, "README.md"), "# Not a slide\n");
+
+    expect(await (await openRepository(project))!.changesIn("slides")).toEqual([]);
+  });
+
+  it("puts the deck back exactly as a commit had it, deletions included", async () => {
+    // The whole file set, not just the files that both versions have. A restore
+    // that left the slide added since then behind would produce a deck that
+    // never existed — which is worse than not restoring at all.
+    const { project } = await repository();
+    const repo = await openRepository(project);
+    const [, oldest] = await repo!.log("slides", 20);
+
+    expect(await repo!.restore(oldest!.rev, "slides")).toBe(true);
+
+    expect((await readdir(join(project, "slides"))).sort()).toEqual(["0001.md", "0002.md"]);
+  });
+
+  it("is its own inverse, so going back is one more restore", async () => {
+    // What makes looking at history safe to act on. Undo is not a special
+    // path; it is this operation naming the commit that was there before.
+    const { root, project } = await repository();
+    const repo = await openRepository(project);
+    const [newest, oldest] = await repo!.log("slides", 20);
+
+    await repo!.restore(oldest!.rev, "slides");
+    await repo!.restore(newest!.rev, "slides");
+
+    expect((await readdir(join(project, "slides"))).sort()).toEqual([
+      "0001.md",
+      "0002.md",
+      "0003.md",
+    ]);
+    // Byte for byte back where it started: nothing to commit, nothing staged.
+    expect(await git(root, "status", "--porcelain")).toBe("");
+  });
+
+  it("refuses a revision that is a git option rather than an object name", async () => {
+    const { project } = await repository();
+    const repo = await openRepository(project);
+
+    expect(await repo!.restore("--upload-pack=touch /tmp/slidx-restore", "slides")).toBe(false);
+    expect(await repo!.restore("0123456789abcdef0123456789abcdef01234567", "slides")).toBe(false);
   });
 });
 

@@ -13,6 +13,17 @@ export type BuildOptions = {
    */
   theme: string | null;
   /**
+   * Theme documents the caller found in the project's dependencies.
+   *
+   * There is no filesystem on this side of the boundary and no module
+   * resolver either, the same constraint that makes image sizes arrive
+   * pre-read. A caller that has both — the Vite plugin — finds the packages
+   * and hands the text over; what a theme document is allowed to say is
+   * decided here, by `slidx_theme::package`, so the editor's preview and the
+   * production build harden and audit the same bytes.
+   */
+  themePackages: Array<ThemePackage>;
+  /**
    * Separator for single-file decks.
    */
   separator: string | null;
@@ -101,11 +112,37 @@ export type AssetSize = {
 };
 
 /**
+ * One theme package, as the caller read it off disk.
+ */
+export type ThemePackage = {
+  /**
+   * The package name, for a finding to point at.
+   *
+   * Every diagnostic about a theme has to name something outside the deck,
+   * because an author reading one is looking at their own slides and the
+   * answer is not in them.
+   */
+  source: string;
+  /**
+   * The document's text, exactly as the file holds it.
+   */
+  document: string;
+};
+
+/**
  * Everything a build or a preview needs from one call.
  */
 export type BuildResult = {
   title: string | null;
   description: string | null;
+  /**
+   * Length of the speaking slot, from `duration:`.
+   *
+   * What the per-slide budgets are laid against. Absent for a deck whose
+   * author never had a slot, and absent means nothing can be said about
+   * whether the talk fits — which is silence rather than a guess.
+   */
+  durationSeconds?: number;
   slides: Array<BuiltSlide>;
   /**
    * Parse diagnostics and lint findings, in that order.
@@ -168,6 +205,27 @@ export type BuiltSlide = {
    * and could describe a deck the rest of the payload no longer agrees with.
    */
   steps: StepGrid;
+  /**
+   * Seconds the author budgeted this slide, from `budget:`.
+   *
+   * Resolved here rather than left as the text a slide wrote, because
+   * `budget:` accepts `90`, `90s`, `1m30s` and `1:30`. A caller that drew a
+   * width from the text would be the project's second duration parser, and
+   * the one that disagreed with the linter.
+   */
+  budgetSeconds?: number;
+  /**
+   * Roughly how long this slide's notes take to say aloud.
+   *
+   * The only number available before a rehearsal exists for a slide with no
+   * budget, which is most slides while a talk is being written. An estimate
+   * rather than a measurement, and the same one the linter reasons about.
+   */
+  estimatedSeconds: number;
+  /**
+   * Safe to skip when running behind, from `optional:`.
+   */
+  optional: boolean;
   /**
    * The frontmatter keys the author wrote, whether or not slidx knows them.
    *

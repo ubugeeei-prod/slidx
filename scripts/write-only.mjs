@@ -50,6 +50,26 @@ export const WRITE_ONLY = new Map([
     "in the --json payload so a hit is a link; a person reads the slide number instead",
   ],
   [
+    "crates/slidx_lsp/src/formatting.rs:TextEdit.new_text",
+    "the replacement text in a formatting response, applied by the editor and never read back",
+  ],
+  [
+    "crates/slidx_brand/src/mark.rs:Geometry.page_width",
+    "published in assets/brand/tokens.json, where the documentation site reads the mark's grid",
+  ],
+  [
+    "crates/slidx_brand/src/mark.rs:Geometry.min_px",
+    "published in assets/brand/tokens.json as mark.minPx — the size below which the mark stops",
+  ],
+  [
+    "crates/slidx_brand/src/wordmark.rs:Lockup.min_px",
+    "published in assets/brand/tokens.json as lockup.minPx, for whoever places the lockup",
+  ],
+  [
+    "crates/slidx_brand/src/tokens.rs:Tokens.lockup",
+    "the lockup half of assets/brand/tokens.json; nothing in this workspace draws a lockup",
+  ],
+  [
     "crates/slidx_lsp/src/protocol.rs:Message.jsonrpc",
     "JSON-RPC requires the version on every message; the client checks it, we only send it",
   ],

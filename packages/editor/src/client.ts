@@ -67,6 +67,18 @@ export interface SlideSummary {
   stopCount: number;
   /** This slide's steps as rows and stops, for the timeline. */
   steps?: StepGrid;
+  /**
+   * Seconds this slide is budgeted, resolved from `budget:` by the pipeline.
+   *
+   * Resolved there rather than here because the key accepts `90`, `90s`,
+   * `1m30s` and `1:30`. A second duration parser in the browser is a second set
+   * of answers about whether a talk fits.
+   */
+  budgetSeconds?: number;
+  /** Roughly how long this slide's notes take to say aloud. */
+  estimatedSeconds: number;
+  /** Safe to skip when running behind. */
+  optional: boolean;
   /** The keys the author wrote on this slide. The deck's own are slide zero's. */
   frontmatter?: Record<string, unknown>;
 }
@@ -92,6 +104,8 @@ export interface DeckState {
   spans: SlideSpans[];
   deck: {
     title?: string;
+    /** Length of the speaking slot, resolved from `duration:`. */
+    durationSeconds?: number;
     slides: SlideSummary[];
     diagnostics: Finding[];
     hasBlocking: boolean;

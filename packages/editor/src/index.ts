@@ -31,6 +31,7 @@ import { createOutline, type Surface } from "./outline";
 import { createRevisions } from "./revisions";
 import { occurrenceInRendered, locateSelection } from "./selection";
 import { createSession, type Session } from "./session";
+import { createStoryboard } from "./storyboard";
 import { applyStyles } from "./styles";
 import { createTimeline } from "./timeline";
 
@@ -94,17 +95,23 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
   const inspector = createInspector({ run }, { bodyOf });
   const diagnostics = createDiagnostics({ select });
 
+  const storyboard = createStoryboard({ select, run: (op) => session.run(op) });
+
   const surfaces: Surface[] = [
     outline,
     canvas,
     inspector,
     diagnostics,
     createTimeline({ run }),
-    createRevisions(),
+    createRevisions(
+      { reload: () => void session.open() },
+      { deckBase: options.deckBase ?? "slides" },
+    ),
     createArrange(
       { run, foresee: (findings) => session.foresee(findings) },
       { measure: (measured) => client.measured(measured) },
     ),
+    storyboard,
   ];
   const frame = element(
     "div",

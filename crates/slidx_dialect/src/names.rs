@@ -23,16 +23,23 @@
 //!
 //! # What a theme name is allowed to be
 //!
-//! An unknown theme is a warning rather than an error, because theme packages on
-//! npm are still to come (M6) and the plugin resolves those, not this. A deck
-//! naming a package slidx has not loaded is not wrong — it is early — so the
-//! finding says what happened rather than refusing the name.
+//! The built-ins, plus whatever the project installed — which this crate cannot
+//! see, so the caller hands it over in [`Installed`]. Both halves are needed:
+//! without the packages, a deck that installed the theme it named is told it
+//! made a typo; without the built-ins, the check has no vocabulary at all.
+//!
+//! An unknown theme stays a warning rather than an error. A deck naming a
+//! package that is not installed on *this* machine is not wrong — a colleague's
+//! checkout, a fresh CI runner — so the finding says what happened and names
+//! both ways out.
 
 use slidx_core::{frontmatter, Deck, Diagnostic, Diagnostics, SourceSpan};
 use slidx_theme::{builtin, Transition};
 
-pub fn check(deck: &Deck, sink: &mut Diagnostics) {
-    check_theme(deck, sink);
+use crate::Installed;
+
+pub fn check(deck: &Deck, installed: &Installed, sink: &mut Diagnostics) {
+    check_theme(deck, installed, sink);
 
     for slide in &deck.slides {
         let span = SourceSpan::line(slide.source_line).on_slide(slide.index);
@@ -54,12 +61,21 @@ fn written<'a>(slide: &'a slidx_core::Slide, key: &str) -> Option<&'a str> {
     frontmatter::field(&slide.frontmatter, key)?.as_str()
 }
 
-fn check_theme(deck: &Deck, sink: &mut Diagnostics) {
+fn check_theme(deck: &Deck, installed: &Installed, sink: &mut Diagnostics) {
     let Some(name) = &deck.meta.theme else {
         return;
     };
-    if slidx_theme::resolve(name).is_some() {
+    if slidx_theme::resolve(name).is_some() || installed.themes.iter().any(|id| id == name) {
         return;
+    }
+
+    // Deduplicated, because a caller holding one list of resolvable names is the
+    // obvious thing to hand over and would otherwise print every built-in twice.
+    let mut offered: Vec<String> = builtin::all().into_iter().map(|theme| theme.id).collect();
+    for id in &installed.themes {
+        if !offered.contains(id) {
+            offered.push(id.clone());
+        }
     }
 
     sink.push(
@@ -67,7 +83,7 @@ fn check_theme(deck: &Deck, sink: &mut Diagnostics) {
             .at(SourceSpan::default().on_slide(0))
             .with_help(format!(
                 "use one of {}, or install the theme package that provides `{name}`",
-                vocabulary(builtin::all().into_iter().map(|theme| theme.id))
+                vocabulary(offered.into_iter())
             )),
     );
 }
@@ -114,7 +130,7 @@ mod tests {
     fn found(source: &str) -> Diagnostics {
         let deck = parse_deck(source, &DeckParseOptions::default());
         let mut sink = Diagnostics::default();
-        check(&deck, &mut sink);
+        check(&deck, &Installed::default(), &mut sink);
         sink
     }
 
@@ -143,6 +159,50 @@ mod tests {
             assert!(help.contains(&theme.id), "help omits `{}`", theme.id);
         }
         assert!(help.contains("theme package"), "{help}");
+    }
+
+    #[test]
+    fn a_theme_the_project_installed_is_not_a_typo() {
+        // The build this crate would otherwise have warned on every time: a
+        // deck naming a theme, and the package providing exactly that theme
+        // sitting in the project's dependencies.
+        let deck = parse_deck("---\ntheme: workshop\n---\n\n# One\n", &DeckParseOptions::default());
+        let installed = Installed { themes: vec!["workshop".to_string()] };
+        let mut sink = Diagnostics::default();
+
+        check(&deck, &installed, &mut sink);
+
+        assert!(sink.is_empty(), "{sink:?}");
+    }
+
+    #[test]
+    fn no_theme_is_offered_twice_when_a_caller_hands_over_one_list_of_names() {
+        // A caller holding every resolvable name is the obvious thing to pass,
+        // and the help is what a person reads after a typo.
+        let deck = parse_deck("---\ntheme: nope\n---\n\n# One\n", &DeckParseOptions::default());
+        let everything: Vec<String> =
+            builtin::all().into_iter().map(|theme| theme.id).chain(["workshop".into()]).collect();
+        let mut sink = Diagnostics::default();
+
+        check(&deck, &Installed { themes: everything }, &mut sink);
+        let help = sink.as_slice()[0].help.clone().expect("help");
+
+        assert_eq!(help.matches("`minimal`").count(), 1, "{help}");
+    }
+
+    #[test]
+    fn a_typo_near_an_installed_theme_is_offered_that_theme_too() {
+        // The help lists what a name could have been, and a theme the author
+        // has already installed is the likeliest answer of all.
+        let deck =
+            parse_deck("---\ntheme: workshopp\n---\n\n# One\n", &DeckParseOptions::default());
+        let installed = Installed { themes: vec!["workshop".to_string()] };
+        let mut sink = Diagnostics::default();
+
+        check(&deck, &installed, &mut sink);
+        let help = sink.as_slice()[0].help.clone().expect("help");
+
+        assert!(help.contains("`workshop`"), "{help}");
     }
 
     #[test]

@@ -128,6 +128,61 @@ export const REVISIONS_STYLESHEET = `
 
 .slidx-revision-quiet { margin: 0; color: var(--slidx-e-muted); }
 
+/*
+ * The deck as the selected commit had it.
+ *
+ * Below the list rather than inside the row it belongs to, for two reasons:
+ * moving an iframe between parents reloads it in some browsers, and a preview
+ * that stayed put while the list scrolled is easier to compare against than one
+ * that moves with the row.
+ */
+.slidx-revisions-preview {
+  flex: none;
+  border-top: var(--slidx-e-hairline) solid var(--slidx-e-line);
+  padding: var(--slidx-e-gap);
+}
+
+.slidx-revisions-preview[data-showing="false"] { display: none; }
+
+/*
+ * Sized by its height rather than its width, so a short window gives the
+ * commit list room instead of handing the whole panel to one slide. It stays
+ * recognisable small because it is the deck's real page and not a thumbnail
+ * of one.
+ */
+.slidx-revision-frame {
+  display: block;
+  height: min(26vh, 200px);
+  width: auto;
+  max-width: 100%;
+  margin: 0 auto;
+  aspect-ratio: 16 / 9;
+  border: var(--slidx-e-hairline) solid var(--slidx-e-line);
+  border-radius: var(--slidx-e-radius);
+  background: var(--slidx-e-canvas);
+}
+
+.slidx-revision-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/*
+ * Restoring is not the panel's headline. Reading history is what an author came
+ * for, and going back is what they might then decide to do — so it reads as a
+ * button rather than as the thing the panel is for.
+ */
+.slidx-revision-restore, .slidx-revision-undo { flex: none; }
+
+.slidx-revision-said {
+  flex: 1 1 100%;
+  margin: 0;
+  color: var(--slidx-e-muted);
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .slidx-revisions { transition: width 120ms ease-out; }
 }

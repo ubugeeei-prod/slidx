@@ -98,9 +98,11 @@ The failures that are invisible on a laptop and fatal on a projector.
 - [x] Image resolution reachable from `vite build` — the plugin reads the
       headers and hands over the sizes, because the WebAssembly boundary has no
       filesystem to read them itself — #7
-- [ ] Doctor: display resolution, DND state, audio levels — no portable reading
-      exists, and a guess about whether Do Not Disturb is on is worse than
-      silence — #8
+- [x] Doctor: display arrangement and mirroring, Do Not Disturb, audio levels —
+      read natively per platform. The line above used to say no portable reading
+      exists; that was an argument about the browser, and `slidx` is a binary the
+      speaker installed. A guess is still worse than silence, so a platform that
+      will not answer is reported as unknown with the reason — #8
 
 **Done when** every documented stage failure has a rule that catches it before
 the author leaves their desk.
@@ -122,10 +124,15 @@ Editor-first authoring that still writes reviewable Markdown.
 - [x] Undo, as the inverse of an applied edit rather than a second document
 - [x] Live diagnostics from the linter, inline
 - [x] Media: video and audio embeds with level metering and loudness check — #11
-- [ ] Direct manipulation with snapping, guides, and layout tokens
+- [x] Direct manipulation: drag a block between the layout's regions, with
+      guides for boundaries, the safe area and the other blocks' edges — and the
+      linter warning while it is still moving. Never a coordinate: dropping into
+      the default region is written by _removing_ the class, so a drag out and
+      back is byte-identical
 - [x] **Animation timeline** — rows are what a slide addresses, columns are its
       stops, and the playhead scrubs — #10
-- [ ] Storyboard mode: edit at the level of one message per slide
+- [x] Storyboard mode: one message per slide, each drawn as wide as its time
+      against the slot, with the optional slides shown as the slack they are
 
 **Done when** an author can build a staged, animated slide without typing YAML,
 and the diff is still reviewable.
@@ -208,7 +215,7 @@ The chore that is currently done exhausted, and therefore often not done.
 - [x] Attach the recording after the fact; archive record and talk index — #20
 - [x] `slidx export`: the static site, the deck as one document, one PDF per
       slide, one image per stop — reachable for all four from the command line
-- [ ] `slidx export --target pptx`, for a deck somebody opens in Google Slides —
+- [x] `slidx export --target pptx`, for a deck somebody opens in Google Slides —
       a rendered image per stop plus the notes as real notes text, so what a
       speaker has to keep editing survives the trip
 
@@ -249,9 +256,14 @@ matters least — a laptop the night before, on conference wifi.
 - [x] The `slidx` binary, by `curl | sh` or `npm i -g`, with published checksums — #23
 - [x] Version manager, deck index, fuzzy finder, `preview`, completions, TUI — #23
 - [x] `list`, `grep` and `cd` over the decks the index already knows — #23
-- [ ] Theme packages distributable on npm — #3
-- [ ] Editor plugins for VS Code, Zed, and Neovim over the language server — #23
-- [ ] Documentation site
+- [x] Theme packages distributable on npm — a token document rather than a
+      stylesheet, so the linter can still check it, and a built-in always wins a
+      name so no dependency can quietly redefine `theme: minimal` — #3
+- [x] Editor plugins for VS Code, Zed, and Neovim over the language server. The
+      server itself reached nobody first: `release.yml` built `--bin slidx` and
+      nothing else, so `slidx-lsp` was on no machine that installed slidx. It is
+      `slidx lsp` now — #23
+- [x] Documentation site, with the sections built around readers rather than crates
 - [ ] First release to npm and crates.io — needs the maintainer's accounts
 
 Angular cost more than this roadmap assumed. Its published packages ship
@@ -287,10 +299,10 @@ measure of that:
 
 |                                     |                           |
 | ----------------------------------- | ------------------------- |
-| Rust tests                          | 2316                      |
-| TypeScript tests                    | 1157                      |
-| Crates                              | 13                        |
-| Published packages                  | 9                         |
+| Rust tests                          | 3313                      |
+| TypeScript tests                    | 1459                      |
+| Crates                              | 18                        |
+| Published packages                  | 10                        |
 | Platforms in CI                     | Linux, macOS, Windows     |
 | Browsers exercised                  | Chromium, Firefox, WebKit |
 | Runtimes exercised                  | Node, Bun, Deno           |
