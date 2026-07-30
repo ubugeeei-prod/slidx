@@ -84,10 +84,13 @@ describe("building a deck with no configuration", () => {
     expect(result.files).toContain("slides/2/presenter/index.html");
   });
 
-  it("ships JavaScript only to the presenter, never to the audience", async () => {
+  it("ships JavaScript beside the presenter, never in the audience page", async () => {
     // The property that makes a deck load instantly on venue Wi-Fi. A stray
     // empty chunk from the virtual entry would break it silently.
-    expect(result.files.filter((file) => file.endsWith(".js"))).toEqual(["slides/runtime.js"]);
+    expect(result.files.filter((file) => file.endsWith(".js"))).toEqual([
+      "slides/rehearsal.js",
+      "slides/runtime.js",
+    ]);
 
     // The one `<script>` on an audience slide is the structured data, which is
     // a block of JSON in the container the JSON-LD specification chose for it.
@@ -145,6 +148,7 @@ describe("building a deck with no configuration", () => {
       "slides/index.html",
       "slides/presenter/index.html",
       "slides/print/index.html",
+      "slides/rehearsal.js",
       "slides/runtime.js",
     ]);
   });
@@ -155,6 +159,15 @@ describe("building a deck with no configuration", () => {
       "utf8",
     );
     expect(presenter).toContain('from "/slides/runtime.js"');
+  });
+
+  it("keeps rehearsal out of the shared runtime", async () => {
+    const rehearsal = await readFile(join(result.root, "dist/slides/rehearsal.js"), "utf8");
+    const runtime = await readFile(join(result.root, "dist/slides/runtime.js"), "utf8");
+
+    expect(rehearsal).toContain("openRehearsalSession");
+    expect(rehearsal).not.toMatch(/from\s+["']@slidx\//);
+    expect(runtime).not.toContain("openRehearsalSession");
   });
 
   it("writes complete, self-contained documents", async () => {
@@ -195,6 +208,7 @@ describe("options", () => {
       "index.html",
       "presenter/index.html",
       "print/index.html",
+      "rehearsal.js",
       // Still the site root, because that is the only place a crawler looks.
       "robots.txt",
       "runtime.js",
@@ -216,6 +230,7 @@ describe("options", () => {
 
     expect(files).toContain("slides/print/index.html");
     expect(files).not.toContain("slides/presenter/index.html");
+    expect(files).not.toContain("slides/rehearsal.js");
   }, 60_000);
 
   it("reads a directory other than ./slides", async () => {

@@ -246,6 +246,11 @@ export function runtimeFileName(options: ResolvedOptions): string {
   return options.base ? `${options.base}/runtime.js` : "runtime.js";
 }
 
+/** Where the presenter-only rehearsal module is written, and imported from. */
+export function rehearsalFileName(options: ResolvedOptions): string {
+  return options.base ? `${options.base}/rehearsal.js` : "rehearsal.js";
+}
+
 /** Where the runtime's one shared effect stylesheet is written. */
 export function effectsFileName(options: ResolvedOptions): string {
   return options.base ? `${options.base}/effects.css` : "effects.css";

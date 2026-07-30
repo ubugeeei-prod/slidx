@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@slidx/editor": "workspace:*",
+    "@slidx/rehearsal": "workspace:*",
     "@slidx/runtime": "workspace:*",
     "@slidx/wasm": "workspace:*",
     "yjs": "^13.6.31"
