@@ -21,13 +21,13 @@ jobs:
   crates:
     name: crates.io
     needs: verify
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-32vcpu-ubuntu-2404
     permissions:
       # Mints the OIDC token crates.io exchanges for a short-lived publish
       # token. No registry credential is stored in this repository.
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: useblacksmith/checkout@v1
       - uses: ./.github/actions/setup
         with:
           rust: "true"
@@ -73,21 +73,24 @@ jobs:
       matrix:
         include:
           - target: aarch64-apple-darwin
-            runner: macos-latest
+            runner: blacksmith-12vcpu-macos-latest
           - target: x86_64-apple-darwin
-            runner: macos-latest
+            runner: blacksmith-12vcpu-macos-latest
           # Both Linux targets are static musl builds. A glibc binary carries
           # the glibc of whatever built it and fails on anything older with a
           # message about GLIBC_2.34 that says nothing about slidx; a static
           # musl one runs on every distribution, Alpine included.
           - target: x86_64-unknown-linux-musl
-            runner: ubuntu-latest
+            runner: blacksmith-32vcpu-ubuntu-2404
           - target: aarch64-unknown-linux-musl
-            runner: ubuntu-24.04-arm
+            runner: blacksmith-32vcpu-ubuntu-2404-arm
           - target: x86_64-pc-windows-msvc
-            runner: windows-latest
+            runner: blacksmith-32vcpu-windows-2025
     steps:
-      - uses: actions/checkout@v4
+      - if: runner.os == 'Linux'
+        uses: useblacksmith/checkout@v1
+      - if: runner.os != 'Linux'
+        uses: actions/checkout@v6
       - uses: ./.github/actions/setup
         with:
           rust: "true"
@@ -126,11 +129,11 @@ jobs:
   npm:
     name: npm
     needs: [verify, binaries]
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-32vcpu-ubuntu-2404
     permissions:
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: useblacksmith/checkout@v1
       - uses: ./.github/actions/setup
         with:
           wasm: "true"
@@ -184,7 +187,7 @@ jobs:
   github-release:
     name: github release
     needs: [crates, npm]
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-32vcpu-ubuntu-2404
     permissions:
       contents: write
       # Signs the binaries into Sigstore's transparency log, so anyone can check
@@ -198,7 +201,7 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: useblacksmith/checkout@v1
         with:
           fetch-depth: 0
 

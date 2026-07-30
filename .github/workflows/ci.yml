@@ -24,9 +24,9 @@ jobs:
   # settles them.
   conventions:
     name: conventions
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-32vcpu-ubuntu-2404
     steps:
-      - uses: actions/checkout@v4
+      - uses: useblacksmith/checkout@v1
       - uses: ./.github/actions/setup
       - run: pnpm exec vp run ci:conventions
       - run: node scripts/check-version.mjs
@@ -44,7 +44,7 @@ jobs:
   # this repository wants while a wave of work is landing.
   platforms:
     name: platforms
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-32vcpu-ubuntu-2404
     outputs:
       all: ${{ steps.pick.outputs.all }}
       browsers: ${{ steps.pick.outputs.browsers }}
@@ -53,11 +53,11 @@ jobs:
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo 'all=["ubuntu-latest"]' >> "$GITHUB_OUTPUT"
-            echo 'browsers=["ubuntu-latest"]' >> "$GITHUB_OUTPUT"
+            echo 'all=["blacksmith-32vcpu-ubuntu-2404"]' >> "$GITHUB_OUTPUT"
+            echo 'browsers=["blacksmith-32vcpu-ubuntu-2404"]' >> "$GITHUB_OUTPUT"
           else
-            echo 'all=["ubuntu-latest","macos-latest","windows-latest"]' >> "$GITHUB_OUTPUT"
-            echo 'browsers=["ubuntu-latest","macos-latest"]' >> "$GITHUB_OUTPUT"
+            echo 'all=["blacksmith-32vcpu-ubuntu-2404","blacksmith-12vcpu-macos-latest","blacksmith-32vcpu-windows-2025"]' >> "$GITHUB_OUTPUT"
+            echo 'browsers=["blacksmith-32vcpu-ubuntu-2404","blacksmith-12vcpu-macos-latest"]' >> "$GITHUB_OUTPUT"
           fi
 
   rust:
@@ -69,7 +69,10 @@ jobs:
       matrix:
         os: ${{ fromJSON(needs.platforms.outputs.all) }}
     steps:
-      - uses: actions/checkout@v4
+      - if: runner.os == 'Linux'
+        uses: useblacksmith/checkout@v1
+      - if: runner.os != 'Linux'
+        uses: actions/checkout@v6
       - uses: ./.github/actions/setup
         with:
           rust: "true"
@@ -84,7 +87,10 @@ jobs:
       matrix:
         os: ${{ fromJSON(needs.platforms.outputs.all) }}
     steps:
-      - uses: actions/checkout@v4
+      - if: runner.os == 'Linux'
+        uses: useblacksmith/checkout@v1
+      - if: runner.os != 'Linux'
+        uses: actions/checkout@v6
       - uses: ./.github/actions/setup
         with:
           wasm: "true"
@@ -100,7 +106,10 @@ jobs:
       matrix:
         os: ${{ fromJSON(needs.platforms.outputs.all) }}
     steps:
-      - uses: actions/checkout@v4
+      - if: runner.os == 'Linux'
+        uses: useblacksmith/checkout@v1
+      - if: runner.os != 'Linux'
+        uses: actions/checkout@v6
       - uses: ./.github/actions/setup
         with:
           wasm: "true"
@@ -119,7 +128,10 @@ jobs:
       matrix:
         os: ${{ fromJSON(needs.platforms.outputs.browsers) }}
     steps:
-      - uses: actions/checkout@v4
+      - if: runner.os == 'Linux'
+        uses: useblacksmith/checkout@v1
+      - if: runner.os != 'Linux'
+        uses: actions/checkout@v6
       - uses: ./.github/actions/setup
         with:
           wasm: "true"
@@ -134,9 +146,9 @@ jobs:
   # found by whoever next tried to install the extension.
   zed:
     name: zed extension
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-32vcpu-ubuntu-2404
     steps:
-      - uses: actions/checkout@v4
+      - uses: useblacksmith/checkout@v1
       - uses: ./.github/actions/setup
         with:
           rust: "true"
@@ -148,9 +160,9 @@ jobs:
   # digests are compared.
   runtimes:
     name: runtimes
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-32vcpu-ubuntu-2404
     steps:
-      - uses: actions/checkout@v4
+      - uses: useblacksmith/checkout@v1
       - uses: ./.github/actions/setup
         with:
           wasm: "true"
@@ -167,7 +179,7 @@ jobs:
     name: ci
     if: always()
     needs: [conventions, rust, typescript, build, zed, browsers, runtimes]
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-32vcpu-ubuntu-2404
     steps:
       - name: Report
         run: |

@@ -37,9 +37,9 @@ jobs:
   # generated table that nothing generates.
   deploy:
     name: deploy
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-32vcpu-ubuntu-2404
     steps:
-      - uses: actions/checkout@v4
+      - uses: useblacksmith/checkout@v1
       - uses: ./.github/actions/setup
         with:
           rust: "true"
