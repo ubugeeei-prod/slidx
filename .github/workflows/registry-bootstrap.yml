@@ -1,0 +1,131 @@
+name: Registry bootstrap artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit, tag or branch to package without publishing
+        required: true
+        default: main
+        type: string
+
+concurrency:
+  group: registry-bootstrap-${{ inputs.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  binaries:
+    name: binary / ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            runner: blacksmith-12vcpu-macos-latest
+          - target: x86_64-apple-darwin
+            runner: blacksmith-12vcpu-macos-latest
+          - target: x86_64-unknown-linux-musl
+            runner: blacksmith-32vcpu-ubuntu-2404
+          - target: aarch64-unknown-linux-musl
+            runner: blacksmith-32vcpu-ubuntu-2404-arm
+          - target: x86_64-pc-windows-msvc
+            runner: blacksmith-32vcpu-windows-2025
+    steps:
+      - if: runner.os == 'Linux'
+        uses: useblacksmith/checkout@v1
+        with:
+          ref: ${{ inputs.ref }}
+      - if: runner.os != 'Linux'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: ./.github/actions/setup
+        with:
+          rust: "true"
+
+      - run: rustup target add ${{ matrix.target }}
+        shell: bash
+
+      - if: contains(matrix.target, 'musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+        shell: bash
+
+      - name: Build
+        run: cargo build --release --locked -p slidx_cli --bin slidx --target ${{ matrix.target }}
+        shell: bash
+
+      - name: Archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.target }}" = "x86_64-pc-windows-msvc" ]; then
+            7z a "slidx-${{ matrix.target }}.zip" "./target/${{ matrix.target }}/release/slidx.exe"
+          else
+            tar -czf "slidx-${{ matrix.target }}.tar.gz" -C "target/${{ matrix.target }}/release" slidx
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: slidx-${{ matrix.target }}
+          path: slidx-${{ matrix.target }}.*
+          if-no-files-found: error
+          retention-days: 7
+
+  npm-tarballs:
+    name: npm tarballs
+    needs: binaries
+    runs-on: blacksmith-32vcpu-ubuntu-2404
+    steps:
+      - uses: useblacksmith/checkout@v1
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: ./.github/actions/setup
+        with:
+          wasm: "true"
+
+      - run: node scripts/check-version.mjs
+      - run: pnpm exec vp run build:packages
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: slidx-*
+          path: archives
+
+      - name: Unpack binaries
+        run: |
+          set -euo pipefail
+          for archive in archives/*/slidx-*; do
+            target=$(basename "$archive" | sed -E 's/^slidx-(.*)\.(tar\.gz|zip)$/\1/')
+            mkdir -p "binaries/$target"
+            case "$archive" in
+              *.zip) unzip -q -o "$archive" -d "binaries/$target" ;;
+              *) tar -xzf "$archive" -C "binaries/$target" ;;
+            esac
+          done
+
+      - run: node scripts/build-platform-packages.mjs binaries
+
+      - name: Pack in publish order
+        run: |
+          set -euo pipefail
+          mkdir -p bundle
+          node scripts/pack-npm.mjs \
+            bundle \
+            $(node scripts/publish-order.mjs npm) \
+            packages/cli/dist/* \
+            packages/cli > "$RUNNER_TEMP/tarballs"
+          while IFS= read -r tarball; do
+            basename "$tarball"
+          done < "$RUNNER_TEMP/tarballs" > bundle/publish-order.txt
+          git rev-parse HEAD > bundle/commit.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: registry-bootstrap-${{ github.run_id }}
+          path: bundle
+          if-no-files-found: error
+          retention-days: 7
