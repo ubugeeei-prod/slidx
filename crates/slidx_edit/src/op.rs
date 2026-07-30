@@ -44,6 +44,22 @@ pub enum EditOp {
         slide: SlideRef,
         text: String,
     },
+    /// Replaces a run of a slide's text where it is written.
+    ///
+    /// This is typing on the canvas. `range` is measured in the slide's source
+    /// body, the same coordinates [`Self::AddMark`] uses, because that is what
+    /// a caret in a rendered slide can be mapped onto — the addresses the
+    /// editor maps it with are the ones [`crate::SlideSpans`] carries.
+    ///
+    /// A mark inside the range is not collateral. Typing inside one leaves its
+    /// `#key` and its classes exactly as written, and a range that crosses one
+    /// of its edges leaves it holding the words that survived; the rules and
+    /// their reasons are in `text.rs`.
+    SetText {
+        slide: SlideRef,
+        range: ByteSpan,
+        text: String,
+    },
     /// Adds a slide at `at`, pushing the slide currently there down.
     InsertSlide {
         at: usize,
@@ -335,7 +351,7 @@ pub enum EditError {
         at: usize,
         slides: usize,
     },
-    /// A mark range that is not inside the slide's body, or that would cut a
+    /// A range that is not inside the slide's body, or that would cut a
     /// character in half.
     UnusableRange {
         range: ByteSpan,
@@ -482,6 +498,26 @@ mod tests {
                 to: 1,
                 region: Some("side".into()),
             }
+        );
+    }
+
+    #[test]
+    fn typed_text_crosses_the_boundary_as_a_range_and_the_words_that_replace_it() {
+        let op =
+            EditOp::SetText { slide: 0.into(), range: ByteSpan::new(4, 9), text: "faster".into() };
+
+        assert_eq!(
+            serde_json::to_value(&op).unwrap(),
+            json!({
+                "op": "setText",
+                "slide": 0,
+                "range": { "start": 4, "end": 9 },
+                "text": "faster",
+            })
+        );
+        assert_eq!(
+            serde_json::from_value::<EditOp>(serde_json::to_value(&op).unwrap()).unwrap(),
+            op
         );
     }
 

@@ -81,6 +81,41 @@ fn operations(source: &str) -> Vec<EditOp> {
         EditOp::SetNotes { slide: last.into(), notes: "said out loud".into() },
     ];
 
+    for (index, located) in
+        slidx_edit::slide_spans(source, &DeckParseOptions::default()).iter().enumerate()
+    {
+        // Typing, aimed at the words a caret could really be in: a block
+        // retyped whole, and a caret at the front of one.
+        for block in &located.blocks {
+            ops.push(EditOp::SetText {
+                slide: index.into(),
+                range: block.span,
+                text: "Typed over it.".into(),
+            });
+            ops.push(EditOp::SetText {
+                slide: index.into(),
+                range: ByteSpan::empty(block.span.start),
+                text: "Typed ".into(),
+            });
+
+            for mark in &block.marks {
+                // Inside a mark's words, which is the case that must leave the
+                // `#key` a step points at exactly where it was.
+                ops.push(EditOp::SetText {
+                    slide: index.into(),
+                    range: mark.words,
+                    text: "retyped".into(),
+                });
+                // And across its edge, which is the case with a choice to make.
+                ops.push(EditOp::SetText {
+                    slide: index.into(),
+                    range: ByteSpan::new(mark.words.start + 1, mark.span.end),
+                    text: "X".into(),
+                });
+            }
+        }
+    }
+
     for (index, slide) in deck.slides.iter().enumerate() {
         if !slide.steps.actions.is_empty() {
             ops.push(EditOp::RemoveStep { slide: index.into(), index: 0 });
@@ -423,11 +458,25 @@ fn setting_something_to_what_it_already_says_is_not_an_edit() {
     for source in corpus() {
         let deck = parse(source);
 
+        let located = slidx_edit::slide_spans(source, &DeckParseOptions::default());
+
         for (index, slide) in deck.slides.iter().enumerate() {
             let mut ops = vec![EditOp::SetNotes { slide: index.into(), notes: slide.notes_text() }];
 
             if let Some(title) = &slide.title {
                 ops.push(EditOp::SetHeading { slide: index.into(), text: title.clone() });
+            }
+
+            // A block retyped with the words already in it. The editor sends
+            // the whole run rather than a diff, so this is the shape of every
+            // keystroke that ended up changing nothing.
+            let body = located[index].body.slice(source);
+            for block in &located[index].blocks {
+                ops.push(EditOp::SetText {
+                    slide: index.into(),
+                    range: block.span,
+                    text: block.span.slice(body).to_string(),
+                });
             }
             if !slide.notes.is_empty() {
                 // Rewriting a note with its own words leaves the comment alone.
@@ -482,6 +531,10 @@ fn an_operation_naming_something_that_is_not_there_is_an_error_not_a_crash() {
             range: ByteSpan::new(5, 1),
             attributes: Default::default(),
         },
+        EditOp::SetText { slide: 99.into(), range: ByteSpan::new(0, 1), text: "x".into() },
+        EditOp::SetText { slide: 0.into(), range: (900..1000).into(), text: "x".into() },
+        // Backwards, which a selection dragged right to left could produce.
+        EditOp::SetText { slide: 0.into(), range: ByteSpan::new(5, 1), text: "x".into() },
         EditOp::SetMark { slide: 0.into(), mark: 99.into(), attributes: Default::default() },
         EditOp::RemoveMark { slide: 0.into(), mark: "gone".into() },
         EditOp::AddStep { slide: 99.into(), at: None, action: StepAction::reveal(".a") },

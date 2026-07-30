@@ -92,10 +92,33 @@ export interface Finding {
   slideIndex?: number;
 }
 
+/** Where one mark is, and where the words inside it are. */
+export interface MarkSpans {
+  /** The whole mark, from `[` to the closing `}`. Body-local. */
+  span: { start: number; end: number };
+  /** The words between the brackets, which is the only part text may replace. */
+  words: { start: number; end: number };
+}
+
+/**
+ * Where one block is, and what inside it can be addressed.
+ *
+ * In the order the renderer writes onto the page as `data-slidx-block`, so a
+ * number read off a rendered block indexes straight into the list.
+ */
+export interface BlockSpans {
+  /** The block's own bytes, its attribute line excluded. Body-local. */
+  span: { start: number; end: number };
+  /** Absent rather than empty for a block with no marks, which is most. */
+  marks?: MarkSpans[];
+}
+
 /** Where one slide's bytes are in the deck source. */
 export interface SlideSpans {
   content: { start: number; end: number };
   body: { start: number; end: number };
+  /** Absent rather than empty for a slide with nothing in it. */
+  blocks?: BlockSpans[];
 }
 
 /** Everything the editor needs to draw itself once. */

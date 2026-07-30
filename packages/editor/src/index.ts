@@ -38,13 +38,17 @@ import { createTimeline } from "./timeline";
 
 export type { EditOp, Edit, MarkAttributes, BlockAttributes, ByteSpan } from "./operations";
 export type {
+  BlockSpans,
   EditorClient,
   DeckState,
   EditAnswer,
   Finding,
+  MarkSpans,
   Measurement,
   SlideSummary,
 } from "./client";
+export type { Change, TextPlan, TextRun } from "./text";
+export { changeBetween, editableIn, planBlock, rangeOf, runsIn } from "./text";
 export type { SlideGeometry, RegionBox, BlockBox, Rect } from "./geometry";
 export { readGeometry, BLOCK_ATTRIBUTE, REGION_ATTRIBUTE } from "./geometry";
 export { landing, nudge, guides, arrival } from "./placement";
@@ -91,7 +95,11 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
         session.select({ text, range: "problem" in found ? undefined : found.range });
       },
     },
-    { deckBase: options.deckBase ?? "slides", bodyOf },
+    {
+      deckBase: options.deckBase ?? "slides",
+      bodyOf,
+      blocksOf: (slide) => session.blocksOf(slide),
+    },
   );
   const inspector = createInspector({ run }, { bodyOf });
   const diagnostics = createDiagnostics({ select });

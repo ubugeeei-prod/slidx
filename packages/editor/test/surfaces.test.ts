@@ -181,36 +181,21 @@ describe("the canvas", () => {
     expect(log.ops).toEqual([]);
   });
 
-  it("retitles a slide from the heading in the rendered page", () => {
-    // Plain text on both sides, which is the only reason it can be edited in
-    // place at all. Everything else in the body is edited as Markdown.
+  it("offers no line to edit on a page that is not a slide", () => {
+    // Before the frame has loaded, and on a route the deck does not serve.
+    // Editing what a slide's lines are is `typing.test.ts`.
     const log = recorder();
     const page = document.implementation.createHTMLDocument();
-    page.body.innerHTML = '<div class="slidx-slide-body"><h2>Two</h2><p>A point.</p></div>';
+    page.body.innerHTML = "<p>Not a deck.</p>";
 
-    attachEditing(page, 1, { run: log.run, selected: () => {} });
+    attachEditing(
+      page,
+      1,
+      { run: log.run, selected: () => {} },
+      { body: () => "", blocks: () => [] },
+    );
 
-    const heading = page.querySelector("h2")!;
-    expect(heading.getAttribute("contenteditable")).toBe("true");
-
-    heading.textContent = "Two, revisited";
-    heading.dispatchEvent(new Event("blur"));
-
-    expect(log.ops).toEqual([{ op: "setHeading", slide: 1, text: "Two, revisited" }]);
-  });
-
-  it("leaves a heading emptied by accident alone", () => {
-    const log = recorder();
-    const page = document.implementation.createHTMLDocument();
-    page.body.innerHTML = '<div class="slidx-slide-body"><h2>Two</h2></div>';
-
-    attachEditing(page, 1, { run: log.run, selected: () => {} });
-
-    const heading = page.querySelector("h2")!;
-    heading.textContent = "  ";
-    heading.dispatchEvent(new Event("blur"));
-
-    expect(log.ops).toEqual([]);
+    expect(page.querySelector("[contenteditable]")).toBeNull();
   });
 });
 

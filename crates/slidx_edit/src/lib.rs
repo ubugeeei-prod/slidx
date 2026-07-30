@@ -74,14 +74,15 @@ mod notes;
 mod op;
 mod slide;
 mod source;
+mod spans;
 mod step;
+mod text;
 
 pub use edit::{Edit, EditBuilder, Splice};
 pub use op::{BlockRef, EditError, EditOp, MarkAttributes, MarkRef, SlideRef};
+pub use spans::{slide_spans, BlockSpans, MarkSpans, SlideSpans};
 
-use serde::{Deserialize, Serialize};
-
-use slidx_core::{ByteSpan, DeckParseOptions};
+use slidx_core::DeckParseOptions;
 
 use source::DeckSource;
 
@@ -93,6 +94,9 @@ pub fn plan(source: &str, options: &DeckParseOptions, op: &EditOp) -> Result<Edi
     match op {
         EditOp::SetBody { slide, body } => slide::set_body(&deck, slide, body, &mut builder)?,
         EditOp::SetHeading { slide, text } => slide::set_heading(&deck, slide, text, &mut builder)?,
+        EditOp::SetText { slide, range, text } => {
+            text::set(&deck, slide, *range, text, &mut builder)?
+        }
         EditOp::InsertSlide { at, body } => slide::insert(&deck, *at, body, &mut builder)?,
         EditOp::RemoveSlide { slide } => slide::remove(&deck, slide, &mut builder)?,
         EditOp::MoveSlide { slide, to } => slide::move_to(&deck, slide, *to, &mut builder)?,
@@ -134,75 +138,4 @@ pub fn plan(source: &str, options: &DeckParseOptions, op: &EditOp) -> Result<Edi
 /// The source with one operation applied.
 pub fn apply(source: &str, options: &DeckParseOptions, op: &EditOp) -> Result<String, EditError> {
     Ok(plan(source, options, op)?.apply(source))
-}
-
-/// Where one slide's bytes are.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SlideSpans {
-    /// Everything the slide is, its own frontmatter block included.
-    pub content: ByteSpan,
-    /// The Markdown body alone, which is what a mark's range is measured in
-    /// and what an editor puts in front of an author.
-    pub body: ByteSpan,
-}
-
-/// Where each slide's own bytes are, in source order.
-///
-/// A deck is usually stored as one file per slide and edited as one joined
-/// source, so whoever writes the source back to disk has to know which file
-/// each byte came from. These spans are that map: they are the same ones an
-/// operation splices into, so a caller cutting the result along them is cutting
-/// where the operations already agreed the seams are.
-pub fn slide_spans(source: &str, options: &DeckParseOptions) -> Vec<SlideSpans> {
-    DeckSource::read(source, options)
-        .slides
-        .iter()
-        .map(|slide| SlideSpans { content: slide.content, body: slide.body })
-        .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn content(source: &str) -> Vec<&str> {
-        slide_spans(source, &DeckParseOptions::default())
-            .iter()
-            .map(|slide| slide.content.slice(source))
-            .collect()
-    }
-
-    fn bodies(source: &str) -> Vec<&str> {
-        slide_spans(source, &DeckParseOptions::default())
-            .iter()
-            .map(|slide| slide.body.slice(source))
-            .collect()
-    }
-
-    #[test]
-    fn a_slides_span_is_the_bytes_an_operation_would_splice() {
-        assert_eq!(content("# One\n\n---\n\n# Two\n\nBody.\n"), ["# One", "# Two\n\nBody."]);
-    }
-
-    #[test]
-    fn a_slide_carrying_its_own_frontmatter_spans_the_block_too() {
-        // The `---` opening the block is the same line that ends the slide
-        // before, so a caller cutting on these spans keeps the two apart.
-        let source = "# One\n\n---\nlayout: split\n---\n\n# Two\n";
-        assert_eq!(content(source), ["# One", "---\nlayout: split\n---\n\n# Two"]);
-    }
-
-    #[test]
-    fn a_slides_body_leaves_its_frontmatter_behind() {
-        // A selection in the canvas is a range in the body, never in the block
-        // of keys above it.
-        let source = "# One\n\n---\nlayout: split\n---\n\n# Two\n";
-        assert_eq!(bodies(source), ["# One", "# Two"]);
-    }
-
-    #[test]
-    fn the_decks_own_frontmatter_belongs_to_no_slides_span() {
-        assert_eq!(content("---\ntitle: T\n---\n\n# One\n"), ["# One"]);
-    }
 }

@@ -130,7 +130,14 @@ impl Mark {
     }
 }
 
-/// Escapes the characters that would otherwise start a mark.
-fn escape_text(text: &str) -> String {
+/// Escapes the characters that would otherwise start or end a mark.
+///
+/// Public because a mark's words can be written by something other than
+/// [`Mark::to_source`]: an edit that replaces a run of text inside an existing
+/// mark splices into the words and leaves the brackets alone, and an unbalanced
+/// `]` in what it writes would close the mark early and lose the `#key` a
+/// `steps:` entry points at. Which characters those are is one rule, so it lives
+/// in one place.
+pub fn escape_text(text: &str) -> String {
     text.replace('\\', "\\\\").replace('[', "\\[").replace(']', "\\]")
 }
