@@ -74,6 +74,8 @@ interface Opened {
   asked: Measurement[][];
   root: HTMLElement;
   grip(index: number): HTMLButtonElement;
+  /** Draws again, the way a state change or a reloaded canvas would. */
+  render(): void;
 }
 
 function open(geometry: SlideGeometry = split(), findings: Finding[] = [], slide = 0): Opened {
@@ -102,6 +104,7 @@ function open(geometry: SlideGeometry = split(), findings: Finding[] = [], slide
     root: surface.root,
     grip: (index) =>
       surface.root.querySelector<HTMLButtonElement>(`.slidx-arrange-grip[data-block="${index}"]`)!,
+    render: () => surface.render(stateOf(slide)),
   };
 }
 
@@ -179,6 +182,24 @@ describe("arranging a slide", () => {
       { op: "moveBlock", slide: 0, block: 0, to: 1, region: "left" },
       { op: "moveBlock", slide: 0, block: 2, to: 2, region: "left" },
     ]);
+  });
+
+  it("keeps focus on the block it moved, so a second press moves the same one", async () => {
+    // The canvas reloads after every move and takes the focused grip with it.
+    // Landing an author on the document body after one arrow press would make
+    // the keyboard route a demonstration rather than a way to work.
+    const opened = open();
+    opened.grip(0).focus();
+    opened.grip(0).dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+
+    // Twice, because that is what really happens: the deck comes back and the
+    // editor redraws, and then the canvas finishes reloading and it redraws
+    // again. Only the second one is against a page that has the block's new
+    // position in it.
+    opened.render();
+    opened.render();
+
+    expect(document.activeElement?.getAttribute("data-block")).toBe("1");
   });
 
   it("leaves a key that would move a block off the end alone", () => {

@@ -120,6 +120,13 @@ export function createArrange(handlers: ArrangeHandlers, options: ArrangeOptions
   }
 
   function paint(): void {
+    // Rebuilding the grips takes the focused one away with it, and a canvas
+    // that reloads after every move would end an author's second arrow press
+    // on the document body. The block wanted after a move is the one it landed
+    // on; otherwise it is whichever was focused before.
+    const wanted = holding ?? focused();
+    holding = undefined;
+
     if (geometry === undefined) {
       hide(safe);
       fill(areas, []);
@@ -145,10 +152,16 @@ export function createArrange(handlers: ArrangeHandlers, options: ArrangeOptions
       geometry.blocks.map((block) => grip(block.index, block.region, block.rect)),
     );
 
-    if (holding !== undefined) {
-      focus(holding);
-      holding = undefined;
-    }
+    if (wanted !== undefined) focus(wanted);
+  }
+
+  /** The block whose grip has focus, if one does. */
+  function focused(): number | undefined {
+    const active = root.ownerDocument.activeElement;
+    if (!(active instanceof HTMLElement) || !grips.contains(active)) return undefined;
+
+    const at = Number(active.getAttribute("data-block"));
+    return Number.isInteger(at) ? at : undefined;
   }
 
   function grip(index: number, region: string, rect: Rect): HTMLElement {
