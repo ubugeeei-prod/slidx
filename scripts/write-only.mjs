@@ -50,14 +50,6 @@ export const WRITE_ONLY = new Map([
     "in the --json payload so a hit is a link; a person reads the slide number instead",
   ],
   [
-    "crates/slidx_lsp/src/protocol.rs:Message.jsonrpc",
-    "JSON-RPC requires the version on every message; the client checks it, we only send it",
-  ],
-  [
-    "crates/slidx_lsp/src/protocol.rs:Message.result",
-    "the response half of the envelope, written on the way out and never parsed back",
-  ],
-  [
     "crates/slidx_lsp/src/completion.rs:CompletionItem.insert_text",
     "what the editor inserts when a completion is accepted, which only the editor can act on",
   ],

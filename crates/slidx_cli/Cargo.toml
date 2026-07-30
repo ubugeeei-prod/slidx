@@ -28,6 +28,7 @@ slidx_i18n = { workspace = true }
 slidx_jsonrpc = { workspace = true }
 slidx_lint = { workspace = true }
 slidx_publish = { workspace = true }
+slidx_render = { workspace = true }
 slidx_theme = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

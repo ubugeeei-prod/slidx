@@ -47,9 +47,12 @@ pub mod deck;
 pub mod edit;
 pub mod history;
 pub mod instructions;
+pub mod prompt;
 pub mod protocol;
+pub mod resource;
 pub mod session;
 pub mod tool;
+pub mod uri;
 pub mod workspace;
 
 use std::io::{self, BufRead, BufReader, IsTerminal, Write};

@@ -468,6 +468,7 @@ dependencies = [
  "slidx_jsonrpc",
  "slidx_lint",
  "slidx_publish",
+ "slidx_render",
  "slidx_theme",
 ]
 

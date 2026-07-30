@@ -30,7 +30,9 @@ use slidx_jsonrpc::{error_code, Message, RequestId};
 use super::content;
 use super::history::History;
 use super::instructions;
+use super::prompt::{self, Prompt};
 use super::protocol::{negotiate, Negotiation, SUPPORTED};
+use super::resource;
 use super::tool::{self, Context};
 use super::workspace::Workspace;
 use super::SERVER_NAME;
@@ -130,6 +132,18 @@ impl Session {
                 Message::response(id, json!({ "tools": listed }))
             }
             "tools/call" => self.call(id, params, version),
+            "resources/list" => {
+                Message::response(id, json!({ "resources": resource::list(&self.workspace) }))
+            }
+            "resources/templates/list" => {
+                Message::response(id, json!({ "resourceTemplates": resource::templates() }))
+            }
+            "resources/read" => self.read(id, params),
+            "prompts/list" => Message::response(
+                id,
+                json!({ "prompts": prompt::ALL.iter().map(Prompt::describe).collect::<Vec<_>>() }),
+            ),
+            "prompts/get" => self.prompt(id, params),
             _ => Message::error(
                 id,
                 error_code::METHOD_NOT_FOUND,
@@ -174,10 +188,11 @@ impl Session {
             id,
             json!({
                 "protocolVersion": agreed,
-                // No `listChanged` under tools: the set is compiled in, so a
-                // client that subscribed would be waiting for a notification
-                // that cannot happen.
-                "capabilities": { "tools": {} },
+                // No `listChanged` anywhere: every set here is compiled in, so
+                // a client that subscribed would be waiting for a notification
+                // that cannot happen. No `subscribe` under resources either —
+                // this server watches nothing.
+                "capabilities": { "tools": {}, "resources": {}, "prompts": {} },
                 "serverInfo": {
                     "name": SERVER_NAME,
                     "title": "slidx",
@@ -193,6 +208,46 @@ impl Session {
     /// An unknown tool is a protocol error and a tool that failed is not: the
     /// first is the client's mistake, and the second is an answer the model has
     /// to read and act on. See [`super::content`].
+    /// Reads one resource.
+    ///
+    /// A URI this server does not serve, or a deck it may not open, comes back
+    /// as a JSON-RPC error rather than as contents. That is the opposite of the
+    /// tool rule and it is right for the same reason: a resource read is the
+    /// *client's* request for something it named, so a failure is the client's
+    /// to handle, where a failing tool is an answer the model has to act on.
+    fn read(&mut self, id: RequestId, params: &Value) -> Message {
+        let Some(uri) = params.get("uri").and_then(Value::as_str) else {
+            return Message::error(
+                id,
+                error_code::INVALID_PARAMS,
+                "`resources/read` needs the `uri` of a resource.",
+            );
+        };
+
+        match resource::read(&self.workspace, uri) {
+            Ok(contents) => Message::response(id, json!({ "contents": contents })),
+            Err(reason) => Message::error(id, error_code::INVALID_PARAMS, reason),
+        }
+    }
+
+    /// Fills in one prompt.
+    fn prompt(&mut self, id: RequestId, params: &Value) -> Message {
+        let Some(name) = params.get("name").and_then(Value::as_str) else {
+            return Message::error(
+                id,
+                error_code::INVALID_PARAMS,
+                "`prompts/get` needs the `name` of a prompt.",
+            );
+        };
+
+        let arguments = params.get("arguments").cloned().unwrap_or_else(|| json!({}));
+
+        match prompt::get(&self.workspace, name, &arguments) {
+            Ok(filled) => Message::response(id, filled),
+            Err(reason) => Message::error(id, error_code::INVALID_PARAMS, reason),
+        }
+    }
+
     fn call(&mut self, id: RequestId, params: &Value, version: &str) -> Message {
         let Some(name) = params.get("name").and_then(Value::as_str) else {
             return Message::error(
