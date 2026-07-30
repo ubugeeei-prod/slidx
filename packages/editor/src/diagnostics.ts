@@ -8,6 +8,14 @@
  * The slide the author is on comes first. A finding about another slide is
  * still listed, because "which slide has the problem" is the question a
  * diagnostics panel exists to answer.
+ *
+ * # Findings about something that has not happened
+ *
+ * A block being dragged has a landing before it has a line in the file, and
+ * whether it will still fit once it gets there is knowable then — a region is
+ * its own box, and the same rule the build runs is one call away. Those go at
+ * the top and say so, because a warning an author can act on by not letting go
+ * is worth more than the same warning after they did.
  */
 
 import { element, fill } from "./dom";
@@ -38,11 +46,14 @@ export function createDiagnostics(handlers: DiagnosticsHandlers): Surface {
     root,
     render(state) {
       const findings = order(state.diagnostics, state.selection.slide);
-      root.setAttribute("data-empty", String(findings.length === 0 && !state.refusal));
+      const foreseen = state.foreseen ?? [];
+      const empty = findings.length === 0 && foreseen.length === 0 && !state.refusal;
+      root.setAttribute("data-empty", String(empty));
 
       fill(list, [
         ...(state.problem ? [message("error", state.problem)] : []),
         ...(state.refusal ? [message("warning", refusalText(state.refusal))] : []),
+        ...foreseen.map((finding) => row(finding, handlers, "on landing")),
         ...findings.map((finding) => row(finding, handlers)),
       ]);
     },
@@ -57,9 +68,9 @@ function rank(finding: Finding, slide: number): number {
   return (finding.slideIndex === slide ? 0 : 10) + (finding.severity === "error" ? 0 : 1);
 }
 
-function row(finding: Finding, handlers: DiagnosticsHandlers): HTMLElement {
+function row(finding: Finding, handlers: DiagnosticsHandlers, ahead?: string): HTMLElement {
   const where =
-    finding.slideIndex === undefined ? "deck" : `slide ${(finding.slideIndex ?? 0) + 1}`;
+    ahead ?? (finding.slideIndex === undefined ? "deck" : `slide ${(finding.slideIndex ?? 0) + 1}`);
 
   const item = element("li", { class: "slidx-finding", "data-severity": finding.severity }, [
     element("span", { class: "slidx-finding-where" }, [where]),
