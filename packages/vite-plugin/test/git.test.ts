@@ -215,16 +215,23 @@ describe("what cannot become an argument", () => {
     // Every argument is passed as an argument, so `;` is one character in a
     // directory name rather than the end of a command. The marker file is what
     // proves it: a shell would have made one.
-    const marker = join(tmpdir(), `slidx-pwned-${process.pid}`);
+    //
+    // The marker is a bare name rather than an absolute path because the whole
+    // payload becomes a directory name, and a name has to be legal on every
+    // platform this runs on — a Windows path carries a colon, which is not. So
+    // the check is every directory a shell could have made it in instead.
+    const marker = `slidx-pwned-${process.pid}`;
     const directory = `my slides; touch ${marker}`;
-    const { project } = await repository({ directory });
+    const { root, project } = await repository({ directory });
 
     const repo = await openRepository(project);
     const commits = await repo!.log(directory, 20);
 
     expect(commits).toHaveLength(2);
     expect(await repo!.filesAt(commits[1]!.rev, directory, [".md"])).toHaveLength(2);
-    await expect(access(marker)).rejects.toThrow();
+    for (const where of [root, project, join(project, directory), process.cwd(), tmpdir()]) {
+      await expect(access(join(where, marker))).rejects.toThrow();
+    }
   });
 
   it("reads a deck out of a directory whose name begins with a dash", async () => {
