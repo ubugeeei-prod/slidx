@@ -479,6 +479,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "slidx_docs"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "slidx_brand",
+ "slidx_core",
+ "slidx_render",
+ "slidx_theme",
+]
+
+[[package]]
 name = "slidx_doctor"
 version = "0.1.0"
 dependencies = [
