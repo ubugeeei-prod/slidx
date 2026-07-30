@@ -209,9 +209,9 @@ pub fn transition(value: &JsonValue, diagnostics: &mut Diagnostics) -> Option<St
 /// is a string in YAML 1.2, and an author who meant "publish this" would
 /// otherwise get a deck nothing indexes and no reason why.
 pub fn draft(value: &JsonValue, diagnostics: &mut Diagnostics) -> Option<bool> {
-    let field = lookup(value, "draft")?;
+    let declared = field(value, "draft")?;
 
-    match field.as_bool() {
+    match declared.as_bool() {
         Some(flag) => Some(flag),
         None => {
             diagnostics.push(
