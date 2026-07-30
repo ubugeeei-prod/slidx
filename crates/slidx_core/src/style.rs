@@ -102,10 +102,19 @@ pub fn extract_style(source: &str) -> ExtractedStyle {
 }
 
 fn properties_in(source: &str) -> BTreeMap<String, String> {
-    source.lines().filter_map(property).collect()
+    source
+        .lines()
+        .filter_map(parse_style_property)
+        .map(|(name, value)| (name.to_string(), value.to_string()))
+        .collect()
 }
 
-fn property(line: &str) -> Option<(String, String)> {
+/// Reads one complete `--slidx-*` declaration.
+///
+/// The returned slices point into `line`. That lets an editor replace only the
+/// value's bytes while the parser and writer still share one definition of
+/// which declarations belong to the managed style model.
+pub fn parse_style_property(line: &str) -> Option<(&str, &str)> {
     let declaration = line.trim().strip_prefix(PREFIX)?;
     let (name, value) = declaration.split_once(':')?;
     let name = name.trim();
@@ -115,7 +124,7 @@ fn property(line: &str) -> Option<(String, String)> {
         return None;
     }
 
-    Some((name.to_string(), value.to_string()))
+    Some((name, value))
 }
 
 fn valid_name(name: &str) -> bool {
@@ -188,6 +197,17 @@ mod tests {
             extract_style(source).properties,
             BTreeMap::from([("density".to_string(), "compact".to_string())])
         );
+    }
+
+    #[test]
+    fn a_property_keeps_slices_of_the_line_the_editor_can_replace() {
+        let line = "  --slidx-layout:   aside ; ";
+        let (name, value) = parse_style_property(line).unwrap();
+
+        assert_eq!(name, "layout");
+        assert_eq!(value, "aside");
+        assert_eq!(name.as_ptr() as usize - line.as_ptr() as usize, 10);
+        assert_eq!(value.as_ptr() as usize - line.as_ptr() as usize, 20);
     }
 
     #[test]

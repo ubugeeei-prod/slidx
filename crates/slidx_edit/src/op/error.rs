@@ -49,6 +49,15 @@ pub enum EditError {
     UnusableRange {
         range: ByteSpan,
     },
+    /// A custom property name that cannot be written as `--slidx-<name>`.
+    InvalidStyleProperty {
+        property: String,
+    },
+    /// A managed declaration is deliberately one line and cannot contain a
+    /// closing style tag.
+    InvalidStyleValue {
+        property: String,
+    },
 }
 
 impl std::fmt::Display for EditError {
@@ -79,6 +88,12 @@ impl std::fmt::Display for EditError {
                     range.start, range.end
                 )
             }
+            Self::InvalidStyleProperty { property } => {
+                write!(formatter, "`{property}` is not a slide style property name")
+            }
+            Self::InvalidStyleValue { property } => {
+                write!(formatter, "the value for slide style `{property}` is not one CSS line")
+            }
         }
     }
 }
@@ -101,6 +116,8 @@ mod tests {
             EditError::NoSuchStep { index: 4, present: 2 },
             EditError::NoSuchPosition { at: 9, slides: 3 },
             EditError::UnusableRange { range: ByteSpan::new(1, 2) },
+            EditError::InvalidStyleProperty { property: "Bad Name".into() },
+            EditError::InvalidStyleValue { property: "layout".into() },
         ];
 
         for error in errors {

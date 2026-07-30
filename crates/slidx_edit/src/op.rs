@@ -85,6 +85,19 @@ pub enum EditOp {
         key: String,
         value: JsonValue,
     },
+    /// Writes one slide-local `--slidx-*` custom property in the tagged style
+    /// block carried by the Markdown body.
+    ///
+    /// The name omits the `--slidx-` prefix. `None` removes its declaration;
+    /// setting a missing property creates the managed block. One property per
+    /// operation keeps a layout picker from overwriting a colour a co-author
+    /// changed at the same time.
+    SetStyle {
+        slide: SlideRef,
+        property: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        value: Option<String>,
+    },
     /// Wraps a range of a slide's body in a mark. `range` is measured in the
     /// slide's source body, which is what a text selection maps to.
     AddMark {
@@ -423,6 +436,34 @@ mod tests {
         assert_eq!(
             serde_json::from_value::<EditOp>(serde_json::to_value(&op).unwrap()).unwrap(),
             op
+        );
+    }
+
+    #[test]
+    fn a_slide_style_crosses_as_one_property_and_an_optional_value() {
+        let set = EditOp::SetStyle {
+            slide: "intro".into(),
+            property: "layout".into(),
+            value: Some("aside".into()),
+        };
+        let remove = EditOp::SetStyle { slide: 2.into(), property: "layout".into(), value: None };
+
+        assert_eq!(
+            serde_json::to_value(&set).unwrap(),
+            json!({
+                "op": "setStyle",
+                "slide": "intro",
+                "property": "layout",
+                "value": "aside",
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(&remove).unwrap(),
+            json!({ "op": "setStyle", "slide": 2, "property": "layout" })
+        );
+        assert_eq!(
+            serde_json::from_value::<EditOp>(serde_json::to_value(&set).unwrap()).unwrap(),
+            set
         );
     }
 

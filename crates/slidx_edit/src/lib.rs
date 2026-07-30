@@ -76,6 +76,7 @@ mod slide;
 mod source;
 mod spans;
 mod step;
+mod style;
 mod text;
 
 pub use edit::{Edit, EditBuilder, Splice};
@@ -102,6 +103,9 @@ pub fn plan(source: &str, options: &DeckParseOptions, op: &EditOp) -> Result<Edi
         EditOp::MoveSlide { slide, to } => slide::move_to(&deck, slide, *to, &mut builder)?,
         EditOp::SetField { slide, key, value } => {
             frontmatter::set_field(&deck, slide, key, value, &mut builder)?
+        }
+        EditOp::SetStyle { slide, property, value } => {
+            style::set(&deck, slide, property, value.as_deref(), &mut builder)?
         }
         EditOp::AddMark { slide, range, attributes } => {
             inline::add(&deck, slide, *range, attributes, &mut builder)?
