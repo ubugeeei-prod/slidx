@@ -24,6 +24,12 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
 
     let mut diagnostics: Vec<Finding> = deck.diagnostics.iter().map(finding).collect();
 
+    // The dialect check runs in the build as well as in `slidx lint` and in the
+    // editor, because these are the findings a build is the last chance to say
+    // anything about: a `steps:` entry addressing a mark that is not there
+    // compiles, ships, and then does nothing when the presenter clicks.
+    diagnostics.extend(slidx_dialect::check(&deck, &[]).iter().map(finding));
+
     // The theme's padding is the safe area the shell enforces, and resolving
     // the theme is the only place that number exists. Without it the linter
     // cannot say whether a venue's caption strip reaches into content.

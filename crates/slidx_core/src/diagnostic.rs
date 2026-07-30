@@ -101,6 +101,27 @@ impl Diagnostic {
     pub fn is_blocking(&self) -> bool {
         self.severity == Severity::Error
     }
+
+    /// True when one of `allow` suppresses this diagnostic.
+    ///
+    /// A code is a path: the part before the slash names the group. So `theme`
+    /// suppresses `theme/unknown-transition` and `theme/unknown-layout` alike,
+    /// while `them` suppresses nothing — a prefix that is not a group boundary
+    /// is not a group.
+    ///
+    /// This lives with the code rather than with any one checker because there
+    /// is more than one. The visual linter, the dialect check and the parser all
+    /// produce diagnostics, and `--allow` has to mean the same thing for all
+    /// three or an author learns a rule that holds for two of them.
+    pub fn is_suppressed_by(&self, allow: &[String]) -> bool {
+        allow.iter().any(|allowed| {
+            self.code == *allowed
+                || self
+                    .code
+                    .strip_prefix(allowed.as_str())
+                    .is_some_and(|rest| rest.starts_with('/'))
+        })
+    }
 }
 
 /// A growable diagnostic list with the ergonomics the parsers want.
@@ -214,6 +235,26 @@ mod tests {
         let span = SourceSpan::line(12).on_slide(3);
         assert_eq!(span.line, 12);
         assert_eq!(span.slide_index, Some(3));
+    }
+
+    #[test]
+    fn an_exact_code_is_suppressed_and_so_is_its_group() {
+        let diagnostic = Diagnostic::warning("theme/unknown-layout", "m");
+
+        assert!(diagnostic.is_suppressed_by(&["theme/unknown-layout".to_string()]));
+        assert!(diagnostic.is_suppressed_by(&["theme".to_string()]));
+        assert!(diagnostic.is_suppressed_by(&["a".to_string(), "theme".to_string()]));
+    }
+
+    #[test]
+    fn a_prefix_that_is_not_a_group_boundary_suppresses_nothing() {
+        // `them` must not swallow `theme/*`, and `theme/unknown` must not
+        // swallow `theme/unknown-layout`.
+        let diagnostic = Diagnostic::warning("theme/unknown-layout", "m");
+
+        assert!(!diagnostic.is_suppressed_by(&["them".to_string()]));
+        assert!(!diagnostic.is_suppressed_by(&["theme/unknown".to_string()]));
+        assert!(!diagnostic.is_suppressed_by(&[]));
     }
 
     #[test]

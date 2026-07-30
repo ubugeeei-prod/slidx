@@ -1,0 +1,13 @@
+[package]
+name = "slidx_dialect"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Checks that a deck's dialect is well formed: shapes that do not parse, names that resolve to nothing, targets that address nothing"
+
+[dependencies]
+slidx_core = { workspace = true }
+slidx_theme = { workspace = true }
+serde_json = { workspace = true }

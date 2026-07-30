@@ -66,6 +66,13 @@ Runs every slidx rule over a deck on disk: projector contrast, rendered font
 size at the back row, offline assets, heading order, animation cost, and the
 time budget against the declared slot.
 
+It also checks the deck's dialect, which is a different question — whether the
+deck says something slidx can carry out. A `duration:` nothing can read, a
+theme or transition name that resolves to nothing, a `steps:` entry addressing
+a mark that is not there. Those are silent today and found on stage, so they
+are reported under `dialect/` and can be switched off on their own with
+--allow dialect.
+
 Exits non-zero when something blocking is found, which is what makes it usable
 in CI. `path` is a deck file or a directory of slide files, and defaults to
 ./slides — the same layout @slidx/vite-plugin builds.",

@@ -458,6 +458,7 @@ dependencies = [
  "serde",
  "serde_json",
  "slidx_core",
+ "slidx_dialect",
  "slidx_doctor",
  "slidx_edit",
  "slidx_export",
@@ -477,6 +478,15 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "ts-rs",
+]
+
+[[package]]
+name = "slidx_dialect"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "slidx_core",
+ "slidx_theme",
 ]
 
 [[package]]
@@ -540,6 +550,7 @@ dependencies = [
  "serde",
  "serde_json",
  "slidx_core",
+ "slidx_dialect",
  "slidx_fmt",
  "slidx_lint",
  "slidx_theme",
@@ -597,6 +608,7 @@ dependencies = [
  "serde-wasm-bindgen",
  "serde_json",
  "slidx_core",
+ "slidx_dialect",
  "slidx_edit",
  "slidx_lint",
  "slidx_publish",

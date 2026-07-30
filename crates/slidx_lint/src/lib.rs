@@ -181,14 +181,15 @@ pub struct LintOptions {
     pub strict: bool,
 }
 
-impl LintOptions {
-    /// True when `code` is suppressed by this configuration.
-    fn suppresses(&self, code: &str) -> bool {
-        self.allow.iter().any(|allowed| {
-            code == allowed
-                || code.strip_prefix(allowed.as_str()).is_some_and(|rest| rest.starts_with('/'))
-        })
+fn surviving(sink: Diagnostics, options: &LintOptions) -> Diagnostics {
+    if options.allow.is_empty() {
+        return sink;
     }
+
+    // What a group name means is `Diagnostic`'s to say, not this crate's: the
+    // dialect check and the parser produce codes too, and `--allow` has to mean
+    // the same thing for all three.
+    sink.into_iter().filter(|diagnostic| !diagnostic.is_suppressed_by(&options.allow)).collect()
 }
 
 /// Runs every rule and returns the diagnostics that survive suppression.
@@ -216,14 +217,6 @@ pub fn lint_measured(deck: &Deck, measured: &[Measurement], options: &LintOption
     rules::overflow::check_measured(&input, options, &mut sink);
 
     surviving(sink, options)
-}
-
-fn surviving(sink: Diagnostics, options: &LintOptions) -> Diagnostics {
-    if options.allow.is_empty() {
-        return sink;
-    }
-
-    sink.into_iter().filter(|diagnostic| !options.suppresses(&diagnostic.code)).collect()
 }
 
 #[cfg(test)]
