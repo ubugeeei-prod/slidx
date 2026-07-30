@@ -8,7 +8,13 @@
 
 import { describe, expect, it } from "vite-plus/test";
 
-import { resolveOptions, slideFileName, slideRoute } from "../src/options";
+import {
+  rehearsalFileName,
+  resolveOptions,
+  runtimeFileName,
+  slideFileName,
+  slideRoute,
+} from "../src/options";
 
 describe("defaults", () => {
   it("needs no options at all", () => {
@@ -93,5 +99,12 @@ describe("routes", () => {
 
     expect(slideFileName(options, 0)).toBe("index.html");
     expect(slideFileName(options, 1)).toBe("2/index.html");
+  });
+
+  it("keeps presenter modules beside the deck at either base", () => {
+    expect(runtimeFileName(resolveOptions())).toBe("slides/runtime.js");
+    expect(rehearsalFileName(resolveOptions())).toBe("slides/rehearsal.js");
+    expect(runtimeFileName(resolveOptions({ base: "/" }))).toBe("runtime.js");
+    expect(rehearsalFileName(resolveOptions({ base: "/" }))).toBe("rehearsal.js");
   });
 });

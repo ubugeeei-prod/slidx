@@ -30,6 +30,7 @@ import {
   effectsFileName,
   presenterFileName,
   printFileName,
+  rehearsalFileName,
   resolveOptions,
   runtimeFileName,
   slideFileName,
@@ -56,6 +57,8 @@ const RESOLVED_ENTRY_ID = `\0${ENTRY_ID}`;
 
 /** The runtime, resolved as a module rather than served as a file. */
 const RESOLVED_RUNTIME_ID = "\0virtual:slidx-runtime";
+/** Rehearsal is a separate module so audience slides never pay for it. */
+const RESOLVED_REHEARSAL_ID = "\0virtual:slidx-rehearsal";
 
 export function slidx(userOptions: SlidxOptions = {}): Plugin {
   const options = resolveOptions(userOptions);
@@ -102,12 +105,14 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
     resolveId(id) {
       if (id === ENTRY_ID) return RESOLVED_ENTRY_ID;
       if (id === `/${runtimeFileName(options)}`) return RESOLVED_RUNTIME_ID;
+      if (id === `/${rehearsalFileName(options)}`) return RESOLVED_REHEARSAL_ID;
       return undefined;
     },
 
     async load(id) {
       if (id === RESOLVED_ENTRY_ID) return "export default null;";
       if (id === RESOLVED_RUNTIME_ID) return readRuntime();
+      if (id === RESOLVED_REHEARSAL_ID) return readRehearsal();
       return undefined;
     },
 
@@ -305,13 +310,24 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
       }
 
       // The runtime is emitted once and shared by the presenter and print
-      // pages. It is the only JavaScript a deck ships — the audience slides
-      // stay at zero.
+      // pages. Audience slides still stay at zero JavaScript unless they have
+      // staged content.
       if (options.presenter || options.print) {
         this.emitFile({
           type: "asset",
           fileName: runtimeFileName(options),
           source: await readRuntime(),
+        });
+      }
+
+      // Rehearsal recording is presenter-only and large enough to keep out of
+      // the shared runtime. A print-only build and every audience page pay
+      // nothing for it.
+      if (options.presenter) {
+        this.emitFile({
+          type: "asset",
+          fileName: rehearsalFileName(options),
+          source: await readRehearsal(),
         });
       }
 
@@ -441,6 +457,7 @@ function runtimeSrcFor(options: ReturnType<typeof resolveOptions>): string {
 
 /** The built runtime, read once. */
 let runtime: Promise<string> | undefined;
+let rehearsal: Promise<string> | undefined;
 let effects: Promise<string> | undefined;
 
 function readRuntime(): Promise<string> {
@@ -453,6 +470,19 @@ function readRuntime(): Promise<string> {
   })();
 
   return runtime;
+}
+
+/** The built presenter-only rehearsal runtime, read once. */
+function readRehearsal(): Promise<string> {
+  rehearsal ??= (async () => {
+    const { createRequire } = await import("node:module");
+    const { readFile } = await import("node:fs/promises");
+    const require = createRequire(import.meta.url);
+
+    return readFile(require.resolve("@slidx/rehearsal"), "utf8");
+  })();
+
+  return rehearsal;
 }
 
 /** The stylesheet the runtime resolves beside itself, read once. */

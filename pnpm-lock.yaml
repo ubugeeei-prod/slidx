@@ -114,6 +114,9 @@ importers:
       '@slidx/editor':
         specifier: workspace:*
         version: link:../editor
+      '@slidx/rehearsal':
+        specifier: workspace:*
+        version: link:../rehearsal
       '@slidx/runtime':
         specifier: workspace:*
         version: link:../runtime
