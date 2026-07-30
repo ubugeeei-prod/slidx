@@ -48,6 +48,10 @@ function stateOf(grid: StepGrid, slide = 0): EditorState {
     notes: [],
     stopCount: index === slide ? grid.stops : 1,
     steps: index === slide ? grid : NO_STEPS,
+    // Required since the storyboard began drawing a slide's width from its
+    // time; the timeline reads neither, so the values only have to be there.
+    estimatedSeconds: 0,
+    optional: false,
   }));
 
   return {

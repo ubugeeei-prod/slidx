@@ -16,14 +16,17 @@ import { createOutline } from "../src/outline";
 import type { EditOp } from "../src/operations";
 import type { EditorState } from "../src/session";
 
+/** What every slide here shares, so a row says only what it is about. */
+const timing = { notes: [], stopCount: 1, estimatedSeconds: 0, optional: false, frontmatter: {} };
+
 function stateOf(over: Partial<EditorState> = {}): EditorState {
   return {
     source: "# One\n\n---\n\n# Two\n\n---\n\n# Three",
     spans: [],
     slides: [
-      { id: "one", index: 0, title: "One", notes: [], stopCount: 1, frontmatter: { title: "A" } },
-      { id: "two", index: 1, title: "Two", notes: ["said"], stopCount: 1, frontmatter: {} },
-      { id: "three", index: 2, title: "Three", notes: [], stopCount: 1, frontmatter: {} },
+      { ...timing, id: "one", index: 0, title: "One", frontmatter: { title: "A" } },
+      { ...timing, id: "two", index: 1, title: "Two", notes: ["said"] },
+      { ...timing, id: "three", index: 2, title: "Three" },
     ],
     diagnostics: [],
     selection: { slide: 1 },

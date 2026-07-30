@@ -280,6 +280,9 @@ mod tests {
             notes: Vec::new(),
             stop_count: 1,
             steps: slidx_core::StepGrid::default(),
+            budget_seconds: None,
+            estimated_seconds: 0,
+            optional: false,
             frontmatter: serde_json::Value::Null,
             html: None,
             og_svg: None,
@@ -288,6 +291,7 @@ mod tests {
         let result = BuildResult {
             title: None,
             description: None,
+            duration_seconds: None,
             slides: Vec::new(),
             diagnostics: Vec::new(),
             has_blocking: false,

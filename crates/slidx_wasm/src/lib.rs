@@ -113,6 +113,23 @@ pub struct BuiltSlide {
     /// own, because a grid drawn from a second call would be a second snapshot
     /// and could describe a deck the rest of the payload no longer agrees with.
     pub steps: slidx_core::StepGrid,
+    /// Seconds the author budgeted this slide, from `budget:`.
+    ///
+    /// Resolved here rather than left as the text a slide wrote, because
+    /// `budget:` accepts `90`, `90s`, `1m30s` and `1:30`. A caller that drew a
+    /// width from the text would be the project's second duration parser, and
+    /// the one that disagreed with the linter.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub budget_seconds: Option<u32>,
+    /// Roughly how long this slide's notes take to say aloud.
+    ///
+    /// The only number available before a rehearsal exists for a slide with no
+    /// budget, which is most slides while a talk is being written. An estimate
+    /// rather than a measurement, and the same one the linter reasons about.
+    pub estimated_seconds: u32,
+    /// Safe to skip when running behind, from `optional:`.
+    pub optional: bool,
     /// The frontmatter keys the author wrote, whether or not slidx knows them.
     ///
     /// The editor's inspector shows these, so a key this version has never
@@ -145,6 +162,14 @@ pub struct BuiltSlide {
 pub struct BuildResult {
     pub title: Option<String>,
     pub description: Option<String>,
+    /// Length of the speaking slot, from `duration:`.
+    ///
+    /// What the per-slide budgets are laid against. Absent for a deck whose
+    /// author never had a slot, and absent means nothing can be said about
+    /// whether the talk fits — which is silence rather than a guess.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub duration_seconds: Option<u32>,
     pub slides: Vec<BuiltSlide>,
     /// Parse diagnostics and lint findings, in that order.
     pub diagnostics: Vec<Finding>,
@@ -571,6 +596,46 @@ mod tests {
         assert_eq!(grid.actions.len(), 2);
         assert!(!grid.declared, "generated stops have no line to edit");
         assert_eq!(grid.auto, Some(slidx_core::AutoSteps::List));
+    }
+
+    #[test]
+    fn the_seconds_a_slide_is_budgeted_reach_the_caller() {
+        // `budget: 90s` is one of four notations, and the storyboard draws a
+        // width from the number. Sending the text and letting a browser read it
+        // would be a second duration parser.
+        let result = build("---\nbudget: 90s\n---\n\n# One\n", &BuildOptions::default());
+
+        assert_eq!(result.slides[0].budget_seconds, Some(90));
+    }
+
+    #[test]
+    fn a_slide_carries_the_spoken_length_of_its_own_notes() {
+        // The pacing model — words a minute for Latin, characters a minute for
+        // CJK — belongs to one implementation. A second one in the editor would
+        // disagree with the linter about whether a talk fits.
+        let result = build(
+            "# One\n\n<!-- notes: two and a half words per second is the figure -->\n",
+            &BuildOptions::default(),
+        );
+
+        assert_eq!(result.slides[0].estimated_seconds, 4);
+    }
+
+    #[test]
+    fn a_slide_the_speaker_can_drop_says_so() {
+        let result =
+            build("---\noptional: true\n---\n\n# One\n\n---\n\n# Two\n", &BuildOptions::default());
+
+        assert!(result.slides[0].optional);
+        assert!(!result.slides[1].optional);
+    }
+
+    #[test]
+    fn the_slot_the_talk_was_given_reaches_the_caller() {
+        let result = build("---\nduration: 20m\n---\n\n# One\n", &BuildOptions::default());
+
+        assert_eq!(result.duration_seconds, Some(1200));
+        assert_eq!(build("# One\n", &BuildOptions::default()).duration_seconds, None);
     }
 
     #[test]
