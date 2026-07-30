@@ -12,6 +12,8 @@
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
+import { implementation } from "./rust-source.mjs";
+
 /**
  * Past this, a module is usually holding two ideas.
  *
@@ -49,13 +51,20 @@ for (const file of files.filter((file) => file.endsWith("/mod.rs"))) {
  * Tests are allowed to be long: a test module is a list, not an abstraction,
  * and splitting one to hit a line count makes it harder to read rather than
  * easier. The guideline is about how much *design* one file is holding, so
- * only the part above `#[cfg(test)]` counts.
+ * `#[cfg(test)]` items do not count.
+ *
+ * They are subtracted item by item rather than by cutting the file at the first
+ * one. Four files here declare a test-only helper partway down and carry on
+ * implementing below it, and cutting at the first attribute measured
+ * `slidx_lint/src/lib.rs` as 51 lines of a 229-line file — the guideline was
+ * quietly not applied to exactly the files big enough to have needed it.
+ *
+ * TypeScript has no equivalent marker, so those files count whole.
  */
 function implementationLines(file) {
-  const lines = readFileSync(file, "utf8").split("\n");
-  const testModule = lines.findIndex((line) => line.trimStart().startsWith("#[cfg(test)]"));
+  const source = readFileSync(file, "utf8");
 
-  return testModule === -1 ? lines.length : testModule;
+  return file.endsWith(".rs") ? implementation(source).lines : source.split("\n").length;
 }
 
 for (const file of files.filter((file) => /\.(rs|ts|mjs)$/.test(file))) {
