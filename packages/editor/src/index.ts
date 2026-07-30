@@ -22,7 +22,7 @@
  */
 
 import { createArrange } from "./arrange";
-import { createCanvas } from "./canvas";
+import { createCanvas, routeFor } from "./canvas";
 import { createClient, type EditorClient } from "./client";
 import { createPresence } from "./collab";
 import { createDiagnostics } from "./diagnostics";
@@ -33,6 +33,7 @@ import { createResize } from "./resize";
 import { createRevisions } from "./revisions";
 import { occurrenceInRendered, locateSelection } from "./selection";
 import { createSession, type Session } from "./session";
+import { createShortcuts } from "./shortcuts";
 import { createStoryboard } from "./storyboard";
 import { applyStyles } from "./styles";
 import { createTimeline } from "./timeline";
@@ -112,6 +113,13 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
   const diagnostics = createDiagnostics({ select });
 
   const storyboard = createStoryboard({ select, run: (op) => session.run(op) });
+  const deckBase = options.deckBase ?? "slides";
+  const shortcuts = createShortcuts(session, canvas, {
+    present: () => {
+      const route = routeFor(deckBase, session.state().selection.slide);
+      window.open(`${route}presenter/`, "_blank", "noopener");
+    },
+  });
 
   const surfaces: Surface[] = [
     outline,
@@ -133,6 +141,7 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
     ),
     storyboard,
     createPresence({ reload: () => void session.open() }),
+    shortcuts,
   ];
   const frame = element(
     "div",
@@ -145,8 +154,9 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
     for (const surface of surfaces) surface.render(state);
   });
 
-  const keys = keyboard(session);
+  const keys = (event: KeyboardEvent) => shortcuts.keydown(event);
   root.ownerDocument.addEventListener("keydown", keys);
+  canvas.listen(keys);
 
   void session.open();
 
@@ -160,20 +170,5 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
       for (const surface of surfaces) surface.destroy?.();
       frame.remove();
     },
-  };
-}
-
-/**
- * Undo and redo, on the two shapes every editor on both platforms uses.
- *
- * Nothing else is bound. A tool that steals keys from the field an author is
- * typing in is a tool they fight.
- */
-export function keyboard(session: Session): (event: KeyboardEvent) => void {
-  return (event) => {
-    if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "z") return;
-
-    event.preventDefault();
-    void (event.shiftKey ? session.redo() : session.undo());
   };
 }

@@ -1,3 +1,5 @@
+import { SHORTCUT_STYLES } from "./shortcut-styles";
+
 /**
  * The chrome around the deck.
  *
@@ -487,6 +489,8 @@ textarea { resize: vertical; font-size: 12px; }
 .slidx-presence-who[data-local="true"] .slidx-presence-name { color: var(--slidx-e-accent); }
 .slidx-presence-where { color: var(--slidx-e-muted); }
 .slidx-presence-role { color: var(--slidx-e-muted); font-size: 11px; }
+
+${SHORTCUT_STYLES}
 `;
 
 /** Puts the chrome's stylesheet into a document, once. */
