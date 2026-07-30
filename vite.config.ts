@@ -274,7 +274,27 @@ export default defineConfig({
         dependsOn: ["build:wasm"],
       }),
 
-      "build:packages": group(["build:wasm", "build:runtime", "build:editor", "build:plugin"]),
+      // The four nothing in this repository imports. They are published all the
+      // same, and each declares `files: ["dist"]`, so leaving them unbuilt does
+      // not fail anything here — it publishes a tarball holding one
+      // `package.json` and calls it a package.
+      "build:audience": uncached("vp run --filter @slidx/audience pack:lib"),
+      "build:islands": uncached("vp run --filter @slidx/islands pack:lib"),
+      "build:rehearsal": uncached("vp run --filter @slidx/rehearsal pack:lib"),
+      "build:publish": uncached("vp run --filter @slidx/publish pack:lib", {
+        dependsOn: ["build:wasm"],
+      }),
+
+      "build:packages": group([
+        "build:wasm",
+        "build:runtime",
+        "build:editor",
+        "build:plugin",
+        "build:audience",
+        "build:islands",
+        "build:rehearsal",
+        "build:publish",
+      ]),
 
       // Asks the filesystem rather than reading the task graph, because the
       // graph cannot answer it: `build:wasm` runs a script and never names the
