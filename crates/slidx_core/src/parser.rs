@@ -21,6 +21,7 @@ use crate::notes::extract_notes;
 use crate::scanner::{heading_text, FenceTracker};
 use crate::slug::{slugify, SlugAllocator};
 use crate::steps::{compile_timeline, parse_step_actions, AutoSteps, StepAction, StepSource};
+use crate::style::extract_style;
 
 /// How to read a deck source.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -95,7 +96,10 @@ fn build_slide(
     slugs: &mut SlugAllocator,
     diagnostics: &mut Diagnostics,
 ) -> Slide {
-    let extracted = extract_notes(&segment.body);
+    const LAYOUT: &str = "layout";
+
+    let styled = extract_style(&segment.body);
+    let extracted = extract_notes(&styled.content);
     let steps = compile_steps(&extracted.content, &matter, options, index, diagnostics);
 
     // The title is the slide's words without its styling: `Making [decks]{.accent}
@@ -119,8 +123,15 @@ fn build_slide(
         blocks: blocked.blocks,
         marks,
         notes: extracted.notes,
-        layout: frontmatter::string(&matter, "layout"),
+        // The Markdown style block is the visual editor's durable surface.
+        // Frontmatter remains a compatibility fallback for existing decks.
+        layout: styled
+            .properties
+            .get(LAYOUT)
+            .cloned()
+            .or_else(|| frontmatter::string(&matter, LAYOUT)),
         transition: slide_transition(&matter, index, meta, diagnostics),
+        style: styled.properties,
         budget_seconds: frontmatter::duration_seconds(&matter, "budget"),
         optional: frontmatter::boolean(&matter, "optional").unwrap_or(false),
         demo: crate::demo::parse(&matter),
@@ -371,6 +382,28 @@ mod tests {
         let deck = parse("---\nbudget: 90s\noptional: true\n---\n\n# Deep Dive\n");
         assert_eq!(deck.slides[0].budget_seconds, Some(90));
         assert!(deck.slides[0].optional);
+    }
+
+    #[test]
+    fn a_markdown_style_block_selects_the_layout_and_stays_out_of_content() {
+        let deck =
+            parse("<style data-slidx>\n:root {\n  --slidx-layout: aside;\n}\n</style>\n\n# One\n");
+        let slide = &deck.slides[0];
+
+        assert_eq!(slide.layout.as_deref(), Some("aside"));
+        assert_eq!(slide.style.get("layout").map(String::as_str), Some("aside"));
+        assert_eq!(slide.title.as_deref(), Some("One"));
+        assert!(!slide.content.contains("<style"));
+        assert_eq!(slide.blocks.len(), 1);
+    }
+
+    #[test]
+    fn markdown_style_wins_over_legacy_layout_frontmatter() {
+        let deck = parse(
+            "---\nlayout: split\n---\n\n<style data-slidx>\n:root {\n  --slidx-layout: aside;\n}\n</style>\n\n# One\n",
+        );
+
+        assert_eq!(deck.slides[0].layout.as_deref(), Some("aside"));
     }
 
     #[test]

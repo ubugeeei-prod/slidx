@@ -45,6 +45,7 @@ pub mod qr;
 pub mod region;
 pub mod seo;
 pub mod shell;
+mod slide_style;
 pub mod snippet;
 pub mod url;
 

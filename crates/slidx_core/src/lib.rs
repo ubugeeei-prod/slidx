@@ -62,6 +62,7 @@ pub mod scanner;
 pub mod slug;
 pub mod span;
 pub mod steps;
+pub mod style;
 pub mod summary;
 
 pub use attributes::Attributes;
@@ -81,6 +82,7 @@ pub use steps::{
     compile_timeline, AutoSteps, Easing, Effect, EffectKind, EffectPreset, ElementState, Origin,
     StepAction, StepFrame, StepOptions, StepSource, StepTimeline, Visibility,
 };
+pub use style::{extract_style, find_styles, ExtractedStyle, FoundStyle};
 pub use summary::Summary;
 
 /// The version of the deck format this build understands.

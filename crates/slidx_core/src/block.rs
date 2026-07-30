@@ -112,8 +112,18 @@ pub struct ExtractedBlocks {
 pub fn find_blocks(source: &str) -> Vec<FoundBlock> {
     let mut blocks: Vec<FoundBlock> = Vec::new();
     let mut carried: Option<ByteSpan> = None;
+    let styles = crate::style::find_styles(source);
 
     for chunk in chunks(source) {
+        // The parser removes these before rendering and carries their
+        // properties separately. They therefore cannot consume a block index:
+        // the editor reads an index from the rendered page and sends it back
+        // against this source.
+        if styles.iter().any(|style| chunk.start >= style.span.start && chunk.end <= style.span.end)
+        {
+            continue;
+        }
+
         // A chunk an audience never sees belongs to the block it was written
         // against, so the two cannot be separated by a move.
         if let Some(hidden) = shows_nothing(chunk.slice(source)) {
@@ -554,6 +564,31 @@ mod tests {
         // content has a chunk here too.
         let source = "# One\n\n<!-- TODO: redraw this -->\n\nSecond.\n";
         assert_eq!(find_blocks(source).len(), 3);
+    }
+
+    #[test]
+    fn a_managed_style_block_never_consumes_a_canvas_block_index() {
+        let source = concat!(
+            "<style data-slidx>\n",
+            ":root {\n",
+            "\n",
+            "  --slidx-layout: aside;\n",
+            "}\n",
+            "</style>\n",
+            "\n",
+            "# One\n",
+            "\n",
+            "Body.\n",
+        );
+
+        assert_eq!(blocks(source), ["# One", "Body."]);
+    }
+
+    #[test]
+    fn an_untagged_style_block_remains_authored_html() {
+        let source = "<style>\n:root { color: red; }\n</style>\n\n# One\n";
+
+        assert_eq!(find_blocks(source).len(), 2);
     }
 
     #[test]
