@@ -64,6 +64,7 @@ pub mod fmt;
 pub mod git;
 pub mod grep;
 pub mod help;
+pub mod i18n;
 pub mod home;
 pub mod index;
 pub mod lint;
@@ -152,6 +153,11 @@ pub fn run(argv: &[String], style: &Style) -> Outcome {
             (None, "shell") => shell::run(&matches, style),
             (None, "publish") => publish::run(&matches, style),
             (None, "tui") => tui::run(&matches, style),
+            // `i18n` alone has no obvious reading: extract and apply are
+            // opposite directions, and guessing one would be a guess about
+            // whether somebody wanted to write a catalogue or a deck.
+            (None, "i18n") => Outcome::out(help::command(&route, style)),
+            (Some("i18n"), action) => i18n::run(action, &matches, style),
             (Some("version"), action) => version::run(action, &matches, style),
             // Unreachable while the table and this match agree, which the
             // suite asserts. A panic here would be a crash in front of a room.

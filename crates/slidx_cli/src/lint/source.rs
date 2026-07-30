@@ -81,6 +81,11 @@ impl DeckSource {
         self.files.len().max(1)
     }
 
+    /// Just the paths, for callers that only want to know which files were read.
+    pub fn paths(&self) -> Vec<PathBuf> {
+        self.files.iter().map(|file| file.path.clone()).collect()
+    }
+
     /// The file an offset in the joined source belongs to, and the offset within
     /// it.
     ///

@@ -74,7 +74,7 @@ fn files(path: &Path, separator: &str) -> Result<Vec<PathBuf>, String> {
 
     Ok(match deck.files.is_empty() {
         true => vec![path.to_path_buf()],
-        false => deck.files,
+        false => deck.paths(),
     })
 }
 

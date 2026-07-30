@@ -72,12 +72,28 @@ pub struct Plan {
 impl Plan {
     /// The source with the translation and the pins written in.
     pub fn apply(&self, source: &str) -> String {
+        self.apply_tracking(source, &mut [])
+    }
+
+    /// The same, reporting where each of `marks` ended up.
+    ///
+    /// A deck is usually stored one file per slide and translated as one joined
+    /// source, so whoever writes it back has to know where each file's bytes
+    /// went. Tracked through the edit rather than recomputed from the output,
+    /// because recomputing would be a second answer to where the seams are — and
+    /// a wrong one the moment a translated heading changes a slide's length.
+    ///
+    /// A mark does not move for a change that begins exactly on it, so an `id:`
+    /// block inserted at a file's first byte belongs to that file rather than to
+    /// the separator above it.
+    pub fn apply_tracking(&self, source: &str, marks: &mut [usize]) -> String {
         let mut out = self.edit.apply(source);
+        shift(&self.edit, marks);
 
         for op in &self.fields {
-            if let Ok(next) = slidx_edit::apply(&out, &self.options, op) {
-                out = next;
-            }
+            let Ok(edit) = slidx_edit::plan(&out, &self.options, op) else { continue };
+            out = edit.apply(&out);
+            shift(&edit, marks);
         }
 
         out
@@ -153,6 +169,20 @@ pub fn plan(source: &str, options: &DeckParseOptions, catalogue: &Catalogue) -> 
     }
 }
 
+/// Moves every mark to where an edit puts it.
+fn shift(edit: &Edit, marks: &mut [usize]) {
+    for mark in marks.iter_mut() {
+        let drift: isize = edit
+            .splices()
+            .iter()
+            .take_while(|splice| splice.span.start < *mark)
+            .map(|splice| splice.text.len() as isize - splice.span.len() as isize)
+            .sum();
+
+        *mark = (*mark as isize + drift).max(0) as usize;
+    }
+}
+
 /// How a translated string is written back into the file.
 ///
 /// A body block goes in as it is. A frontmatter value has to become YAML again,
@@ -171,8 +201,13 @@ fn written(segment: &Segment, text: &str) -> String {
 /// The frontmatter keys a translated deck has to carry.
 ///
 /// Every id that the translation moved, pinned back, plus what the deck is and
-/// what it came from. Nothing is emitted for a deck whose ids all survived,
-/// because a pin nobody needs is a line in a diff nobody can act on.
+/// what it came from. Nothing at all for a deck no string of which was
+/// translated: it is still in the language it was written in, and saying `lang:
+/// ja` over English would be a lie that a screen reader acts on. That is also
+/// what makes applying an empty catalogue return the file byte for byte.
+///
+/// Nothing either for a deck whose ids all survived, because a pin nobody needs
+/// is a line in a diff nobody can act on.
 fn fields_for(
     source: &str,
     translated: &str,
@@ -180,6 +215,10 @@ fn fields_for(
     catalogue: &Catalogue,
 ) -> Vec<EditOp> {
     let mut fields = Vec::new();
+
+    if translated == source {
+        return fields;
+    }
 
     let before = parse_deck(source, options);
     let after = parse_deck(translated, options);
@@ -374,12 +413,24 @@ mod tests {
         // Without both, nothing downstream can tell that two decks are the same
         // talk, and a screen reader picks an English voice for Japanese.
         let source = "---\ntitle: T\n---\n\n# One\n";
-        let cat = Catalogue { lang: "ja".into(), deck: "slides".into(), entries: Vec::new() };
+        let mut cat = catalogue(&[("one/heading", "One", "一")]);
+        cat.lang = "ja".into();
+        cat.deck = "slides".into();
         let out = plan(source, &options(), &cat).apply(source);
 
         let meta = parse_deck(&out, &options()).meta;
         assert_eq!(meta.lang.as_deref(), Some("ja"));
         assert_eq!(meta.translation_of.as_deref(), Some("slides"));
+    }
+
+    #[test]
+    fn a_deck_nothing_was_translated_in_does_not_claim_to_be_in_another_language() {
+        // `lang: ja` over English words is a lie a screen reader acts on. It is
+        // also what would stop an empty catalogue returning the file untouched.
+        let source = "---\ntitle: T\n---\n\n# One\n";
+        let cat = Catalogue { lang: "ja".into(), deck: "slides".into(), entries: Vec::new() };
+
+        assert_eq!(plan(source, &options(), &cat).apply(source), source);
     }
 
     #[test]
