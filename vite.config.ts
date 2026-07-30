@@ -125,7 +125,7 @@ export default defineConfig({
       ]),
       "ci:rust": group(["fmt:rust-check", "lint:rust", "test:rust", "check:deck-fmt"]),
       "ci:ts": group(["fmt:ts-check", "check:ts", "check:types", "test:ts"]),
-      "ci:build": group(["build:rust", "build:packages"]),
+      "ci:build": group(["build:rust", "build:packages", "check:packages-built"]),
 
       "workspace:check": group([
         "check:conventions",
@@ -237,7 +237,32 @@ export default defineConfig({
         dependsOn: ["build:runtime"],
       }),
 
-      "build:packages": group(["build:wasm", "build:runtime", "build:editor"]),
+      // The plugin is consumed through its `exports` too — `examples/deck`
+      // imports `@slidx/vite-plugin`, and so does anything running a real
+      // build. Nothing built it, and the two ways that failed are worth naming
+      // because only one of them looks like a failure.
+      //
+      // On a clean checkout there is no `dist/` and the example deck cannot run
+      // at all, which at least says so. On a machine that built it once, a
+      // *stale* `dist/` answers instead: a check runs, passes, and reports on
+      // code from whenever that build happened. Verifying a security boundary
+      // against a stale plugin is how one was found unenforced that was not.
+      //
+      // Only the wasm types are needed to emit the declarations; the runtime
+      // and the editor are read off disk at run time, not imported.
+      "build:plugin": uncached("vp run --filter @slidx/vite-plugin pack:lib", {
+        dependsOn: ["build:wasm"],
+      }),
+
+      "build:packages": group(["build:wasm", "build:runtime", "build:editor", "build:plugin"]),
+
+      // Asks the filesystem rather than reading the task graph, because the
+      // graph cannot answer it: `build:wasm` runs a script and never names the
+      // package it produces. Depends on the build for the same reason — the
+      // question is whether a build leaves every imported package loadable.
+      "check:packages-built": uncached("node scripts/check-packages-built.mjs", {
+        dependsOn: ["build:packages"],
+      }),
 
       // TypeScript.
       "check:ts": task(builtin("vp check"), { dependsOn: ["build:packages"] }),
