@@ -33,14 +33,21 @@
 //!   and a key slidx has never heard of belongs to a theme — so this is an
 //!   allow-list rather than a deny-list.
 //! - **Step markers.** `<!-- step -->` is a position in a pipeline.
+//! - **HTML tags and their attributes.** A slide opting into an island declares
+//!   it in markup, and the tag names and attribute values are the declaration.
+//!   The text between two tags is prose and is offered.
 //! - **Slide ids** — the one that is easy to miss and worse than the rest.
 //!   A slide's id is a slug of its heading, so **translating a heading moves
 //!   the slide**: every deep link a speaker pasted into a chat, every QR code
 //!   printed on a handout, and every anchor in the published deck addresses the
 //!   old one. So a translated slide is written with `id:` pinned to the id the
 //!   original deck derived, and [`slidx_core`] honours that pin ahead of the
-//!   slug. `slide_ids_survive_translation` in `tests/deck.rs` is the test that
-//!   holds it.
+//!   slug. It is not pinned by guessing which headings changed: two slides
+//!   titled "Demo" resolve to `demo` and `demo-2`, so translating the *first*
+//!   frees `demo` and silently renames the second. The translated text is
+//!   parsed and its ids are compared against the original's, which catches
+//!   that. `every_slide_id_survives_a_full_translation_or_the_author_is_told_it_did_not`
+//!   in `tests/translation_properties.rs` is the test that holds it.
 //!
 //! ## How the protection works
 //!
