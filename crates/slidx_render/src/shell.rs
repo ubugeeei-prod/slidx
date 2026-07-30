@@ -15,6 +15,7 @@ use slidx_theme::{css, transition, Theme};
 use crate::layout;
 use crate::markdown::MarkdownOptions;
 use crate::region;
+use crate::seo::{self, SeoOptions};
 
 /// How to build a slide page.
 #[derive(Debug, Clone)]
@@ -26,6 +27,8 @@ pub struct ShellOptions {
     /// Emitted into the page so the runtime can resolve steps. Omitted for
     /// slides with a single stop, which need no runtime at all.
     pub include_runtime: bool,
+    /// What the page may say about where it lives and who may index it.
+    pub seo: SeoOptions,
 }
 
 impl Default for ShellOptions {
@@ -35,6 +38,7 @@ impl Default for ShellOptions {
             markdown: MarkdownOptions::default(),
             runtime_src: "./runtime.js".to_string(),
             include_runtime: true,
+            seo: SeoOptions::default(),
         }
     }
 }
@@ -68,7 +72,7 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title}</title>
-{description}<style>
+{seo}<style>
 {theme_css}
 {shell_css}
 {layout_css}
@@ -94,12 +98,7 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
         lang = escape(deck.meta.lang.as_deref().unwrap_or("en")),
         aspect = deck.meta.aspect.as_token(),
         title = escape(&title),
-        description = deck
-            .meta
-            .description
-            .as_ref()
-            .map(|text| format!("<meta name=\"description\" content=\"{}\">\n", escape(text)))
-            .unwrap_or_default(),
+        seo = seo::head(deck, slide, &options.seo),
         theme_css = css::render(&options.theme),
         shell_css = layout::STYLESHEET,
         layout_css = slidx_theme::layout::css(&slidx_theme::layout::all()),
@@ -354,10 +353,17 @@ mod tests {
     const STAGED: &str = "# Latency\n\nDropped to [120ms]{#latency}[38ms]{#latency}.\n";
 
     #[test]
-    fn a_slide_with_one_stop_carries_no_script() {
+    fn a_slide_with_one_stop_carries_nothing_that_runs() {
         // The claim on the front page. A finished slide is finished markup, and
         // a module on it would cost every audience a request for nothing.
-        assert!(!shell("# Hello\n\n- one\n").contains("<script"));
+        //
+        // The structured data in the head is a `<script>` element and is not
+        // one of those: `application/ld+json` is the container the JSON-LD
+        // specification chose for a block of JSON, and no browser executes it.
+        let html = shell("# Hello\n\n- one\n");
+
+        assert_eq!(html.matches("<script").count(), 1, "something else is scripted:\n{html}");
+        assert!(html.contains("<script type=\"application/ld+json\">"));
     }
 
     #[test]
@@ -413,15 +419,24 @@ mod tests {
         let deck = parse_deck(STAGED, &DeckParseOptions::default());
         let options = ShellOptions { include_runtime: false, ..ShellOptions::default() };
 
-        assert!(!render_slide(&deck, &deck.slides[0], &options).contains("<script"));
+        assert!(!render_slide(&deck, &deck.slides[0], &options).contains("<script type=\"module\">"));
     }
 
     #[test]
-    fn nothing_in_the_shell_is_remote() {
+    fn the_shell_asks_the_network_for_nothing() {
         // The offline guarantee, at the smallest scale it can be checked.
+        //
+        // What counts is what a browser *fetches* while the slide is on screen,
+        // which is the distinction the offline lint rule already turns on. A
+        // canonical link, an `og:image` and a JSON-LD `@context` are addresses
+        // the page states rather than requests it makes — whoever reads them is
+        // a scraper on its own machine, not the browser in the room. The build
+        // asserts the same thing from the other end, by counting the requests a
+        // real browser makes on a real emitted page.
         let html = shell("# Hello\n\n- one\n");
 
-        for marker in ["http://", "https://", "//cdn", "@import url("] {
+        for marker in ["<link rel=\"stylesheet\"", "src=\"http", "//cdn", "@import url(", "url(http"]
+        {
             assert!(!html.contains(marker), "shell reaches for {marker}:\n{html}");
         }
     }
@@ -431,7 +446,56 @@ mod tests {
         let html = shell("# Hello\n");
 
         assert!(html.contains("--slidx-color-text:"));
-        assert!(!html.contains("<link"), "a stylesheet link is a network request");
+        assert!(
+            !html.contains("<link rel=\"stylesheet\""),
+            "a stylesheet link is a network request"
+        );
+    }
+
+    #[test]
+    fn what_a_crawler_reads_is_in_the_head_of_the_page() {
+        // The seam. `seo::head` composes all of it and this is the only thing
+        // that puts it in a document — the same shape of gap that left the
+        // compiled step pipeline unreachable for a release.
+        let source = "---\ntitle: Fast Decks\ndraft: false\nurl: https://example.com/talk/\n---\n\n# One\n\nWhy decks should be pages.\n";
+        let deck = parse_deck(source, &DeckParseOptions::default());
+        let options = ShellOptions {
+            seo: SeoOptions {
+                deck_url: deck.meta.talk.url.clone(),
+                cards: true,
+                ..SeoOptions::default()
+            },
+            ..ShellOptions::default()
+        };
+
+        let html = render_slide(&deck, &deck.slides[0], &options);
+        let head = html.split_once("</head>").expect("a closed head").0;
+
+        for expected in [
+            "<meta name=\"description\" content=\"Why decks should be pages.\">",
+            "<link rel=\"canonical\" href=\"https://example.com/talk/\">",
+            "<meta property=\"og:image\" content=\"https://example.com/talk/og-1.png\">",
+            "<script type=\"application/ld+json\">",
+        ] {
+            assert!(head.contains(expected), "{expected} is missing from:\n{head}");
+        }
+    }
+
+    #[test]
+    fn a_slides_description_is_its_own_rather_than_the_decks() {
+        // Forty pages sharing one description is forty search results that
+        // cannot be told apart, and thirty-nine of them describe another page.
+        let deck = parse_deck(
+            "---\ntitle: T\ndescription: The whole talk.\n---\n\n# One\n\n---\n\n# Two\n\nWhat the second slide says.\n",
+            &DeckParseOptions::default(),
+        );
+
+        let first = render_slide(&deck, &deck.slides[0], &ShellOptions::default());
+        let second = render_slide(&deck, &deck.slides[1], &ShellOptions::default());
+
+        assert!(first.contains("content=\"The whole talk.\""));
+        assert!(second.contains("content=\"What the second slide says.\""));
+        assert!(!second.contains("The whole talk."), "the deck's description was repeated");
     }
 
     #[test]
@@ -531,14 +595,14 @@ mod tests {
     }
 
     #[test]
-    fn code_on_a_slide_arrives_coloured_and_still_carries_no_script() {
+    fn code_on_a_slide_arrives_coloured_and_still_carries_no_highlighter() {
         // The whole reason highlighting happens at build time: the page an
         // audience sees is a string by then.
         let html = shell("```rust\nlet x = 1; // one\n```\n");
 
         assert!(html.contains("<span class=\"slidx-code-keyword\">let</span>"));
         assert!(html.contains("--slidx-color-code-comment:"));
-        assert!(!html.contains("<script"), "an audience slide ships no JavaScript");
+        assert!(!html.contains("<script type=\"module\">"), "an audience slide runs nothing");
     }
 
     #[test]

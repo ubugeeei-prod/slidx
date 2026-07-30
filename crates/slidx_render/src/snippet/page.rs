@@ -52,7 +52,7 @@ pub fn render_snippet(deck: &Deck, snippet: &Snippet, options: &SnippetOptions) 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title}</title>
-<style>
+{noindex}<style>
 {theme_css}
 {page_css}
 </style>
@@ -67,6 +67,7 @@ pub fn render_snippet(deck: &Deck, snippet: &Snippet, options: &SnippetOptions) 
 </html>
 "#,
         title = escape(&title(deck, &heading)),
+        noindex = crate::seo::noindex_line(deck),
         theme_css = css::render(&options.theme),
         page_css = STYLESHEET,
         heading = escape(&heading),
