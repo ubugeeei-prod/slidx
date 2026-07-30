@@ -6,6 +6,14 @@
  * still read by git as an option, and a repository is full of values somebody
  * else chose: a branch name, an author name, a path. Each of those has a test
  * that puts a git option where the value goes.
+ *
+ * The fixture puts the deck's project under the repository rather than at its
+ * root by default, because that is where decks actually live — a talk in a
+ * monorepo, a deck beside the demo it is about, this repository's own example.
+ * A deck whose project *is* the repository root is the easy case, and testing
+ * only that case hid a real bug: git resolves `<rev>:<path>` from the top of
+ * the repository and prints `ls-tree` paths from the current directory, so the
+ * two disagree everywhere except at the root.
  */
 
 import { execFile } from "node:child_process";
@@ -20,9 +28,19 @@ import { openRepository, isRevision } from "../src/git";
 
 const run = promisify(execFile);
 
-interface Author {
-  name?: string;
-  email?: string;
+interface Fixture {
+  /** The repository. */
+  root: string;
+  /** The directory a dev server would be rooted at. */
+  project: string;
+}
+
+interface Options {
+  /** The deck directory's name inside the project. */
+  directory?: string;
+  /** Where the project sits inside the repository. */
+  within?: string;
+  author?: string;
 }
 
 async function git(root: string, ...args: string[]): Promise<string> {
@@ -30,29 +48,27 @@ async function git(root: string, ...args: string[]): Promise<string> {
   return stdout;
 }
 
-/** A repository holding a two-slide deck, with one commit per state. */
-async function repository(options: { directory?: string; author?: Author } = {}): Promise<string> {
+/** A repository holding a deck, with one commit per state of it. */
+async function repository(options: Options = {}): Promise<Fixture> {
   const root = await mkdtemp(join(tmpdir(), "slidx-git-"));
+  const project = join(root, options.within ?? "talks/making-decks-fast");
   const slides = options.directory ?? "slides";
 
-  await mkdir(join(root, slides), { recursive: true });
+  await mkdir(join(project, slides), { recursive: true });
   await git(root, "init", "--quiet");
-  await git(root, "config", "user.email", options.author?.email ?? "author@example.com");
-  await git(root, "config", "user.name", options.author?.name ?? "The Author");
-  // Commits carry a committer as well as an author, and git refuses to make
-  // one without both when the environment has no identity of its own.
-  await git(root, "config", "commit.gpgsign", "false");
+  await git(root, "config", "user.email", "author@example.com");
+  await git(root, "config", "user.name", options.author ?? "The Author");
 
-  await writeFile(join(root, slides, "0001.md"), "# Making decks fast\n");
-  await writeFile(join(root, slides, "0002.md"), "# What goes wrong\n\nthe wifi\n");
+  await writeFile(join(project, slides, "0001.md"), "# Making decks fast\n");
+  await writeFile(join(project, slides, "0002.md"), "# What goes wrong\n\nthe wifi\n");
   await git(root, "add", "-A");
   await git(root, "commit", "--quiet", "-m", "the deck as the author wrote it");
 
-  await writeFile(join(root, slides, "0003.md"), "# The fix\n");
+  await writeFile(join(project, slides, "0003.md"), "# The fix\n");
   await git(root, "add", "-A");
   await git(root, "commit", "--quiet", "-m", "add the closing slide");
 
-  return root;
+  return { root, project };
 }
 
 describe("reading a deck's history", () => {
@@ -67,10 +83,9 @@ describe("reading a deck's history", () => {
   it("finds the repository a deck is inside rather than looking for a .git directory", async () => {
     // A worktree's `.git` is a file, a submodule's points elsewhere, and
     // `GIT_DIR` overrides both. git knows; a directory check does not.
-    const root = await repository();
-    const inside = join(root, "slides");
+    const { project } = await repository();
 
-    expect(await openRepository(inside)).not.toBeNull();
+    expect(await openRepository(join(project, "slides"))).not.toBeNull();
   });
 
   it("has an empty history in a repository with no commits yet", async () => {
@@ -85,14 +100,11 @@ describe("reading a deck's history", () => {
   });
 
   it("names who changed the deck, when, and what they called it", async () => {
-    const root = await repository();
-    const commits = await (await openRepository(root))!.log("slides", 20);
+    const { project } = await repository();
+    const commits = await (await openRepository(project))!.log("slides", 20);
 
     expect(commits).toHaveLength(2);
-    expect(commits[0]).toMatchObject({
-      author: "The Author",
-      subject: "add the closing slide",
-    });
+    expect(commits[0]).toMatchObject({ author: "The Author", subject: "add the closing slide" });
     // Newest first, which is the order a person looks for a change in.
     expect(commits[1]!.subject).toBe("the deck as the author wrote it");
     expect(commits[0]!.rev).toMatch(/^[0-9a-f]{40}$/);
@@ -100,23 +112,40 @@ describe("reading a deck's history", () => {
   });
 
   it("lists only the commits that touched the deck", async () => {
-    const root = await repository();
+    const { root, project } = await repository();
     await writeFile(join(root, "README.md"), "# A repository that is not only a deck\n");
     await git(root, "add", "-A");
     await git(root, "commit", "--quiet", "-m", "write a readme");
 
-    const commits = await (await openRepository(root))!.log("slides", 20);
+    const commits = await (await openRepository(project))!.log("slides", 20);
 
     expect(commits.map((commit) => commit.subject)).not.toContain("write a readme");
   });
 
+  it("reads a deck that sits under the repository rather than at the top of it", async () => {
+    // Where decks live. git prints `ls-tree` paths relative to the directory it
+    // was run in and resolves `<rev>:<path>` relative to the top of the
+    // repository, so a deck one directory down reads as empty unless the two
+    // are made to agree — and an empty deck at every commit looks exactly like
+    // a deck that never changed.
+    const { project } = await repository({ within: "talks/nested/deep" });
+    const repo = await openRepository(project);
+    const [newest] = await repo!.log("slides", 20);
+
+    expect(await repo!.filesAt(newest!.rev, "slides", [".md"])).toEqual([
+      { name: "0001.md", source: "# Making decks fast\n" },
+      { name: "0002.md", source: "# What goes wrong\n\nthe wifi\n" },
+      { name: "0003.md", source: "# The fix\n" },
+    ]);
+  });
+
   it("reads the deck as the tree had it, not as the working copy has it", async () => {
-    const root = await repository();
-    const repo = await openRepository(root);
+    const { project } = await repository();
+    const repo = await openRepository(project);
     const [newest, oldest] = await repo!.log("slides", 20);
 
     // Something the working copy says and the commit does not.
-    await writeFile(join(root, "slides", "0001.md"), "# A title from after the commit\n");
+    await writeFile(join(project, "slides", "0001.md"), "# A title from after the commit\n");
 
     expect(await repo!.filesAt(oldest!.rev, "slides", [".md"])).toEqual([
       { name: "0001.md", source: "# Making decks fast\n" },
@@ -129,8 +158,8 @@ describe("reading a deck's history", () => {
     // Every other read here answers nothing for a failure, so without this the
     // two look identical — and a panel would report a deck arriving with no
     // slides rather than saying it has never heard of that commit.
-    const root = await repository();
-    const repo = await openRepository(root);
+    const { project } = await repository();
+    const repo = await openRepository(project);
     const [newest] = await repo!.log("slides", 20);
 
     expect(await repo!.resolve("0123456789abcdef0123456789abcdef01234567")).toBeNull();
@@ -140,8 +169,8 @@ describe("reading a deck's history", () => {
 
   it("has no earlier version to compare the deck's first commit against", async () => {
     // `git show <root-commit>^` has no answer, and neither does this.
-    const root = await repository();
-    const repo = await openRepository(root);
+    const { project } = await repository();
+    const repo = await openRepository(project);
     const [newest, oldest] = await repo!.log("slides", 20);
 
     expect(await repo!.parentOf(oldest!.rev)).toBeNull();
@@ -150,7 +179,7 @@ describe("reading a deck's history", () => {
 });
 
 describe("what cannot become an argument", () => {
-  it("refuses a revision that is a git option rather than an object name", async () => {
+  it("refuses a revision that is a git option rather than an object name", () => {
     // The panel only ever names a commit it was given, so the rule can be as
     // narrow as an object name. `--upload-pack` runs a program of the caller's
     // choosing; `--output` writes a file. Neither reaches a process.
@@ -172,50 +201,53 @@ describe("what cannot become an argument", () => {
   });
 
   it("answers nothing for a revision it refused rather than reaching for git", async () => {
-    const root = await repository();
-    const repo = await openRepository(root);
+    const { project } = await repository();
+    const repo = await openRepository(project);
 
     expect(await repo!.filesAt("--upload-pack=touch /tmp/slidx-pwned", "slides", [".md"])).toEqual(
       [],
     );
     expect(await repo!.parentOf("--upload-pack=echo")).toBeNull();
+    expect(await repo!.resolve("--upload-pack=echo")).toBeNull();
   });
 
   it("reads a deck out of a directory whose name is shell punctuation", async () => {
-    // Every argument is passed as an argument, so `;` is four characters in a
+    // Every argument is passed as an argument, so `;` is one character in a
     // directory name rather than the end of a command. The marker file is what
     // proves it: a shell would have made one.
     const marker = join(tmpdir(), `slidx-pwned-${process.pid}`);
-    const root = await repository({ directory: `my slides; touch ${marker}` });
+    const directory = `my slides; touch ${marker}`;
+    const { project } = await repository({ directory });
 
-    const repo = await openRepository(root);
-    const commits = await repo!.log(`my slides; touch ${marker}`, 20);
+    const repo = await openRepository(project);
+    const commits = await repo!.log(directory, 20);
 
     expect(commits).toHaveLength(2);
-    expect(
-      await repo!.filesAt(commits[1]!.rev, `my slides; touch ${marker}`, [".md"]),
-    ).toHaveLength(2);
+    expect(await repo!.filesAt(commits[1]!.rev, directory, [".md"])).toHaveLength(2);
     await expect(access(marker)).rejects.toThrow();
   });
 
   it("reads a deck out of a directory whose name begins with a dash", async () => {
     // A pathspec is separated from the options by `--`, so a directory called
     // `--output` is a directory rather than a place to write a file.
-    const root = await repository({ directory: "--output" });
-    const repo = await openRepository(root);
+    const { project } = await repository({ directory: "--output" });
+    const repo = await openRepository(project);
 
     expect(await repo!.log("--output", 20)).toHaveLength(2);
+    expect(
+      await repo!.filesAt((await repo!.log("--output", 20))[0]!.rev, "--output", [".md"]),
+    ).toHaveLength(3);
   });
 
   it("carries an author name that looks like a git option back as text", async () => {
     // An author name is output. It is never an argument, and a repository
     // someone else wrote is full of values they chose.
-    const name = "--upload-pack=touch /tmp/slidx-author; echo";
-    const root = await repository({ author: { name } });
+    const author = "--upload-pack=touch /tmp/slidx-author; echo";
+    const { project } = await repository({ author });
 
-    const commits = await (await openRepository(root))!.log("slides", 20);
+    const commits = await (await openRepository(project))!.log("slides", 20);
 
-    expect(commits[0]!.author).toBe(name);
+    expect(commits[0]!.author).toBe(author);
     await expect(access("/tmp/slidx-author")).rejects.toThrow();
   });
 
@@ -225,12 +257,12 @@ describe("what cannot become an argument", () => {
     // this format does use are ordinary text inside a subject, so a message
     // holding them has to come back whole and in the right field.
     const subject = "a subject\x1fpretending to be\x1eanother record";
-    const root = await repository();
-    await writeFile(join(root, "slides", "0004.md"), "# One more\n");
+    const { root, project } = await repository();
+    await writeFile(join(project, "slides", "0004.md"), "# One more\n");
     await git(root, "add", "-A");
     await git(root, "commit", "--quiet", "-m", subject);
 
-    const commits = await (await openRepository(root))!.log("slides", 20);
+    const commits = await (await openRepository(project))!.log("slides", 20);
 
     expect(commits).toHaveLength(3);
     expect(commits[0]!.subject).toBe(subject);
@@ -242,10 +274,10 @@ describe("what cannot become an argument", () => {
     // A branch name is never an argument here: the log is read from HEAD,
     // whatever HEAD happens to be pointing at. Spaces are not a legal ref, so
     // this is the worst a branch name is allowed to be.
-    const root = await repository();
+    const { root, project } = await repository();
     await git(root, "switch", "--quiet", "-c", "wip/$(touch_/tmp/slidx-branch)");
 
-    const commits = await (await openRepository(root))!.log("slides", 20);
+    const commits = await (await openRepository(project))!.log("slides", 20);
 
     expect(commits).toHaveLength(2);
     await expect(access("/tmp/slidx-branch")).rejects.toThrow();

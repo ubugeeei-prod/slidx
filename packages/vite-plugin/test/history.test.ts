@@ -48,9 +48,17 @@ async function get(session: Session, path: string): Promise<Record<string, unkno
   return (await response.json()) as Record<string, unknown>;
 }
 
-/** A deck with three commits: written, retitled and restaged, then reordered. */
+/**
+ * A deck with three commits, in a project *under* its repository.
+ *
+ * Where decks live: a talk in a monorepo, a deck beside the demo it is about,
+ * this repository's own example. A deck whose project is the repository root
+ * is the easy case and hides a real one — git resolves `<rev>:<path>` from the
+ * top of the repository and prints tree paths from the directory it ran in.
+ */
 async function withHistory(): Promise<Session> {
-  const root = await mkdtemp(join(tmpdir(), "slidx-history-"));
+  const repo = await mkdtemp(join(tmpdir(), "slidx-history-"));
+  const root = join(repo, "talks", "making-decks-fast");
   await mkdir(join(root, "slides"), { recursive: true });
 
   const write = (name: string, source: string) =>
@@ -63,11 +71,11 @@ async function withHistory(): Promise<Session> {
   await write("0002.md", "---\nbudget: 90s\n---\n\n## What goes wrong\n\n- the venue wifi\n");
   await write("0003.md", "## The fix\n");
 
-  await git(root, "init", "--quiet");
-  await git(root, "config", "user.email", "author@example.com");
-  await git(root, "config", "user.name", "The Author");
-  await git(root, "add", "-A");
-  await git(root, "commit", "--quiet", "-m", "the deck as the author wrote it");
+  await git(repo, "init", "--quiet");
+  await git(repo, "config", "user.email", "author@example.com");
+  await git(repo, "config", "user.name", "The Author");
+  await git(repo, "add", "-A");
+  await git(repo, "commit", "--quiet", "-m", "the deck as the author wrote it");
 
   await write(
     "0002.md",

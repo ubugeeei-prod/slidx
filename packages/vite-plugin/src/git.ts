@@ -168,9 +168,16 @@ function repository(root: string): Repository {
       // A deck is dozens of files and these run at once, so the whole read is
       // a few milliseconds on a click — and a batch parser would be a second
       // way to get a blob wrong for a saving nobody would feel.
+      //
+      // The `./` is load-bearing. `git show <rev>:<path>` resolves the path
+      // from the *top of the repository* unless it starts with `./`, while
+      // `ls-tree` above printed paths from the directory git ran in. A deck
+      // that is not at the top of its repository — which is most of them —
+      // otherwise reads as empty at every commit, and a deck that is empty at
+      // every commit looks exactly like a deck that never changed.
       const files = await Promise.all(
         paths.map(async (path) => {
-          const source = await git(root, ["show", `${rev}:${path}`]);
+          const source = await git(root, ["show", `${rev}:./${path}`]);
           return source === null ? null : { name: nameIn(directory, path), source };
         }),
       );
