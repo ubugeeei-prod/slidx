@@ -23,7 +23,6 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
     let surfaces = theme.surfaces();
 
     let mut diagnostics: Vec<Finding> = deck.diagnostics.iter().map(finding).collect();
-    let has_blocking = deck.diagnostics.has_blocking();
 
     // The theme's padding is the safe area the shell enforces, and resolving
     // the theme is the only place that number exists. Without it the linter
@@ -48,6 +47,13 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
 
     let findings = lint(&input, &LintOptions::default());
     diagnostics.extend(findings.iter().map(finding));
+
+    // Both sources, and after both have been collected. This was read off the
+    // parse diagnostics alone, above the lint call, so a deck whose only
+    // blocking problem was a rule — a remote asset, text unreadable from the
+    // back row — reported that nothing blocked it. Nothing consumed the field,
+    // which is the only reason it never cost anyone a broken build.
+    let has_blocking = deck.diagnostics.has_blocking() || findings.has_blocking();
 
     let runtime_src = options.runtime_src.clone().unwrap_or_else(|| "./runtime.js".to_string());
     let shell = ShellOptions {

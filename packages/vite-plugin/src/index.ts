@@ -185,7 +185,11 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
         this.warn(`\n${formatReport(built.diagnostics, titles)}`);
       }
 
-      if (blocking.length > 0 && options.failOnDiagnostics) {
+      // The decision comes from Rust and the count comes from the grouping.
+      // Both were computed here before, which made "what blocks a build" a rule
+      // written twice — once in the linter and once in a filter over its output.
+      // `report.test.ts` pins that the two still agree.
+      if (built.hasBlocking && options.failOnDiagnostics) {
         this.error(blockingSummary(blocking.length));
       }
 
