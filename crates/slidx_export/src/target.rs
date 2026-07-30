@@ -22,6 +22,8 @@ pub enum ExportTarget {
     PdfZip,
     /// One image per stop.
     Png,
+    /// A presentation, for somebody who will open it in Google Slides.
+    Pptx,
 }
 
 /// Something a build has to be asked for, beyond its ordinary output.
@@ -45,8 +47,13 @@ pub enum Frame {
 pub const FRAME_DIRECTORY: &str = "export";
 
 /// Every target, in the order the help text lists them.
-pub const EXPORT_TARGETS: &[ExportTarget] =
-    &[ExportTarget::Browser, ExportTarget::Pdf, ExportTarget::PdfZip, ExportTarget::Png];
+pub const EXPORT_TARGETS: &[ExportTarget] = &[
+    ExportTarget::Browser,
+    ExportTarget::Pdf,
+    ExportTarget::PdfZip,
+    ExportTarget::Png,
+    ExportTarget::Pptx,
+];
 
 impl ExportTarget {
     /// The spelling `--target` accepts and the report prints.
@@ -56,11 +63,28 @@ impl ExportTarget {
             Self::Pdf => "pdf",
             Self::PdfZip => "pdf-zip",
             Self::Png => "png",
+            Self::Pptx => "pptx",
+        }
+    }
+
+    /// Other names somebody would reasonably type for the same thing.
+    ///
+    /// One entry, and it earns its place: a person exporting for Google Slides
+    /// has no reason to know the format is called pptx, and "unknown target"
+    /// would send them looking for a feature that is already there. Kept beside
+    /// the token so the two cannot drift into two lists.
+    pub fn aliases(&self) -> &'static [&'static str] {
+        match self {
+            Self::Pptx => &["google-slides"],
+            _ => &[],
         }
     }
 
     pub fn parse(token: &str) -> Option<Self> {
-        EXPORT_TARGETS.iter().copied().find(|target| target.as_token() == token)
+        EXPORT_TARGETS
+            .iter()
+            .copied()
+            .find(|target| target.as_token() == token || target.aliases().contains(&token))
     }
 
     /// What the file is, in the words of somebody choosing between them.
@@ -70,6 +94,7 @@ impl ExportTarget {
             Self::Pdf => "the deck as one document",
             Self::PdfZip => "one PDF per slide, in a zip",
             Self::Png => "one image per stop, in a zip",
+            Self::Pptx => "a presentation, which Google Slides imports natively",
         }
     }
 
@@ -94,6 +119,11 @@ impl ExportTarget {
                 "one image per stop, so a slide that builds in four steps is four images rather \
                  than one showing the answer"
             }
+            Self::Pptx => {
+                "each stop as its own slide, at the size it was rendered, and the speaker notes \
+                 as real notes text — but a slide arrives as a picture, so the animation, the \
+                 links and the text itself do not"
+            }
         }
     }
 
@@ -104,6 +134,9 @@ impl ExportTarget {
             Self::Pdf => Some(Frame::Pdf),
             Self::PdfZip => Some(Frame::PdfPerSlide),
             Self::Png => Some(Frame::Png),
+            // The same images, one per stop. A presentation of a deck and a zip
+            // of its images are the same render in two containers.
+            Self::Pptx => Some(Frame::Png),
         }
     }
 
@@ -118,6 +151,7 @@ impl ExportTarget {
             Self::Pdf => format!("{slug}.pdf"),
             Self::PdfZip => format!("{slug}-pdfs.zip"),
             Self::Png => format!("{slug}-pngs.zip"),
+            Self::Pptx => format!("{slug}.pptx"),
         }
     }
 }
@@ -155,6 +189,37 @@ mod tests {
         // be unreachable through the only name a person is shown.
         for target in EXPORT_TARGETS {
             assert_eq!(ExportTarget::parse(target.as_token()), Some(*target));
+        }
+    }
+
+    #[test]
+    fn google_slides_finds_the_file_google_slides_opens() {
+        // Somebody exporting for Google Slides has no reason to know the format
+        // is called pptx, and "unknown target" would send them looking for a
+        // feature that is already there.
+        assert_eq!(ExportTarget::parse("google-slides"), Some(ExportTarget::Pptx));
+    }
+
+    #[test]
+    fn every_alias_reaches_the_target_that_claims_it() {
+        for target in EXPORT_TARGETS {
+            for alias in target.aliases() {
+                assert_eq!(ExportTarget::parse(alias), Some(*target), "{alias} goes nowhere");
+            }
+        }
+    }
+
+    #[test]
+    fn no_alias_is_also_a_target_of_its_own() {
+        // An alias that shadowed a token would make one of the two unreachable,
+        // and which one would depend on the order of the table.
+        for target in EXPORT_TARGETS {
+            for alias in target.aliases() {
+                assert!(
+                    !EXPORT_TARGETS.iter().any(|other| other.as_token() == *alias),
+                    "{alias} is both an alias and a target"
+                );
+            }
         }
     }
 

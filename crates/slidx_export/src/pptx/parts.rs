@@ -24,7 +24,8 @@ pub const RELATIONSHIPS_NAMESPACE: &str =
     "http://schemas.openxmlformats.org/package/2006/relationships";
 
 /// The prefix every relationship type shares.
-pub const RELATIONSHIP: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+pub const RELATIONSHIP: &str =
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 
 pub const DECLARATION: &str = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>"#;
 

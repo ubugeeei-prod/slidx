@@ -308,7 +308,8 @@ you are still writing, `slidx dev` serves the source live and opens the editor."
         "export --target <name> [path] [options]",
         "\
 Produces one file from a deck: the static site as a zip, the deck as one PDF,
-one PDF per slide, or one image per stop.
+one PDF per slide, one image per stop, or a presentation Google Slides imports
+natively (`--target google-slides` reaches the same thing).
 
 It does not render anything. Every page, every PDF and every image comes from
 @slidx/vite-plugin driving a browser over the print shell it emitted — this
@@ -323,11 +324,7 @@ open it, the same boundary `slidx publish` holds.
 The file lands in the current directory, named for the deck, unless --out says
 otherwise.",
         &[
-            Flag::taking(
-                "target",
-                "<name>",
-                "What to produce: browser, pdf, pdf-zip, png. Required",
-            ),
+            Flag::taking("target", "<name>", "Required. browser, pdf, pdf-zip, png, pptx"),
             Flag::taking("out", "<path>", "Directory the exported file goes in. Default: ."),
             Flag::taking("dist", "<path>", "Build output directory. Default: dist beside the deck"),
             Flag::taking("separator", "<text>", "Slide separator in a single-file deck"),
