@@ -56,8 +56,7 @@ fn meta_segments(source: &str, block: ByteSpan) -> Vec<Segment> {
     TRANSLATABLE_KEYS
         .iter()
         .filter_map(|key| {
-            let entry = slidx_edit::frontmatter::entry(text, key)?;
-            let span = entry.value.shifted(block.start);
+            let span = slidx_edit::frontmatter::value_span(text, key)?.shifted(block.start);
             let scalar = plain_scalar(span.slice(source))?;
 
             let masked = mask(&scalar);
@@ -77,8 +76,10 @@ fn meta_segments(source: &str, block: ByteSpan) -> Vec<Segment> {
 /// One slide's headings, prose, and notes.
 fn slide_segments(source: &str, body: ByteSpan, slide: &str, first_line: u32) -> Vec<Segment> {
     let text = body.slice(source);
-    let notes: Vec<_> =
-        find_notes(text).into_iter().filter(|note| !inside_a_fence(text, note.span.start)).collect();
+    let notes: Vec<_> = find_notes(text)
+        .into_iter()
+        .filter(|note| !inside_a_fence(text, note.span.start))
+        .collect();
     let note_spans: Vec<ByteSpan> = notes.iter().map(|note| note.span).collect();
 
     let mut found = Vec::new();
@@ -140,7 +141,10 @@ fn slide_segments(source: &str, body: ByteSpan, slide: &str, first_line: u32) ->
 pub(crate) fn plain_scalar(value: &str) -> Option<String> {
     let trimmed = value.trim();
 
-    if trimmed.is_empty() || trimmed.contains('\n') || trimmed.starts_with(['|', '>', '[', '{', '&', '*']) {
+    if trimmed.is_empty()
+        || trimmed.contains('\n')
+        || trimmed.starts_with(['|', '>', '[', '{', '&', '*'])
+    {
         return None;
     }
 

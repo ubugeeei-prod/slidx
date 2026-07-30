@@ -27,7 +27,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use slidx_core::DeckParseOptions;
+use slidx_core::{parse_deck, DeckParseOptions};
 use slidx_i18n::{Catalogue, Plan};
 
 use crate::args::Matches;
@@ -66,8 +66,7 @@ fn extract(matches: &Matches, style: &Style) -> Outcome {
         .and_then(|path| fs::read_to_string(path).ok())
         .map(|text| Catalogue::from_po(&text));
 
-    let mut catalogue =
-        slidx_i18n::catalogue(&deck.source, &options, lang, previous.as_ref());
+    let mut catalogue = slidx_i18n::catalogue(&deck.source, &options, lang, previous.as_ref());
     catalogue.deck = deck.label.clone();
 
     let po = catalogue.to_po();
@@ -104,6 +103,14 @@ fn apply(matches: &Matches, style: &Style) -> Outcome {
         }
     };
 
+    // Pointing this at `slides.ja` instead of `slides` is one keystroke, and
+    // the result would be a translation of a translation: every rounding of
+    // meaning applied twice, and a `translationOf` chain nothing can follow
+    // back to the talk. The deck says which it is, so slidx can refuse.
+    if let Some(origin) = parse_deck(&deck.source, &options).meta.translation_of {
+        return Outcome::misuse(already_a_translation(&deck.label, &origin));
+    }
+
     let plan = slidx_i18n::plan(&deck.source, &options, &catalogue);
 
     if matches.is_set("plan") {
@@ -128,9 +135,7 @@ fn read(matches: &Matches) -> Result<(DeckSource, DeckParseOptions), Outcome> {
         .unwrap_or_else(|| PathBuf::from(source::DEFAULT_DIR));
 
     match source::read(&path, &separator) {
-        Ok(deck) => {
-            Ok((deck, DeckParseOptions { separator, ..DeckParseOptions::default() }))
-        }
+        Ok(deck) => Ok((deck, DeckParseOptions { separator, ..DeckParseOptions::default() })),
         Err(message) => Err(Outcome::misuse(format!("{message}\n"))),
     }
 }
@@ -182,7 +187,7 @@ fn extracted(catalogue: &Catalogue, path: &Path, merged: bool, style: &Style) ->
 
     let mut text = format!(
         "{}\n",
-        style.paint(Ink::Strong, &format!("{} string(s) to {}", total, catalogue.lang))
+        style.paint(Ink::Strong, format!("{} string(s) to {}", total, catalogue.lang))
     );
 
     text.push_str(&report::block(
@@ -215,7 +220,10 @@ fn report(plan: &Plan, deck: &DeckSource, out: &Path, dry: bool, style: &Style) 
         "{}\n",
         style.paint(
             Ink::Strong,
-            &format!("{} translated, {} left in the original language", plan.translated, plan.untranslated)
+            format!(
+                "{} translated, {} left in the original language",
+                plan.translated, plan.untranslated
+            )
         )
     );
 
@@ -242,7 +250,14 @@ fn report(plan: &Plan, deck: &DeckSource, out: &Path, dry: bool, style: &Style) 
     }
 
     for problem in &plan.problems {
-        text.push_str(&report::block("REFUSED", Ink::Fail, "catalogue", &problem.to_string(), None, style));
+        text.push_str(&report::block(
+            "REFUSED",
+            Ink::Fail,
+            "catalogue",
+            &problem.to_string(),
+            None,
+            style,
+        ));
     }
 
     // Neither of these can be carried across, and saying nothing would let an
@@ -269,6 +284,14 @@ fn needs_a_language() -> String {
         .to_string()
 }
 
+fn already_a_translation(deck: &str, origin: &str) -> String {
+    format!(
+        "{deck} is already a translation of {origin}.\n\n\
+         Translating one would translate a translation: every rounding of meaning applied twice, \
+         and no way back to the talk. Extract from {origin} instead, and apply to it.\n"
+    )
+}
+
 fn needs(flag: &str, what: &str) -> String {
     format!(
         "`slidx i18n apply` needs {flag}: {what}.\n\n\
@@ -290,8 +313,8 @@ mod tests {
 
     impl Scratch {
         fn new(name: &str) -> Self {
-            let path = std::env::temp_dir()
-                .join(format!("slidx-i18n-{name}-{}", std::process::id()));
+            let path =
+                std::env::temp_dir().join(format!("slidx-i18n-{name}-{}", std::process::id()));
             let _ = fs::remove_dir_all(&path);
             fs::create_dir_all(&path).expect("scratch directory");
             Self(path)
@@ -474,6 +497,29 @@ mod tests {
         let text = fs::read_to_string(&catalogue).expect("rewritten");
         assert!(text.contains("msgstr \"一\""), "{text}");
         assert!(text.contains("msgid \"Body.\""), "{text}");
+    }
+
+    #[test]
+    fn applying_to_a_deck_that_is_already_a_translation_is_refused() {
+        // One keystroke between `slides` and `slides.ja`, and the result would
+        // be a translation of a translation with no way back to the talk.
+        let scratch = Scratch::new("twice");
+        let deck = scratch.path().join("slides.ja");
+        fs::create_dir_all(&deck).expect("deck directory");
+        fs::write(deck.join("0001.md"), "---\nlang: ja\ntranslationOf: slides\n---\n\n# 一\n")
+            .expect("write");
+        let catalogue = scratch.write("de.po", "msgid \"\"\nmsgstr \"Language: de\\n\"\n");
+
+        let outcome = run_line(&format!(
+            "i18n apply {} --catalogue {} --out {}",
+            deck.display(),
+            catalogue.display(),
+            scratch.path().join("slides.de").display()
+        ));
+
+        assert_eq!(outcome.code, crate::MISUSE);
+        assert!(outcome.stderr.contains("already a translation"), "{}", outcome.stderr);
+        assert!(outcome.stderr.contains("slides"), "{}", outcome.stderr);
     }
 
     #[test]

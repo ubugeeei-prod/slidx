@@ -105,9 +105,8 @@ fn classify(line: &str) -> (std::ops::Range<usize>, Join) {
     // table row — and the next pass would fold it into the paragraph above.
     // The interior pipes stay, because they separate cells a translator has to
     // keep apart.
-    if trimmed.starts_with('|') {
-        let inner = trimmed[1..].trim_end();
-        let close = usize::from(inner.ends_with('|'));
+    if let Some(inner) = trimmed.strip_prefix('|') {
+        let close = usize::from(inner.trim_end().ends_with('|'));
 
         return (indent + 1..end - close, Join::Open);
     }
@@ -182,9 +181,10 @@ mod tests {
 
     #[test]
     fn a_bullet_continued_on_the_next_line_stays_one_block() {
-        assert_eq!(texts("- the venue Wi-Fi is down\n  and the fonts were remote"), [
-            "the venue Wi-Fi is down\n  and the fonts were remote"
-        ]);
+        assert_eq!(
+            texts("- the venue Wi-Fi is down\n  and the fonts were remote"),
+            ["the venue Wi-Fi is down\n  and the fonts were remote"]
+        );
     }
 
     #[test]
@@ -199,10 +199,10 @@ mod tests {
 
     #[test]
     fn a_blank_line_ends_a_block() {
-        assert_eq!(texts("first paragraph\n\nsecond paragraph"), [
-            "first paragraph",
-            "second paragraph"
-        ]);
+        assert_eq!(
+            texts("first paragraph\n\nsecond paragraph"),
+            ["first paragraph", "second paragraph"]
+        );
     }
 
     #[test]

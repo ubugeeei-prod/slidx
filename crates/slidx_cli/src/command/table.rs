@@ -534,7 +534,11 @@ overflow verdict, because a slide that fitted in one language may not in
 another.",
                 &[
                     Flag::taking("catalogue", "<path>", "The translated PO file. Required"),
-                    Flag::taking("out", "<path>", "Directory the translated deck goes in. Required"),
+                    Flag::taking(
+                        "out",
+                        "<path>",
+                        "Directory the translated deck goes in. Required",
+                    ),
                     Flag::taking("separator", "<text>", "Slide separator in a single-file deck"),
                     Flag::switch("plan", "Say what would change and write nothing"),
                 ],

@@ -71,15 +71,7 @@ pub fn parse_deck(source: &str, options: &DeckParseOptions) -> Deck {
         .zip(matters)
         .enumerate()
         .map(|(index, (segment, matter))| {
-            build_slide(
-                segment,
-                matter,
-                index as u32,
-                options,
-                &meta,
-                &mut slugs,
-                &mut diagnostics,
-            )
+            build_slide(segment, matter, index as u32, options, &meta, &mut slugs, &mut diagnostics)
         })
         .collect();
 

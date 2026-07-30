@@ -224,9 +224,9 @@ fn is_pin(op: &EditOp) -> bool {
 /// The text with a run of field operations applied, exactly as [`Plan::apply`]
 /// will apply them.
 fn replay(source: &str, options: &DeckParseOptions, fields: &[EditOp]) -> String {
-    fields.iter().fold(source.to_string(), |text, op| {
-        slidx_edit::apply(&text, options, op).unwrap_or(text)
-    })
+    fields
+        .iter()
+        .fold(source.to_string(), |text, op| slidx_edit::apply(&text, options, op).unwrap_or(text))
 }
 
 /// A mark key the source declares and the translation no longer does.
@@ -430,10 +430,7 @@ mod tests {
         let source = "---\ntitle: Fast Decks\n---\n\n# One\n";
         let out = applied(source, &[("deck/title", "Fast Decks", "速さ: デッキの話")]);
 
-        assert_eq!(
-            parse_deck(&out, &options()).meta.title.as_deref(),
-            Some("速さ: デッキの話")
-        );
+        assert_eq!(parse_deck(&out, &options()).meta.title.as_deref(), Some("速さ: デッキの話"));
     }
 
     #[test]

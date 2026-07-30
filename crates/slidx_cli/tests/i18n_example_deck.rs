@@ -146,14 +146,14 @@ fn nothing_the_example_deck_addresses_reaches_the_catalogue() {
         po.lines().filter(|line| line.starts_with("msgid ")).collect::<Vec<_>>().join("\n");
 
     for addressed in [
-        "#latency",             // a mark key a `steps:` entry points at
-        "timeline.frame",       // the body of a fenced code block
-        "let frame",            // the same
-        "minimal",              // the theme name
-        "16:9",                 // the aspect
-        "autoSteps",            // a frontmatter key
-        "budget",               // another
-        "slidx",                // the hashtag, which an audience searches for
+        "#latency",       // a mark key a `steps:` entry points at
+        "timeline.frame", // the body of a fenced code block
+        "let frame",      // the same
+        "minimal",        // the theme name
+        "16:9",           // the aspect
+        "autoSteps",      // a frontmatter key
+        "budget",         // another
+        "slidx",          // the hashtag, which an audience searches for
     ] {
         assert!(!translatable.contains(addressed), "`{addressed}` was offered for translation");
     }

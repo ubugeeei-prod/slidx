@@ -10,10 +10,10 @@
 //! The deck's frontmatter is the first slide's. That is what the parser
 //! already believes, so setting `title` on slide 0 is how a deck gets a title.
 //!
-//! [`entry`], [`lines`] and [`scalar`] are public because `slidx_i18n` asks the
-//! same two questions of a block — where is this key's value written, and how
-//! does a translated string spell itself in YAML — and a second answer to
-//! either would be a translated `title:` that reads back as a boolean.
+//! [`value_span`] and [`scalar`] are public because `slidx_i18n` asks the same
+//! two questions of a block — where is this key's value written, and how does a
+//! translated string spell itself in YAML — and a second answer to either would
+//! be a translated `title:` that reads back as a boolean.
 
 use serde_json::Value as JsonValue;
 
@@ -59,9 +59,17 @@ pub(crate) fn write_key(
     }
 }
 
+/// Where a top-level key's value is written inside a block, if it is written.
+///
+/// The narrow half of [`entry`], because it is the only half anything outside
+/// this crate needs: a translation replaces a value and never a key.
+pub fn value_span(text: &str, key: &str) -> Option<ByteSpan> {
+    entry(text, key).map(|found| found.value)
+}
+
 /// Where a top-level key and its value are written inside a block.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Entry {
+pub(crate) struct Entry {
     /// The key line through the last line of its value.
     pub whole: ByteSpan,
     /// Everything after the colon, leading space included.
@@ -73,7 +81,7 @@ pub struct Entry {
 /// Deliberately a line scan rather than a parse. A key's value runs to the
 /// next key at column zero, which is true of scalars, block lists, block
 /// scalars, and nested maps alike, and needs none of them to be understood.
-pub fn entry(text: &str, key: &str) -> Option<Entry> {
+pub(crate) fn entry(text: &str, key: &str) -> Option<Entry> {
     let mut found: Option<(usize, usize)> = None;
 
     for (start, line) in lines(text) {
@@ -111,7 +119,7 @@ fn top_level_key(line: &str) -> Option<&str> {
     (rest.is_empty() || rest.starts_with(' ') || !name.contains(' ')).then_some(name.trim())
 }
 
-pub fn lines(text: &str) -> impl Iterator<Item = (usize, &str)> {
+pub(crate) fn lines(text: &str) -> impl Iterator<Item = (usize, &str)> {
     let mut cursor = 0usize;
 
     std::iter::from_fn(move || {

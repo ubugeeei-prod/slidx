@@ -74,11 +74,17 @@ impl Segment {
             SegmentKind::Meta(key) => format!("The deck's `{key}`."),
             SegmentKind::Heading => format!("Heading of slide `{}`.", self.slide),
             SegmentKind::Body => format!("Body of slide `{}`.", self.slide),
-            SegmentKind::Notes => format!("Speaker notes for slide `{}` — not shown to the audience.", self.slide),
+            SegmentKind::Notes => {
+                format!("Speaker notes for slide `{}` — not shown to the audience.", self.slide)
+            }
         }];
 
         for (index, text) in self.protected.iter().enumerate() {
-            notes.push(format!("%{} is `{}` — keep it, move it if the grammar needs to.", index + 1, text));
+            notes.push(format!(
+                "%{} is `{}` — keep it, move it if the grammar needs to.",
+                index + 1,
+                text
+            ));
         }
 
         if matches!(self.kind, SegmentKind::Heading) {

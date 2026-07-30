@@ -192,10 +192,8 @@ fn destination(source: &str, from: usize) -> Option<Region> {
         .into_iter()
         .filter_map(|scheme| source[from..].find(scheme).map(|at| from + at))
         .min()?;
-    let end = source[start..]
-        .find(char::is_whitespace)
-        .map(|at| start + at)
-        .unwrap_or(source.len());
+    let end =
+        source[start..].find(char::is_whitespace).map(|at| start + at).unwrap_or(source.len());
 
     Some(Region { start, end: start + source[start..end].trim_end_matches(['.', ',', ')']).len() })
 }

@@ -282,7 +282,7 @@ fn a_deck_quoted_inside_a_fenced_code_block_is_left_completely_alone() {
     each_case(|source| {
         let quoted = format!("# Quoting a deck\n\n````md\n{source}\n````\n");
 
-        assert_eq!(applied(&quoted).contains(source), true, "a fence was translated: {source:?}");
+        assert!(applied(&quoted).contains(source), "a fence was translated: {source:?}");
     });
 }
 

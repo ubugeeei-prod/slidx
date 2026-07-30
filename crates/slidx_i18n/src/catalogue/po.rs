@@ -32,7 +32,9 @@ pub fn render(catalogue: &Catalogue) -> String {
     out.push_str("# Translation catalogue for a slidx deck.\n");
     out.push_str("#\n");
     out.push_str("# %1, %2 … stand for the parts of a slide that must not be translated: mark\n");
-    out.push_str("# keys, inline code, URLs and image paths, HTML tags, step markers. Keep every\n");
+    out.push_str(
+        "# keys, inline code, URLs and image paths, HTML tags, step markers. Keep every\n",
+    );
     out.push_str("# one of them, and move them if the grammar needs you to. `#.` lines say what\n");
     out.push_str("# each stands for. Write a literal percent before a digit as %%.\n");
     out.push_str("#\n");
@@ -188,7 +190,8 @@ fn escape(value: &str) -> String {
 
 /// The text inside a `"…"`, unescaped.
 fn unquote(value: &str) -> String {
-    let inner = value.trim().strip_prefix('"').and_then(|rest| rest.strip_suffix('"')).unwrap_or("");
+    let inner =
+        value.trim().strip_prefix('"').and_then(|rest| rest.strip_suffix('"')).unwrap_or("");
     let mut out = String::with_capacity(inner.len());
     let mut escaped = false;
 
@@ -224,11 +227,7 @@ mod tests {
     }
 
     fn catalogue(entries: &[Entry]) -> Catalogue {
-        Catalogue {
-            lang: "ja".to_string(),
-            deck: "slides".to_string(),
-            entries: entries.to_vec(),
-        }
+        Catalogue { lang: "ja".to_string(), deck: "slides".to_string(), entries: entries.to_vec() }
     }
 
     fn round_trip(cat: &Catalogue) -> Catalogue {
