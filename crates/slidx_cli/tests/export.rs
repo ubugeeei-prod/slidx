@@ -192,4 +192,31 @@ fn every_rendered_export_is_the_kind_of_file_it_claims_to_be() {
     assert!(names.len() > 4, "one image per slide rather than per stop: {names:?}");
     assert!(names.iter().all(|name| name.ends_with(".png")), "{names:?}");
     assert!(names.iter().any(|name| name.ends_with("-stop-02.png")), "{names:?}");
+
+    // A presentation, holding the same stops and the notes as text.
+    let presentation = export(ExportTarget::Pptx, &scratch);
+    let parts = zip::names(&presentation);
+
+    assert_eq!(&presentation[..4], b"PK\x03\x04", "the presentation is not a zip");
+    // A reader looks for this first, and one that scans from the front for it
+    // refuses a package that buries it behind the media.
+    assert_eq!(parts.first().map(String::as_str), Some("[Content_Types].xml"));
+
+    let slides = parts.iter().filter(|name| name.starts_with("ppt/slides/slide")).count();
+    let media = parts.iter().filter(|name| name.starts_with("ppt/media/")).count();
+    let notes = parts.iter().filter(|name| name.starts_with("ppt/notesSlides/notesSlide")).count();
+
+    // One slide, one image and one notes page per stop — the same count the
+    // image export produced from the same build.
+    assert_eq!(media, names.len(), "{parts:?}");
+    assert_eq!(slides, media, "{parts:?}");
+    assert_eq!(notes, media, "{parts:?}");
+
+    // The notes are the reason this target exists rather than an imported PDF,
+    // so they have to arrive as text somebody can edit and search.
+    let text = String::from_utf8_lossy(&presentation);
+    assert!(
+        text.contains("Open with the outcome"),
+        "the example deck's notes did not travel as text"
+    );
 }

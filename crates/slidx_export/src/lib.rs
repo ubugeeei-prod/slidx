@@ -24,8 +24,10 @@
 #![deny(missing_debug_implementations)]
 #![warn(clippy::all)]
 
+pub mod pptx;
 pub mod target;
 pub mod zip;
 
+pub use pptx::{PptxDeck, PptxSlide};
 pub use target::{ExportTarget, Frame, EXPORT_TARGETS, FRAME_DIRECTORY};
 pub use zip::{names, write, Entry};

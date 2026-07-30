@@ -8,7 +8,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use slidx_export::{zip, ExportTarget, Frame};
+use slidx_core::Deck;
+use slidx_export::{pptx, zip, ExportTarget, Frame, PptxDeck, PptxSlide};
 
 use crate::preview::Built;
 
@@ -24,9 +25,13 @@ pub struct Packaged {
 }
 
 /// Packages one target from a build, into `out`.
+///
+/// The deck is read for the one thing a build's output does not carry: the
+/// speaker notes, which the presentation export has to attach as text.
 pub fn package(
     target: ExportTarget,
     built: &Built,
+    deck: &Deck,
     out: &Path,
     slug: &str,
 ) -> Result<Packaged, String> {
@@ -35,6 +40,7 @@ pub fn package(
         ExportTarget::Pdf => document(built)?,
         ExportTarget::PdfZip => frames(built, Frame::PdfPerSlide, "pdf")?,
         ExportTarget::Png => frames(built, Frame::Png, "png")?,
+        ExportTarget::Pptx => presentation(built, deck, slug)?,
     };
 
     let path = out.join(target.file_name(slug));
@@ -101,6 +107,60 @@ fn frames(built: &Built, frame: Frame, extension: &str) -> Result<Bundle, String
     }
 
     Ok((zip::write(&entries), entries.len()))
+}
+
+/// The deck as a presentation: the rendered stops, with the notes as text.
+///
+/// The images come from the build and the notes come from the deck, and putting
+/// them back together needs to know which slide each image belongs to. That
+/// comes out of the file name the build wrote — `slide-03-stop-02.png` — and a
+/// name that does not parse is an error rather than a slide whose notes quietly
+/// went missing. The two sides of that spelling are `frames.ts` and
+/// `slidx_export`'s `Frame`, and `tests/export.rs` is what keeps them honest.
+fn presentation(built: &Built, deck: &Deck, title: &str) -> Result<Bundle, String> {
+    let directory = built.root.join(Frame::Png.directory().unwrap_or_default());
+
+    let images: Vec<PathBuf> = walk(&directory)
+        .into_iter()
+        .filter(|path| path.extension().is_some_and(|found| found == "png"))
+        .collect();
+
+    if images.is_empty() {
+        return Err(no_frames(&directory, Frame::Png));
+    }
+
+    let mut slides = Vec::with_capacity(images.len());
+
+    for path in &images {
+        let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+        let index = slide_of(&name).ok_or_else(|| unreadable_name(&name))?;
+        let slide = deck.slides.get(index);
+
+        slides.push(PptxSlide {
+            image: fs::read(path).map_err(|error| unreadable(path, &error))?,
+            title: slide.and_then(|slide| slide.title.clone()),
+            notes: slide.map(|slide| slide.notes.clone()).unwrap_or_default(),
+        });
+    }
+
+    let total = slides.len();
+    let (width, height) = deck.meta.aspect.dimensions();
+
+    Ok((
+        pptx::write(&PptxDeck { title: title.to_string(), aspect: (width, height), slides }),
+        total,
+    ))
+}
+
+/// Which slide an image belongs to, from the name the build gave it.
+///
+/// Zero-based, because that is how the deck is indexed. The stop is deliberately
+/// ignored: notes belong to the slide, and every stop of one carries them.
+fn slide_of(name: &str) -> Option<usize> {
+    let digits: String =
+        name.strip_prefix("slide-")?.chars().take_while(char::is_ascii_digit).collect();
+
+    digits.parse::<usize>().ok().filter(|number| *number > 0).map(|number| number - 1)
 }
 
 /// Every file under a directory, in a fixed order.
@@ -172,6 +232,20 @@ fn no_frames(directory: &Path, frame: Frame) -> String {
     )
 }
 
+/// A frame whose name the packaging cannot place in the deck.
+///
+/// Loud rather than quiet, because the quiet version is a presentation whose
+/// notes are missing from every slide — and nobody checks the notes until they
+/// are standing up.
+fn unreadable_name(name: &str) -> String {
+    format!(
+        "The build wrote a frame called {name}, which does not say which slide it is.\n\n\
+         slidx expects `slide-<number>-stop-<number>.png`. A name in another shape means\n\
+         the binary and @slidx/vite-plugin are different versions:\n\n\
+         \x20 vp add -D @slidx/vite-plugin@latest\n"
+    )
+}
+
 fn unreadable(path: &Path, error: &std::io::Error) -> String {
     format!("Could not read {}: {error}\n", path.display())
 }
@@ -231,7 +305,16 @@ mod tests {
         }
 
         fn package(&self, target: ExportTarget) -> Result<Packaged, String> {
-            package(target, &self.built(), &self.0.join("out"), "making-decks-fast")
+            package(target, &self.built(), &self.deck(), &self.0.join("out"), "making-decks-fast")
+        }
+
+        /// The deck those pages were built from, for the notes.
+        fn deck(&self) -> Deck {
+            slidx_core::parse_deck(
+                "---\ntitle: Making Decks Fast\n---\n\n# One\n\n\
+                 <!-- notes: open with the outcome -->\n\n---\n\n# Two\n",
+                &slidx_core::DeckParseOptions::default(),
+            )
         }
     }
 
@@ -373,8 +456,9 @@ mod tests {
         fs::write(output.0.join("not-a-directory"), "already a file\n").expect("write");
         let occupied = output.0.join("not-a-directory").join("inside-it");
 
-        let error = package(ExportTarget::Browser, &output.built(), &occupied, "talk")
-            .expect_err("unwritable");
+        let error =
+            package(ExportTarget::Browser, &output.built(), &output.deck(), &occupied, "talk")
+                .expect_err("unwritable");
 
         assert!(error.contains("--out"), "{error}");
     }

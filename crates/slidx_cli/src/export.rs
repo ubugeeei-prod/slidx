@@ -100,7 +100,7 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
 
     let out = Path::new(matches.value("out").unwrap_or("."));
 
-    match package::package(target, &built, out, &slug) {
+    match package::package(target, &built, &deck, out, &slug) {
         Ok(packaged) => Outcome::out(wrote(target, &packaged, style)),
         Err(message) => Outcome::misuse(message),
     }
@@ -343,6 +343,24 @@ mod tests {
         assert_eq!(outcome.code, MISUSE);
         for target in EXPORT_TARGETS {
             assert!(outcome.stderr.contains(target.as_token()), "{}", outcome.stderr);
+        }
+    }
+
+    #[test]
+    fn the_flag_that_takes_a_target_lists_every_target_there_is() {
+        // The one place the table cannot write itself: a flag summary is a
+        // const, so it is typed by hand and can fall behind the enum beside it.
+        // A target missing here is one nobody discovers from `--help`.
+        let flag = crate::command::find("export")
+            .and_then(|command| command.flag("target"))
+            .expect("--target");
+
+        for target in EXPORT_TARGETS {
+            assert!(
+                flag.summary.contains(target.as_token()),
+                "--target does not mention {}",
+                target.as_token()
+            );
         }
     }
 
