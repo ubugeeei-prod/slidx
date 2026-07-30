@@ -21,6 +21,7 @@ const [tag] = process.argv.slice(2);
 const cargoVersion = readCargoWorkspaceVersion();
 const internalRequirements = readInternalCrateRequirements();
 const packages = readPublishablePackages();
+const npmRequirements = readInternalPackageRequirements(packages);
 const problems = [];
 
 // `[workspace.package] version` is inherited, but the version each crate is
@@ -55,6 +56,14 @@ for (const { path, name, version } of packages) {
   }
 }
 
+for (const { path, name, requirement } of npmRequirements) {
+  if (!requirement.startsWith("workspace:") && requirement !== cargoVersion) {
+    problems.push(
+      `${path}: requires ${name} at ${requirement}, but the package release is ${cargoVersion}`,
+    );
+  }
+}
+
 if (tag !== undefined) {
   const expected = tag.replace(/^v/, "");
   if (expected !== cargoVersion) {
@@ -70,7 +79,8 @@ if (problems.length > 0) process.exit(1);
 
 process.stdout.write(
   `version ${cargoVersion} is consistent across Cargo, ` +
-    `${internalRequirements.length} internal crate requirement(s) and ${packages.length} package(s)` +
+    `${internalRequirements.length} internal crate requirement(s), ` +
+    `${packages.length} package(s) and ${npmRequirements.length} internal package requirement(s)` +
     (tag ? ` and tag ${tag}` : "") +
     "\n",
 );
@@ -130,5 +140,23 @@ function readPublishablePackages() {
   return listed
     .map((path) => ({ path, manifest: JSON.parse(readFileSync(path, "utf8")) }))
     .filter(({ manifest }) => manifest.private !== true)
-    .map(({ path, manifest }) => ({ path, name: manifest.name, version: manifest.version }));
+    .map(({ path, manifest }) => ({
+      path,
+      name: manifest.name,
+      version: manifest.version,
+      manifest,
+    }));
+}
+
+/** Exact or workspace-relative requirements on packages this project owns. */
+function readInternalPackageRequirements(packages) {
+  const fields = ["dependencies", "optionalDependencies", "peerDependencies"];
+
+  return packages.flatMap(({ path, manifest }) =>
+    fields.flatMap((field) =>
+      Object.entries(manifest[field] ?? {})
+        .filter(([name]) => name === "slidx" || name.startsWith("@slidx/"))
+        .map(([name, requirement]) => ({ path, name, requirement })),
+    ),
+  );
 }
