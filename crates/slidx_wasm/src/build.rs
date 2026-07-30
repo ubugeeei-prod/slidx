@@ -17,7 +17,9 @@ use slidx_render::{
 };
 use slidx_theme::{Catalogue, Published, Resolved};
 
-use crate::{parse_options, BuildOptions, BuildResult, BuiltSlide, Finding, SnippetFile};
+use crate::{
+    parse_options, BuildOptions, BuildResult, BuiltSlide, Finding, LayoutChoice, SnippetFile,
+};
 
 pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
     let deck = parse_deck(source, &parse_options(options.separator.as_deref()));
@@ -147,6 +149,7 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
             budget_seconds: slide.budget_seconds,
             estimated_seconds: slide.estimated_seconds(),
             optional: slide.optional,
+            style: slide.style.clone(),
             frontmatter: slide.frontmatter.clone(),
             html: render.then(|| render_slide(&deck, slide, &shell)),
             og_svg: (render && options.og)
@@ -195,6 +198,16 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
         title: deck.meta.title.clone(),
         description: deck.meta.description.clone(),
         duration_seconds: deck.meta.duration_seconds,
+        layouts: slidx_theme::layout::all()
+            .into_iter()
+            .map(|layout| LayoutChoice {
+                id: layout.id,
+                summary: layout.summary,
+                areas: layout.areas,
+                columns: layout.columns,
+                rows: layout.rows,
+            })
+            .collect(),
         slides,
         diagnostics,
         has_blocking,

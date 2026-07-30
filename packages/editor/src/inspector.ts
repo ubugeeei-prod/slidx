@@ -2,10 +2,11 @@
  * What is selected, and what can be said about it.
  *
  * Three things at once, in the order an author reaches for them: the phrase
- * they just selected, the slide they are on, and the deck. Each field writes
- * one frontmatter key through `setField`, which replaces that key's bytes and
- * leaves every other key — including the ones this version of slidx has never
- * heard of — exactly as typed.
+ * they just selected, the slide they are on, and the deck. Scalar metadata
+ * writes one frontmatter key through `setField`. Visual state is different:
+ * the layout picker writes one `--slidx-*` property through `setStyle`, so it
+ * lands in the slide's Markdown `<style>` block without replacing YAML or a
+ * neighbouring visual choice.
  *
  * Giving a selection a class is how "select these words and animate them" is
  * spelled in a file, and it is `addMark`. The class lands in the Markdown as
@@ -13,6 +14,7 @@
  */
 
 import { element, fill, field } from "./dom";
+import { layoutField } from "./layout-picker";
 import { locateSelection } from "./selection";
 import type { BlockSpans } from "./client";
 import type { ByteSpan, EditOp, MarkAttributes } from "./operations";
@@ -30,7 +32,7 @@ export interface InspectorOptions {
 
 /** The keys worth offering by name. Anything else the author wrote still shows. */
 const DECK_KEYS = ["title", "event", "duration", "theme", "aspect"];
-const SLIDE_KEYS = ["layout", "transition", "budget", "optional"];
+const SLIDE_KEYS = ["transition", "budget", "optional"];
 
 export function createInspector(handlers: InspectorHandlers, options: InspectorOptions): Surface {
   const panels = element("div", { class: "slidx-inspector-panels" });
@@ -194,9 +196,11 @@ function slidePanel(state: EditorState, handlers: InspectorHandlers): HTMLElemen
   // The first slide's block is the deck's, so showing everything written in it
   // here would repeat the whole Deck panel one heading higher up.
   const written = index === 0 ? {} : (slide.frontmatter ?? {});
+  const ordinary = without(written, "layout");
 
   return group("Slide", [
-    ...keyFields(SLIDE_KEYS, written, (key, value) =>
+    layoutField(state, slide, index, handlers.run),
+    ...keyFields(SLIDE_KEYS, ordinary, (key, value) =>
       handlers.run({ op: "setField", slide: index, key, value }),
     ),
     field("Notes", notes),
@@ -210,7 +214,10 @@ function slidePanel(state: EditorState, handlers: InspectorHandlers): HTMLElemen
  * and its opening slide share one frontmatter block.
  */
 function deckPanel(state: EditorState, handlers: InspectorHandlers): HTMLElement {
-  const written = state.slides[0]?.frontmatter ?? {};
+  // `layout` in the first frontmatter block still describes slide zero. It is
+  // shown by the visual picker above and must not gain a second scalar writer
+  // merely because the opening slide also owns deck metadata.
+  const written = without(state.slides[0]?.frontmatter ?? {}, "layout");
 
   return group(
     "Deck",
@@ -218,6 +225,10 @@ function deckPanel(state: EditorState, handlers: InspectorHandlers): HTMLElement
       handlers.run({ op: "setField", slide: 0, key, value }),
     ),
   );
+}
+
+function without(values: Record<string, unknown>, removed: string): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(values).filter(([key]) => key !== removed));
 }
 
 /**

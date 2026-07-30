@@ -17,12 +17,35 @@ import type { EditOp } from "../src/operations";
 import type { EditorState } from "../src/session";
 
 /** What every slide here shares, so a row says only what it is about. */
-const timing = { notes: [], stopCount: 1, estimatedSeconds: 0, optional: false, frontmatter: {} };
+const timing = {
+  notes: [],
+  stopCount: 1,
+  estimatedSeconds: 0,
+  optional: false,
+  style: {},
+  frontmatter: {},
+};
 
 function stateOf(over: Partial<EditorState> = {}): EditorState {
   return {
     source: "# One\n\n---\n\n# Two\n\n---\n\n# Three",
     spans: [],
+    layouts: [
+      {
+        id: "full",
+        summary: "One region, the whole slide.",
+        areas: ["body"],
+        columns: "1fr",
+        rows: "1fr",
+      },
+      {
+        id: "aside",
+        summary: "A main region beside supporting content.",
+        areas: ["main side"],
+        columns: "2fr 1fr",
+        rows: "1fr",
+      },
+    ],
     slides: [
       { ...timing, id: "one", index: 0, title: "One", frontmatter: { title: "A" } },
       { ...timing, id: "two", index: 1, title: "Two", notes: ["said"] },
@@ -214,6 +237,72 @@ describe("the inspector", () => {
     budget.dispatchEvent(new Event("blur"));
 
     expect(log.ops).toEqual([{ op: "setField", slide: 1, key: "budget", value: "90s" }]);
+  });
+
+  it("offers pipeline layouts visually and writes the choice into Markdown style", () => {
+    const log = recorder();
+    const inspector = createInspector(log, options);
+    const state = stateOf();
+    state.slides[1]!.frontmatter = { layout: "aside" };
+    inspector.render(state);
+
+    const choices = [
+      ...inspector.root.querySelectorAll<HTMLButtonElement>(
+        '[data-group="slide"] .slidx-layout-choice',
+      ),
+    ];
+    expect(choices.map((choice) => choice.dataset.layout)).toEqual(["", "full", "aside"]);
+    expect(choices[0]!.textContent).toContain("Inherited · aside");
+    expect(choices[0]!.getAttribute("aria-pressed")).toBe("true");
+    expect(inspector.root.querySelector('[data-group="slide"] .slidx-layout-field')).not.toBeNull();
+    expect(document.querySelectorAll("style[data-slidx-layout-picker]")).toHaveLength(1);
+
+    inspector.render(state);
+    expect(document.querySelectorAll("style[data-slidx-layout-picker]")).toHaveLength(1);
+
+    inspector.root.querySelectorAll<HTMLButtonElement>(".slidx-layout-choice")[1]!.click();
+
+    expect(log.ops).toEqual([{ op: "setStyle", slide: 1, property: "layout", value: "full" }]);
+  });
+
+  it("can remove an explicit layout without reviving a second visual writer", () => {
+    const log = recorder();
+    const inspector = createInspector(log, options);
+    const state = stateOf({ selection: { slide: 0 } });
+    state.slides[0]!.style = { layout: "aside" };
+    state.slides[0]!.frontmatter = { title: "A", layout: "full" };
+    inspector.render(state);
+
+    expect(
+      inspector.root
+        .querySelector('[data-group="slide"] [data-layout="aside"]')!
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(
+      inspector.root.querySelector('[data-group="slide"] input[data-key="layout"]'),
+    ).toBeNull();
+    expect(inspector.root.querySelector('[data-group="deck"] input[data-key="layout"]')).toBeNull();
+
+    inspector.root
+      .querySelector<HTMLButtonElement>('[data-group="slide"] [data-layout=""]')!
+      .click();
+
+    expect(log.ops).toEqual([{ op: "setStyle", slide: 0, property: "layout" }]);
+  });
+
+  it("keeps an installed custom layout visible when it is already in Markdown", () => {
+    const log = recorder();
+    const inspector = createInspector(log, options);
+    const state = stateOf();
+    state.slides[1]!.style = { layout: "conference-grid" };
+    inspector.render(state);
+
+    const custom = inspector.root.querySelector<HTMLButtonElement>(
+      '[data-group="slide"] [data-layout="conference-grid"]',
+    )!;
+    expect(custom).not.toBeNull();
+    expect(custom.getAttribute("aria-pressed")).toBe("true");
+    expect(custom.title).toContain("custom layout");
   });
 
   it("writes the deck's own keys onto the slide that holds them", () => {

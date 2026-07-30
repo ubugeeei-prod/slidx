@@ -18,6 +18,7 @@ import type {
   DeckState,
   EditorClient,
   Finding,
+  LayoutChoice,
   SlideSpans,
   SlideSummary,
 } from "./client";
@@ -45,6 +46,8 @@ export interface EditorState {
   source: string;
   spans: SlideSpans[];
   slides: SlideSummary[];
+  /** Layouts the active pipeline can render, in picker order. */
+  layouts: LayoutChoice[];
   /**
    * Length of the speaking slot, when the deck declares one.
    *
@@ -98,6 +101,7 @@ const EMPTY: EditorState = {
   source: "",
   spans: [],
   slides: [],
+  layouts: [],
   diagnostics: [],
   selection: { slide: 0 },
   canUndo: false,
@@ -121,6 +125,7 @@ export function createSession(client: EditorClient, history: History = createHis
       source: deck.source,
       spans: deck.spans,
       slides: deck.deck.slides,
+      layouts: deck.deck.layouts,
       durationSeconds: deck.deck.durationSeconds,
       diagnostics: deck.deck.diagnostics,
       // A selection is a range in a body that has just been rewritten, so it

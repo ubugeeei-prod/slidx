@@ -147,6 +147,14 @@ export type BuildResult = {
    * whether the talk fits — which is silence rather than a guess.
    */
   durationSeconds?: number;
+  /**
+   * Layouts the active pipeline can render, in picker order.
+   *
+   * The editor draws this list instead of carrying built-in names. A layout
+   * added to the pipeline therefore appears in the visual editor without an
+   * editor release.
+   */
+  layouts: Array<LayoutChoice>;
   slides: Array<BuiltSlide>;
   /**
    * Parse diagnostics and lint findings, in that order.
@@ -190,6 +198,32 @@ export type BuildResult = {
 };
 
 /**
+ * One layout as the visual editor needs to preview it.
+ */
+export type LayoutChoice = {
+  /**
+   * What the Markdown style property stores.
+   */
+  id: string;
+  /**
+   * One line explaining when the layout is useful.
+   */
+  summary: string;
+  /**
+   * CSS grid-area rows, without quotes.
+   */
+  areas: Array<string>;
+  /**
+   * CSS grid-template-columns.
+   */
+  columns: string;
+  /**
+   * CSS grid-template-rows.
+   */
+  rows: string;
+};
+
+/**
  * One built slide.
  */
 export type BuiltSlide = {
@@ -230,6 +264,15 @@ export type BuiltSlide = {
    * Safe to skip when running behind, from `optional:`.
    */
   optional: boolean;
+  /**
+   * Visual state authored in this slide's tagged Markdown style block.
+   *
+   * Kept separate from frontmatter because visual controls write
+   * `--slidx-*` declarations without replacing an author's YAML. The map is
+   * complete even when empty, so an editor never has to infer whether the
+   * style block was parsed.
+   */
+  style: { [key in string]: string };
   /**
    * The frontmatter keys the author wrote, whether or not slidx knows them.
    *

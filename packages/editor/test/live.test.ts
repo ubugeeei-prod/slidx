@@ -49,6 +49,7 @@ function stateOf(over: Partial<EditorState> = {}): EditorState {
   return {
     source: "# One\n\nSecond.",
     spans: [{ content: { start: 0, end: 15 }, body: { start: 0, end: 15 } }],
+    layouts: [],
     slides: [
       {
         id: "one",
@@ -58,6 +59,7 @@ function stateOf(over: Partial<EditorState> = {}): EditorState {
         stopCount: 1,
         estimatedSeconds: 0,
         optional: false,
+        style: {},
       },
     ],
     diagnostics: [],

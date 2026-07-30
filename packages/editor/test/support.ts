@@ -55,6 +55,7 @@ export function deckOf(...titles: string[]): DeckState {
     stopCount: 1,
     estimatedSeconds: 0,
     optional: false,
+    style: {},
     frontmatter: index === 0 ? { title: "A Deck" } : {},
   }));
 
@@ -66,6 +67,22 @@ export function deckOf(...titles: string[]): DeckState {
       // A slot, because a deck without one cannot say whether it fits, and the
       // storyboard reads it through the session rather than from the frontmatter.
       durationSeconds: 600,
+      layouts: [
+        {
+          id: "full",
+          summary: "One region, the whole slide.",
+          areas: ["body"],
+          columns: "1fr",
+          rows: "1fr",
+        },
+        {
+          id: "aside",
+          summary: "A main region beside supporting content.",
+          areas: ["main side"],
+          columns: "2fr 1fr",
+          rows: "1fr",
+        },
+      ],
       slides,
       diagnostics: [],
       hasBlocking: false,

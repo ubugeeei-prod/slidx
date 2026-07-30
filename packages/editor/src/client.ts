@@ -79,8 +79,20 @@ export interface SlideSummary {
   estimatedSeconds: number;
   /** Safe to skip when running behind. */
   optional: boolean;
+  /** Visual state parsed from this slide's tagged Markdown style block. */
+  style: Record<string, string>;
   /** The keys the author wrote on this slide. The deck's own are slide zero's. */
   frontmatter?: Record<string, unknown>;
+}
+
+/** One layout the active deck pipeline can render and the editor can preview. */
+export interface LayoutChoice {
+  id: string;
+  summary: string;
+  /** CSS grid-area rows, without quotes. */
+  areas: string[];
+  columns: string;
+  rows: string;
 }
 
 /** A parse diagnostic or a lint finding. */
@@ -135,6 +147,8 @@ export interface DeckState {
     title?: string;
     /** Length of the speaking slot, resolved from `duration:`. */
     durationSeconds?: number;
+    /** Pipeline-provided rather than hard-coded into the visual editor. */
+    layouts: LayoutChoice[];
     slides: SlideSummary[];
     diagnostics: Finding[];
     hasBlocking: boolean;
