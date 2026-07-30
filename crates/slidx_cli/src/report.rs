@@ -91,6 +91,24 @@ pub fn line(
     )
 }
 
+/// A path or a name, as a shell would need it written.
+///
+/// For the lines a report offers somebody to copy — `cd …`, `slidx rm --restore
+/// …`. A talk kept in `Vue Fes 2026/` is ordinary, and an instruction that
+/// breaks when it is followed is worse than no instruction at all.
+///
+/// Double quotes rather than single, so a directory called `somebody's talk`
+/// needs no second rule.
+pub fn shell_arg(text: impl std::fmt::Display) -> String {
+    let text = text.to_string();
+
+    if !text.contains(char::is_whitespace) {
+        return text;
+    }
+
+    format!("\"{}\"", text.replace('\\', "\\\\").replace('"', "\\\""))
+}
+
 /// A paragraph, wrapped and indented.
 pub fn flowed(text: &str, indent: usize, ink: Ink, style: &Style) -> String {
     style::wrap(text, style::WIDTH - indent)
@@ -186,6 +204,16 @@ mod tests {
         for row in text.lines() {
             assert!(row.chars().count() <= style::WIDTH, "{row}");
         }
+    }
+
+    #[test]
+    fn a_command_offered_for_copying_is_quoted_where_a_shell_would_need_it() {
+        // A talk kept in `Vue Fes 2026/` is ordinary, and `slidx rm --restore
+        // Vue Fes 2026` is three arguments.
+        assert_eq!(shell_arg("vueconf"), "vueconf");
+        assert_eq!(shell_arg("Vue Fes 2026"), "\"Vue Fes 2026\"");
+        assert_eq!(shell_arg("somebody's talk"), "\"somebody's talk\"");
+        assert_eq!(shell_arg("a \"quoted\" name"), "\"a \\\"quoted\\\" name\"");
     }
 
     #[test]

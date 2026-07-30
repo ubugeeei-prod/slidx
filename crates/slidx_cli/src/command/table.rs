@@ -209,6 +209,34 @@ merge.",
         &[Flag::taking("title", "<text>", "Retitle the deck's frontmatter as well")],
     ),
     leaf(
+        "rm",
+        "archive a project, reversibly",
+        "rm [query] [options]",
+        "\
+Moves a project into an archive under ~/.slidx and records where it came from,
+so `slidx rm --restore` puts it back exactly where it was. Nothing is unlinked.
+
+That is deliberate, and it is not timidity. A deck is often the only copy of
+work that took weeks: written at night, not always in a repository, and in a
+repository that has usually never been pushed. An archive somebody meant to
+delete costs disk space; a delete somebody meant to archive costs the talk.
+
+    slidx rm vueconf              archive it
+    slidx rm --restore vueconf    put it back
+    slidx rm --list               what is archived, and where it came from
+
+--delete really deletes, and asks for the project's name to be typed back
+rather than accepting a keypress. A project holding changes that are in no
+commit is asked about twice, because that is the case where the copy being
+deleted is the only one. Where there is no terminal to ask on, it deletes
+nothing.",
+        &[
+            Flag::switch("restore", "Put an archived project back where it was"),
+            Flag::switch("list", "Show what is archived"),
+            Flag::switch("delete", "Really delete, after confirming"),
+        ],
+    ),
+    leaf(
         "save",
         "commit the deck, described in the deck's own terms",
         "save [path] [options]",

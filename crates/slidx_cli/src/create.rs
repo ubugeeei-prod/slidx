@@ -42,6 +42,7 @@ use crate::args::Matches;
 use crate::home::Home;
 use crate::index::{self, Entry};
 use crate::lint::source::DEFAULT_DIR;
+use crate::report;
 use crate::style::{Ink, Style};
 use crate::Outcome;
 
@@ -263,23 +264,8 @@ fn report(project: &Project, style: &Style) -> String {
     text.push_str(&format!(
         "\n  {}\n\n    cd {}\n    npm install\n    npm run dev\n",
         style.paint(Ink::Strong, "Next:"),
-        quoted(&project.root)
+        report::shell_arg(project.root.display())
     ));
-
-    text
-}
-
-/// A path as a shell would need it written.
-///
-/// Only for the "next" lines, which somebody copies. A deck kept in `Vue Fes
-/// 2026/` is ordinary, and an instruction that breaks when followed is worse
-/// than no instruction.
-fn quoted(path: &Path) -> String {
-    let text = path.display().to_string();
-
-    if text.contains(char::is_whitespace) {
-        return format!("\"{text}\"");
-    }
 
     text
 }
