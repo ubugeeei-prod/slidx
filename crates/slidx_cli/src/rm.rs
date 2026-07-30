@@ -37,12 +37,12 @@
 pub mod archive;
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use slidx_core::{parse_deck, DeckParseOptions};
 
 use crate::args::Matches;
-use crate::find::scoring;
+use crate::find::{self, scoring};
 use crate::home::Home;
 use crate::index::{Entry, Index};
 use crate::lint::source;
@@ -80,7 +80,7 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
 fn archive_project(archive: &Archive, home: &Home, query: &str, style: &Style) -> Outcome {
     let mut index = Index::load(&home.index());
 
-    let Some(project) = resolve(query, &index) else {
+    let Some(project) = find::project(query, &index) else {
         return Outcome::misuse(no_match(query));
     };
 
@@ -137,7 +137,7 @@ fn delete(archive: &Archive, home: &Home, query: &str, style: &Style) -> Outcome
     // A live project first, then the archive: `slidx rm --delete vueconf` after
     // archiving it is somebody emptying the archive, and refusing there would
     // leave them with `rm -rf` and no help at all.
-    let (target, name, uncommitted) = match resolve(query, &index) {
+    let (target, name, uncommitted) = match find::project(query, &index) {
         Some(project) => {
             let uncommitted = crate::git::Repo::discover(&project)
                 .and_then(|repo| repo.changes(&project).ok())
@@ -189,19 +189,6 @@ fn delete(archive: &Archive, home: &Home, query: &str, style: &Style) -> Outcome
     let _ = index.save(&home.index());
 
     Outcome::out(deleted(&target, style))
-}
-
-/// The project a query names: a path if it is one, otherwise the closest match.
-fn resolve(query: &str, index: &Index) -> Option<PathBuf> {
-    let given = PathBuf::from(query);
-    if given.is_dir() {
-        return given.canonicalize().ok().or(Some(given));
-    }
-
-    scoring::rank(query, index.entries(), Entry::haystack)
-        .first()
-        .map(|(entry, _)| entry.path.clone())
-        .filter(|path| path.is_dir())
 }
 
 /// What the deck says about itself, for the manifest and for the index.
@@ -383,6 +370,7 @@ mod tests {
     use super::*;
     use crate::index::Entry as IndexEntry;
     use archive::GitState;
+    use std::path::PathBuf;
 
     struct Scratch(PathBuf);
 
@@ -600,7 +588,7 @@ mod tests {
         let scratch = Scratch::new("path");
         let project = scratch.project("vueconf", DECK);
 
-        let resolved = resolve(&project.display().to_string(), &Index::default());
+        let resolved = find::project(&project.display().to_string(), &Index::default());
 
         assert_eq!(resolved.map(|path| path.canonicalize().unwrap()), project.canonicalize().ok());
     }

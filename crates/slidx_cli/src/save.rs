@@ -77,8 +77,12 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
 
     // What the commit will contain, decided before anything is staged so the
     // report and the commit cannot disagree.
-    let committed =
-        if matches.is_set("all") { root.clone() } else { deck_path(&deck_source, &path) };
+    //
+    // The deck is named by the path it was given, whichever shape it is in: a
+    // single file, or the directory of slide files. The directory rather than
+    // the files it holds, so a slide added since the last save goes in without
+    // anything having to list it.
+    let committed = if matches.is_set("all") { root.clone() } else { path.clone() };
 
     let changes = match repo.changes(&committed) {
         Ok(changes) => changes,
@@ -140,17 +144,6 @@ fn repository(root: &Path, matches: &Matches) -> Result<Repo, Outcome> {
         Asked::NoTerminal => no_repository(root),
         Asked::Said(_) => "Nothing was saved.\n".to_string(),
     }))
-}
-
-/// The paths a save is about: the deck, however the deck is kept.
-fn deck_path(deck: &DeckSource, given: &Path) -> PathBuf {
-    if deck.files.is_empty() {
-        return given.to_path_buf();
-    }
-
-    // A directory of slide files. The directory rather than the files, so a
-    // slide added since the last save is included without being listed.
-    given.to_path_buf()
 }
 
 /// The deck as HEAD has it, joined the same way the one on disk was.
@@ -550,11 +543,28 @@ mod tests {
     }
 
     #[test]
-    fn the_deck_a_save_is_about_is_the_path_it_was_given() {
-        let single =
-            DeckSource { label: "talk.md".into(), files: Vec::new(), source: String::new() };
+    fn a_slide_added_since_the_last_save_goes_in_without_anything_listing_it() {
+        if !git::available() {
+            return;
+        }
 
-        assert_eq!(deck_path(&single, Path::new("talk.md")), PathBuf::from("talk.md"));
+        // Why the deck's *directory* is what gets committed rather than the
+        // files it held when the deck was read.
+        let scratch = Scratch::new("new-slide");
+        scratch.slide("0001.md", "---\ntitle: A talk\n---\n\n# A talk\n");
+        save(&scratch, "");
+
+        scratch.slide("0002.md", "# What goes wrong\n");
+        save(&scratch, "");
+
+        let output = Command::new("git")
+            .current_dir(&scratch.0)
+            .args(["show", "--name-only", "--pretty=", "HEAD"])
+            .output()
+            .expect("git show");
+        let files = String::from_utf8_lossy(&output.stdout);
+
+        assert!(files.contains("slides/0002.md"), "{files}");
     }
 
     #[test]

@@ -140,6 +140,29 @@ pub fn user_home() -> Option<PathBuf> {
     std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).ok().map(PathBuf::from)
 }
 
+/// The project a query names, for the commands that act on exactly one.
+///
+/// A path first, because `slidx mv . vue-fes-2026` and `slidx rm .` are the
+/// obvious things to type while standing in the project, and a fuzzy search over
+/// the index would be a strange way to answer them. Otherwise the closest match,
+/// scored the way `slidx open` scores one — so a query means the same deck
+/// whichever command it is given to.
+///
+/// Written once because `mv` and `rm` both move a directory: two copies of this
+/// rule would eventually disagree about which project somebody meant, and one of
+/// the two commands is destructive.
+pub fn project(query: &str, index: &Index) -> Option<PathBuf> {
+    let given = PathBuf::from(query);
+    if given.is_dir() {
+        return given.canonicalize().ok().or(Some(given));
+    }
+
+    scoring::rank(query, index.entries(), Entry::haystack)
+        .first()
+        .map(|(entry, _)| entry.path.clone())
+        .filter(|path| path.is_dir())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
