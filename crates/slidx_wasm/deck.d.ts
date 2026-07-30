@@ -123,6 +123,14 @@ export type BuiltSlide = {
    */
   stopCount: number;
   /**
+   * This slide's steps as rows and stops, for the editor's timeline.
+   *
+   * Carried in the same answer as everything else rather than fetched on its
+   * own, because a grid drawn from a second call would be a second snapshot
+   * and could describe a deck the rest of the payload no longer agrees with.
+   */
+  steps: StepGrid;
+  /**
    * The frontmatter keys the author wrote, whether or not slidx knows them.
    *
    * The editor's inspector shows these, so a key this version has never
@@ -268,6 +276,103 @@ export type Origin = "left" | "right" | "top" | "bottom" | "center";
  * Whether an element is painted in a given frame.
  */
 export type Visibility = "hidden" | "visible";
+
+/**
+ * A slide's steps, as a timeline shows them.
+ */
+export type StepGrid = {
+  rows: Array<StepRow>;
+  actions: Array<StepPlacement>;
+  /**
+   * Stops on this slide, including the resting frame. Always at least one.
+   */
+  stops: number;
+  /**
+   * True when the author wrote `steps:`.
+   *
+   * The one field a timeline must not guess: a generated stop has no line in
+   * the file to change, so a cell is editable in place exactly when this is
+   * true.
+   */
+  declared: boolean;
+  /**
+   * The `autoSteps:` mode in force, whether or not it generated the stops.
+   *
+   * It stays set after the stops are written out, because it is what puts
+   * the anchors in the markup that the written-out steps name.
+   */
+  auto?: AutoSteps;
+};
+
+/**
+ * One thing a slide's steps can name.
+ */
+export type StepRow = {
+  /**
+   * The selector a step targets.
+   */
+  target: string;
+  /**
+   * What to call the row in front of an author.
+   */
+  label: string;
+  /**
+   * The mark's `#key`, when the author gave this row a name.
+   *
+   * Absent for a row staged by `autoSteps:` or a `<!-- step -->` marker,
+   * which have no name in the source — the reason those rows cannot be
+   * pointed at by hand and the reason a timeline has to show them.
+   */
+  key?: string;
+  /**
+   * Whether the row is painted at each stop, one entry per stop.
+   *
+   * Read straight off the compiled frames, which is the whole reason a
+   * timeline over this model is cheap: the state at every stop is already
+   * computed, so a caller draws the bar instead of folding the actions
+   * forward. Folding them would be a second copy of the rule about what a
+   * stop means, and the two would eventually disagree about a `hide`.
+   */
+  visible: Array<boolean>;
+};
+
+/**
+ * One authored action, placed on the grid.
+ */
+export type StepPlacement = {
+  /**
+   * Position in the slide's action list, which is what an operation names.
+   */
+  index: number;
+  kind: StepKind;
+  /**
+   * The stop this action lands on.
+   */
+  stop: number;
+  /**
+   * Every row it touches, group members included.
+   */
+  targets: Array<string>;
+  /**
+   * True when it plays on a timer rather than on a press, and therefore
+   * shares the stop before it instead of adding one.
+   */
+  timed: boolean;
+  /**
+   * Canonical `steps:` source, without the leading `- `.
+   */
+  source: string;
+};
+
+/**
+ * What one authored action does to its targets.
+ */
+export type StepKind = "reveal" | "hide" | "emphasize" | "set" | "group";
+
+/**
+ * Automatic staging derived from slide structure rather than explicit actions.
+ */
+export type AutoSteps = "list" | "block" | "row";
 
 /**
  * What `buildDeck` accepts.

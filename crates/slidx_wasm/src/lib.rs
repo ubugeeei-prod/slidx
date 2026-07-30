@@ -87,6 +87,12 @@ pub struct BuiltSlide {
     pub notes: Vec<String>,
     /// Stops on this slide, including the resting frame. Always at least one.
     pub stop_count: u32,
+    /// This slide's steps as rows and stops, for the editor's timeline.
+    ///
+    /// Carried in the same answer as everything else rather than fetched on its
+    /// own, because a grid drawn from a second call would be a second snapshot
+    /// and could describe a deck the rest of the payload no longer agrees with.
+    pub steps: slidx_core::StepGrid,
     /// The frontmatter keys the author wrote, whether or not slidx knows them.
     ///
     /// The editor's inspector shows these, so a key this version has never
@@ -473,6 +479,20 @@ mod tests {
         // The plugin needs these to emit one PDF page per stop.
         let result = build("- a <!-- step -->\n- b <!-- step -->\n", &BuildOptions::default());
         assert_eq!(result.slides[0].stop_count, 3);
+    }
+
+    #[test]
+    fn the_timeline_grid_reaches_the_caller_without_a_second_call() {
+        // The editor draws rows and columns from this. A separate entry point
+        // would give it a snapshot the rest of the answer could disagree with.
+        let source = "---\nautoSteps: list\n---\n\n- one\n- two\n";
+        let result = build(source, &BuildOptions { parse_only: true, ..BuildOptions::default() });
+        let grid = &result.slides[0].steps;
+
+        assert_eq!(grid.rows.len(), 2);
+        assert_eq!(grid.actions.len(), 2);
+        assert!(!grid.declared, "generated stops have no line to edit");
+        assert_eq!(grid.auto, Some(slidx_core::AutoSteps::List));
     }
 
     #[test]

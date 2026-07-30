@@ -73,6 +73,7 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
             title: slide.title.clone(),
             notes: slide.notes.clone(),
             stop_count: slide.timeline.len() as u32,
+            steps: slidx_core::step_grid(slide),
             frontmatter: slide.frontmatter.clone(),
             html: render.then(|| render_slide(&deck, slide, &shell)),
             og_svg: (render && options.og)
