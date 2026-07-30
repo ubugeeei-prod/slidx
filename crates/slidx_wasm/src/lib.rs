@@ -32,6 +32,8 @@ pub mod edit;
 pub mod publish;
 pub mod summary;
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use wasm_bindgen::prelude::*;
@@ -141,6 +143,13 @@ pub struct BuiltSlide {
     pub estimated_seconds: u32,
     /// Safe to skip when running behind, from `optional:`.
     pub optional: bool,
+    /// Visual state authored in this slide's tagged Markdown style block.
+    ///
+    /// Kept separate from frontmatter because visual controls write
+    /// `--slidx-*` declarations without replacing an author's YAML. The map is
+    /// complete even when empty, so an editor never has to infer whether the
+    /// style block was parsed.
+    pub style: BTreeMap<String, String>,
     /// The frontmatter keys the author wrote, whether or not slidx knows them.
     ///
     /// The editor's inspector shows these, so a key this version has never
@@ -181,6 +190,12 @@ pub struct BuildResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub duration_seconds: Option<u32>,
+    /// Layouts the active pipeline can render, in picker order.
+    ///
+    /// The editor draws this list instead of carrying built-in names. A layout
+    /// added to the pipeline therefore appears in the visual editor without an
+    /// editor release.
+    pub layouts: Vec<LayoutChoice>,
     pub slides: Vec<BuiltSlide>,
     /// Parse diagnostics and lint findings, in that order.
     pub diagnostics: Vec<Finding>,
@@ -215,6 +230,22 @@ pub struct BuildResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub robots: Option<String>,
+}
+
+/// One layout as the visual editor needs to preview it.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct LayoutChoice {
+    /// What the Markdown style property stores.
+    pub id: String,
+    /// One line explaining when the layout is useful.
+    pub summary: String,
+    /// CSS grid-area rows, without quotes.
+    pub areas: Vec<String>,
+    /// CSS grid-template-columns.
+    pub columns: String,
+    /// CSS grid-template-rows.
+    pub rows: String,
 }
 
 /// One shared snippet, as a file waiting to be written.
@@ -511,6 +542,37 @@ mod tests {
 
         assert_eq!(result.slides[0].frontmatter["sponsor"], "Someone");
         assert_eq!(result.slides[0].frontmatter["title"], "T");
+    }
+
+    #[test]
+    fn a_slide_carries_visual_state_from_its_markdown_style_block() {
+        let result = build(
+            concat!(
+                "<style data-slidx>\n",
+                ":root {\n",
+                "  --slidx-layout: aside;\n",
+                "  --slidx-color-surface: oklch(20% 0.02 260);\n",
+                "}\n",
+                "</style>\n\n",
+                "# One\n",
+            ),
+            &BuildOptions::default(),
+        );
+
+        assert_eq!(result.slides[0].style["layout"], "aside");
+        assert_eq!(result.slides[0].style["color-surface"], "oklch(20% 0.02 260)");
+    }
+
+    #[test]
+    fn the_editor_receives_layouts_from_the_rendering_pipeline() {
+        let result = build("# One\n", &BuildOptions::default());
+        let offered: Vec<_> = result.layouts.iter().map(|layout| layout.id.as_str()).collect();
+
+        assert_eq!(offered, slidx_theme::layout::names());
+        assert!(result.layouts.iter().all(|layout| !layout.summary.is_empty()
+            && !layout.areas.is_empty()
+            && !layout.columns.is_empty()
+            && !layout.rows.is_empty()));
     }
 
     #[test]

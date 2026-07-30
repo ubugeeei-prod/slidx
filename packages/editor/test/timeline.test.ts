@@ -52,12 +52,14 @@ function stateOf(grid: StepGrid, slide = 0): EditorState {
     // time; the timeline reads neither, so the values only have to be there.
     estimatedSeconds: 0,
     optional: false,
+    style: {},
   }));
 
   return {
     source: "",
     spans: [],
     slides,
+    layouts: [],
     diagnostics: [],
     selection: { slide },
     canUndo: false,

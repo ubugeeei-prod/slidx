@@ -44,6 +44,7 @@ export type {
   DeckState,
   EditAnswer,
   Finding,
+  LayoutChoice,
   MarkSpans,
   Measurement,
   SlideSummary,

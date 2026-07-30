@@ -27,6 +27,7 @@ function slideOf(over: Partial<SlideSummary> = {}): SlideSummary {
     stopCount: 1,
     estimatedSeconds: 0,
     optional: false,
+    style: {},
     frontmatter: {},
     ...over,
   };
@@ -75,6 +76,7 @@ function stateOf(over: Partial<EditorState> = {}): EditorState {
     source: "",
     spans: [],
     slides: slides(),
+    layouts: [],
     diagnostics: [],
     selection: { slide: 1 },
     canUndo: false,

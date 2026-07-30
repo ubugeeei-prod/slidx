@@ -22,6 +22,7 @@ function state(source: string, slide = 0): EditorState {
     source,
     spans: [],
     slides: [],
+    layouts: [],
     diagnostics: [],
     selection: { slide },
     canUndo: false,
