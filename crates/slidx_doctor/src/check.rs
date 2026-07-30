@@ -15,6 +15,7 @@
 //! would force a single verdict to speak for a reading that was taken and one
 //! that was not.
 
+pub mod camera;
 pub mod clock;
 pub mod disk;
 pub mod fonts;
@@ -91,6 +92,14 @@ pub const ALL: &[Check] = &[
         matters: "Anything that can grab the screen, pull focus, or pop a join \
                   prompt in the middle of a demo.",
         run: processes::check,
+    },
+    Check {
+        id: "camera",
+        title: "Speaker camera",
+        matters: "A deck that places the speaker on the slide needs a camera \
+                  the browser can open. The one that is not there, or that the \
+                  conferencing app already has, is found on stage otherwise.",
+        run: camera::check,
     },
     Check {
         id: "clock/skew",

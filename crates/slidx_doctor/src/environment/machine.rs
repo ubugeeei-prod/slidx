@@ -216,6 +216,38 @@ impl<S: Into<String>> FromIterator<S> for RunningProcesses {
     }
 }
 
+/// Video input devices, as the operating system names them.
+///
+/// A machine with none is a fact rather than a failed reading — a desktop in a
+/// lecture theatre genuinely has no camera — so an empty list and an unreadable
+/// one have to stay distinguishable. Whether that matters at all depends on the
+/// deck, which is why the judgement is the check's.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Cameras {
+    names: Vec<String>,
+}
+
+impl Cameras {
+    pub fn names(&self) -> &[String] {
+        &self.names
+    }
+
+    pub fn len(&self) -> usize {
+        self.names.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.names.is_empty()
+    }
+}
+
+impl<S: Into<String>> FromIterator<S> for Cameras {
+    fn from_iter<T: IntoIterator<Item = S>>(iter: T) -> Self {
+        Self { names: iter.into_iter().map(Into::into).collect() }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

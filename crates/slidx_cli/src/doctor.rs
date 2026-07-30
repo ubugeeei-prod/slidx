@@ -41,12 +41,15 @@
 //! an ignored pre-flight is worse than none. The report still says so on screen,
 //! where a person will actually act on it.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
+use slidx_core::{parse_deck, DeckParseOptions};
 use slidx_doctor::probe::{self, Request};
-use slidx_doctor::{check, Finding, Report, Status};
+use slidx_doctor::{check, Expectation, Finding, Report, Status};
 
 use crate::args::Matches;
+use crate::lint::source;
+use crate::project;
 use crate::report::{self, INDENT};
 use crate::style::{Ink, Style};
 use crate::{Outcome, FOUND, OK};
@@ -72,10 +75,39 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
 fn request(matches: &Matches) -> Request {
     let base = if matches.is_set("offline") { Request::offline() } else { Request::default() };
 
-    match matches.value("dir") {
+    let base = match matches.value("dir") {
         Some(path) => base.in_workspace(PathBuf::from(path)),
         None => base,
-    }
+    };
+
+    let expected = expectation(&base.workspace);
+    base.expecting(expected)
+}
+
+/// What the deck in this directory asks of the machine.
+///
+/// The half of the pre-flight that cannot be read off the laptop. A camera is
+/// only worth a line when a slide places one, so the deck has to be consulted
+/// before the report can decide whether a machine with no webcam is a problem
+/// or the ordinary case.
+///
+/// Best effort and silent. Running `slidx doctor` from a directory with no deck
+/// in it is a normal thing to do — the power, disk and clock checks are about
+/// the room, not the talk — so a deck that is absent or unreadable expects
+/// nothing rather than producing an error.
+fn expectation(workspace: &Path) -> Expectation {
+    Expectation::default().wanting_camera_on(camera_slides(workspace))
+}
+
+fn camera_slides(workspace: &Path) -> usize {
+    let Some(path) = project::primary_deck(workspace) else { return 0 };
+    let Ok(deck_source) = source::read(&path, "---") else { return 0 };
+
+    parse_deck(&deck_source.source, &DeckParseOptions::default())
+        .slides
+        .iter()
+        .filter(|slide| slide.camera.is_some())
+        .count()
 }
 
 /// `1` only for an outright failure. See the module docs.
@@ -377,6 +409,29 @@ mod tests {
         // The deck is often on an external drive. Measuring the boot volume
         // would answer a question nobody asked.
         assert_eq!(request(&matches_for("--dir /tmp/talk")).workspace, PathBuf::from("/tmp/talk"));
+    }
+
+    #[test]
+    fn a_deck_that_places_a_camera_is_what_makes_the_camera_check_say_anything() {
+        // The half of the pre-flight that is not on the laptop. Without this
+        // the check has nothing to compare a webcam against, and every speaker
+        // gets a green line about a feature none of their slides use.
+        let deck = std::env::temp_dir().join("slidx-doctor-camera");
+        let slides = deck.join("slides");
+        std::fs::create_dir_all(&slides).expect("a temporary deck");
+        std::fs::write(slides.join("0001.md"), "---\nlayout: aside\ncamera: side\n---\n\n# One\n")
+            .expect("a slide");
+
+        assert_eq!(camera_slides(&deck), 1);
+
+        std::fs::remove_dir_all(&deck).ok();
+    }
+
+    #[test]
+    fn a_directory_with_no_deck_in_it_expects_nothing_rather_than_failing() {
+        // Running the pre-flight from anywhere is normal: power, disk and the
+        // clock are about the room rather than about the talk.
+        assert_eq!(camera_slides(Path::new("/nonexistent-slidx-project")), 0);
     }
 
     #[test]
