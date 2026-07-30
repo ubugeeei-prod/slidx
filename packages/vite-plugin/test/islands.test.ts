@@ -222,28 +222,64 @@ describe("the dev server", () => {
       try {
         const tab = await browser.newPage();
         const errors: string[] = [];
+        const scriptTraffic: string[] = [];
         tab.on("console", (message) => {
           if (message.type() === "error") errors.push(message.text());
         });
         tab.on("pageerror", (error) => errors.push(error.message));
+        tab.on("response", (response) => {
+          if (response.request().resourceType() === "script") {
+            scriptTraffic.push(`${response.status()} ${response.url()}`);
+          }
+        });
+        tab.on("requestfailed", (request) => {
+          if (request.resourceType() === "script") {
+            scriptTraffic.push(
+              `failed ${request.url()}: ${request.failure()?.errorText ?? "unknown error"}`,
+            );
+          }
+        });
 
         for (const [surface, base] of [
           ["dev", fixture.url],
           ["production", fixture.previewUrl],
         ] as const) {
           errors.length = 0;
-          await tab.goto(new URL("slides/", base).href);
+          scriptTraffic.length = 0;
+          const target = tab.locator('[data-slidx-island="counter"]');
 
-          await expect
-            .poll(() => tab.locator('[data-slidx-island="counter"]').textContent(), {
-              // On a saturated Windows matrix the module fetch can begin after
-              // Vitest's one-second polling default. This is a real browser
-              // boundary, so wait for the observable mount instead of racing
-              // the runner's process scheduler.
-              timeout: 10_000,
-              interval: 100,
-            })
-            .toBe("Mounted 7");
+          try {
+            const response = await tab.goto(new URL("slides/", base).href, {
+              waitUntil: "load",
+              timeout: 30_000,
+            });
+            scriptTraffic.unshift(`document ${response?.status() ?? "no response"} ${tab.url()}`);
+
+            await expect
+              .poll(() => target.textContent(), {
+                // The full Windows suite starts this real browser alongside
+                // cold Vite transforms. Keep the deadline about observable
+                // hydration, not runner scheduling, while still bounding a
+                // broken client to one explicit failure.
+                timeout: 30_000,
+                interval: 100,
+              })
+              .toBe("Mounted 7");
+          } catch (cause) {
+            const markup = await target
+              .evaluate((element) => element.outerHTML)
+              .catch(() => "<island not found>");
+            throw new Error(
+              [
+                `${surface} island did not hydrate`,
+                `DOM: ${markup}`,
+                `browser errors: ${errors.join(" | ") || "none"}`,
+                `traffic: ${scriptTraffic.join(" | ") || "none"}`,
+              ].join("\n"),
+              { cause },
+            );
+          }
+
           expect(errors, `${surface} island client errors`).toEqual([]);
         }
       } finally {
@@ -251,9 +287,9 @@ describe("the dev server", () => {
       }
     },
     // This launches a real browser and visits both a dev and preview server.
-    // A fresh Windows VM can spend the default five seconds launching Chromium
-    // before either hydration assertion has had a chance to run.
-    20_000,
+    // Both surfaces have independent 30-second deadlines. The outer deadline
+    // leaves room to close Chromium and report the surface-specific evidence.
+    70_000,
   );
 });
 
