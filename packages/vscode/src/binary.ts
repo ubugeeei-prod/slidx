@@ -71,6 +71,10 @@ export interface Found {
 export interface NotFound {
   /** Every absolute path that was tried, in the order they were tried. */
   readonly looked: readonly string[];
+  /** True when the PATH had anything on it to search. */
+  readonly searchedPath: boolean;
+  /** The install directory that was searched, if this machine has one. */
+  readonly installDirectory?: string | undefined;
 }
 
 export type Resolution = Found | NotFound;
@@ -115,25 +119,27 @@ export function resolve(machine: Machine): Resolution {
     return { command: configured, origin: "setting" };
   }
 
+  const { join } = paths(machine);
   const looked: string[] = [];
 
-  for (const candidate of onPath(machine)) {
+  const onThePath = onPath(machine);
+  for (const candidate of onThePath) {
     looked.push(candidate);
     if (machine.executable(candidate)) return { command: candidate, origin: "path" };
   }
 
   const root = installRoot(machine);
-  if (root !== undefined) {
-    const { join } = paths(machine);
+  const installDirectory = root === undefined ? undefined : join(root, BIN_DIRECTORY);
 
+  if (installDirectory !== undefined) {
     for (const name of executableNames(machine)) {
-      const candidate = join(root, BIN_DIRECTORY, name);
+      const candidate = join(installDirectory, name);
       looked.push(candidate);
       if (machine.executable(candidate)) return { command: candidate, origin: "install" };
     }
   }
 
-  return { looked };
+  return { looked, searchedPath: onThePath.length > 0, installDirectory };
 }
 
 /**
@@ -224,20 +230,21 @@ function canExecute(path: string): boolean {
  * Names the places that were tried, because "slidx not found" is the message
  * that sends somebody to reinstall a binary they already have — the usual
  * answer is that an editor started from a dock never saw their profile's PATH.
+ *
+ * The two places are named separately rather than as one list of candidate
+ * files: which of them came up empty is the whole diagnosis, and a wall of
+ * paths is not something anybody reads out of a notification.
  */
 export function nowhere(resolution: NotFound): string {
-  const tried =
-    resolution.looked.length > 0
-      ? ` Looked on your PATH and in ${lastPlace(resolution.looked)}.`
-      : "";
+  const places: string[] = [];
+  if (resolution.searchedPath) places.push("on your PATH");
+  if (resolution.installDirectory !== undefined) places.push(`in ${resolution.installDirectory}`);
+
+  const tried = places.length > 0 ? ` Looked ${places.join(" and ")}.` : "";
 
   return (
     `slidx: no ${BINARY} binary found, so the language server cannot start.${tried}` +
     " Install it with `npm i -g slidx`, or set `slidx.path` to the binary you have —" +
     " `slidx version current` in a terminal prints where that is."
   );
-}
-
-function lastPlace(looked: readonly string[]): string {
-  return looked[looked.length - 1] ?? "";
 }

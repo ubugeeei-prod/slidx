@@ -94,18 +94,36 @@ describe("finding the slidx binary", () => {
     ]);
   });
 
+  it("names the two places it looked, and the directory rather than the file", () => {
+    // Which of the two came up empty is the whole diagnosis, and a wall of
+    // candidate paths is not something anybody reads out of a notification.
+    const found = resolve(bare({ env: { PATH: "/usr/bin", HOME: "/home/somebody" } }));
+
+    expect(nowhere(found as NotFound)).toContain(
+      "Looked on your PATH and in /home/somebody/.slidx/bin.",
+    );
+  });
+
   it("names the install command and the setting when it found nothing", () => {
-    const message = nowhere({ looked: ["/home/somebody/.slidx/bin/slidx"] });
+    const found = resolve(bare({ env: { HOME: "/home/somebody" } }));
+    const message = nowhere(found as NotFound);
 
     expect(message).toContain("npm i -g slidx");
     expect(message).toContain("slidx.path");
     expect(message).toContain("slidx version current");
   });
 
+  it("does not claim to have searched a PATH that was empty", () => {
+    // What an extension host started from a dock can genuinely be handed.
+    const found = resolve(bare({ env: { HOME: "/home/somebody" } }));
+
+    expect(nowhere(found as NotFound)).toContain("Looked in /home/somebody/.slidx/bin.");
+  });
+
   it("says nothing about where it looked when it had nowhere to look", () => {
     // A container with no HOME and no PATH. Naming an empty list would read as
     // a bug in the extension rather than as an environment with nothing in it.
-    expect(nowhere({ looked: [] })).not.toContain("Looked");
+    expect(nowhere(resolve(bare()) as NotFound)).not.toContain("Looked");
   });
 });
 
