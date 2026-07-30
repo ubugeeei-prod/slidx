@@ -111,6 +111,12 @@ fn code_colours() -> String {
 /// A section with no pages is skipped entirely, so the navigation can never
 /// offer a door that opens onto nothing — which is what would otherwise happen
 /// every time a section is added before the pages that fill it.
+///
+/// A section holding exactly one page *is* that page, and is drawn as a single
+/// link under the section's own label. The alternative reads as "Start / Start"
+/// and "The night before / The night before": two lines of chrome saying one
+/// thing, on a rail whose entire job is to name the four situations a reader
+/// might be in.
 fn navigation(current: &Page, pages: &[Page]) -> String {
     let mut html = String::from("<ol>\n");
 
@@ -125,22 +131,29 @@ fn navigation(current: &Page, pages: &[Page]) -> String {
         in_section.sort_by_key(|page| (page.order, page.slug.clone()));
 
         html.push_str("<li>\n");
-        html.push_str(&format!("<h2>{}</h2>\n<ol>\n", escape(section.label())));
 
-        for page in in_section {
-            let current = if page.slug == current.slug { r#" aria-current="page""# } else { "" };
-            html.push_str(&format!(
-                "<li><a href=\"{}\"{current}>{}</a></li>\n",
-                escape(&page.file_name()),
-                escape(&page.title),
-            ));
+        if let [only] = in_section[..] {
+            html.push_str(&entry(only, current, section.label()));
+            html.push('\n');
+        } else {
+            html.push_str(&format!("<h2>{}</h2>\n<ol>\n", escape(section.label())));
+            for page in in_section {
+                html.push_str(&format!("<li>{}</li>\n", entry(page, current, &page.title)));
+            }
+            html.push_str("</ol>\n");
         }
 
-        html.push_str("</ol>\n</li>\n");
+        html.push_str("</li>\n");
     }
 
     html.push_str("</ol>");
     html
+}
+
+/// One link in the navigation.
+fn entry(page: &Page, current: &Page, label: &str) -> String {
+    let marker = if page.slug == current.slug { r#" aria-current="page""# } else { "" };
+    format!("<a href=\"{}\"{marker}>{}</a>", escape(&page.file_name()), escape(label))
 }
 
 fn escape(text: &str) -> String {
@@ -233,6 +246,30 @@ mod tests {
 
         assert!(html.contains(r#"<a href="tonight.html" aria-current="page">"#), "got {html}");
         assert!(!html.contains(r#"<a href="index.html" aria-current="page">"#));
+    }
+
+    #[test]
+    fn a_section_holding_one_page_is_drawn_as_one_link_under_its_own_label() {
+        // Otherwise the rail reads "The night before / The night before", which
+        // is two lines of chrome saying one thing.
+        let html = html();
+
+        assert!(html.contains(r#"<a href="tonight.html">The night before</a>"#), "got {html}");
+        assert!(!html.contains("<h2>The night before</h2>"));
+    }
+
+    #[test]
+    fn a_section_holding_several_pages_names_them_under_a_heading() {
+        let pages = vec![
+            page("index", "start", 1, "Start"),
+            page("frontmatter", "reference", 1, "Frontmatter"),
+            page("rules", "reference", 2, "Lint rules"),
+        ];
+        let html = render(&pages[0], &pages);
+
+        assert!(html.contains("<h2>Reference</h2>"));
+        assert!(html.contains(">Frontmatter</a>"));
+        assert!(html.contains(">Lint rules</a>"));
     }
 
     #[test]

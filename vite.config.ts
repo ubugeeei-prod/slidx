@@ -296,6 +296,14 @@ export default defineConfig({
       "check:flat": task("node scripts/check-flat.mjs"),
       "check:version": task("node scripts/check-version.mjs"),
 
+      // The documentation site. Nothing depends on this and CI does not run
+      // it, because building is not what keeps the site honest: `test:rust`
+      // reads the real pages, renders every one, and fails on a dead link or a
+      // page in a section that does not exist. This task is for looking at the
+      // result — the pages are self-contained, so opening `docs/dist/index.html`
+      // needs no server.
+      "docs:build": uncached("cargo run -p slidx_docs --example build"),
+
       // The README images are output of the pipeline, not artwork. Kept as a
       // task so regenerating them is one command and never a manual crop.
       "preview:deck": uncached("vp exec --filter slidx-example-deck -- vite build"),
