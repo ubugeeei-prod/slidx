@@ -69,15 +69,21 @@ fn check_theme(deck: &Deck, installed: &Installed, sink: &mut Diagnostics) {
         return;
     }
 
-    let offered =
-        builtin::all().into_iter().map(|theme| theme.id).chain(installed.themes.iter().cloned());
+    // Deduplicated, because a caller holding one list of resolvable names is the
+    // obvious thing to hand over and would otherwise print every built-in twice.
+    let mut offered: Vec<String> = builtin::all().into_iter().map(|theme| theme.id).collect();
+    for id in &installed.themes {
+        if !offered.contains(id) {
+            offered.push(id.clone());
+        }
+    }
 
     sink.push(
         Diagnostic::warning("dialect/unknown-theme", format!("no theme called `{name}`"))
             .at(SourceSpan::default().on_slide(0))
             .with_help(format!(
                 "use one of {}, or install the theme package that provides `{name}`",
-                vocabulary(offered)
+                vocabulary(offered.into_iter())
             )),
     );
 }
@@ -167,6 +173,21 @@ mod tests {
         check(&deck, &installed, &mut sink);
 
         assert!(sink.is_empty(), "{sink:?}");
+    }
+
+    #[test]
+    fn no_theme_is_offered_twice_when_a_caller_hands_over_one_list_of_names() {
+        // A caller holding every resolvable name is the obvious thing to pass,
+        // and the help is what a person reads after a typo.
+        let deck = parse_deck("---\ntheme: nope\n---\n\n# One\n", &DeckParseOptions::default());
+        let everything: Vec<String> =
+            builtin::all().into_iter().map(|theme| theme.id).chain(["workshop".into()]).collect();
+        let mut sink = Diagnostics::default();
+
+        check(&deck, &Installed { themes: everything }, &mut sink);
+        let help = sink.as_slice()[0].help.clone().expect("help");
+
+        assert_eq!(help.matches("`minimal`").count(), 1, "{help}");
     }
 
     #[test]

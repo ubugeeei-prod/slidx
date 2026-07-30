@@ -50,7 +50,13 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
     //
     // It is told what the project installed, or `theme: workshop` is a typo on
     // every build of the deck that installed `workshop`.
-    let installed = slidx_dialect::Installed { themes: catalogue.names() };
+    //
+    // Only the package ids. `Catalogue::names` is the picker's list and holds
+    // the built-ins too, which the check already knows — passing it would put
+    // every built-in twice into the help text of a genuine typo.
+    let installed = slidx_dialect::Installed {
+        themes: catalogue.installed().map(|(_, theme)| theme.id.clone()).collect(),
+    };
     diagnostics.extend(slidx_dialect::check(&deck, &[], &installed).iter().map(finding));
 
     // The theme's padding is the safe area the shell enforces, and resolving
