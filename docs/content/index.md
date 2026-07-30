@@ -146,7 +146,10 @@ The build stops, and the same rules read the same slide whether they are reached
 from `vite build` or from the binary. This is `slidx lint` saying it — a real
 run, photographed by the script that regenerates every picture here:
 
-![The linter reporting a blocking offline error and an advisory bullet count](../media/terminal-lint-light.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../media/terminal-lint-dark.png">
+  <img alt="The linter reporting a blocking offline error and an advisory bullet count" src="../media/terminal-lint-light.png">
+</picture>
 
 The remote image is an **error** and it stops the build. That is the offline
 guarantee being enforced rather than recommended: a deck that fetches anything is

@@ -48,7 +48,10 @@ Worst first, each finding with something to do about it. It reads power, disk,
 clock skew against NTP, the fonts your theme names, whether anything is
 recording the screen, and whether the network you are on actually works.
 
-![A doctor report: two readings nobody could measure, and four checks that passed](../media/terminal-doctor-light.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../media/terminal-doctor-dark.png">
+  <img alt="A doctor report: one reading nobody could measure, and six checks that passed" src="../media/terminal-doctor-light.png">
+</picture>
 
 That is a real report from the machine that generated this page, which is the
 only kind there is — the command reads the laptop you are standing at.

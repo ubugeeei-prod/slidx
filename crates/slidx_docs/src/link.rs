@@ -150,6 +150,17 @@ mod tests {
     }
 
     #[test]
+    fn both_halves_of_a_two_scheme_picture_are_rewritten() {
+        // A terminal photographed in one scheme and shown on a page in the
+        // other is the jarring thing the README already solved with `<picture>`.
+        let html = rewrite(
+            r#"<source media="(prefers-color-scheme: dark)" srcset="../media/terminal-doctor-dark.png">"#,
+        );
+
+        assert!(html.contains(r#"srcset="media/terminal-doctor-dark.png""#), "got {html}");
+    }
+
+    #[test]
     fn a_picture_or_a_recording_is_published_beside_the_page_that_shows_it() {
         // The one path a page spells differently in its two homes: one level up
         // in the repository, and alongside on the site.
