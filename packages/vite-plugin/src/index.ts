@@ -27,6 +27,7 @@ import { emitCrawlerFiles } from "./crawler";
 import { frameRequested, renderSlideDocuments, renderStopImages } from "./frames";
 import {
   ogFileBase,
+  effectsFileName,
   presenterFileName,
   printFileName,
   resolveOptions,
@@ -135,6 +136,14 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
           if (await session.handle(request, response)) return;
         } catch (error) {
           next(error);
+          return;
+        }
+
+        if (url.split("?")[0] === `/${effectsFileName(options)}`) {
+          response.statusCode = 200;
+          response.setHeader("content-type", "text/css; charset=utf-8");
+          response.setHeader("cache-control", "no-store");
+          response.end(await readEffects());
           return;
         }
 
@@ -306,6 +315,18 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
         });
       }
 
+      // Loaded from the runtime only on a staged audience slide. One cacheable
+      // file for the whole deck, and no bytes at all for the common one-stop
+      // slide — inlining it into every page would charge seven kilobytes per
+      // slide for an effect most slides never run.
+      if (built.slides.some((slide) => slide.stopCount >= 2)) {
+        this.emitFile({
+          type: "asset",
+          fileName: effectsFileName(options),
+          source: await readEffects(),
+        });
+      }
+
       // The sitemap and the robots file, which are the deck describing itself
       // to something that is not a person.
       await emitCrawlerFiles(this, built, options, publicDir);
@@ -420,6 +441,7 @@ function runtimeSrcFor(options: ReturnType<typeof resolveOptions>): string {
 
 /** The built runtime, read once. */
 let runtime: Promise<string> | undefined;
+let effects: Promise<string> | undefined;
 
 function readRuntime(): Promise<string> {
   runtime ??= (async () => {
@@ -431,6 +453,19 @@ function readRuntime(): Promise<string> {
   })();
 
   return runtime;
+}
+
+/** The stylesheet the runtime resolves beside itself, read once. */
+function readEffects(): Promise<string> {
+  effects ??= (async () => {
+    const { createRequire } = await import("node:module");
+    const { readFile } = await import("node:fs/promises");
+    const require = createRequire(import.meta.url);
+
+    return readFile(require.resolve("@slidx/runtime/effects.css"), "utf8");
+  })();
+
+  return effects;
 }
 
 /**

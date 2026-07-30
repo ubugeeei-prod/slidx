@@ -81,6 +81,7 @@ if (missing.length > 0) {
 }
 
 const CONTENT_TYPES: Record<string, string> = {
+  ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".svg": "image/svg+xml",
@@ -174,7 +175,8 @@ beforeAll(async () => {
         "---\ndraft: false\nurl: https://example.com/talk/\n---\n\n# Making Decks Fast\n\nA framework.\n",
     }),
     buildDeck("staged", {
-      "0001.md": "# Latency\n\nDropped to [120ms]{#latency}[38ms]{#latency}.\n",
+      "0001.md":
+        "# Latency\n\nDropped to [120ms]{#latency}[38ms]{#latency}.\n\n- Now\n- Later <!-- step -->\n",
       "0002.md": "# After\n",
     }),
     buildDeck("camera", {
@@ -478,21 +480,49 @@ describe.each(ENGINES)("%s, on a slide with steps", (engine) => {
         expect(await take()).toBe("120ms");
 
         await tab.keyboard.press("ArrowRight");
+        await tab.keyboard.press("ArrowRight");
         await tab.waitForFunction(
           () => document.querySelector("[data-slidx-mark='latency']")?.textContent === "38ms",
         );
 
         // The URL carries the stop, so what is on screen can be linked to.
-        expect(new URL(tab.url()).search).toBe("?step=1");
+        expect(new URL(tab.url()).search).toBe("?step=2");
 
         await tab.keyboard.press("ArrowLeft");
         await tab.waitForFunction(
           () => document.querySelector("[data-slidx-mark='latency']")?.textContent === "120ms",
         );
+        expect(new URL(tab.url()).search).toBe("?step=1");
 
         // `?step=0` is noise in a URL somebody is about to share.
+        await tab.keyboard.press("ArrowLeft");
         expect(new URL(tab.url()).search).toBe("");
         expect(errors).toEqual([]);
+      } finally {
+        await browser.close();
+      }
+    },
+    120_000,
+  );
+
+  runs(
+    "hides an unrevealed element until its stop",
+    async () => {
+      // The runtime used to write the attribute while the only stylesheet
+      // that understood it stayed in node_modules. The timeline advanced and
+      // every item was visible from the first frame.
+      const { browser, tab } = await open("/slides/");
+
+      try {
+        const visibility = () =>
+          tab.$eval("li:last-child", (element) => getComputedStyle(element).visibility);
+
+        expect(await visibility()).toBe("hidden");
+
+        await tab.keyboard.press("ArrowRight");
+        await tab.waitForFunction(
+          () => getComputedStyle(document.querySelector("li:last-child")!).visibility === "visible",
+        );
       } finally {
         await browser.close();
       }
@@ -504,7 +534,7 @@ describe.each(ENGINES)("%s, on a slide with steps", (engine) => {
     "opens at the stop a link names",
     async () => {
       // A link to a build is a link to what was on screen when it was shared.
-      const { browser, take } = await open("/slides/?step=1");
+      const { browser, take } = await open("/slides/?step=2");
 
       try {
         expect(await take()).toBe("38ms");
