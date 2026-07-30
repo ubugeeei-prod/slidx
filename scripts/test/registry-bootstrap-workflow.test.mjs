@@ -9,7 +9,10 @@ const workflow = readFileSync(".github/workflows/registry-bootstrap.yml", "utf8"
 test("registry bootstrap only creates reviewable artifacts", () => {
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /ref: \$\{\{ inputs\.ref \}\}/);
-  assert.match(workflow, /node scripts\/pack-npm\.mjs/);
+  assert.match(workflow, /ref: \$\{\{ github\.sha \}\}/);
+  assert.match(workflow, /path: \.release-tools/);
+  assert.match(workflow, /node \.release-tools\/scripts\/build-platform-packages\.mjs/);
+  assert.match(workflow, /node \.release-tools\/scripts\/pack-npm\.mjs/);
   assert.match(workflow, /bundle="\$GITHUB_WORKSPACE\/bundle"/);
   assert.match(workflow, /path: \$\{\{ github\.workspace \}\}\/bundle/);
   assert.match(workflow, /publish-order\.txt/);

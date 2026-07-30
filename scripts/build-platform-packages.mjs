@@ -102,9 +102,10 @@ function writePackage(platform, binary) {
 /**
  * One platform package's manifest.
  *
- * No `bin` field: this package is a container, and declaring a bin would put a
- * second `slidx` on the PATH that shadows the wrapper on whichever platform
- * happened to match. The wrapper resolves the file directly.
+ * The platform-specific `bin` name exists so npm preserves the executable bit
+ * in the tarball. npm normalises ordinary files to 0644 even when the source
+ * is executable. It must not be named `slidx`: that name belongs to the
+ * wrapper, which resolves this file directly.
  *
  * No `exports` either, so `require.resolve("@ubugeeei/slidx-cli-linux-x64/bin/slidx")`
  * reaches the file. An `exports` map would have to list it, which is one more
@@ -121,6 +122,7 @@ function manifest(platform) {
       url: "git+https://github.com/ubugeeei-prod/slidx.git",
       directory: "packages/cli",
     },
+    bin: { [`slidx-${platform.os}-${platform.cpu}`]: `bin/${binaryName(platform)}` },
     os: [platform.os],
     cpu: [platform.cpu],
     files: ["bin", "LICENSE", "README.md"],

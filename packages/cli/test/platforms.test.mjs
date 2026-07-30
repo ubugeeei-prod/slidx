@@ -11,9 +11,17 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import {
@@ -187,13 +195,44 @@ describe("building the platform packages", () => {
     expect(manifest.version).toBe(WRAPPER.version);
   });
 
-  it("declares no bin, so a platform package cannot shadow the wrapper on PATH", () => {
+  it("declares a platform-specific bin that cannot shadow the wrapper on PATH", () => {
     const out = scratch();
     generate(withBinaries(PLATFORMS), out);
 
     const manifest = JSON.parse(readFileSync(join(out, "cli-darwin-arm64/package.json"), "utf8"));
-    expect(manifest.bin).toBeUndefined();
+    expect(manifest.bin).toEqual({ "slidx-darwin-arm64": "bin/slidx" });
+    expect(manifest.bin.slidx).toBeUndefined();
   });
+
+  it.skipIf(process.platform === "win32")(
+    "packs the platform binary with an executable mode",
+    () => {
+      const generated = scratch();
+      generate(withBinaries(PLATFORMS), generated);
+
+      const destination = scratch();
+      const report = JSON.parse(
+        execFileSync(
+          "pnpm",
+          [
+            "--dir",
+            join(generated, "cli-darwin-arm64"),
+            "pack",
+            "--pack-destination",
+            destination,
+            "--json",
+          ],
+          { encoding: "utf8" },
+        ),
+      );
+      const filename = (Array.isArray(report) ? report[0] : report).filename;
+      const extracted = scratch();
+
+      execFileSync("tar", ["-xzf", resolve(filename), "-C", extracted]);
+
+      expect(statSync(join(extracted, "package/bin/slidx")).mode & 0o111).not.toBe(0);
+    },
+  );
 
   it("writes no install script into anything it generates", () => {
     // The point of the whole pattern. A postinstall here would undo it.
