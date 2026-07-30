@@ -21,9 +21,18 @@ export interface DiagnosticsHandlers {
 
 export function createDiagnostics(handlers: DiagnosticsHandlers): Surface {
   const list = element("ul", { class: "slidx-findings" });
-  const root = element("section", { class: "slidx-diagnostics", "aria-label": "Diagnostics" }, [
-    list,
-  ]);
+  const root = element(
+    "section",
+    {
+      class: "slidx-diagnostics",
+      "aria-label": "Diagnostics",
+      // What the panel says when there is nothing wrong. Carried as an
+      // attribute rather than an empty node so the stylesheet owns the empty
+      // state without this module rendering a row that means "no rows".
+      "data-empty-label": "No problems found.",
+    },
+    [list],
+  );
 
   return {
     root,
