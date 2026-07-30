@@ -66,7 +66,7 @@ describe("the frameworks a deck opts into", () => {
     // Everything below loops over this. A mis-filtered or empty directory read
     // would leave each of those loops passing while asserting nothing, so the
     // set itself is pinned.
-    expect(adapters).toEqual(["angular", "react", "svelte", "three", "vue"]);
+    expect(adapters).toEqual(["angular", "react", "solid", "svelte", "three", "vue"]);
   });
 
   it("gives each adapter its own entry point, so importing one loads only one", () => {

@@ -22,7 +22,7 @@
  * hand. A deck with an Angular island needs an Angular plugin in its own Vite
  * config, and that plugin is doing two jobs rather than one.
  *
- * None of the other four impose that. A Vue or React component can be written
+ * None of the other five impose that. A Vue or React component can be written
  * with no plugin at all, Svelte's is a per-file transform, and all four ship
  * modules a bundler can consume as they are. Angular's compiler type-checks
  * templates, so it holds a whole TypeScript program instead. The cost is
@@ -149,11 +149,9 @@ export function angularIsland(options: AngularIslandOptions): IslandDefinition {
         options.component(),
       ]);
 
-      const zoneless = core.provideZonelessChangeDetection;
-
       // Checked before anything is created, so a deck below the floor is told
       // what is wrong rather than left with a bootstrap that fails further in.
-      if (typeof zoneless !== "function") {
+      if (typeof core.provideZonelessChangeDetection !== "function") {
         throw new TypeError(
           "the angular island runs zoneless, which requires Angular 20 or newer; " +
             "this one has no provideZonelessChangeDetection",
@@ -161,7 +159,7 @@ export function angularIsland(options: AngularIslandOptions): IslandDefinition {
       }
 
       const application = await platform.createApplication({
-        providers: [zoneless(), ...(options.providers ?? [])],
+        providers: [core.provideZonelessChangeDetection(), ...(options.providers ?? [])],
       });
 
       const component = create(core, application, resolveDefault(loaded), target, props);
