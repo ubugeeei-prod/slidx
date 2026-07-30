@@ -39,22 +39,18 @@ jobs:
     name: deploy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: voidzero-dev/setup-vp@v1
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
         with:
-          node-version: "24"
-          cache: true
-      - run: vp install --frozen-lockfile
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+          rust: "true"
 
       - name: Check the pages
         run: cargo test -p slidx_docs
 
       - name: Build the site
-        run: vp run docs:build
+        run: pnpm exec vp run docs:build
 
       - name: Deploy
         env:
           VOID_PROJECT: ${{ vars.VOID_PROJECT }}
-        run: vpx void@0.10.11 deploy --dir docs/dist --project "$VOID_PROJECT"
+        run: pnpm exec vpx void@0.10.11 deploy --dir docs/dist --project "$VOID_PROJECT"
