@@ -112,13 +112,16 @@ appearing.
 
 Only the chosen path goes to standard output, so this composes:
 
-    cd \"$(slidx open vueconf)\"
+    slidx open vueconf | xargs -o $EDITOR
 
 With `slidx shell` loaded you are simply taken there, because the shell
 function can do the one thing this command cannot.
 
 Piped, or with --list, it prints every match and exits rather than waiting for
-a keypress there is nobody to press.",
+a keypress there is nobody to press. That is what makes it a list to feed to
+something — and why `slidx cd` is the one to put inside `cd \"$(…)\"`: it prints
+exactly one path however many decks match, and a substitution has no way to
+hold two.",
         &[
             Flag::switch("list", "Print every match and exit, without the picker"),
             Flag::switch("json", "Print the matches as JSON"),
