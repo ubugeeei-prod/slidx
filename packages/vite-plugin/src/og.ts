@@ -9,6 +9,7 @@
  */
 
 import { renderPdf } from "./pdf";
+import { capture } from "./capture";
 
 /** What every scraper crops to. */
 export const OG_WIDTH = 1200;
@@ -44,7 +45,7 @@ export async function rasterise(svg: string): Promise<Buffer | null> {
       waitUntil: "load",
     });
 
-    return await page.screenshot({ type: "png" });
+    return await capture(() => page.screenshot({ type: "png" }));
   } finally {
     await browser.close();
   }
