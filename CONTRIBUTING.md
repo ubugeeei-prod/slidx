@@ -33,7 +33,9 @@ usually holding two ideas, so treat the warning as a prompt to look: split by
 responsibility, and leave a long file that does one thing well alone.
 
 Tests do not count. A test module is a list, not an abstraction, and splitting
-one to hit a number makes it harder to read.
+one to hit a number makes it harder to read. Every `#[cfg(test)]` item is
+discounted, not just a `mod tests` at the bottom — four files here declare a
+test-only helper partway down and carry on implementing below it.
 
 **One reason to exist per module.** `scanner.rs` is the only place that knows
 what a fenced code block is. `markers.rs` is the only place that knows the
