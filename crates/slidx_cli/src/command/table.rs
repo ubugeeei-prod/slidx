@@ -201,8 +201,8 @@ for tomorrow is the one you renamed today. `name` is a new directory name beside
 the old one, or a path when the project is moving somewhere else.
 
 With --title the deck's own title changes too, through the same edit operation
-the editor uses. A rename that leaves the title slide saying the old name is half
-a rename.
+the editor uses. A rename that leaves the title slide saying the old name is
+half a rename, and the half left over is the one an audience sees.
 
 Nothing is overwritten: a destination that already exists is a refusal, not a
 merge.",
@@ -213,11 +213,11 @@ merge.",
         "commit the deck, described in the deck's own terms",
         "save [path] [options]",
         "\
-Commits the deck and writes the message itself — the part git cannot do. git sees
-lines; slidx has a parser, so the commit says `Add two slides and retime the
-demo` rather than `+34 -6`. Slides added, dropped or reordered, budgets changed,
-notes written: all of it comes from comparing the deck on disk with the deck at
-HEAD.
+Commits the deck and writes the message itself — the part git cannot do. git
+sees lines; slidx has a parser, so the commit says `Add two slides and retime
+the demo` rather than `+34 -6`. Slides added, dropped or reordered, budgets
+changed, notes written: all of it comes from comparing the deck on disk with the
+deck at HEAD.
 
 The message is yours to overrule with --message, and nothing is ever appended to
 it — no trailer, no footer, no attribution. It is your record of your own talk.
@@ -226,8 +226,8 @@ Only the deck is committed. Something else you had staged stays staged, because
 one command sweeping up half-finished work is how a tool loses the right to be
 typed without thinking. --all widens it to the whole project.
 
-With no repository it offers to start one rather than failing, which is the state
-a deck written this morning is in.",
+With no repository it offers to start one rather than failing, which is the
+state a deck written this morning is in.",
         &[
             Flag::taking("message", "<text>", "Use this message instead of the written one")
                 .short('m'),

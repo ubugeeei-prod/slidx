@@ -43,8 +43,8 @@ use slidx_edit::{apply, slide_spans, EditOp};
 use crate::args::Matches;
 use crate::home::Home;
 use crate::index::{self, Entry};
-use crate::lint::source::{self, DeckSource};
 use crate::lint::project_root;
+use crate::lint::source::{self, DeckSource};
 use crate::style::{Ink, Style};
 use crate::Outcome;
 
@@ -250,9 +250,8 @@ fn name(files: &[PathBuf], at: usize, slides: usize) -> Result<Written, String> 
     let last = files.last().ok_or_else(|| "a deck with no slide files\n".to_string())?;
     let directory = last.parent().unwrap_or(Path::new(".")).to_path_buf();
 
-    let numbered = |file: &Path| -> Option<Numbered> {
-        Numbered::parse(&file.file_name()?.to_string_lossy())
-    };
+    let numbered =
+        |file: &Path| -> Option<Numbered> { Numbered::parse(&file.file_name()?.to_string_lossy()) };
 
     // Appending needs no seam: the new slide goes after the last file, whatever
     // the files before it hold.
@@ -305,11 +304,7 @@ fn report(written: &Written, at: usize, title: &str, style: &Style) -> String {
             "  {}\n",
             style.paint(
                 Ink::Faint,
-                format!(
-                    "moved along: {} -> {}",
-                    file_name(from),
-                    file_name(to)
-                )
+                format!("moved along: {} -> {}", file_name(from), file_name(to))
             )
         ));
     }
@@ -363,7 +358,8 @@ mod tests {
 
     impl Scratch {
         fn new(name: &str) -> Self {
-            let path = std::env::temp_dir().join(format!("slidx-add-{name}-{}", std::process::id()));
+            let path =
+                std::env::temp_dir().join(format!("slidx-add-{name}-{}", std::process::id()));
             let _ = fs::remove_dir_all(&path);
             fs::create_dir_all(&path).expect("scratch");
             Self(path)
@@ -456,8 +452,8 @@ mod tests {
     fn notes_are_written_by_the_edit_crate_rather_than_spelled_out_here() {
         // The comment notes live in is the edit crate's spelling to know. A
         // second spelling of it would be a second dialect.
-        let after = splice(DECK, &options(), 2, "Three", Some("open with the outcome"))
-            .expect("a splice");
+        let after =
+            splice(DECK, &options(), 2, "Three", Some("open with the outcome")).expect("a splice");
         let deck = parse_deck(&after, &options());
 
         assert_eq!(deck.slides[2].notes_text(), "open with the outcome");
@@ -482,10 +478,8 @@ mod tests {
         // The minimal write: the slides that were already there are not
         // rewritten, so `git diff` shows one added file and nothing else.
         let scratch = Scratch::new("append");
-        let slides = scratch.deck(&[
-            ("0001.md", "---\ntitle: A talk\n---\n\n# One\n"),
-            ("0002.md", "# Two\n"),
-        ]);
+        let slides = scratch
+            .deck(&[("0001.md", "---\ntitle: A talk\n---\n\n# One\n"), ("0002.md", "# Two\n")]);
         let before = scratch.read("0001.md");
 
         let deck = source::read(&slides, "---").expect("a deck");
@@ -556,10 +550,8 @@ mod tests {
         // The deck's frontmatter is the first slide's and has to open the first
         // file. Moving it between files is a different operation.
         let scratch = Scratch::new("first");
-        let slides = scratch.deck(&[
-            ("0001.md", "---\ntitle: A talk\n---\n\n# One\n"),
-            ("0002.md", "# Two\n"),
-        ]);
+        let slides = scratch
+            .deck(&[("0001.md", "---\ntitle: A talk\n---\n\n# One\n"), ("0002.md", "# Two\n")]);
 
         let deck = source::read(&slides, "---").expect("a deck");
         let edited = added(&deck.source, 0, "Before");
@@ -594,10 +586,8 @@ mod tests {
         // Better a refusal than a deck half-renumbered, which is a deck whose
         // slides are in the wrong order and whose author finds out on stage.
         let scratch = Scratch::new("collision");
-        let slides = scratch.deck(&[
-            ("0001.md", "---\ntitle: A talk\n---\n\n# One\n"),
-            ("0002.md", "# Two\n"),
-        ]);
+        let slides = scratch
+            .deck(&[("0001.md", "---\ntitle: A talk\n---\n\n# One\n"), ("0002.md", "# Two\n")]);
         // A directory, so the deck reader does not see it as a slide and the
         // rename has something in its way that is nobody's slide.
         fs::create_dir(slides.join("0003.md")).expect("a directory");

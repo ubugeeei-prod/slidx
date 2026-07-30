@@ -8,14 +8,26 @@
 //!
 //! What is *not* tolerable is the two disagreeing, because then the linter and
 //! the build are looking at different decks and a green CI run means nothing.
-//! So the rule is written down rather than inferred, and it is exactly three
+//! So the rule is written down rather than inferred, and it is exactly four
 //! sentences long:
 //!
 //! 1. Files sort by name — which is why the convention is `0001.md`, and why
 //!    inserting a slide is a rename rather than a renumbering.
-//! 2. Each file is trimmed and joined with the deck separator on its own line.
-//! 3. The first file's frontmatter is the deck's, so it stays at the very
+//! 2. Each file is trimmed and joined with the deck separator alone on its own
+//!    line, with a blank line on each side of it.
+//! 3. A file that already opens with a separator supplies its own, and gets a
+//!    blank line rather than a second one.
+//! 4. The first file's frontmatter is the deck's, so it stays at the very
 //!    start.
+//!
+//! Sentences 2 and 3 are the ones that used to be wrong here. The separator was
+//! written with no blank line after it, and a file opening with its own
+//! frontmatter block got a separator anyway — so `---` immediately followed by a
+//! slide's body, and then by another `---`, read back as *that slide's
+//! frontmatter*. The whole slide, its notes included, disappeared from the deck
+//! the linter saw, while the build read three slides and printed them. That is
+//! the failure this file exists to prevent, and it was reachable through
+//! `slidx add --notes`.
 //!
 //! A single file holding several slides is read as-is. Small decks and pasted
 //! drafts should not need a directory.
@@ -86,17 +98,42 @@ pub fn read(path: &Path, separator: &str) -> Result<DeckSource, String> {
     Ok(DeckSource { label, files, source: join(&sources, separator) })
 }
 
-/// Joins slide sources into one deck, as rule 2 above states it.
+/// Joins slide sources into one deck, as rules 2 and 3 above state it.
 ///
 /// Public because the joining is the rule, and a second caller has appeared:
 /// `slidx save` reads a deck out of a git commit to compare it with the one on
 /// disk, and a deck assembled two different ways would diff against itself.
+///
+/// The shape is `joinDeck` in `packages/vite-plugin/src/files.ts`, line for
+/// line. It is not the obvious `sources.join(separator)` because of the two
+/// cases the obvious one gets wrong: a separator with no blank line under it
+/// opens what the parser reads as a frontmatter block, and a file that already
+/// starts with a separator does not need one in front of it.
 pub fn join(sources: &[String], separator: &str) -> String {
-    sources
-        .iter()
-        .map(|source| source.trim())
-        .collect::<Vec<_>>()
-        .join(&format!("\n\n{separator}\n"))
+    let mut joined = String::new();
+
+    for source in sources.iter().map(|source| source.trim()).filter(|source| !source.is_empty()) {
+        if !joined.is_empty() {
+            joined.push_str(&if opens_with_separator(source, separator) {
+                "\n\n".to_string()
+            } else {
+                format!("\n\n{separator}\n\n")
+            });
+        }
+
+        joined.push_str(source);
+    }
+
+    joined
+}
+
+/// True when a file's first line is the deck separator and nothing else.
+///
+/// Such a file carries its own separator — usually as the opening delimiter of
+/// its slide's frontmatter block — and putting another one in front of it would
+/// leave an empty slide between the two.
+fn opens_with_separator(source: &str, separator: &str) -> bool {
+    source.lines().next().map(str::trim_end) == Some(separator)
 }
 
 /// Slide files in one directory, in deck order.
@@ -145,6 +182,7 @@ fn unreadable(path: &Path, error: &std::io::Error) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use slidx_core::{parse_deck, DeckParseOptions};
     use std::fs;
 
     /// A scratch directory that cleans up after itself.
@@ -193,14 +231,72 @@ mod tests {
     }
 
     #[test]
-    fn slide_files_are_joined_with_the_separator_on_its_own_line() {
-        // A separator with anything else on its line is not a slide break, so
-        // the joining has to produce exactly this shape.
+    fn slide_files_are_joined_with_the_separator_alone_between_blank_lines() {
+        // A separator with anything else on its line is not a slide break, and
+        // one with a slide's body on the line under it opens what the parser
+        // reads as that slide's frontmatter. The joining has to produce exactly
+        // this shape, which is the shape the plugin's `joinDeck` produces.
         let scratch = Scratch::new("join");
         scratch.write("0001.md", "# One\n");
         scratch.write("0002.md", "# Two\n");
 
-        assert_eq!(read(scratch.path(), "---").expect("a deck").source, "# One\n\n---\n# Two");
+        assert_eq!(read(scratch.path(), "---").expect("a deck").source, "# One\n\n---\n\n# Two");
+    }
+
+    #[test]
+    fn a_slide_that_ends_with_its_notes_survives_being_joined_to_the_next_one() {
+        // The failure this rule exists to prevent, reached the way it was
+        // actually reached: `slidx add --notes` writes a slide whose body ends
+        // with a note comment. Joined with a separator and no blank line under
+        // it, the parser read `---`, a body, and the next `---` as one
+        // frontmatter block — and the slide, its notes included, was gone from
+        // the deck the linter saw while the build printed it.
+        let scratch = Scratch::new("notes");
+        scratch.write("0001.md", "# One\n");
+        scratch.write("0002.md", "# Two\n\n<!-- notes: the wifi story -->\n");
+        scratch.write("0003.md", "# Three\n");
+
+        let deck = parse_deck(
+            &read(scratch.path(), "---").expect("a deck").source,
+            &DeckParseOptions::default(),
+        );
+
+        assert_eq!(
+            deck.slides.iter().map(|slide| slide.display_title()).collect::<Vec<_>>(),
+            ["One", "Two", "Three"]
+        );
+        assert_eq!(deck.slides[1].notes_text(), "the wifi story");
+    }
+
+    #[test]
+    fn a_file_that_opens_with_its_own_separator_does_not_get_a_second_one() {
+        // A slide file whose first line is `---` is opening its own frontmatter
+        // block. Another separator in front of it leaves an empty slide between
+        // the two, and the deck gains a blank page the build never had.
+        let scratch = Scratch::new("own-separator");
+        scratch.write("0001.md", "# One\n");
+        scratch.write("0002.md", "---\nbudget: 90s\n---\n\n# Two\n");
+
+        let source = read(scratch.path(), "---").expect("a deck").source;
+        let deck = parse_deck(&source, &DeckParseOptions::default());
+
+        assert_eq!(source, "# One\n\n---\nbudget: 90s\n---\n\n# Two");
+        assert_eq!(deck.slides.len(), 2, "{source:?}");
+        assert_eq!(deck.slides[1].budget_seconds, Some(90));
+    }
+
+    #[test]
+    fn an_empty_slide_file_adds_no_separator_of_its_own() {
+        // A file somebody emptied rather than deleted. Joining it as a slide
+        // would put a blank page in the middle of the talk.
+        let scratch = Scratch::new("empty-file");
+        scratch.write("0001.md", "# One\n");
+        scratch.write("0002.md", "\n\n");
+        scratch.write("0003.md", "# Three\n");
+
+        let source = read(scratch.path(), "---").expect("a deck").source;
+
+        assert_eq!(source, "# One\n\n---\n\n# Three");
     }
 
     #[test]

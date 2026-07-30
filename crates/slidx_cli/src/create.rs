@@ -340,7 +340,8 @@ mod tests {
         // The whole promise of the command. A scaffold that has to be fixed
         // before it works is one that has to be read, and the first thing
         // somebody does with a new deck should be writing the talk.
-        let project = planned("create ~/talks/vueconf --title \"Making decks fast\" --duration 20m");
+        let project =
+            planned("create ~/talks/vueconf --title \"Making decks fast\" --duration 20m");
         let deck = parse_deck(&project.deck(), &options());
 
         assert!(deck.diagnostics.is_empty(), "{:?}", deck.diagnostics);
@@ -415,7 +416,10 @@ mod tests {
         // linted by another is the disagreement this project exists to avoid.
         let manifest = package_json("vueconf");
 
-        assert!(manifest.contains(&format!("\"@slidx/vite-plugin\": \"^{}\"", crate::version())), "{manifest}");
+        assert!(
+            manifest.contains(&format!("\"@slidx/vite-plugin\": \"^{}\"", crate::version())),
+            "{manifest}"
+        );
         assert!(manifest.contains("\"private\": true"), "{manifest}");
     }
 

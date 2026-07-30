@@ -71,8 +71,10 @@ pub mod list;
 pub mod mv;
 pub mod preview;
 pub mod project;
+pub mod prompt;
 pub mod publish;
 pub mod report;
+pub mod save;
 pub mod sha256;
 pub mod shell;
 pub mod style;
@@ -142,6 +144,7 @@ pub fn run(argv: &[String], style: &Style) -> Outcome {
             (None, "add") => add::run(&matches, style),
             (None, "create") => create::run(&matches, style),
             (None, "mv") => mv::run(&matches, style),
+            (None, "save") => save::run(&matches, style),
             (None, "cd") => cd::run(&matches, style),
             (None, "grep") => grep::run(&matches, style),
             (None, "preview") => preview::run(&matches, style),

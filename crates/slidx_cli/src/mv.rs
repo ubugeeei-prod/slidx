@@ -136,7 +136,7 @@ fn retitle(project: &Path, title: &str) -> Result<PathBuf, String> {
         .ok_or_else(|| format!("no deck to retitle under {}", project.display()))?;
 
     let options = DeckParseOptions::default();
-    let read = source::read(&deck, &options.separator).map_err(|message| message)?;
+    let read = source::read(&deck, &options.separator)?;
 
     // A deck kept as one file per slide has its own frontmatter in the first
     // file, which is where the title is. That is the only file this can change.
@@ -252,7 +252,8 @@ mod tests {
         }
     }
 
-    const DECK: &str = "---\ntitle: Making decks fast\nevent: VueConf\n---\n\n# Making decks fast\n";
+    const DECK: &str =
+        "---\ntitle: Making decks fast\nevent: VueConf\n---\n\n# Making decks fast\n";
 
     #[test]
     fn a_bare_name_renames_the_project_where_it_already_is() {

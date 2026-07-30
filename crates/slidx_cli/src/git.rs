@@ -112,9 +112,10 @@ impl Repo {
     /// diff as a reorder that nobody performed.
     pub fn committed_files(&self, directory: &Path) -> Vec<PathBuf> {
         let within = self.relative(directory);
-        let Ok(output) =
-            run(&self.root, &["ls-tree", "-r", "--name-only", "-z", "HEAD", "--", path_arg(&within)])
-        else {
+        let Ok(output) = run(
+            &self.root,
+            &["ls-tree", "-r", "--name-only", "-z", "HEAD", "--", path_arg(&within)],
+        ) else {
             return Vec::new();
         };
 
@@ -149,7 +150,8 @@ impl Repo {
     /// something else staged gets a commit of their deck, not of both. Without
     /// it, one command would quietly sweep up work they were part-way through.
     pub fn commit(&self, message: &str, paths: &[PathBuf]) -> Result<(), String> {
-        let mut arguments = vec!["commit".to_string(), "--message".to_string(), message.to_string()];
+        let mut arguments =
+            vec!["commit".to_string(), "--message".to_string(), message.to_string()];
         arguments.push("--".to_string());
 
         for path in paths {
@@ -218,16 +220,29 @@ fn run(directory: &Path, arguments: &[&str]) -> Result<String, String> {
 /// at all. git will report that it cannot find the mangled name, which is a
 /// clearer failure than silence.
 fn path_arg(path: &Path) -> &str {
-    path.to_str().unwrap_or(".")
+    match path.to_str() {
+        // The repository root is the empty relative path, and an empty pathspec
+        // is a fatal error rather than "everything". `slidx save --all` in a
+        // project that is itself the repository is that case.
+        Some("") | None => ".",
+        Some(text) => text,
+    }
 }
 
 /// A relative path spelled the way git spells one: forward slashes, on every
 /// platform. `git show HEAD:slides\0001.md` finds nothing on Windows.
 fn slashed(path: &Path) -> String {
-    path.components()
+    let joined = path
+        .components()
         .map(|component| component.as_os_str().to_string_lossy().into_owned())
         .collect::<Vec<_>>()
-        .join("/")
+        .join("/");
+
+    if joined.is_empty() {
+        return ".".to_string();
+    }
+
+    joined
 }
 
 /// Reads `git status --porcelain -z`.
@@ -355,7 +370,8 @@ mod tests {
         scratch.write("slides/0002.md", "# Two\n");
 
         let changes = repo.changes(&scratch.0.join("slides")).expect("status");
-        let untracked: Vec<&Change> = changes.iter().filter(|change| change.is_untracked()).collect();
+        let untracked: Vec<&Change> =
+            changes.iter().filter(|change| change.is_untracked()).collect();
 
         assert_eq!(changes.len(), 2, "{changes:?}");
         assert_eq!(untracked.len(), 1, "{changes:?}");
@@ -455,8 +471,11 @@ mod tests {
         scratch.write("slides/0001.md", "# One\n");
         let repo = scratch.repo();
         repo.stage(&scratch.0.join("slides")).expect("stage");
-        repo.commit("Add two slides on what goes wrong\n\n- added \"The fix\"\n", &[scratch.0.join("slides")])
-            .expect("commit");
+        repo.commit(
+            "Add two slides on what goes wrong\n\n- added \"The fix\"\n",
+            &[scratch.0.join("slides")],
+        )
+        .expect("commit");
 
         let message = run(&scratch.0, &["log", "-1", "--pretty=%B"]).expect("log");
 
@@ -467,7 +486,8 @@ mod tests {
     fn a_status_record_is_read_as_its_code_and_its_path() {
         // Parsed without git, so the shapes that are awkward to produce on
         // demand — a rename, a path with a space — are still covered.
-        let changes = parse_status("M  slides/0001.md\0?? slides/0002.md\0R  new name.md\0old name.md\0");
+        let changes =
+            parse_status("M  slides/0001.md\0?? slides/0002.md\0R  new name.md\0old name.md\0");
 
         assert_eq!(changes.len(), 3);
         assert_eq!(changes[0].status, "M ");
@@ -479,5 +499,36 @@ mod tests {
     fn a_path_is_spelled_with_forward_slashes_whatever_the_platform_uses() {
         // `git show HEAD:slides\0001.md` finds nothing on Windows.
         assert_eq!(slashed(&PathBuf::from("slides").join("0001.md")), "slides/0001.md");
+    }
+
+    #[test]
+    fn the_repository_root_is_spelled_as_a_path_rather_than_as_nothing() {
+        // The root is the empty relative path, and git reads an empty pathspec
+        // as a fatal error rather than as everything.
+        assert_eq!(path_arg(Path::new("")), ".");
+        assert_eq!(slashed(Path::new("")), ".");
+    }
+
+    #[test]
+    fn a_project_that_is_itself_the_repository_can_still_be_committed_whole() {
+        if !git_is_here() {
+            return;
+        }
+
+        // `slidx save --all` in a repository whose root is the project, which is
+        // how every deck written by `slidx create` is laid out.
+        let scratch = Scratch::new("whole");
+        scratch.write("slides/0001.md", "# One\n");
+        scratch.write("vite.config.ts", "export default {};\n");
+        let repo = scratch.repo();
+
+        assert_eq!(repo.changes(&scratch.0).expect("status").len(), 2);
+
+        repo.stage(&scratch.0).expect("stage");
+        repo.commit("everything", std::slice::from_ref(&scratch.0)).expect("commit");
+
+        let log = scratch.log();
+        assert!(log.contains("vite.config.ts"), "{log}");
+        assert!(log.contains("slides/0001.md"), "{log}");
     }
 }
