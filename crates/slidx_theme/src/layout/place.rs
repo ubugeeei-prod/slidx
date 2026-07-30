@@ -115,12 +115,7 @@ pub fn diagnose(deck: &Deck) -> Diagnostics {
         let placement = place(&slide.blocks, &layout);
 
         for misplaced in placement.misplaced {
-            diagnostics.push(no_such_region(
-                &layout,
-                &misplaced.requested,
-                "the block",
-                at(slide),
-            ));
+            diagnostics.push(no_such_region(&layout, &misplaced.requested, "the block", at(slide)));
         }
 
         // A camera names a region the same way a block does, so it goes wrong
@@ -128,12 +123,7 @@ pub fn diagnose(deck: &Deck) -> Diagnostics {
         // pointing at a region the new one does not have.
         if let Some(camera) = &slide.camera {
             if !layout.has_region(&camera.region) {
-                diagnostics.push(no_such_region(
-                    &layout,
-                    &camera.region,
-                    "the camera",
-                    at(slide),
-                ));
+                diagnostics.push(no_such_region(&layout, &camera.region, "the camera", at(slide)));
             }
         }
     }
