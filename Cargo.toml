@@ -12,6 +12,7 @@ homepage = "https://github.com/ubugeeei-prod/slidx"
 authors = ["ubugeeei"]
 
 [workspace.dependencies]
+slidx_brand = { version = "0.1.0", path = "crates/slidx_brand" }
 slidx_cli = { version = "0.1.0", path = "crates/slidx_cli" }
 slidx_core = { version = "0.1.0", path = "crates/slidx_core" }
 slidx_doctor = { version = "0.1.0", path = "crates/slidx_doctor" }

@@ -95,6 +95,20 @@ CI runs `vp run workspace:ci` on Linux, macOS, and Windows and nothing else, so
 a check that exists locally cannot be missing from CI. Warnings are errors.
 The task graph lives in [vite.config.ts](./vite.config.ts).
 
+## Design
+
+Everything slidx draws is flat: no shadow, no gradient, no decorative radius.
+That is a legibility decision rather than a taste one — both are the first thing
+a projector turns to mud — so it is a gate rather than a note here.
+`vp run check:flat` fails on either, across Rust string literals, TypeScript,
+CSS and SVG alike.
+
+The mark, the wordmark, the lockup rules and the palette are in
+[docs/brand.md](./docs/brand.md), and the tokens the docs site and the themes
+both read are at `assets/brand/tokens.json`. Nothing under `assets/brand/` is
+edited by hand — `vp run generate:brand` writes it, and a test fails when a
+committed copy stops matching.
+
 ## Commits
 
 Conventional commits, scoped to the crate or package:

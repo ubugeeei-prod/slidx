@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 42" width="120" height="42" role="img" aria-label="slidx">
+  <!--
+    The lockup, with every relationship a multiple of the mark's 3-unit module:
+    the wordmark is set at the mark's height, the gap is 2 modules, and the
+    clear space is 3 modules -- the width of the document bar, so it is
+    derived from the mark rather than chosen for it.
+
+    Centres are aligned rather than baselines. The stack is a system stack and
+    resolves to a different face on every platform, so its cap height is not
+    knowable here and a rule that claimed one would be wrong nearly everywhere.
+  -->
+  <g transform="translate(9 9)">
+    <rect x="0" y="0" width="9" height="24" fill="#f2f2f5"/>
+    <rect x="12" y="0" width="12" height="6" fill="#b8ccff"/>
+    <rect x="12" y="9" width="12" height="6" fill="#b8ccff"/>
+    <rect x="12" y="18" width="12" height="6" fill="#b8ccff"/>
+  </g>
+  <text x="39" y="21" fill="#f2f2f5" font-family="system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif" font-size="24" font-weight="650" letter-spacing="-0.02em" dominant-baseline="central">slidx</text>
+</svg>

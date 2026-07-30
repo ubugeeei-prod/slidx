@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="slidx">
+  <!--
+    One document, compiled into a sequence of pages.
+
+    A 24-unit square on a module of 3, so the grid is 8 x 8 modules
+    and every edge below lands on it.
+
+      the document  3 modules wide, 8 tall   x 0..9    y 0..24
+      the gutter    1 module                 x 9..12
+      a page        4 modules wide, 2 tall   x 12..24
+      the gaps      1 module                 y 6..9, 15..18
+
+    Across: 3 + 1 + 4 = 8. Down: 2 + 1 + 2 + 1 + 2 = 8. Both sides of the
+    gutter are exactly the same height, which is the thing being said: the
+    same document, whether it is one form or a run of pages.
+
+    The document is ink because the author writes it; the pages are signal
+    because slidx produces them. No radius, no shadow, no gradient -- the
+    built-in themes are flat because a projector turns those to mud first,
+    and the mark is held to the same rule.
+  -->
+  <rect x="0" y="0" width="9" height="24" fill="currentColor"/>
+  <rect x="12" y="0" width="12" height="6" fill="currentColor"/>
+  <rect x="12" y="9" width="12" height="6" fill="currentColor"/>
+  <rect x="12" y="18" width="12" height="6" fill="currentColor"/>
+</svg>

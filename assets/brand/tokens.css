@@ -1,0 +1,43 @@
+:root {
+  --slidx-brand-font-sans: system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif;
+  --slidx-brand-font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Roboto Mono', 'Noto Sans Mono CJK JP', monospace;
+  --slidx-brand-size-heading-1: 33.2px;
+  --slidx-brand-size-heading-2: 26.56px;
+  --slidx-brand-size-heading-3: 21.25px;
+  --slidx-brand-size-body: 17px;
+  --slidx-brand-size-code: 15.98px;
+  --slidx-brand-size-caption: 13.6px;
+  --slidx-brand-heading-tracking: -0.02em;
+  --slidx-brand-heading-weight: 650;
+  --slidx-brand-space-step: 8px;
+  --slidx-brand-space-padding: 32px;
+  --slidx-brand-space-block: 24px;
+  --slidx-brand-radius: 0px;
+  --slidx-brand-hairline: 1px;
+  --slidx-brand-lockup-gap: 0.25em;
+  --slidx-brand-paper: #fbfbfc;
+  --slidx-brand-ink: #101014;
+  --slidx-brand-muted: #4b4b55;
+  --slidx-brand-signal: #1b3bc9;
+  --slidx-brand-line: #d8d8de;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-slidx-brand-scheme="light"]) {
+    --slidx-brand-paper: #0b0b0d;
+    --slidx-brand-ink: #f2f2f5;
+    --slidx-brand-muted: #a6a6b2;
+    --slidx-brand-signal: #b8ccff;
+    --slidx-brand-line: #2b2b33;
+  }
+}
+
+:root[data-slidx-brand-scheme="dark"] {
+  --slidx-brand-paper: #0b0b0d;
+  --slidx-brand-ink: #f2f2f5;
+  --slidx-brand-muted: #a6a6b2;
+  --slidx-brand-signal: #b8ccff;
+  --slidx-brand-line: #2b2b33;
+}

@@ -1,0 +1,15 @@
+[package]
+name = "slidx_brand"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "The slidx mark, wordmark, and brand tokens, held to slidx's own linter"
+
+[dependencies]
+slidx_core = { workspace = true }
+slidx_lint = { workspace = true }
+slidx_theme = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
