@@ -35,11 +35,40 @@ export interface MarkAttributes {
   properties?: Record<string, string> | undefined;
 }
 
-/** One authored intent on a slide's timeline. */
+/**
+ * How long an action takes and what it looks like.
+ *
+ * Every field is optional and the theme decides what an absent one means, which
+ * is the point: motion belongs to the theme, so a timeline writes *what* happens
+ * and only overrides *how* when an author asked for something specific.
+ */
+export interface StepOptions {
+  /** Milliseconds after the stop before this plays, instead of on a press. */
+  after?: number | undefined;
+  preset?: string | undefined;
+  duration?: number | undefined;
+  easing?: string | undefined;
+  origin?: string | undefined;
+}
+
+/**
+ * One authored intent on a slide's timeline.
+ *
+ * The four kinds the deck model has, spelled the way `StepAction` serialises in
+ * Rust. `set` carries a patch because a change to something already on screen has
+ * to say what it became; the other three name a target and stop there.
+ */
 export type StepAction =
-  | { reveal: { target: string; options?: Record<string, unknown> } }
-  | { hide: { target: string; options?: Record<string, unknown> } }
-  | { emphasize: { target: string; options?: Record<string, unknown> } };
+  | { reveal: { target: string; options: StepOptions } }
+  | { hide: { target: string; options: StepOptions } }
+  | { emphasize: { target: string; options: StepOptions } }
+  | {
+      set: {
+        target: string;
+        patch: { content?: string | undefined; properties?: Record<string, string> | undefined };
+        options: StepOptions;
+      };
+    };
 
 /** One change to a deck source. */
 export type EditOp =
@@ -52,8 +81,11 @@ export type EditOp =
   | { op: "addMark"; slide: SlideRef; range: ByteSpan; attributes: MarkAttributes }
   | { op: "setMark"; slide: SlideRef; mark: MarkRef; attributes: MarkAttributes }
   | { op: "removeMark"; slide: SlideRef; mark: MarkRef }
-  | { op: "addStep"; slide: SlideRef; action: StepAction }
+  | { op: "addStep"; slide: SlideRef; at?: number; action: StepAction }
   | { op: "removeStep"; slide: SlideRef; index: number }
+  | { op: "moveStep"; slide: SlideRef; from: number; to: number }
+  | { op: "setStep"; slide: SlideRef; index: number; action: StepAction }
+  | { op: "adoptSteps"; slide: SlideRef }
   | { op: "setNotes"; slide: SlideRef; notes: string };
 
 /**

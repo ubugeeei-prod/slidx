@@ -30,6 +30,7 @@ import { createOutline, type Surface } from "./outline";
 import { occurrenceInRendered, locateSelection } from "./selection";
 import { createSession, type Session } from "./session";
 import { applyStyles } from "./styles";
+import { createTimeline } from "./timeline";
 
 export type { EditOp, Edit, MarkAttributes, ByteSpan } from "./operations";
 export type { EditorClient, DeckState, EditAnswer, Finding, SlideSummary } from "./client";
@@ -81,7 +82,7 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
   const inspector = createInspector({ run }, { bodyOf });
   const diagnostics = createDiagnostics({ select });
 
-  const surfaces: Surface[] = [outline, canvas, inspector, diagnostics];
+  const surfaces: Surface[] = [outline, canvas, inspector, diagnostics, createTimeline({ run })];
   const frame = element(
     "div",
     { class: "slidx-editor" },

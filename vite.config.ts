@@ -190,7 +190,16 @@ export default defineConfig({
 
       // The editor is read off disk by the dev server the same way, and for
       // the same reason: it is served as a module, not imported as one.
-      "build:editor": uncached("vp run --filter @slidx/editor pack:lib"),
+      //
+      // It has to be *one* module: the dev server hands the file to a browser
+      // as-is, so a bare import left in it would fail to resolve at runtime.
+      // The editor's timeline reuses the runtime's mirror and its stop cursor,
+      // and that import resolves through `exports` — which points at `dist/`,
+      // so the runtime has to exist before the editor is packed or it silently
+      // stays external.
+      "build:editor": uncached("vp run --filter @slidx/editor pack:lib", {
+        dependsOn: ["build:runtime"],
+      }),
 
       "build:packages": group(["build:wasm", "build:runtime", "build:editor"]),
 

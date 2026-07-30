@@ -26,5 +26,8 @@
   },
   "scripts": {
     "pack:lib": "vp pack src/index.ts --dts --out-dir dist"
+  },
+  "devDependencies": {
+    "@slidx/runtime": "workspace:*"
   }
 }
