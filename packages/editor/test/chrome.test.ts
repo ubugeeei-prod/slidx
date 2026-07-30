@@ -162,7 +162,7 @@ describe("states are designed rather than left to the browser", () => {
 
 describe("motion is purposeful or absent", () => {
   it("only animates behind a reduced-motion query", () => {
-    for (const [, body] of declarations().matchAll(/transition:([^;]+);/g)) {
+    for (const [, body = ""] of declarations().matchAll(/transition:([^;]+);/g)) {
       const at = declarations().indexOf(`transition:${body}`);
       const query = declarations().lastIndexOf("@media (prefers-reduced-motion", at);
 
@@ -173,7 +173,7 @@ describe("motion is purposeful or absent", () => {
   it("never animates the focus ring", () => {
     // It is the answer to "where am I", and an answer that fades in arrives
     // after the question.
-    for (const [, body] of declarations().matchAll(/transition:([^;]+);/g)) {
+    for (const [, body = ""] of declarations().matchAll(/transition:([^;]+);/g)) {
       expect(body).not.toContain("outline");
     }
   });
