@@ -57,8 +57,9 @@ export default defineConfig({ plugins: [slidx()] });
 ```
 
 That is the whole configuration. `slidx()` finds `./slides`, serves the deck and
-the visual editor in dev, and on build emits static HTML, a PDF, and social
-cards.
+the visual editor in dev, and on build emits static HTML and social cards. A PDF
+too, once you ask for one — it needs a browser, so it is opt-in rather than
+something every build pays for.
 
 ```bash
 vp dev     # the deck, plus the editor at /__slidx/
@@ -77,174 +78,144 @@ npm i -g slidx
 
 ## What you get
 
-### Writing
+slidx is not a slide renderer with extras. It is the toolchain for **the whole
+life of a talk** — proposing it, writing it, checking it, giving it, and the
+week afterwards when the recording appears. Here is all of it, and where each
+part actually is.
 
-**Markdown, and a visual editor over the same file.** Not import and export —
-two views of one document. Colour three words, drag a block, add an animation:
-the diff is a line a reviewer can read, and editing that line by hand moves the
-canvas. An edit is a **byte-range splice into the file you saved**, so your
-blank lines, your `*` bullets and your hand-wrapped paragraphs survive
-untouched. There is a test that drives eight edits through a real repository and
-asserts the whole session removed **two** lines.
+### The output
 
-**A language server for the dialect.** Diagnostics as you type, completion for
-frontmatter keys and step presets derived from the Rust enums rather than a
-second list, the deck outline as document symbols, and hover that says what a
-preset costs.
+**Nothing of slidx is in it.** One HTML document per slide, no client router, no
+framework runtime. A slide that wants Vue, React, Svelte, Angular or Three.js
+opts in for itself and the others never pay for it.
 
-**A formatter that only touches what slidx owns.** Frontmatter key order and
-indentation, the separator's spelling, step marker spelling, the order inside
-`{#key .class}` — and never your prose, your line wrapping, your bullet markers,
-or anything inside a fence. That boundary is structural rather than
-well-intentioned: the formatter emits the same byte-range splice every other
-write does, so the bytes it does not name are never read and never rewritten. A
-formatter that reflowed a paragraph would produce, deliberately and on every
-save, exactly the diff the rest of this pipeline exists to avoid.
-
-**A linter that checks the room, not the monitor.** Contrast through a model of
-projector washout. Font size by the angular size a glyph subtends from the back
-row. Content overflow measured in a real browser. Images blown up past their own
-pixels. Animations that will not stay on the compositor. Time budgets summed
-against the slot you were given.
-
-**Themes as tokens.** Four built in — `minimal`, `editorial`, `terminal`,
-`contrast` — each holding both light and dark, because the room's lighting is
-usually unknown until the day. Every colour is a token and the built-in themes
-are held to the linter's own rules, so a theme cannot ship something illegible.
-
-### Building
-
-**No framework in the output.** Nothing is required to view a deck and nothing
-is required to write one. A slide that wants Vue, React, Svelte, Angular or
-Three.js opts in for itself; the others stay HTML and never pay for it.
-
-**Native speed, Markdown engine included.** The parser, step compiler, linter,
-highlighter and renderer are Rust, reached through one WebAssembly module:
+**Native speed, Markdown engine included.** Parser, step compiler, highlighter,
+linter and renderer are Rust, reached through one WebAssembly module — so the
+editor's live preview and the production build execute the same code.
 
 | Deck       | Build      | Per slide |
 | ---------- | ---------- | --------- |
 | 100 slides | **28 ms**  | 0.28 ms   |
 | 500 slides | **133 ms** | 0.27 ms   |
 
-`node scripts/bench-build.mjs` reproduces those, so the number in this table is
-measured rather than remembered.
+`node scripts/bench-build.mjs` reproduces those, so the number is measured
+rather than remembered.
 
-**Pages, not an application.** One HTML document per slide. Navigation is the
-browser following a link, so a slide can be shared, bookmarked, indexed, opened
-on a phone and printed — and it renders before any script runs. A slide with
-steps loads one shared module and its own compiled timeline; a slide without
-steps loads nothing at all.
+**Offline by design.** A built deck makes zero network requests — fonts, images,
+styles and scripts inlined or bundled, a remote asset is a lint error, and
+`browser.test.ts` records every request in Chromium, Firefox and WebKit and
+asserts none of them leaves `file://`.
 
-**Offline by design.** A built deck makes zero network requests. Fonts, images,
-styles and scripts are inlined or bundled, and **a remote asset is a lint
-error** — enforced at build time rather than written down as a best practice.
+**Built to be found.** One URL per slide is already the hard part of being
+indexable. Canonical links, per-slide descriptions, `rel="prev"`/`rel="next"`,
+Open Graph and Twitter cards pointing at the card that slide already has, inline
+JSON-LD, a sitemap and a `robots.txt`.
+
+### Writing
+
+**A visual editor over the same file.** Not import and export — two views of one
+document. An edit is a **byte-range splice into the file you saved**, so your
+blank lines, your `*` bullets and your hand-wrapped paragraphs survive untouched.
+There is a test that drives eight edits through a real repository and asserts the
+whole session removed _two_ lines. Outline, canvas, inspector, an animation
+timeline whose playhead scrubs, and the deck's own git history with the page
+rendered as it was at any commit.
+
+**The dialect, fully served.** A language server with diagnostics as you type,
+completion derived from the Rust enums rather than a second list, symbols and
+hover. A formatter that touches **only what slidx owns** — frontmatter order,
+separators, step markers, attribute order — and never your prose, because it
+emits the same splice everything else does. And a type check for the dialect
+itself: a `steps:` entry naming a mark no slide declares, a theme or layout that
+resolves to nothing, a duration whose units do not parse.
+
+**A linter that checks the room, not the monitor.** Contrast through a model of
+projector washout. Font size by the angular size a glyph subtends from the back
+row. Overflow measured in a real browser, per layout region. Images blown up past
+their own pixels. Animations that will not stay on the compositor. Time budgets
+summed against the slot you were given.
+
+**Themes as tokens, not stylesheets.** Four built in, each carrying light and
+dark because the room's lighting is unknown until the day. Every colour is a
+token, the palettes are _mixed_ from four numbers through OKLCh rather than
+picked, and the built-ins are held to the linter's own rules — so a theme cannot
+ship something illegible. A check fails the build on a shadow, a gradient, or a
+colour lifted from a framework's defaults.
 
 ### The room
 
-**A pre-flight check you run where you are standing.** `slidx doctor` reads
-power, disk, clock skew against NTP, the fonts your theme names, whether
-anything is recording the screen, and whether the network you are on works.
-Worst first, each with what to do about it.
+**A pre-flight check where you are standing.** `slidx doctor` reads power, disk,
+clock skew, the fonts your theme names, whether anything is recording the screen,
+and whether the network works. Worst first, each with what to do about it.
 
-**Presentation mode**, holding a wake lock and going fullscreen — and an honest
-line about the rest. No web API turns on Do Not Disturb or sets your volume, and
-none should: a page that could mute your machine could hide a phishing alert. So
-those are a checklist naming the setting and where it lives on your platform.
-
-**Time, as something you can act on.** A clock against the declared slot,
-warning before the end rather than as it expires. A behind/ahead reading that
-compares where you are against the per-slide budgets you wrote, and names the
-slides you marked optional when you need to drop one. Rehearsal recording that
-diffs where the time actually went against where you planned it.
+**Time you can act on.** A clock against the declared slot that warns before the
+end rather than as it expires, a behind/ahead reading against the per-slide
+budgets you wrote, the slides you marked optional when you need to drop one, and
+rehearsal recording that diffs where the time went against where you planned it.
 
 **Code you can read, and take away.** A shared fence is highlighted at build
 time, published as its own page inside your deck's own output, and a QR on the
-slide points at it. The page carries the _whole_ snippet rather than the part
-that fitted.
+slide points at it — carrying the _whole_ snippet rather than the part that
+fitted.
 
-**A demo fallback you declared.** A live target and a recording of it working,
-both already in the markup, switched by one key. A fallback that has to be
-fetched when the demo dies is not a fallback.
+**The audience, in real time.** A moderated question and reaction channel, and a
+demo fallback you declared: a live target and a recording of it working, so a
+dead demo is one keypress rather than an apology.
 
-**The audience, when you want them.** An opt-in Cloudflare Worker for moderated
-questions and reactions, anonymous by design, and it ends with the talk.
+### Across talks
 
-**Your phone as the clicker.** Paired by a QR, with the secret in the URL
-fragment so it never reaches an access log — and structurally unable to do
-anything but move the deck.
-
-### After, and across talks
+**A speaker does not give one talk.** They keep five decks in five repositories,
+revisit one a year later, and reuse a third. `~/.slidx` keeps an index that fills
+itself as you work: `slidx list` tables them with slide count and slot,
+`slidx grep` searches every one and answers **in slides rather than line
+numbers**, `slidx cd` resolves a query to a directory, and `create`, `add`, `mv`
+and `save` manage them without you composing Markdown by hand.
 
 **One command from finished deck to published.** `slidx publish` plans every
-destination from the frontmatter you already wrote at proposal time, performs
-everything that needs no account — the resources page, the blog scaffold, the
-archive record — and hands you the payload for the ones that do. Speaker Deck
-and Docswell fields are composed and checked against their documented caps.
+destination from the frontmatter you wrote at proposal time, performs everything
+that needs no account, and hands you the payload for the ones that do. There is
+**no HTTP client and no token store** anywhere under it — a tool that can post as
+you is a tool that has to be trusted with a credential.
 
-There is **no HTTP client and no token store** anywhere under it, and that is a
-property rather than an omission: a tool that can post as you is a tool that has
-to be trusted with a credential.
+**The file somebody else asked for.** `slidx export --target <browser|pdf|pdf-zip|png|pptx>`,
+each out of the build you already ran rather than a second rendering, so what you
+hand over is what you rehearsed.
 
-**The file somebody else asked for.** A conference wants a PDF, a review form
-wants one file per slide, a blog post wants images, a static host wants the
-site. `slidx export --target <name>` is one file each, and every one of them
-comes out of the build you already ran rather than a second rendering of your
-deck — so the thing you hand over is the thing you rehearsed. Each export says
-in one line what survives the trip, because an export that quietly lost the
-animation is worse than one that told you it would.
+**Everything from the CLI, including for an agent.** Fourteen commands, complete
+help and completions for six shells, a terminal UI, and `slidx mcp` — where every
+mutation is an edit operation that hands back its own inverse, so an agent
+editing your talk is structurally incapable of reflowing a paragraph.
 
-```bash
-slidx export --target browser   # the static site, as a zip
-slidx export --target pdf       # the deck as one document
-slidx export --target pdf-zip   # one PDF per slide
-slidx export --target png       # one image per stop
-```
+## Where each part is
 
-Nothing is uploaded and no account is involved, the same boundary
-`slidx publish` holds. **The stop is the unit everywhere**: a slide that builds
-in four steps is four images, because a handout showing only the last one shows
-the punchline without the setup.
+|                                                                    |                                                   |
+| ------------------------------------------------------------------ | ------------------------------------------------- |
+| Framework-independent output                                       | **shipped**                                       |
+| Native build, Markdown engine included                             | **shipped**                                       |
+| Managed index across decks — list, grep, cd, create, add, mv, save | **shipped**                                       |
+| Code on a slide, shared as a page behind a QR                      | **shipped**                                       |
+| Real-time audience channel                                         | **shipped**                                       |
+| Visual editor — outline, canvas, inspector, timeline, history      | **shipped**; direct manipulation in progress      |
+| Time budgets, pacing, rehearsal                                    | **shipped**                                       |
+| LSP, formatter, and a type check for the dialect                   | **shipped**                                       |
+| Linter for legibility, overflow, timing                            | **shipped**                                       |
+| Built-in themes as tokens                                          | **shipped**; npm-distributable themes in progress |
+| Everything reachable from the CLI                                  | **shipped**                                       |
+| Deploy assistance for slide platforms                              | **shipped** (payloads; uploads stay yours)        |
+| SEO artefacts — canonical, sitemap, cards, structured data         | in review                                         |
+| Automatic translation                                              | in review                                         |
+| System panel — display, mirroring, Do Not Disturb, volume          | in progress                                       |
+| Speaker camera on the slide                                        | in progress                                       |
 
-**The decks you already have.** `~/.slidx` keeps an index that fills itself as
-you work, so a talk you gave eighteen months ago is findable without you
-remembering which repository it was in. `slidx list` puts them in a table with
-the slide count and the slot each one was written for, `slidx grep` searches
-every one of them and answers in slides rather than line numbers, and
-`slidx cd` resolves a query to the directory. `slidx version` manages several
-slidx versions, pinned per deck by a `.slidx-version` file.
+Nothing is released yet. The five properties none of this will trade away — one execution of one model,
+steps as snapshots rather than deltas, parsing that never fails, offline by
+default, and the canvas and the file being one document — are on the
+documentation site under **Choosing slidx**, along with a section naming five
+reasons to use something else.
 
-**The record that finishes weeks later.** The recording appears when the
-conference gets round to it, so the archive step separates _blocked_ — a field
-you can add now — from _pending_, a field the world has not produced yet. Add
-one line months later and exactly one line of the record changes.
-
-## Status
-
-|                                                                 |                                                           |
-| --------------------------------------------------------------- | --------------------------------------------------------- |
-| Framework-independent output                                    | **shipped**                                               |
-| Native build, Markdown engine included                          | **shipped**                                               |
-| Visual editor — outline, canvas, inspector                      | **shipped**; animation timeline to do                     |
-| Language server — diagnostics, completion, symbols, hover       | **shipped**                                               |
-| Linter for legibility, overflow, timing                         | **shipped**                                               |
-| Built-in themes                                                 | **shipped**                                               |
-| Code sharing with QR                                            | **shipped**                                               |
-| Real-time audience channel                                      | **shipped**                                               |
-| Timing and rehearsal                                            | **shipped**                                               |
-| CLI — doctor, lint, fmt, dev, export, publish, preview, version | **shipped**                                               |
-| Managed multi-deck index — list, grep, cd, open                 | **shipped**                                               |
-| Deploy assistance for slide platforms                           | **shipped** (payloads; uploads stay yours)                |
-| Formatter for the parts slidx owns                              | **shipped**; dialect type check to do — #82               |
-| Custom themes distributable on npm                              | not started — #3                                          |
-| SEO artefacts beyond OG and one URL per slide                   | not started — #83                                         |
-| Automatic translation                                           | not started — #84                                         |
-| Speaker camera embed                                            | not started — #85                                         |
-| System-level control of notifications and volume                | **will not ship** — no browser API, and none should exist |
-
-Nothing above is released yet. [ROADMAP.md](./ROADMAP.md) is the honest version:
-every unchecked line there says _why_ it is not done, and it opens with what a
-checked box is allowed to mean — a distinction this project learned the hard
-way.
+[ROADMAP.md](./ROADMAP.md) is the honest version: every
+unchecked line says _why_ it is not done, and it opens with what a checked box is
+allowed to mean — a distinction this project learned the hard way, four times.
 
 ## What it looks like
 
@@ -352,30 +323,6 @@ fn retry(attempt: u32) -> Duration { … }
 
 `.share` publishes the snippet as its own page in the deck's output and draws a
 QR on the slide pointing at it.
-
-## Principles
-
-**One model, one execution.** The editor, the projector, the presenter view, the
-PDF and the social card all consume the same parsed deck. Presentation tools
-fail when those quietly disagree; the only durable fix is one parser and one step
-engine. That is also why the bindings are WebAssembly rather than a native
-addon — the editor's live preview and the production build run _the same code_.
-
-**Steps are snapshots, not deltas.** Each stop is a _complete_ state, compiled
-ahead of time. Advancing, going back, deep-linking to `?step=7` and printing all
-index into the same vector, so they cannot drift.
-
-**Parsing never fails.** Decks get edited minutes before a talk. A bad line
-produces a diagnostic and a slide that still renders, never an error that leaves
-a speaker with nothing.
-
-**Say what to do.** Every diagnostic carries a code, a position, and a concrete
-next action. A warning you cannot act on is noise.
-
-**Never claim more than you have.** Where a browser cannot do something, slidx
-says so and names the setting instead of pretending. A tool that reported a
-working fallback and then showed a spinner would be worse than no fallback,
-because you would have stopped checking.
 
 ## The `slidx` command
 
