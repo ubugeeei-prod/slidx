@@ -71,6 +71,7 @@ const RESOLVED_REHEARSAL_ID = "\0virtual:slidx-rehearsal";
 export function slidx(userOptions: SlidxOptions = {}): Plugin {
   const options = resolveOptions(userOptions);
   let root = process.cwd();
+  let dev = false;
 
   // Where the project's own static files come from, so a `robots.txt` it
   // already ships is not overwritten by one this plugin wrote.
@@ -85,6 +86,7 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
 
     configResolved(config) {
       root = config.root;
+      dev = config.command === "serve";
       publicDir = config.publicDir;
     },
 
@@ -125,7 +127,7 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
     async load(id) {
       if (id === RESOLVED_ENTRY_ID) return "export default null;";
       if (id === RESOLVED_ISLAND_CLIENT_ID && options.islands) {
-        return islandClientModule(root, options.islands);
+        return islandClientModule(root, options.islands, dev);
       }
       if (id === RESOLVED_RUNTIME_ID) return readRuntime();
       if (id === RESOLVED_REHEARSAL_ID) return readRehearsal();
@@ -154,10 +156,23 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
         const url = request.url ?? "/";
 
         if (url.split("?")[0] === ISLAND_CLIENT_PATH && options.islands) {
-          response.statusCode = 200;
-          response.setHeader("content-type", "text/javascript; charset=utf-8");
-          response.setHeader("cache-control", "no-store");
-          response.end(islandClientModule(root, options.islands, true));
+          try {
+            // The setup module can live outside Vite's lexical workspace root
+            // (notably when Windows expands the root but Node reports its temp
+            // directory with an 8.3 path). Sending this source raw makes the
+            // browser request `/@fs/…` before Vite has admitted the module and
+            // strict filesystem serving rejects it. Transforming the virtual
+            // entry gives Vite ownership of resolution, access and watching.
+            const client = await server.transformRequest(ISLAND_CLIENT_ID);
+            if (!client) throw new Error("Vite did not transform the island client.");
+
+            response.statusCode = 200;
+            response.setHeader("content-type", "text/javascript; charset=utf-8");
+            response.setHeader("cache-control", "no-store");
+            response.end(client.code);
+          } catch (error) {
+            next(error);
+          }
           return;
         }
 
