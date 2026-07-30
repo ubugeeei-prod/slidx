@@ -41,5 +41,12 @@ export type {
   SlideVerdict,
   TotalVerdict,
 } from "./report";
+export { openRehearsalSession } from "./session";
+export type {
+  RehearsalPersistence,
+  RehearsalSession,
+  RehearsalSessionOptions,
+  RehearsalStorage,
+} from "./session";
 export { trackRehearsals } from "./trend";
 export type { RehearsalTrend, SlideTrend, TrendDirection } from "./trend";
