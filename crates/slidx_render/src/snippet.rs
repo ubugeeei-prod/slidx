@@ -174,16 +174,24 @@ pub fn render_snippets(deck: &Deck, options: &SnippetOptions) -> Vec<SnippetPage
         .collect()
 }
 
-/// The slide's Markdown with a code beside every shared block.
+/// A code to plant on a slide, and where in the slide's content it goes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Figure {
+    /// Byte offset in the slide's content, just past the block being shared.
+    pub after: usize,
+    pub html: String,
+}
+
+/// Every code this slide should carry, in source order.
 ///
-/// Planted as raw HTML into the source rather than spliced into the rendered
-/// output, which is how [`slidx_core::markers`] plants step anchors. Position
-/// in the source is unambiguous; position among the `<pre>` elements of a
-/// document is a count that any raw HTML on the slide would throw off.
-pub fn stage(deck: &Deck, slide: &Slide, theme: &Theme) -> String {
+/// Exposed alongside [`stage`] because a renderer that places blocks into regions
+/// needs to know which block each code belongs to: a shared fence moved to the
+/// side region has to take its code with it, or the audience is looking at a
+/// block on one half of the slide and a QR for it on the other.
+pub fn figures(deck: &Deck, slide: &Slide, theme: &Theme) -> Vec<Figure> {
     let snippets = collect(deck);
 
-    let mut here: Vec<(usize, &Snippet)> = snippets
+    let mut here: Vec<Figure> = snippets
         .iter()
         .flat_map(|snippet| {
             snippet
@@ -191,20 +199,31 @@ pub fn stage(deck: &Deck, slide: &Slide, theme: &Theme) -> String {
                 .iter()
                 .zip(&snippet.after)
                 .filter(|(index, _)| **index == slide.index)
-                .map(move |(_, after)| (*after, snippet))
+                .map(move |(_, after)| Figure { after: *after, html: figure(snippet, deck, theme) })
         })
         .collect();
 
+    here.sort_unstable_by_key(|figure| figure.after);
+    here
+}
+
+/// The slide's Markdown with a code beside every shared block.
+///
+/// Planted as raw HTML into the source rather than spliced into the rendered
+/// output, which is how [`slidx_core::markers`] plants step anchors. Position
+/// in the source is unambiguous; position among the `<pre>` elements of a
+/// document is a count that any raw HTML on the slide would throw off.
+pub fn stage(deck: &Deck, slide: &Slide, theme: &Theme) -> String {
+    let here = figures(deck, slide, theme);
     if here.is_empty() {
         return slide.content.clone();
     }
 
-    // Back to front, so an insertion never moves an offset still to be used.
-    here.sort_unstable_by_key(|(after, _)| *after);
-
     let mut staged = slide.content.clone();
-    for (after, snippet) in here.iter().rev() {
-        staged.insert_str(*after, &figure(snippet, deck, theme));
+
+    // Back to front, so an insertion never moves an offset still to be used.
+    for figure in here.iter().rev() {
+        staged.insert_str(figure.after, &figure.html);
     }
 
     staged

@@ -64,32 +64,58 @@ html, body {
 }
 
 /*
- * Content is centred by default.
+ * The body is the layout's grid.
  *
- * A slide is a frame, not a page: text pinned to the top with the rest of the
- * frame empty reads as unfinished, and the eye has further to travel from the
- * heading to the first point. `top` is available for the slides that genuinely
- * want it, such as a long list that would otherwise straddle the centre line.
+ * Which regions it has and where they sit comes from the theme, emitted next to
+ * this stylesheet by `slidx_theme::layout`. What is here is the part no layout
+ * may change: the body fills the slide inside its padding, and it is a grid, so
+ * a region is a `grid-area` and every track is a share of the slide.
  */
 .slidx-slide-body {
   flex: 1;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  display: grid;
   gap: var(--slidx-space-block);
   font-size: var(--slidx-size-body);
   line-height: 1.5;
 }
 
-[data-slidx-layout="top"] .slidx-slide-body { justify-content: flex-start; }
-[data-slidx-layout="split"] .slidx-slide-body {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-content: center;
+/*
+ * Content is centred in its region by default.
+ *
+ * A slide is a frame, not a page: text pinned to the top with the rest of the
+ * frame empty reads as unfinished, and the eye has further to travel from the
+ * heading to the first point. A region that wants the top edge — a title band,
+ * or `layout: top` — declares it, and the generated rule says so.
+ *
+ * `min-width: 0` is load-bearing on a grid: without it a long line or a code
+ * block sets the column's minimum to its own intrinsic width, and a two-column
+ * layout silently stops being two equal columns.
+ */
+.slidx-region {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--slidx-space-block);
 }
 
-.slidx-slide-body > * { margin: 0; }
+/*
+ * A block is a box, because an editor has to be able to measure one.
+ *
+ * The overlay that highlights a block, snaps it to a region boundary, and warns
+ * that its type will be too small in a narrower column all read a rectangle. A
+ * wrapper with `display: contents` would carry the index and measure as zero.
+ */
+.slidx-block {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--slidx-space-block) * 0.5);
+}
+
+.slidx-block > * { margin: 0; }
 
 h1, h2, h3, h4, h5, h6 {
   color: var(--slidx-color-heading);

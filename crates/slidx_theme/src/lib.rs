@@ -21,6 +21,14 @@
 //! to reach for, which makes "shrink the text until it fits" — the reflex that
 //! produces unreadable slides — something the system does not offer.
 //!
+//! ## A layout is a named set of regions
+//!
+//! `layout: aside` is a grid the theme owns, and `{.side}` on a block is an
+//! author choosing one of its regions. That is the whole difference between a
+//! placement a reviewer can read and four floats in a file: the geometry belongs
+//! to the layout, so it survives a 4:3 projector and a rule can measure it. See
+//! [`layout`].
+//!
 //! ## Motion is opt-in and reversible
 //!
 //! Slide-to-slide transitions are CSS the browser runs across a real
@@ -45,12 +53,14 @@
 pub mod audit;
 pub mod builtin;
 pub mod css;
+pub mod layout;
 pub mod mix;
 pub mod palette;
 pub mod scale;
 pub mod theme;
 pub mod transition;
 
+pub use layout::{Layout, Region, RegionAlign};
 pub use palette::{Palette, Scheme};
 pub use scale::{TypeScale, REFERENCE_HEIGHT_PX};
 pub use theme::{Motion, Spacing, Theme, REDUCED_MOTION_CEILING_MS};
