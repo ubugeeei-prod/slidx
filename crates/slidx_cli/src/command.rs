@@ -317,14 +317,16 @@ mod tests {
     }
 
     #[test]
-    fn a_command_that_takes_the_caller_with_it_says_where_it_is_going() {
-        // Its standard output is captured by a shell function and read as a
-        // path, so anything else it printed there would be read as one too.
-        // Saying so in the help is what stops somebody adding a banner to it.
+    fn a_command_that_takes_the_caller_with_it_names_the_thing_that_carries_it() {
+        // These commands are half a feature on their own: they print where to go
+        // and cannot go there. `slidx shell` is the other half, and somebody
+        // reading this page is exactly the person who needs to know it exists —
+        // otherwise they write the command substitution and never learn that
+        // they did not have to.
         for command in ALL.iter().filter(|entry| entry.takes_the_caller_with_it) {
             assert!(
-                command.about.contains("standard output"),
-                "{} is captured by the shell integration and does not say so",
+                command.about.contains("slidx shell"),
+                "{} is followed by the shell integration and never mentions it",
                 command.name
             );
         }

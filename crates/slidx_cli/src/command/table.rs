@@ -203,7 +203,10 @@ list — so nothing has to be registered, and a project that has been deleted or
 moved stops appearing on its own.
 
 Slide counts and durations are read out of the decks rather than remembered, so
-a number in the table is the number in the file.",
+a number in the table is the number in the file.
+
+    slidx list
+    slidx list --json",
         &[Flag::switch("json", "Print the list as JSON")],
     ),
     leaf(
@@ -377,9 +380,13 @@ standard error.
 
 A query matching nothing prints nothing and exits non-zero. Read that status:
 quoted, an empty answer leaves `cd` where it was; unquoted, the empty word
-vanishes and `cd` takes you home.",
+vanishes and `cd` takes you home.
+
+With `slidx shell` loaded the substitution is unnecessary, and `slidx cd
+vueconf` simply takes you there.",
         &[],
-    ),
+    )
+    .taking_the_caller_with_it(),
     leaf(
         "grep",
         "search every deck this machine has seen",
@@ -396,7 +403,10 @@ a capital in it is matched exactly, so `Vue` finds the framework and not
 
 Only decks are read: `node_modules`, build output and dot directories are
 skipped, which is what keeps this fast enough to type on a whim rather than
-schedule.",
+schedule.
+
+    slidx grep \"the projector\"
+    slidx grep Vue --limit 20",
         &[
             Flag::taking("limit", "<number>", "Stop after this many matches. Default: 100"),
             Flag::switch("json", "Print the matches as JSON"),
