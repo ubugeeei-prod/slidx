@@ -17,12 +17,61 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: pnpm/action-setup@v4
+    - uses: pnpm/action-setup@v6
 
-    - uses: actions/setup-node@v4
+    - if: runner.os == 'Linux'
+      uses: useblacksmith/setup-node@v5
+      with:
+        node-version: 24
+
+    - if: runner.os != 'Linux'
+      uses: actions/setup-node@v5
       with:
         node-version: 24
         cache: pnpm
+
+    # A Blacksmith checkout keeps the Git mirror on its own sticky disk. These
+    # five mounts use the full per-job dependency allowance for everything
+    # expensive that the package managers and browser tests leave on disk.
+    - if: runner.os == 'Linux'
+      name: Mount pnpm store
+      uses: useblacksmith/stickydisk@v1
+      with:
+        key: ${{ github.repository }}-${{ runner.arch }}-pnpm-store
+        path: ~/.local/share/pnpm/store
+        commit: on-change
+
+    - if: runner.os == 'Linux'
+      name: Mount node_modules
+      uses: useblacksmith/stickydisk@v1
+      with:
+        key: ${{ github.repository }}-${{ runner.arch }}-node-modules
+        path: ./node_modules
+        commit: on-change
+
+    - if: runner.os == 'Linux'
+      name: Mount Cargo home
+      uses: useblacksmith/stickydisk@v1
+      with:
+        key: ${{ github.repository }}-${{ runner.arch }}-cargo-home
+        path: ~/.cargo
+        commit: on-change
+
+    - if: runner.os == 'Linux'
+      name: Mount Cargo target
+      uses: useblacksmith/stickydisk@v1
+      with:
+        key: ${{ github.repository }}-${{ runner.arch }}-cargo-target
+        path: ./target
+        commit: on-change
+
+    - if: runner.os == 'Linux'
+      name: Mount Playwright browsers
+      uses: useblacksmith/stickydisk@v1
+      with:
+        key: ${{ github.repository }}-${{ runner.arch }}-playwright
+        path: ~/.cache/ms-playwright
+        commit: on-change
 
     - if: inputs.rust == 'true' && inputs.wasm != 'true'
       uses: dtolnay/rust-toolchain@stable
@@ -50,12 +99,13 @@ runs:
       with:
         tool: wasm-bindgen-cli@${{ env.BINDGEN_VERSION }}
 
-    - if: inputs.rust == 'true' || inputs.wasm == 'true'
+    - if: runner.os != 'Linux' && (inputs.rust == 'true' || inputs.wasm == 'true')
       uses: Swatinem/rust-cache@v2
 
     # Vite+ caches task results by content hash, so a job that changed nothing
     # replays instead of re-running.
-    - uses: actions/cache@v4
+    - if: runner.os != 'Linux'
+      uses: actions/cache@v5
       with:
         path: node_modules/.cache/vite-plus
         key: vp-${{ runner.os }}-${{ inputs.rust }}-${{ hashFiles('pnpm-lock.yaml', 'Cargo.lock') }}
