@@ -163,7 +163,16 @@ fn walk(deck: &Deck, start: Position, style: &Style) -> Option<()> {
         let size = Box2::fitting(deck.meta.aspect, columns, rows.saturating_sub(3).max(6));
 
         let view = View { deck, slide: at.slide, stop: at.stop, size };
-        session.paint(&if helping { help(style) } else { screen::frame(&view, style) });
+        session.paint(&match () {
+            _ if helping => help(style),
+            // A box wider than the window wraps, and a wrapped box is not a
+            // box: the deck would look broken in a way that has nothing to do
+            // with the deck.
+            _ if columns < screen::SMALLEST.0 || rows < screen::SMALLEST.1 => {
+                screen::too_small(columns, rows, style)
+            }
+            _ => screen::frame(&view, style),
+        });
 
         let key = session.read();
 

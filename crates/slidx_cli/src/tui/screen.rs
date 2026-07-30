@@ -42,6 +42,12 @@ const CELL_ASPECT: f64 = 0.5;
 /// Never draw a box narrower than this; below it nothing is legible anyway.
 const MIN_WIDTH: usize = 24;
 
+/// The smallest window a frame can be drawn in at all.
+///
+/// Four columns for the border and its padding, and rows for the two rules, one
+/// line of content, the status line and the footer.
+pub const SMALLEST: (usize, usize) = (MIN_WIDTH + 4, 8);
+
 /// The size of the box, in terminal cells.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Box2 {
@@ -233,6 +239,25 @@ pub fn footer(style: &Style) -> String {
     )
 }
 
+/// What to draw when the window cannot hold a frame.
+///
+/// A box wider than the window wraps, and a wrapped box is not a box — the deck
+/// would look broken in a way that is nothing to do with the deck. Saying so is
+/// the honest frame at that size, and it names the number to change.
+pub fn too_small(columns: usize, rows: usize, style: &Style) -> String {
+    format!(
+        "{}\n{}\n",
+        style.paint(Ink::Warn, "This window is too small to draw a slide in."),
+        style.paint(
+            Ink::Faint,
+            format!(
+                "{columns}x{rows}; at least {}x{} is needed. q to quit.",
+                SMALLEST.0, SMALLEST.1
+            )
+        )
+    )
+}
+
 fn rule(width: usize, character: char, style: &Style) -> String {
     format!("  {}\n", style.paint(Ink::Faint, character.to_string().repeat(width)))
 }
@@ -302,6 +327,27 @@ mod tests {
 
         assert!(size.height <= 20, "{size:?}");
         assert!(size.width < 200, "{size:?}");
+    }
+
+    #[test]
+    fn a_window_too_small_for_a_slide_says_so_rather_than_drawing_a_broken_box() {
+        // And names the size it wants, because the fix is one drag of a window
+        // edge and nothing else on screen would say which direction.
+        let text = too_small(20, 5, &Style::plain());
+
+        assert!(text.contains("too small"), "{text}");
+        assert!(text.contains("20x5"), "{text}");
+        assert!(text.contains(&format!("{}x{}", SMALLEST.0, SMALLEST.1)), "{text}");
+        assert!(text.contains('q'), "{text}");
+    }
+
+    #[test]
+    fn the_message_for_a_small_window_fits_in_a_small_window() {
+        // It would be a poor joke to overflow the window while explaining that
+        // the window is too small.
+        for line in too_small(20, 5, &Style::plain()).lines() {
+            assert!(style::width::of(line) <= 46, "{} cells: {line}", style::width::of(line));
+        }
     }
 
     #[test]
