@@ -25,14 +25,34 @@
  * The Markdown view stays, and is still the way to add a block, split a
  * paragraph, or write a fence. What it is no longer is the only way to change a
  * word.
+ *
+ * # How a change reaches the page
+ *
+ * By replacing the slide element inside the frame with the one the route now
+ * serves, rather than by reloading the frame — see [`live`](./live). Reloading
+ * throws away the caret and the scroll position, which is the whole cost of
+ * editing on the canvas: an author changes a word, the frame blinks, and they
+ * are somewhere else on the slide. Nothing about the preview is weakened by it;
+ * the markup still comes from the deck's own route, which is the page the build
+ * emits. A slide with steps still reloads, for the reason `live` gives.
  */
 
 import { element } from "./dom";
 import type { BlockSpans } from "./client";
 import { BLOCK_ATTRIBUTE } from "./geometry";
+import { canPatch, caretIn, patch, restore, type Caret } from "./live";
 import type { EditOp } from "./operations";
 import type { Surface } from "./outline";
 import { changeBetween, editableIn, planBlock, rangeOf, type TextPlan } from "./text";
+
+/**
+ * Marks a document whose selection is already being reported.
+ *
+ * The slide is replaced in place when a change lands, so the wiring runs again
+ * on a page that already has its listeners — and a second pair would report
+ * every selection twice.
+ */
+const REPORTING_ATTRIBUTE = "data-slidx-reporting";
 
 export interface CanvasHandlers {
   run(op: EditOp): void;
@@ -51,6 +71,8 @@ export interface CanvasOptions {
   bodyOf(slide: number): string;
   /** Where the slide's blocks and marks are. Absent leaves the page read-only. */
   blocksOf?(slide: number): readonly BlockSpans[];
+  /** Injected so bringing the frame up to date is testable without a server. */
+  fetch?: typeof globalThis.fetch;
 }
 
 export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): Surface {
@@ -71,6 +93,8 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
   let slide = 0;
   let editing = false;
   let shown = "";
+  /** Where the author was before the change that is about to land. */
+  let held: Caret | undefined;
 
   toggle.addEventListener("click", () => {
     editing = !editing;
@@ -85,15 +109,29 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
     handlers.run({ op: "setBody", slide, body: source.value });
   });
 
-  frame.addEventListener("load", () => {
-    const document = frame.contentDocument;
-    if (!document) return;
+  /** Makes the page in the frame editable, and puts the caret back if it moved. */
+  function bind(): void {
+    const page = frame.contentDocument;
+    if (!page) return;
 
-    attachEditing(document, slide, handlers, {
+    const lines = attachEditing(page, slide, handlers, {
       body: () => options.bodyOf(slide),
       blocks: () => options.blocksOf?.(slide) ?? [],
     });
-  });
+
+    const wanted = held;
+    held = undefined;
+    if (!wanted) return;
+
+    const block = page.querySelector(`[${BLOCK_ATTRIBUTE}="${wanted.block}"]`);
+    // The line may have gone — a block deleted, or a paragraph that stopped
+    // being addressable. Then the caret has nowhere to be, which is what a
+    // reload would have done anyway.
+    const line = block ? [...block.querySelectorAll("[contenteditable]")][wanted.line] : undefined;
+    if (line && lines.includes(line)) restore(page, line, wanted.at);
+  }
+
+  frame.addEventListener("load", bind);
 
   return {
     root,
@@ -110,10 +148,25 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
       }
 
       const next = routeFor(options.deckBase, slide);
-      if (moved || frame.getAttribute("data-source") !== state.source) {
-        frame.setAttribute("data-source", state.source);
-        frame.setAttribute("src", `${next}?at=${Date.now()}`);
+      if (!moved && frame.getAttribute("data-source") === state.source) return;
+
+      frame.setAttribute("data-source", state.source);
+
+      // A slide the author is typing on keeps its document. Everything else —
+      // another slide, a staged one, a page that cannot be read — reloads,
+      // which is always correct and only costs the caret.
+      if (!moved && canPatch(frame, state.slides[slide]?.stopCount ?? 1)) {
+        held = caretIn(frame.contentDocument!);
+
+        void patch(frame, next, options.fetch).then((patched) => {
+          if (patched) bind();
+          else frame.setAttribute("src", `${next}?at=${Date.now()}`);
+        });
+
+        return;
       }
+
+      frame.setAttribute("src", `${next}?at=${Date.now()}`);
     },
   };
 }
@@ -126,23 +179,25 @@ export function routeFor(base: string, slide: number): string {
 }
 
 /**
- * Makes the rendered slide answer to a cursor.
+ * Makes the rendered slide answer to a cursor, and says which lines it opened.
  *
  * Takes a document rather than the frame so it can be driven without one. The
  * source is read now rather than at commit time, because now is the moment the
- * page and the file are known to agree: this runs on the load the render caused.
+ * page and the file are known to agree: this runs on the load, or on the swap,
+ * that the render caused.
  */
 export function attachEditing(
   document: Document,
   slide: number,
   handlers: CanvasHandlers,
   source: EditableSource,
-): void {
+): Element[] {
   const body = document.querySelector(".slidx-slide-body");
-  if (!body) return;
+  if (!body) return [];
 
   const text = source.body();
   const blocks = source.blocks();
+  const opened: Element[] = [];
 
   for (const wrapper of body.querySelectorAll(`[${BLOCK_ATTRIBUTE}]`)) {
     const index = Number(wrapper.getAttribute(BLOCK_ATTRIBUTE));
@@ -151,19 +206,31 @@ export function attachEditing(
 
     for (const [line, plan] of planBlock(text, spans, editableIn(wrapper))) {
       open(line, plan, slide, handlers);
+      opened.push(line);
     }
   }
 
+  // The body is looked up again on every report rather than closed over: the
+  // slide is replaced in place when a change lands, and an offset measured
+  // against the element that used to be there is measured against nothing.
   const report = () => {
     const selection = document.getSelection();
     const text = selection?.toString() ?? "";
-    if (text.trim().length === 0) return;
+    const showing = document.querySelector(".slidx-slide-body");
+    if (text.trim().length === 0 || !showing) return;
 
-    handlers.selected(text, offsetIn(body, selection!));
+    handlers.selected(text, offsetIn(showing, selection!));
   };
 
-  document.addEventListener("mouseup", report);
-  document.addEventListener("keyup", report);
+  // Once per document, not once per swap: the listeners are on the document and
+  // the slide inside it is what gets replaced.
+  if (!document.body.hasAttribute(REPORTING_ATTRIBUTE)) {
+    document.body.setAttribute(REPORTING_ATTRIBUTE, "");
+    document.addEventListener("mouseup", report);
+    document.addEventListener("keyup", report);
+  }
+
+  return opened;
 }
 
 /**
