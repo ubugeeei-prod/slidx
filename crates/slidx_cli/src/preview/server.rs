@@ -30,7 +30,7 @@
 
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, TcpStream};
+use std::net::{Ipv4Addr, Shutdown, SocketAddr, SocketAddrV4, TcpListener, TcpStream};
 use std::path::{Component, Path, PathBuf};
 use std::time::Duration;
 
@@ -174,7 +174,6 @@ pub fn serve(listener: &TcpListener, site: &Site) {
         // would need a read loop and a timeout, and a preview server that
         // holds a browser's connection open is one that appears to hang.
         let _ = answer(&mut stream, site);
-        let _ = stream.flush();
     }
 }
 
@@ -254,7 +253,15 @@ fn reply(
         body.len()
     )?;
 
-    stream.write_all(body)
+    stream.write_all(body)?;
+    stream.flush()?;
+
+    // Do not rely on dropping the socket to tell the browser the response is
+    // complete. Winsock may turn that implicit close into a reset, even after
+    // every response byte arrived. An explicit send-half shutdown queues FIN
+    // after the body while leaving the receive half available until the
+    // connection handle itself is released.
+    stream.shutdown(Shutdown::Write)
 }
 
 #[cfg(test)]
@@ -519,5 +526,38 @@ mod tests {
         server.join().expect("server");
 
         assert!(response.starts_with("HTTP/1.1 404"), "{response}");
+    }
+
+    #[test]
+    fn the_response_reaches_eof_before_the_server_drops_its_socket_handle() {
+        use std::io::Read;
+        use std::net::TcpStream;
+        use std::sync::mpsc;
+
+        let built = Built::new("finish");
+        let listener = bind(0).expect("bind");
+        let port = listener.local_addr().expect("address").port();
+        let site = built.site();
+        let (release_server, hold_server) = mpsc::channel();
+
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept");
+            answer(&mut stream, &site).expect("answer");
+            hold_server.recv().expect("release");
+        });
+
+        let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("connect");
+        stream.set_read_timeout(Some(Duration::from_secs(2))).expect("timeout");
+        write!(stream, "GET /slides/runtime.js HTTP/1.1\r\nHost: localhost\r\n\r\n")
+            .expect("write");
+
+        let mut response = String::new();
+        let read = stream.read_to_string(&mut response);
+        release_server.send(()).expect("release");
+        server.join().expect("server");
+
+        read.expect("the explicit send shutdown reaches the client as EOF");
+        assert!(response.starts_with("HTTP/1.1 200 OK"), "{response}");
+        assert!(response.contains("export const runtime"), "{response}");
     }
 }

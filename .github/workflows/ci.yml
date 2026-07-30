@@ -33,21 +33,22 @@ jobs:
 
   # Which runners this run uses.
   #
-  # A pull request is checked on Linux alone. Running three platforms on every
-  # push and then all three again on the way to main is the same work twice, and
-  # the second time is the one that decides whether main is good.
+  # TypeScript and builds on a pull request are checked on Linux alone. Rust
+  # also runs on Windows because its filesystem, process and socket behaviour
+  # differs materially, and those differences need to stop a pull request
+  # before it reaches main.
   #
   # So the full matrix runs where it settles something: on main, and on the
-  # release workflow that calls this one before it publishes. The cost is that a
-  # Windows-only break reaches main and is caught by main's own run rather than
-  # by the pull request — a slower report on a rarer failure, which is the trade
-  # this repository wants while a wave of work is landing.
+  # release workflow that calls this one before it publishes. macOS Rust and
+  # the complete TypeScript/build matrix remain there; Windows Rust is the
+  # deliberate extra PR guard.
   platforms:
     name: platforms
     runs-on: blacksmith-32vcpu-ubuntu-2404
     outputs:
       all: ${{ steps.pick.outputs.all }}
       browsers: ${{ steps.pick.outputs.browsers }}
+      rust: ${{ steps.pick.outputs.rust }}
     steps:
       - id: pick
         shell: bash
@@ -55,9 +56,11 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo 'all=["blacksmith-32vcpu-ubuntu-2404"]' >> "$GITHUB_OUTPUT"
             echo 'browsers=["blacksmith-32vcpu-ubuntu-2404"]' >> "$GITHUB_OUTPUT"
+            echo 'rust=["blacksmith-32vcpu-ubuntu-2404","blacksmith-32vcpu-windows-2025"]' >> "$GITHUB_OUTPUT"
           else
             echo 'all=["blacksmith-32vcpu-ubuntu-2404","blacksmith-12vcpu-macos-latest","blacksmith-32vcpu-windows-2025"]' >> "$GITHUB_OUTPUT"
             echo 'browsers=["blacksmith-32vcpu-ubuntu-2404","blacksmith-12vcpu-macos-latest"]' >> "$GITHUB_OUTPUT"
+            echo 'rust=["blacksmith-32vcpu-ubuntu-2404","blacksmith-12vcpu-macos-latest","blacksmith-32vcpu-windows-2025"]' >> "$GITHUB_OUTPUT"
           fi
 
   rust:
@@ -67,7 +70,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(needs.platforms.outputs.all) }}
+        os: ${{ fromJSON(needs.platforms.outputs.rust) }}
     steps:
       - if: runner.os == 'Linux'
         uses: useblacksmith/checkout@v1
