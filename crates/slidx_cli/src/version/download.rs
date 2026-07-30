@@ -95,6 +95,19 @@ pub fn release_url(version: &str) -> String {
     }
 }
 
+/// Where the newest published release's assets live.
+///
+/// GitHub resolves `latest/download` to the newest non-prerelease without an
+/// API call, token, or rate limit. A mirror uses the same `SLIDX_BASE_URL`
+/// override as `version install`; it is responsible for exposing the release
+/// it considers current at that base.
+pub fn latest_release_url() -> String {
+    match std::env::var("SLIDX_BASE_URL") {
+        Ok(base) if !base.is_empty() => base.trim_end_matches('/').to_string(),
+        _ => format!("https://github.com/{REPO}/releases/latest/download"),
+    }
+}
+
 /// The asset for one target triple.
 pub fn asset_name(target: &str) -> String {
     if target.contains("windows") {
@@ -261,6 +274,16 @@ ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  slidx-aarch64-
             release_url("0.3.0"),
             "https://github.com/ubugeeei-prod/slidx/releases/download/v0.3.0"
         );
+    }
+
+    #[test]
+    fn the_latest_release_needs_no_api_endpoint() {
+        if std::env::var_os("SLIDX_BASE_URL").is_none() {
+            assert_eq!(
+                latest_release_url(),
+                "https://github.com/ubugeeei-prod/slidx/releases/latest/download"
+            );
+        }
     }
 
     #[test]

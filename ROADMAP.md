@@ -63,6 +63,7 @@ The minimum a speaker can stand on stage with.
 - [x] Client runtime: step resolution and the anchor contract — #4
 - [x] Client runtime: navigation, keyboard, deep links — #4
 - [x] Slide-to-slide transitions — #4
+- [x] `slidx self-update`, checksum-verified and install-channel aware
 - [x] **Offline guarantee**: a remote asset is a lint error — #5
 - [x] Print shell with each stop as its own page — #6
 - [x] Automated PDF at build time — #6

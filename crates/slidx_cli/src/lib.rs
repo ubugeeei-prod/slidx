@@ -79,6 +79,7 @@ pub mod publish;
 pub mod report;
 pub mod rm;
 pub mod save;
+pub mod self_update;
 pub mod sha256;
 pub mod shell;
 pub mod style;
@@ -155,6 +156,7 @@ pub fn run(argv: &[String], style: &Style) -> Outcome {
             (None, "mv") => mv::run(&matches, style),
             (None, "rm") => rm::run(&matches, style),
             (None, "save") => save::run(&matches, style),
+            (None, "self-update") => self_update::run(style),
             (None, "cd") => cd::run(&matches, style),
             (None, "grep") => grep::run(&matches, style),
             (None, "preview") => preview::run(&matches, style),
