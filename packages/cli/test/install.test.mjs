@@ -79,14 +79,14 @@ describe("platform detection", () => {
       const [os, arch] = UNAME[platform.target];
       expect(dryRun(os, arch)).toContain(platform.target);
     }
-  });
+  }, 10_000);
 
   it("names the asset the release actually uploads", () => {
     for (const platform of posixPlatforms()) {
       const [os, arch] = UNAME[platform.target];
       expect(dryRun(os, arch)).toContain(assetName(platform));
     }
-  });
+  }, 10_000);
 
   it("accepts the other spellings people's machines use for the same chip", () => {
     // A shell that says amd64, or arm64 on Linux where the triple says

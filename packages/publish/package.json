@@ -1,5 +1,5 @@
 {
-  "name": "@slidx/publish",
+  "name": "@ubugeeei/slidx-publish",
   "version": "0.1.0",
   "description": "Plans and payloads for publishing a finished slidx deck. Performs nothing, needs no credentials",
   "license": "MIT",
@@ -27,6 +27,6 @@
     "pack:lib": "vp pack src/index.ts --dts --out-dir dist"
   },
   "dependencies": {
-    "@slidx/wasm": "workspace:*"
+    "@ubugeeei/slidx-wasm": "workspace:*"
   }
 }

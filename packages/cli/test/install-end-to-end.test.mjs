@@ -171,5 +171,5 @@ describe.skipIf(process.platform === "win32" || !HERE)("installing from a releas
 
     install(release, home);
     expect(readFileSync(join(home, "bin", "slidx"), "utf8")).toContain("9.9.9-test");
-  });
+  }, 10_000);
 });

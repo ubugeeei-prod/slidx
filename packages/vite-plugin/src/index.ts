@@ -1,10 +1,10 @@
 /**
- * `@slidx/vite-plugin` — decks in a Vite project.
+ * `@ubugeeei/slidx-vite-plugin` — decks in a Vite project.
  *
  * The whole install-to-deploy path is meant to be two commands:
  *
  * ```sh
- * vp add -D @slidx/vite-plugin
+ * vp add -D @ubugeeei/slidx-vite-plugin
  * vp build
  * ```
  *
@@ -525,7 +525,7 @@ function readRuntime(): Promise<string> {
     const { readFile } = await import("node:fs/promises");
     const require = createRequire(import.meta.url);
 
-    return readFile(require.resolve("@slidx/runtime"), "utf8");
+    return readFile(require.resolve("@ubugeeei/slidx-runtime"), "utf8");
   })();
 
   return runtime;
@@ -538,7 +538,7 @@ function readRehearsal(): Promise<string> {
     const { readFile } = await import("node:fs/promises");
     const require = createRequire(import.meta.url);
 
-    return readFile(require.resolve("@slidx/rehearsal"), "utf8");
+    return readFile(require.resolve("@ubugeeei/slidx-rehearsal"), "utf8");
   })();
 
   return rehearsal;
@@ -551,7 +551,7 @@ function readEffects(): Promise<string> {
     const { readFile } = await import("node:fs/promises");
     const require = createRequire(import.meta.url);
 
-    return readFile(require.resolve("@slidx/runtime/effects.css"), "utf8");
+    return readFile(require.resolve("@ubugeeei/slidx-runtime/effects.css"), "utf8");
   })();
 
   return effects;

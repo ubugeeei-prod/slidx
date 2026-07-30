@@ -75,8 +75,8 @@ function installTree({ withPlatformPackage = true } = {}) {
       { cwd: ROOT, stdio: "pipe" },
     );
 
-    const name = HERE.npm.replace("@slidx/", "");
-    mkdirSync(join(root, "node_modules", "@slidx"), { recursive: true });
+    const name = HERE.npm.replace("@ubugeeei/slidx-", "");
+    mkdirSync(join(root, "node_modules", "@ubugeeei"), { recursive: true });
     execFileSync("cp", ["-R", join(root, "generated", name), join(root, "node_modules", HERE.npm)]);
   }
 

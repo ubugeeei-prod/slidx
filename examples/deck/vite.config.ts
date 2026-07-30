@@ -1,6 +1,6 @@
 import { defineConfig } from "vite";
 
-import { slidx } from "@slidx/vite-plugin";
+import { slidx } from "@ubugeeei/slidx-vite-plugin";
 
 // The whole configuration. `slidx()` finds ./slides, serves them in dev, and
 // emits static HTML on build.

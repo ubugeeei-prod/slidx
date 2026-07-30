@@ -55,7 +55,7 @@ inlined or bundled. A deck that reaches for a CDN does not build. This is the
 single most opinionated thing in the project and it is not adjustable, because
 the failure it prevents happens in a room where you cannot fix it.
 
-**The build is Vite.** `@slidx/vite-plugin` is the whole configuration and there
+**The build is Vite.** `@ubugeeei/slidx-vite-plugin` is the whole configuration and there
 is deliberately no `slidx build` — one pipeline is the point. The `slidx` binary
 is separate and optional, and does the things a build cannot.
 

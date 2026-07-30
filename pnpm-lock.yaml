@@ -26,12 +26,12 @@ importers:
 
   .:
     devDependencies:
-      '@slidx/vite-plugin':
-        specifier: workspace:*
-        version: link:packages/vite-plugin
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
+      '@ubugeeei/slidx-vite-plugin':
+        specifier: workspace:*
+        version: link:packages/vite-plugin
       happy-dom:
         specifier: 'catalog:'
         version: 20.11.1
@@ -50,7 +50,7 @@ importers:
 
   examples/deck:
     devDependencies:
-      '@slidx/vite-plugin':
+      '@ubugeeei/slidx-vite-plugin':
         specifier: workspace:*
         version: link:../../packages/vite-plugin
       vite:
@@ -65,7 +65,7 @@ importers:
 
   packages/editor:
     devDependencies:
-      '@slidx/runtime':
+      '@ubugeeei/slidx-runtime':
         specifier: workspace:*
         version: link:../runtime
 
@@ -98,7 +98,7 @@ importers:
 
   packages/publish:
     dependencies:
-      '@slidx/wasm':
+      '@ubugeeei/slidx-wasm':
         specifier: workspace:*
         version: link:../wasm
 
@@ -106,7 +106,7 @@ importers:
 
   packages/runtime:
     devDependencies:
-      '@slidx/wasm':
+      '@ubugeeei/slidx-wasm':
         specifier: workspace:*
         version: link:../wasm
 
@@ -114,19 +114,19 @@ importers:
 
   packages/vite-plugin:
     dependencies:
-      '@slidx/editor':
+      '@ubugeeei/slidx-editor':
         specifier: workspace:*
         version: link:../editor
-      '@slidx/islands':
+      '@ubugeeei/slidx-islands':
         specifier: workspace:*
         version: link:../islands
-      '@slidx/rehearsal':
+      '@ubugeeei/slidx-rehearsal':
         specifier: workspace:*
         version: link:../rehearsal
-      '@slidx/runtime':
+      '@ubugeeei/slidx-runtime':
         specifier: workspace:*
         version: link:../runtime
-      '@slidx/wasm':
+      '@ubugeeei/slidx-wasm':
         specifier: workspace:*
         version: link:../wasm
       playwright:

@@ -96,7 +96,7 @@ mod tests {
             (Language::Python, "def f(x: int) -> str:\n    return f'{x}'\n"),
             (Language::Json, "{\"a\": [1, true, null], \"b\": \"c\"}"),
             (Language::Html, "<p class=\"x\">a &amp; b</p><!-- note -->"),
-            (Language::Shell, "npm i -D @slidx/vite-plugin # install"),
+            (Language::Shell, "npm i -D @ubugeeei/slidx-vite-plugin # install"),
         ];
 
         for (language, source) in samples {

@@ -78,7 +78,7 @@ if (built.length !== PLATFORMS.length) {
 }
 
 function writePackage(platform, binary) {
-  const directory = join(outDir, platform.npm.replace("@slidx/", ""));
+  const directory = join(outDir, platform.npm.replace("@ubugeeei/slidx-", ""));
   mkdirSync(join(directory, "bin"), { recursive: true });
 
   const destination = join(directory, "bin", binaryName(platform));
@@ -106,7 +106,7 @@ function writePackage(platform, binary) {
  * second `slidx` on the PATH that shadows the wrapper on whichever platform
  * happened to match. The wrapper resolves the file directly.
  *
- * No `exports` either, so `require.resolve("@slidx/cli-linux-x64/bin/slidx")`
+ * No `exports` either, so `require.resolve("@ubugeeei/slidx-cli-linux-x64/bin/slidx")`
  * reaches the file. An `exports` map would have to list it, which is one more
  * place the layout is written down.
  */

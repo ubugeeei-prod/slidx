@@ -30,7 +30,7 @@
 //!
 //! # One implementation
 //!
-//! `@slidx/publish` is a wrapper over this crate through
+//! `@ubugeeei/slidx-publish` is a wrapper over this crate through
 //! [`call::Call`], so the caps, the wording of every reason, and the order of
 //! every list exist once. A second implementation in TypeScript would be a
 //! second set of answers to "will Speaker Deck accept this title".

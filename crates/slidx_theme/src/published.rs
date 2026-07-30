@@ -8,7 +8,7 @@
 //!
 //! But a distribution path nobody has walked is a path that does not work.
 //! `workshop` exists so the package format is exercised by something real —
-//! generated here, published as `@slidx/theme-workshop`, and reached by a deck
+//! generated here, published as `@ubugeeei/slidx-theme-workshop`, and reached by a deck
 //! through [`crate::package`] with no shortcut back into `builtin::find`.
 //! [`crate::resolve`] does not consult this module, and a test asserts it: the
 //! moment `workshop` resolves as a built-in, the path stops being tested.
@@ -48,7 +48,7 @@ use crate::theme::{Motion, Spacing, Theme};
 pub const ID: &str = "workshop";
 
 /// The npm package that carries it.
-pub const PACKAGE: &str = "@slidx/theme-workshop";
+pub const PACKAGE: &str = "@ubugeeei/slidx-theme-workshop";
 
 /// System faces only, the same rule the built-ins are held to.
 ///

@@ -9,7 +9,7 @@
 //! Not "it builds if it has to" — it does not build, and when there is nothing
 //! to preview it says so and names `vite build`. The reasoning is the same one
 //! that keeps `slidx build` from existing at all: the pipeline is
-//! `@slidx/vite-plugin`, and a second thing that can produce a deck is two
+//! `@ubugeeei/slidx-vite-plugin`, and a second thing that can produce a deck is two
 //! answers to one question. A preview command that quietly rebuilt would be
 //! exactly that, wearing a different name.
 //!
@@ -261,7 +261,7 @@ fn nothing_built(out: &Path) -> String {
     format!(
         "There is nothing at {}.\n\n\
          `slidx preview` shows what a build produced; it does not produce one.\n\
-         Building a deck is @slidx/vite-plugin's job:\n\n\
+         Building a deck is @ubugeeei/slidx-vite-plugin's job:\n\n\
          \x20 vite build\n\n\
          Then `slidx preview` again, or point it at another directory.\n",
         out.display()
@@ -271,7 +271,7 @@ fn nothing_built(out: &Path) -> String {
 fn not_a_deck(out: &Path) -> String {
     format!(
         "{} does not look like a built deck — nothing in it has an index.html.\n\n\
-         `slidx preview` reads the output of @slidx/vite-plugin:\n\n\
+         `slidx preview` reads the output of @ubugeeei/slidx-vite-plugin:\n\n\
          \x20 vite build\n",
         out.display()
     )
@@ -431,7 +431,7 @@ mod tests {
 
         assert!(message.contains("vite build"), "{message}");
         assert!(message.contains("does not produce one"), "{message}");
-        assert!(message.contains("@slidx/vite-plugin"), "{message}");
+        assert!(message.contains("@ubugeeei/slidx-vite-plugin"), "{message}");
     }
 
     #[test]

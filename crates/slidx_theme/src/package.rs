@@ -35,7 +35,7 @@
 //! owns:
 //!
 //! ```json
-//! { "name": "@slidx/theme-workshop", "slidx": { "theme": "./theme.json" } }
+//! { "name": "@ubugeeei/slidx-theme-workshop", "slidx": { "theme": "./theme.json" } }
 //! ```
 //!
 //! A manifest key rather than an `exports` subpath, because the document is not

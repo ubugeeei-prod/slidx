@@ -241,8 +241,8 @@ fn unreadable_name(name: &str) -> String {
     format!(
         "The build wrote a frame called {name}, which does not say which slide it is.\n\n\
          slidx expects `slide-<number>-stop-<number>.png`. A name in another shape means\n\
-         the binary and @slidx/vite-plugin are different versions:\n\n\
-         \x20 vp add -D @slidx/vite-plugin@latest\n"
+         the binary and @ubugeeei/slidx-vite-plugin are different versions:\n\n\
+         \x20 vp add -D @ubugeeei/slidx-vite-plugin@latest\n"
     )
 }
 

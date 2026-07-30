@@ -200,7 +200,7 @@ fn directory_name(root: &Path) -> String {
 const VITE_CONFIG: &str = "\
 import { defineConfig } from \"vite\";
 
-import { slidx } from \"@slidx/vite-plugin\";
+import { slidx } from \"@ubugeeei/slidx-vite-plugin\";
 
 // The whole configuration. `slidx()` finds ./slides, serves them and the editor
 // in dev, and on build emits one HTML page per slide, a PDF and social cards.
@@ -225,7 +225,7 @@ fn package_json(name: &str) -> String {
         "{{\n  \"name\": \"{slug}\",\n  \"private\": true,\n  \"type\": \"module\",\n  \
          \"scripts\": {{\n    \"dev\": \"vite\",\n    \"build\": \"vite build\",\n    \
          \"preview\": \"vite preview\"\n  }},\n  \"devDependencies\": {{\n    \
-         \"@slidx/vite-plugin\": \"^{version}\",\n    \"vite\": \"^7.3.6\"\n  }}\n}}\n",
+         \"@ubugeeei/slidx-vite-plugin\": \"^{version}\",\n    \"vite\": \"^7.3.6\"\n  }}\n}}\n",
         version = crate::version()
     )
 }
@@ -405,7 +405,8 @@ mod tests {
         let manifest = package_json("vueconf");
 
         assert!(
-            manifest.contains(&format!("\"@slidx/vite-plugin\": \"^{}\"", crate::version())),
+            manifest
+                .contains(&format!("\"@ubugeeei/slidx-vite-plugin\": \"^{}\"", crate::version())),
             "{manifest}"
         );
         assert!(manifest.contains("\"private\": true"), "{manifest}");

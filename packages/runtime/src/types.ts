@@ -2,7 +2,7 @@
  * The deck model, as it crosses from Rust into the browser.
  *
  * The shapes the pipeline produces are re-exported rather than restated. They
- * are generated from the Rust types into `@slidx/wasm`, which is a build-time
+ * are generated from the Rust types into `@ubugeeei/slidx-wasm`, which is a build-time
  * dependency here and nothing more: `export type` erases, so the runtime an
  * audience downloads is not one byte larger for knowing what a frame is, and
  * `vp pack --dts` inlines the declarations into this package's own.
@@ -12,7 +12,7 @@
  * a copy of it.
  */
 
-import type { StepTimeline } from "@slidx/wasm";
+import type { StepTimeline } from "@ubugeeei/slidx-wasm";
 
 export type {
   Easing,
@@ -24,7 +24,7 @@ export type {
   StepFrame,
   StepTimeline,
   Visibility,
-} from "@slidx/wasm";
+} from "@ubugeeei/slidx-wasm";
 
 /**
  * A live demo and the recording that stands in for it.

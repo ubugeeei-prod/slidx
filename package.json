@@ -13,8 +13,8 @@
     "bench": "vp run bench:rust"
   },
   "devDependencies": {
-    "@slidx/vite-plugin": "workspace:*",
     "@types/node": "catalog:",
+    "@ubugeeei/slidx-vite-plugin": "workspace:*",
     "happy-dom": "catalog:",
     "playwright": "^1.62.0",
     "typescript": "catalog:",

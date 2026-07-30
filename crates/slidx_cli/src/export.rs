@@ -9,7 +9,7 @@
 //! ## This is orchestration, not a renderer
 //!
 //! **`slidx export` never renders a deck.** It runs the build the author
-//! already has — `@slidx/vite-plugin`, driving a real browser over the print
+//! already has — `@ubugeeei/slidx-vite-plugin`, driving a real browser over the print
 //! shell it emitted — and packages what that wrote. slidx still has no `build`,
 //! and this is not one wearing another name: without the plugin installed it
 //! produces nothing at all, and says so.

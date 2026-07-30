@@ -167,7 +167,7 @@ describe("building a deck with no configuration", () => {
     const runtime = await readFile(join(result.root, "dist/slides/runtime.js"), "utf8");
 
     expect(rehearsal).toContain("openRehearsalSession");
-    expect(rehearsal).not.toMatch(/from\s+["']@slidx\//);
+    expect(rehearsal).not.toMatch(/from\s+["']@ubugeeei\/slidx-/);
     expect(runtime).not.toContain("openRehearsalSession");
   });
 

@@ -1,6 +1,6 @@
 //! The one door out of this crate.
 //!
-//! `@slidx/publish` is a wrapper rather than a second implementation, so every
+//! `@ubugeeei/slidx-publish` is a wrapper rather than a second implementation, so every
 //! function it exports has to reach this crate somehow. Twenty-odd
 //! `#[wasm_bindgen]` functions would be twenty-odd places for the two sides to
 //! drift, and each one would have to be declared again in the binding crate.

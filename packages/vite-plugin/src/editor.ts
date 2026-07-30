@@ -52,7 +52,7 @@ let module: Promise<string> | undefined;
 export function readEditor(): Promise<string> {
   module ??= (async () => {
     const require = createRequire(import.meta.url);
-    return readFile(require.resolve("@slidx/editor"), "utf8");
+    return readFile(require.resolve("@ubugeeei/slidx-editor"), "utf8");
   })();
 
   return module;
