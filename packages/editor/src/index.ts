@@ -104,7 +104,10 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
       blocksOf: (slide) => session.blocksOf(slide),
     },
   );
-  const inspector = createInspector({ run }, { bodyOf });
+  const inspector = createInspector(
+    { run },
+    { bodyOf, blocksOf: (slide) => session.blocksOf(slide) },
+  );
   const diagnostics = createDiagnostics({ select });
 
   const storyboard = createStoryboard({ select, run: (op) => session.run(op) });

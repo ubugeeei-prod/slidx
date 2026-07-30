@@ -18,6 +18,8 @@
 //! span is one it can slice directly. A file-local one would make every reader
 //! subtract the same number.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 use slidx_core::{find_blocks, find_marks, ByteSpan, DeckParseOptions};
@@ -58,13 +60,22 @@ pub struct BlockSpans {
 /// a text edit may touch. Everything from `]` onwards is an address a `steps:`
 /// entry or a theme class points at, and typing in a paragraph must not be able
 /// to reach it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MarkSpans {
     /// The whole mark, from `[` to the closing `}`.
     pub span: ByteSpan,
     /// The words between the brackets, as written — escapes included.
     pub words: ByteSpan,
+    /// Stable identifier, when a step or another surface addresses this mark.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
+    /// Theme classes, in the order the author wrote them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub classes: Vec<String>,
+    /// Typed style properties, sorted by the parser.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub properties: BTreeMap<String, String>,
 }
 
 /// Where each slide's own bytes are, in source order.
@@ -100,6 +111,9 @@ fn blocks_of(body: &str) -> Vec<BlockSpans> {
                     // words are what the two brackets leave.
                     words: ByteSpan::new(mark.start + 1, mark.attributes_start - 1)
                         .shifted(span.start),
+                    key: mark.mark.key,
+                    classes: mark.mark.classes,
+                    properties: mark.mark.properties,
                 })
                 .collect();
 
@@ -184,10 +198,11 @@ mod tests {
     fn a_marks_words_are_named_apart_from_the_group_that_addresses_them() {
         let source = "Latency dropped to [120ms]{#latency}.\n";
         let block = &spans(source)[0].blocks[0];
-        let mark = block.marks[0];
+        let mark = &block.marks[0];
 
         assert_eq!(mark.span.slice(source), "[120ms]{#latency}");
         assert_eq!(mark.words.slice(source), "120ms");
+        assert_eq!(mark.key.as_deref(), Some("latency"));
     }
 
     #[test]
@@ -195,9 +210,27 @@ mod tests {
         // The block it is in starts partway down, and a mark span counted from
         // the block would name the wrong bytes of the body.
         let source = "# One\n\nA [b]{.accent} c.\n";
-        let mark = spans(source)[0].blocks[1].marks[0];
+        let located = spans(source);
+        let mark = &located[0].blocks[1].marks[0];
 
         assert_eq!(mark.span.slice(source), "[b]{.accent}");
+        assert_eq!(mark.classes, ["accent"]);
+    }
+
+    #[test]
+    fn a_marks_styles_cross_the_editor_boundary_without_reparsing_markdown() {
+        let located = spans("[fast]{#result .accent color=danger font=\"IBM Plex\"}\n");
+        let mark = &located[0].blocks[0].marks[0];
+
+        assert_eq!(mark.key.as_deref(), Some("result"));
+        assert_eq!(mark.classes, ["accent"]);
+        assert_eq!(mark.properties.get("color").map(String::as_str), Some("danger"));
+        assert_eq!(mark.properties.get("font").map(String::as_str), Some("IBM Plex"));
+
+        let json = serde_json::to_value(mark).unwrap();
+        assert_eq!(json["key"], "result");
+        assert_eq!(json["classes"], serde_json::json!(["accent"]));
+        assert_eq!(json["properties"]["font"], "IBM Plex");
     }
 
     #[test]

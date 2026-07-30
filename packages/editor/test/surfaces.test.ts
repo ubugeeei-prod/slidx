@@ -280,7 +280,7 @@ describe("the inspector", () => {
     expect(inspector.root.querySelector('[data-group="deck"] [data-key="title"]')).not.toBeNull();
   });
 
-  it("turns a selection into a mark rather than into markup", () => {
+  it("turns a selection into a style mark rather than into markup", () => {
     // "Select text, add animation" is spelled `addMark` in a file. The range is
     // bytes of the slide's source body; the editor never writes the brackets.
     const log = recorder();
@@ -291,6 +291,10 @@ describe("the inspector", () => {
       '[data-group="selection"] input',
     )!;
     classes.value = "accent";
+    const properties = inspector.root.querySelector<HTMLTextAreaElement>(
+      '[aria-label="Style properties"]',
+    )!;
+    properties.value = "color=danger\nfont=IBM Plex";
     inspector.root.querySelector<HTMLElement>('[data-group="selection"] .slidx-add')!.click();
 
     expect(log.ops).toEqual([
@@ -298,9 +302,97 @@ describe("the inspector", () => {
         op: "addMark",
         slide: 1,
         range: { start: 23, end: 34 },
-        attributes: { key: undefined, classes: ["accent"] },
+        attributes: {
+          key: undefined,
+          classes: ["accent"],
+          properties: { color: "danger", font: "IBM Plex" },
+        },
       },
     ]);
+  });
+
+  it("updates and removes the style already wrapped around the selected phrase", () => {
+    const log = recorder();
+    const body = "## Two\n\nThe result was [3.2x faster]{#result .accent color=danger}.";
+    const inspector = createInspector(log, {
+      bodyOf: () => body,
+      blocksOf: () => [
+        {
+          span: { start: 8, end: 68 },
+          marks: [
+            {
+              span: { start: 22, end: 66 },
+              words: { start: 23, end: 34 },
+              key: "result",
+              classes: ["accent"],
+              properties: { color: "danger" },
+            },
+          ],
+        },
+      ],
+    });
+    inspector.render(
+      stateOf({
+        selection: { slide: 1, text: "3.2x faster", range: { start: 23, end: 34 } },
+      }),
+    );
+
+    const selection = inspector.root.querySelector<HTMLElement>('[data-group="selection"]')!;
+    const inputs = selection.querySelectorAll<HTMLInputElement>("input");
+    expect(inputs[0]!.value).toBe("accent");
+    expect(inputs[1]!.value).toBe("result");
+    expect(
+      selection.querySelector<HTMLTextAreaElement>('[aria-label="Style properties"]')!.value,
+    ).toBe("color=danger");
+
+    inputs[0]!.value = "hero strong";
+    inputs[1]!.value = "";
+    selection.querySelector<HTMLTextAreaElement>('[aria-label="Style properties"]')!.value =
+      "color=brand\nfont=IBM Plex";
+    selection.querySelector<HTMLElement>(".slidx-add")!.click();
+    selection.querySelector<HTMLElement>(".slidx-remove-mark")!.click();
+
+    expect(log.ops).toEqual([
+      {
+        op: "setMark",
+        slide: 1,
+        mark: 0,
+        attributes: {
+          key: undefined,
+          classes: ["hero", "strong"],
+          properties: { color: "brand", font: "IBM Plex" },
+        },
+      },
+      { op: "removeMark", slide: 1, mark: 0 },
+    ]);
+  });
+
+  it("refuses to nest a style when only part of an existing mark is selected", () => {
+    const log = recorder();
+    const inspector = createInspector(log, {
+      bodyOf: () => "A [styled phrase]{.accent}.",
+      blocksOf: () => [
+        {
+          span: { start: 0, end: 26 },
+          marks: [
+            {
+              span: { start: 2, end: 25 },
+              words: { start: 3, end: 16 },
+              classes: ["accent"],
+            },
+          ],
+        },
+      ],
+    });
+    inspector.render(
+      stateOf({ selection: { slide: 1, text: "styled", range: { start: 3, end: 9 } } }),
+    );
+
+    expect(
+      inspector.root.querySelector('[data-group="selection"] .slidx-hint')!.textContent,
+    ).toContain("whole styled phrase");
+    expect(inspector.root.querySelector('[data-group="selection"] .slidx-add')).toBeNull();
+    expect(log.ops).toEqual([]);
   });
 
   it("says a selection cannot be addressed rather than guessing at it", () => {

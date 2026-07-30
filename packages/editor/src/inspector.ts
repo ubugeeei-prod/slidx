@@ -14,7 +14,8 @@
 
 import { element, fill, field } from "./dom";
 import { locateSelection } from "./selection";
-import type { EditOp } from "./operations";
+import type { BlockSpans } from "./client";
+import type { ByteSpan, EditOp, MarkAttributes } from "./operations";
 import type { Surface } from "./outline";
 import type { EditorState } from "./session";
 
@@ -24,6 +25,7 @@ export interface InspectorHandlers {
 
 export interface InspectorOptions {
   bodyOf(slide: number): string;
+  blocksOf?(slide: number): readonly BlockSpans[];
 }
 
 /** The keys worth offering by name. Anything else the author wrote still shows. */
@@ -63,8 +65,9 @@ function selectionPanel(
   }
 
   const located = locateSelection(options.bodyOf(state.selection.slide), selected, 0);
+  const range = state.selection.range ?? ("problem" in located ? undefined : located.range);
 
-  if ("problem" in located) {
+  if (range === undefined) {
     return group("Selection", [
       element("p", { class: "slidx-hint" }, [
         `“${selected}” is written differently in the Markdown, so it cannot be addressed yet.`,
@@ -72,31 +75,109 @@ function selectionPanel(
     ]);
   }
 
-  const classes = element("input", { type: "text", placeholder: "accent", value: "" });
-  const key = element("input", { type: "text", placeholder: "result", value: "" });
-  const apply = element("button", { type: "button", class: "slidx-add" }, ["Add mark"]);
+  const marks = (options.blocksOf?.(state.selection.slide) ?? []).flatMap(
+    (block) => block.marks ?? [],
+  );
+  const exact = marks.findIndex((mark) => same(mark.words, range));
+  const overlap = marks.some((mark) => intersects(mark.words, range));
+
+  if (exact === -1 && overlap) {
+    return group("Selection", [
+      element("p", { class: "slidx-hint" }, [
+        "Select the whole styled phrase to change it without nesting marks.",
+      ]),
+    ]);
+  }
+
+  const mark = exact === -1 ? undefined : marks[exact];
+  const classes = element("input", {
+    type: "text",
+    placeholder: "accent",
+    value: mark?.classes?.join(" ") ?? "",
+  });
+  const key = element("input", {
+    type: "text",
+    placeholder: "result",
+    value: mark?.key ?? "",
+  });
+  const properties = element("textarea", {
+    rows: 3,
+    placeholder: "color=danger\nfont=mono",
+    "aria-label": "Style properties",
+  });
+  properties.value = showProperties(mark?.properties);
+
+  const apply = element("button", { type: "button", class: "slidx-add" }, [
+    mark ? "Update style" : "Add style",
+  ]);
 
   apply.addEventListener("click", () =>
     handlers.run({
-      op: "addMark",
+      op: mark ? "setMark" : "addMark",
       slide: state.selection.slide,
-      range: located.range,
-      attributes: {
-        key: key.value.trim() || undefined,
-        classes: classes.value
-          .split(/\s+/)
-          .map((name) => name.trim())
-          .filter(Boolean),
-      },
-    }),
+      ...(mark ? { mark: exact } : { range }),
+      attributes: attributes(key.value, classes.value, properties.value),
+    } as EditOp),
+  );
+
+  const remove = mark
+    ? element("button", { type: "button", class: "slidx-remove-mark" }, ["Remove style"])
+    : undefined;
+  remove?.addEventListener("click", () =>
+    handlers.run({ op: "removeMark", slide: state.selection.slide, mark: exact }),
   );
 
   return group("Selection", [
-    element("p", { class: "slidx-selected" }, [located.text]),
+    element("p", { class: "slidx-selected" }, [selected.trim()]),
     field("Classes", classes),
     field("Name", key),
+    field("Properties", properties),
     apply,
+    ...(remove ? [remove] : []),
   ]);
+}
+
+function same(left: ByteSpan, right: ByteSpan): boolean {
+  return left.start === right.start && left.end === right.end;
+}
+
+function intersects(left: ByteSpan, right: ByteSpan): boolean {
+  return left.start < right.end && right.start < left.end;
+}
+
+function attributes(key: string, classes: string, properties: string): MarkAttributes {
+  return {
+    key: key.trim() || undefined,
+    classes: classes
+      .split(/\s+/)
+      .map((name) => name.trim())
+      .filter(Boolean),
+    properties: parseProperties(properties),
+  };
+}
+
+/**
+ * One property per line rather than a second parser for the mark syntax.
+ *
+ * The pipeline still owns Markdown. This is only the inspector's lossless form:
+ * the first `=` separates the name, so values may contain spaces and more `=`.
+ */
+function parseProperties(source: string): Record<string, string> {
+  return Object.fromEntries(
+    source
+      .split("\n")
+      .map((line) => {
+        const at = line.indexOf("=");
+        return at === -1 ? undefined : [line.slice(0, at).trim(), line.slice(at + 1).trim()];
+      })
+      .filter((entry): entry is [string, string] => Boolean(entry?.[0])),
+  );
+}
+
+function showProperties(properties: Record<string, string> | undefined): string {
+  return Object.entries(properties ?? {})
+    .map(([name, value]) => `${name}=${value}`)
+    .join("\n");
 }
 
 function slidePanel(state: EditorState, handlers: InspectorHandlers): HTMLElement {
