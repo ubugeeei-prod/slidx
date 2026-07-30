@@ -5,8 +5,10 @@
 //! Everything this crate looks at is something that happens on stage and never
 //! in the editor: the laptop nobody plugged in, the disk with no room for the
 //! recording, the machine still on last week's time zone, the font the venue
-//! does not have, the conferencing app that grabs the screen mid-demo. None of
-//! it is visible from the deck source, so the linter cannot catch any of it —
+//! does not have, the conferencing app that grabs the screen mid-demo, the
+//! projector duplicating the laptop so presenter view has nowhere to open, the
+//! message that lands on the slide, the demo that plays into a muted output.
+//! None of it is visible from the deck source, so the linter cannot catch it —
 //! which is why this is a separate crate rather than another rule.
 //!
 //! ## Nothing here talks to the machine
@@ -32,6 +34,24 @@
 //! Platforms differ, and some readings cannot be taken at all on some of them.
 //! Reporting green for a thing nobody could measure is the one failure that
 //! would make the whole report worse than useless.
+//!
+//! ## Reading is not writing
+//!
+//! Three of these — display mirroring, Do Not Disturb, the output level — are
+//! settings rather than measurements, and a speaker would plainly like some of
+//! them changed. Nothing here changes any of them, and no flag on `slidx
+//! doctor` will: a command run to *find out* something must not leave the
+//! machine altered. Where a setting can be flicked, the finding's remedy names
+//! it and says where it lives on the platform the reading came from.
+//!
+//! ## The platform is a value
+//!
+//! [`Environment::platform`] is neither a reading nor an expectation. It is what
+//! the build was compiled for, and it is in the struct for two reasons: a
+//! remedy has to name the right menu, and the probes that read those three
+//! settings dispatch on it rather than on `#[cfg]`. A `#[cfg]` branch is
+//! reachable by one CI runner out of three, and two branches nothing runs are
+//! two that break in silence.
 //!
 //! ```
 //! use slidx_doctor::{Environment, Expectation, Reading, Status};
@@ -70,7 +90,7 @@ pub mod report;
 pub mod probe;
 
 pub use check::{Check, CheckFn};
-pub use environment::{Environment, Expectation, Reading};
+pub use environment::{Environment, Expectation, Platform, Reading};
 pub use finding::{Finding, Status};
 pub use report::Report;
 

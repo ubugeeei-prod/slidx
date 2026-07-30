@@ -11,11 +11,18 @@
 //! laptops rather than about the one the tests happen to run on.
 
 use slidx_doctor::environment::{
-    Clock, Disk, InstalledFonts, Network, Power, RunningProcesses, Skew,
+    Audio, Clock, Disk, Display, Displays, InstalledFonts, Network, Notifications, Power,
+    RunningProcesses, Skew,
 };
-use slidx_doctor::{check, probe, Environment, Expectation, Reading, Status};
+use slidx_doctor::{check, probe, Environment, Expectation, Platform, Reading, Status};
 
 const GIB: u64 = 1024 * 1024 * 1024;
+
+/// Every platform the readings can come from, including the one that is none of
+/// them. Three checks build a remedy out of this, so it is a dimension of the
+/// suite rather than a detail of one of them.
+const PLATFORMS: [Platform; 4] =
+    [Platform::MacOs, Platform::Linux, Platform::Windows, Platform::Unknown];
 
 /// Every power state worth distinguishing, including the unreadable one.
 fn power_readings() -> Vec<Reading<Power>> {
@@ -80,6 +87,40 @@ fn network_readings() -> Vec<Reading<Network>> {
     ]
 }
 
+/// Both display facts, including the arrangement no platform would name.
+fn display_readings() -> Vec<Reading<Displays>> {
+    let laptop = || Display::new(3024, 1964).drawn_at(1512, 982).named("Color LCD").primary();
+
+    vec![
+        Reading::known(Displays::new([laptop()]).extended()),
+        Reading::known(Displays::new([laptop(), Display::new(1920, 1080)]).extended()),
+        Reading::known(Displays::new([laptop(), Display::new(1024, 768)]).mirrored()),
+        // A platform that enumerated its screens and refused to say how they
+        // are arranged, which is Windows every time.
+        Reading::known(Displays::new([laptop()])),
+        Reading::known(Displays::new([])),
+        Reading::unavailable("`xrandr` could not be run"),
+    ]
+}
+
+fn notification_readings() -> Vec<Reading<Notifications>> {
+    vec![
+        Reading::known(Notifications::Silenced),
+        Reading::known(Notifications::Allowed),
+        Reading::unavailable("this macOS keeps no Focus state where slidx looks"),
+    ]
+}
+
+fn audio_readings() -> Vec<Reading<Audio>> {
+    vec![
+        Reading::known(Audio::playing_at(60)),
+        Reading::known(Audio::playing_at(4)),
+        Reading::known(Audio::muted_at(70)),
+        Reading::known(Audio::level_only(35)),
+        Reading::unavailable("Windows exposes no output level a command line can read"),
+    ]
+}
+
 fn expectations() -> Vec<Expectation> {
     vec![
         Expectation::default(),
@@ -130,6 +171,43 @@ fn every_environment() -> Vec<Environment> {
     environments
 }
 
+/// Every state of the three platform readings, on every platform, against a
+/// machine that is otherwise ready.
+///
+/// A second cross product rather than four more loops above, and the reason is
+/// arithmetic: folded in, the list would be over a million machines and the
+/// suite would stop being something anybody runs. The claims below are about
+/// the union of the two, which is what they were always about.
+fn every_platform_environment() -> Vec<Environment> {
+    let mut environments = Vec::new();
+
+    for displays in display_readings() {
+        for notifications in notification_readings() {
+            for audio in audio_readings() {
+                for platform in PLATFORMS {
+                    environments.push(
+                        healthy()
+                            .with_displays(displays.clone())
+                            .with_notifications(notifications.clone())
+                            .with_audio(audio.clone())
+                            .on(platform),
+                    );
+                }
+            }
+        }
+    }
+
+    environments
+}
+
+/// Every machine the suite makes claims over.
+fn all_environments() -> Vec<Environment> {
+    let mut all = every_environment();
+    all.extend(every_platform_environment());
+
+    all
+}
+
 /// A machine that is genuinely ready, with everything the deck expects declared.
 fn healthy() -> Environment {
     Environment::new()
@@ -140,6 +218,16 @@ fn healthy() -> Environment {
         .with_fonts(Reading::known(["Inter", "IBM Plex Mono"].into_iter().collect()))
         .with_processes(Reading::known(["Finder", "code"].into_iter().collect()))
         .with_network(Reading::known(Network::reachable("1.1.1.1:443", 18)))
+        .with_displays(Reading::known(
+            Displays::new([
+                Display::new(3024, 1964).drawn_at(1512, 982).named("Color LCD").primary(),
+                Display::new(1920, 1080).named("EPSON"),
+            ])
+            .extended(),
+        ))
+        .with_notifications(Reading::known(Notifications::Silenced))
+        .with_audio(Reading::known(Audio::playing_at(60)))
+        .on(Platform::MacOs)
         .expecting(
             Expectation::default()
                 .at_venue_offset(540)
@@ -153,7 +241,7 @@ fn healthy() -> Environment {
 fn no_machine_produces_a_finding_the_speaker_cannot_act_on() {
     // The rule the crate lives by. A speaker with ninety seconds and a red line
     // that says only "disk space low" has been given nothing.
-    for environment in every_environment() {
+    for environment in all_environments() {
         for finding in slidx_doctor::run(&environment).attention() {
             assert!(
                 !finding.is_noise(),
@@ -169,7 +257,7 @@ fn no_machine_produces_a_finding_the_speaker_cannot_act_on() {
 #[test]
 fn no_finding_is_ever_left_without_something_to_say() {
     // A blank detail is a line on the report that means nothing at all.
-    for environment in every_environment() {
+    for environment in all_environments() {
         for finding in slidx_doctor::run(&environment).iter() {
             assert!(!finding.detail.trim().is_empty(), "{} said nothing", finding.check);
         }
@@ -180,7 +268,7 @@ fn no_finding_is_ever_left_without_something_to_say() {
 fn every_report_carries_exactly_one_finding_per_registered_check() {
     // Fixed length, whatever the machine. A report that gets shorter when
     // things are fine cannot be told apart from one that skipped a check.
-    for environment in every_environment() {
+    for environment in all_environments() {
         let report = slidx_doctor::run(&environment);
 
         assert_eq!(report.len(), check::ALL.len());
@@ -218,6 +306,10 @@ fn an_unavailable_reading_reports_unknown_rather_than_pass_for_every_check() {
         ("clock/skew", healthy().with_skew(Reading::unavailable("no reference clock"))),
         ("screen-capture", healthy().with_processes(Reading::unavailable("`ps` did not answer"))),
         ("network", healthy().with_network(Reading::unavailable("no socket"))),
+        ("display/mirroring", healthy().with_displays(Reading::unavailable("no xrandr"))),
+        ("display/resolution", healthy().with_displays(Reading::unavailable("no xrandr"))),
+        ("notifications", healthy().with_notifications(Reading::unavailable("no Focus state"))),
+        ("audio", healthy().with_audio(Reading::unavailable("no output level here"))),
     ];
 
     for (id, environment) in cases {
@@ -262,7 +354,7 @@ fn a_ready_machine_at_a_venue_with_no_network_has_nothing_red() {
 fn the_network_check_never_fails_on_any_machine() {
     // A deck renders offline. If this check could ever go red it would be
     // training speakers to walk on stage having dismissed a red line.
-    for environment in every_environment() {
+    for environment in all_environments() {
         let report = slidx_doctor::run(&environment);
         let network = report.get("network").expect("the network check always reports");
 
@@ -274,7 +366,7 @@ fn the_network_check_never_fails_on_any_machine() {
 fn the_screen_capture_check_never_fails_on_any_machine() {
     // A hybrid talk needs the conferencing app open. Informational means
     // informational.
-    for environment in every_environment() {
+    for environment in all_environments() {
         let report = slidx_doctor::run(&environment);
         let capture = report.get("screen-capture").expect("the capture check always reports");
 
@@ -283,10 +375,79 @@ fn the_screen_capture_check_never_fails_on_any_machine() {
 }
 
 #[test]
+fn mirroring_is_the_only_one_of_the_three_platform_settings_that_can_go_red() {
+    // Deliberate, and worth a test rather than a comment. Mirroring removes
+    // presenter view outright. A notification is an embarrassment and a muted
+    // laptop was probably muted on purpose, so a doctor that went red over
+    // either would be arguing with a speaker who was being careful — and red
+    // lines that get argued with stop being read.
+    for environment in all_environments() {
+        let report = slidx_doctor::run(&environment);
+
+        for id in ["notifications", "audio", "display/resolution"] {
+            let finding = report.get(id).expect("every check reports");
+            assert_ne!(finding.status, Status::Fail, "{id} failed: {}", finding.detail);
+        }
+    }
+}
+
+#[test]
+fn no_platform_is_ever_sent_to_another_platforms_menu() {
+    // The reason the platform is carried in the environment at all. A speaker
+    // looking for a macOS pane on a Windows laptop has been sent away at the
+    // one moment they cannot afford it, so every remedy that names a setting
+    // has to name a different one per platform.
+    let broken = healthy()
+        .with_displays(Reading::known(
+            Displays::new([Display::new(1920, 1080), Display::new(1920, 1080)]).mirrored(),
+        ))
+        .with_notifications(Reading::known(Notifications::Allowed));
+
+    for id in ["display/mirroring", "notifications"] {
+        let mut remedies: Vec<String> = PLATFORMS
+            .iter()
+            .map(|platform| {
+                slidx_doctor::run(&broken.clone().on(*platform))
+                    .get(id)
+                    .and_then(|finding| finding.remedy.clone())
+                    .unwrap_or_default()
+            })
+            .collect();
+
+        let named = remedies.len();
+        remedies.sort();
+        remedies.dedup();
+
+        assert_eq!(remedies.len(), named, "{id} gives two platforms the same menu");
+    }
+}
+
+#[test]
+fn a_reading_a_platform_will_not_give_is_unknown_rather_than_absent_from_the_report() {
+    // Windows reports no output level and will not say whether Focus assist is
+    // on. Both lines still appear, still ask for something, and still say why —
+    // a line that vanished would be indistinguishable from one that passed.
+    let windows = healthy()
+        .on(Platform::Windows)
+        .with_audio(Reading::unavailable("Windows exposes no output level a command line can read"))
+        .with_notifications(Reading::unavailable("Windows does not report whether Focus assist is on"));
+
+    let report = slidx_doctor::run(&windows);
+
+    for id in ["audio", "notifications"] {
+        let finding = report.get(id).expect("every check reports, on every platform");
+
+        assert_eq!(finding.status, Status::Unknown, "{id} claimed something nobody read");
+        assert!(finding.detail.contains("Windows"), "{id} did not say why: {}", finding.detail);
+        assert!(finding.remedy.is_some(), "{id} left an unknown with nothing to do");
+    }
+}
+
+#[test]
 fn every_report_is_ordered_worst_first() {
     // Under time pressure only the top of the list gets read, so what has to be
     // fixed has to be there.
-    for environment in every_environment() {
+    for environment in all_environments() {
         let report = slidx_doctor::run(&environment);
         let urgencies: Vec<u8> = report.iter().map(|finding| finding.status.urgency()).collect();
 
@@ -298,7 +459,7 @@ fn every_report_is_ordered_worst_first() {
 fn findings_of_equal_severity_always_appear_in_registry_order() {
     // The same machine must print the same report every time. Rows that move
     // between runs have to be re-read from the top.
-    for environment in every_environment() {
+    for environment in all_environments() {
         let report = slidx_doctor::run(&environment);
 
         let positions: Vec<(u8, usize)> = report
