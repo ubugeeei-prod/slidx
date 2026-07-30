@@ -169,7 +169,19 @@ describe("a deck that names an installed theme", () => {
     // The guarantee a theme package is the easiest way to break, because a
     // font stack in a published file is a long way from the rule that catches
     // a remote asset in a deck.
-    const page = await buildWith("---\ntitle: Demo\ntheme: workshop\n---\n\n# One\n");
+    //
+    // Read over the whole document rather than only its stylesheet, because the
+    // escape the guard exists to stop is one that leaves the stylesheet: a stack
+    // ending `</style><script src=…>` puts its request in the markup after it,
+    // where a check scoped to the `<style>` would never look.
+    //
+    // The structured data is dropped first. Its `@context` is a vocabulary
+    // identifier a crawler matches the JSON against and nothing fetches — the
+    // same reason `browser.test.ts` does not count an `application/ld+json`
+    // block among the scripts a page runs — and it is written from the deck's
+    // own metadata, which no theme reaches.
+    const built = await buildWith("---\ntitle: Demo\ntheme: workshop\n---\n\n# One\n");
+    const page = built.replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/g, "");
 
     expect(page).not.toContain("http://");
     expect(page).not.toContain("https://");
