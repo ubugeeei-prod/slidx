@@ -40,6 +40,7 @@ import {
 import { build as buildDeck } from "./pipeline";
 import { blockingSummary, formatReport, groupFindings } from "./report";
 import { emptyDeckMessage, slideRequestFor } from "./routes";
+import { readThemePackages } from "./themes";
 import { EDITOR_PAGE } from "./editor";
 import { createEditSession } from "./session";
 
@@ -326,8 +327,14 @@ async function renderDeck(
   // a deck with no images, which is most of the ones being edited right now.
   const assets = await readAssetSizes(root, options.srcDir);
 
+  // And the same reason again, for the same boundary: the token documents of
+  // whatever theme packages the project depends on. Installing one is the
+  // whole configuration — nothing here is imported or registered.
+  const themePackages = await readThemePackages(root);
+
   const built = await buildDeck(source, {
     theme: options.theme,
+    themePackages,
     separator: options.separator,
     assets,
     presenter,

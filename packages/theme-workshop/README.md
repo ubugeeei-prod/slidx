@@ -20,13 +20,13 @@ registered, or named in `vite.config.ts`.
 
 ## What it decides
 
-|                                |                                                                              |
-| ------------------------------ | ---------------------------------------------------------------------------- |
-| Code at body size              | the line being copied is the content; the prose is the caption on it          |
-| The tightest padding of any theme | every pixel of it is a character that wraps                                |
-| A narrow type scale            | a heading should not take the room a snippet needs                            |
-| Light first                    | a workshop room stays lit so people can see their keyboards                   |
-| A 120ms transition             | a workshop deck is stepped backwards as often as forwards                     |
+|                                   |                                                                      |
+| --------------------------------- | -------------------------------------------------------------------- |
+| Code at body size                 | the line being copied is the content; the prose is the caption on it |
+| The tightest padding of any theme | every pixel of it is a character that wraps                          |
+| A narrow type scale               | a heading should not take the room a snippet needs                   |
+| Light first                       | a workshop room stays lit so people can see their keyboards          |
+| A 120ms transition                | a workshop deck is stepped backwards as often as forwards            |
 
 ## What it is
 

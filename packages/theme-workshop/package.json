@@ -2,16 +2,16 @@
   "name": "@slidx/theme-workshop",
   "version": "0.1.0",
   "description": "A slidx theme for hands-on sessions: light, and code at body size",
+  "keywords": [
+    "slidx",
+    "slidx-theme"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ubugeeei-prod/slidx.git",
     "directory": "packages/theme-workshop"
   },
-  "keywords": [
-    "slidx",
-    "slidx-theme"
-  ],
   "files": [
     "theme.json",
     "LICENSE"
@@ -22,11 +22,11 @@
     "./theme.json": "./theme.json",
     "./package.json": "./package.json"
   },
-  "slidx": {
-    "theme": "./theme.json"
-  },
   "publishConfig": {
     "access": "public",
     "provenance": true
+  },
+  "slidx": {
+    "theme": "./theme.json"
   }
 }
