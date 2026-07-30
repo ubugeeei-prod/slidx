@@ -1,6 +1,6 @@
 {
   "name": "slidx",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The slidx command line: the pre-flight a speaker runs in the room, and the linter their CI runs",
   "keywords": [
     "cli",
@@ -26,11 +26,11 @@
     "provenance": true
   },
   "optionalDependencies": {
-    "@ubugeeei/slidx-cli-darwin-arm64": "0.1.0",
-    "@ubugeeei/slidx-cli-darwin-x64": "0.1.0",
-    "@ubugeeei/slidx-cli-linux-arm64": "0.1.0",
-    "@ubugeeei/slidx-cli-linux-x64": "0.1.0",
-    "@ubugeeei/slidx-cli-win32-x64": "0.1.0"
+    "@ubugeeei/slidx-cli-darwin-arm64": "0.2.0",
+    "@ubugeeei/slidx-cli-darwin-x64": "0.2.0",
+    "@ubugeeei/slidx-cli-linux-arm64": "0.2.0",
+    "@ubugeeei/slidx-cli-linux-x64": "0.2.0",
+    "@ubugeeei/slidx-cli-win32-x64": "0.2.0"
   },
   "engines": {
     "node": ">=20.11.0"
