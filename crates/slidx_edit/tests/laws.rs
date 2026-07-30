@@ -69,6 +69,8 @@ fn operations(source: &str) -> Vec<EditOp> {
         EditOp::InsertSlide { at: 0, body: "# Inserted".into() },
         EditOp::InsertSlide { at: last, body: "# Inserted".into() },
         EditOp::InsertSlide { at: last + 1, body: "# Inserted".into() },
+        EditOp::DuplicateSlide { slide: 0.into() },
+        EditOp::DuplicateSlide { slide: last.into() },
         EditOp::RemoveSlide { slide: 0.into() },
         EditOp::RemoveSlide { slide: last.into() },
         EditOp::MoveSlide { slide: 0.into(), to: last },
@@ -385,6 +387,24 @@ fn an_inserted_slide_lands_where_it_was_asked_for_and_displaces_nothing() {
 }
 
 #[test]
+fn a_duplicated_slide_lands_after_its_source_and_keeps_its_words() {
+    for source in corpus() {
+        let before = written_titles(source);
+        if before.is_empty() {
+            continue;
+        }
+
+        for from in [0, before.len() - 1] {
+            let op = EditOp::DuplicateSlide { slide: from.into() };
+            let mut expected = before.clone();
+            expected.insert(from + 1, before[from].clone());
+
+            assert_eq!(written_titles(&edited(source, &op)), expected, "{op:?} on {source:?}");
+        }
+    }
+}
+
+#[test]
 fn a_moved_slide_lands_where_the_operation_said_and_arrives_intact() {
     for source in corpus() {
         let before = written_titles(source);
@@ -570,6 +590,7 @@ fn an_operation_naming_something_that_is_not_there_is_an_error_not_a_crash() {
         EditOp::SetBody { slide: 99.into(), body: "x".into() },
         EditOp::SetHeading { slide: SlideRef::Id("nope".into()), text: "x".into() },
         EditOp::InsertSlide { at: 99, body: "x".into() },
+        EditOp::DuplicateSlide { slide: 99.into() },
         EditOp::RemoveSlide { slide: 99.into() },
         EditOp::MoveSlide { slide: 0.into(), to: 99 },
         EditOp::MoveSlide { slide: 99.into(), to: 0 },

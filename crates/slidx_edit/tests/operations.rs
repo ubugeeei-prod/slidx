@@ -127,6 +127,49 @@ fn inserting_before_a_slide_that_carries_frontmatter_still_writes_a_separator() 
 }
 
 #[test]
+fn duplicating_the_opening_slide_keeps_deck_metadata_single_and_copies_its_whole_body() {
+    let result = edit(DECK, EditOp::DuplicateSlide { slide: 0.into() });
+
+    assert_eq!(slide_titles(&result), ["Introduction", "Introduction", "Deep Dive", "Closing"]);
+    assert_eq!(result.matches("title: Fast Decks").count(), 1);
+    assert_eq!(result.matches("Some [words]{#hero .accent} here.").count(), 2);
+    assert_eq!(result.matches("<!-- notes: say hello -->").count(), 2);
+}
+
+#[test]
+fn duplicating_a_slide_copies_visual_state_but_not_its_pinned_address() {
+    let source = "\
+# One
+
+---
+id: published
+layout: aside
+---
+
+<style data-slidx>
+:root {
+  --slidx-layout: split;
+}
+</style>
+
+# Two
+
+<!-- notes: keep this -->
+";
+    let result = edit(source, EditOp::DuplicateSlide { slide: "published".into() });
+    let parsed = slidx_core::parse_deck(&result, &DeckParseOptions::default());
+
+    assert_eq!(result.matches("id: published").count(), 1);
+    assert_eq!(result.matches("--slidx-layout: split").count(), 2);
+    assert_eq!(result.matches("<!-- notes: keep this -->").count(), 2);
+    assert_eq!(parsed.slides.len(), 3);
+    assert_ne!(parsed.slides[1].id, parsed.slides[2].id);
+    assert_eq!(parsed.slides[1].layout.as_deref(), Some("split"));
+    assert_eq!(parsed.slides[2].layout.as_deref(), Some("split"));
+    assert!(!parsed.diagnostics.iter().any(|finding| finding.code == "deck/duplicate-id"));
+}
+
+#[test]
 fn removing_a_slide_takes_its_separator_with_it() {
     let result = edit(DECK, EditOp::RemoveSlide { slide: 1.into() });
 

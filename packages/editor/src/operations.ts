@@ -106,6 +106,7 @@ export type EditOp =
    */
   | { op: "setText"; slide: SlideRef; range: ByteSpan; text: string }
   | { op: "insertSlide"; at: number; body: string }
+  | { op: "duplicateSlide"; slide: SlideRef }
   | { op: "removeSlide"; slide: SlideRef }
   | { op: "moveSlide"; slide: SlideRef; to: number }
   | { op: "setField"; slide: SlideRef; key: string; value: unknown }
