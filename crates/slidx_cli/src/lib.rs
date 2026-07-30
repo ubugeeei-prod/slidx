@@ -82,6 +82,7 @@ pub mod sha256;
 pub mod shell;
 pub mod style;
 pub mod terminal;
+pub mod theme;
 pub mod tui;
 pub mod version;
 
@@ -143,6 +144,7 @@ pub fn run(argv: &[String], style: &Style) -> Outcome {
             (None, "fmt") => fmt::run(&matches, style),
             (None, "lint") => lint::run(&matches, style),
             (None, "lsp") => lsp::run(&matches, style),
+            (None, "theme") => theme::run(&matches, style),
             (None, "open") => find::run(&matches, style),
             (None, "list") => list::run(&matches, style),
             (None, "add") => add::run(&matches, style),

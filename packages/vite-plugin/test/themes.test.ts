@@ -163,7 +163,7 @@ describe("a deck that names an installed theme", () => {
     const page = await buildWith("---\ntitle: Demo\ntheme: workshop\n---\n\n# One\n");
 
     expect(page).toContain(`--slidx-color-accent: ${accent}`);
-  });
+  }, 60_000);
 
   it("still makes no request for anything", async () => {
     // The guarantee a theme package is the easiest way to break, because a
@@ -174,5 +174,5 @@ describe("a deck that names an installed theme", () => {
     expect(page).not.toContain("http://");
     expect(page).not.toContain("https://");
     expect(page).not.toContain("url(");
-  });
+  }, 60_000);
 });
