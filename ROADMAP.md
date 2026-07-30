@@ -231,9 +231,6 @@ conference publish a video.
 - [x] The `slidx` binary, by `curl | sh` or `npm i -g`, with published checksums — #23
 - [x] Version manager, deck index, fuzzy finder, `preview`, completions, TUI — #23
 - [x] `list`, `grep` and `cd` over the decks the index already knows — #23
-- [x] Brand: mark, wordmark, lockup, palette, and tokens at
-      `assets/brand/tokens.json`
-- [x] Flatness as a gate: no shadow and no gradient anywhere slidx draws
 - [ ] Theme packages distributable on npm — #3
 - [ ] Editor plugins for VS Code, Zed, and Neovim over the language server — #23
 - [ ] Documentation site
@@ -261,14 +258,6 @@ address a speaker cannot use, and "slide 7 of the VueConf deck" is one they can.
 It reads only decks and stops at `node_modules`, build output and dot
 directories, and it parses a deck only once something in it has already matched
 — so a search that finds nothing costs one read per deck.
-
-The brand is held to the linter the decks are held to, and that turned out to
-matter rather than merely being tidy: the obvious signal colour was the default
-theme's accent, and it measures 4.46:1 on brand paper in a bright room — a fail,
-by four hundredths, on the exact check slidx exists to run. Nobody would have
-caught it by looking. The built-in deck themes were deliberately left alone; a
-theme is what an author's audience sees, and restyling one is a separate decision
-from giving the project a brand.
 
 ---
 
