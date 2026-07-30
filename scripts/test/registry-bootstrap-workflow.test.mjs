@@ -10,6 +10,8 @@ test("registry bootstrap only creates reviewable artifacts", () => {
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /ref: \$\{\{ inputs\.ref \}\}/);
   assert.match(workflow, /node scripts\/pack-npm\.mjs/);
+  assert.match(workflow, /bundle="\$GITHUB_WORKSPACE\/bundle"/);
+  assert.match(workflow, /path: \$\{\{ github\.workspace \}\}\/bundle/);
   assert.match(workflow, /publish-order\.txt/);
   assert.match(workflow, /uses: actions\/upload-artifact@v4/);
   assert.doesNotMatch(workflow, /id-token:\s*write/);
