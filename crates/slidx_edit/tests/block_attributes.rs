@@ -103,7 +103,7 @@ fn unrelated(source: &str) -> Vec<EditOp> {
         EditOp::SetNotes { slide: 0.into(), notes: "said out loud".into() },
         EditOp::SetField { slide: 0.into(), key: "theme".into(), value: "terminal".into() },
         EditOp::SetField { slide: last.into(), key: "budget".into(), value: "45s".into() },
-        EditOp::AddStep { slide: 0.into(), action: StepAction::reveal(".added") },
+        EditOp::AddStep { slide: 0.into(), at: None, action: StepAction::reveal(".added") },
         EditOp::InsertSlide { at: 0, body: "# Inserted".into() },
         EditOp::InsertSlide { at: last + 1, body: "# Inserted".into() },
     ]
