@@ -38,7 +38,9 @@ export function timeBar(plan: Plan, selected: number, jump: (slide: number) => v
     element(
       "div",
       { class: "slidx-sb-segments" },
-      plan.slides.filter((slide) => slide.seconds > 0).map((slide) => segment(slide, selected, jump)),
+      plan.slides
+        .filter((slide) => slide.seconds > 0)
+        .map((slide) => segment(slide, selected, jump)),
     ),
   ];
 

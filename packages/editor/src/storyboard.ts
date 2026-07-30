@@ -67,10 +67,7 @@ export function createStoryboard(handlers: StoryboardHandlers): Surface {
     "section",
     { class: "slidx-sb-sheet", "aria-label": "Storyboard", tabindex: -1, hidden: true },
     [
-      element("header", { class: "slidx-panel-head" }, [
-        element("h2", {}, ["Storyboard"]),
-        close,
-      ]),
+      element("header", { class: "slidx-panel-head" }, [element("h2", {}, ["Storyboard"]), close]),
       element("div", { class: "slidx-sb-plan" }, [summary, bar, slack, untimed]),
       rows,
     ],
