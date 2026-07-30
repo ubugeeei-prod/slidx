@@ -28,6 +28,13 @@ export type BuildOptions = {
    */
   separator: string | null;
   /**
+   * Enable MDX component syntax while rendering.
+   *
+   * Off by default. Components compile to static-first island markers and
+   * props must be JSON values; no JavaScript is evaluated by the compiler.
+   */
+  mdx: boolean;
+  /**
    * Skip rendering and return only the model and diagnostics. The editor
    * uses this while typing, where the outline matters and the HTML does not.
    */

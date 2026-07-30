@@ -144,6 +144,7 @@ export function createEditSession(
         theme: options.theme,
         themePackages,
         separator: options.separator,
+        mdx: options.mdx,
         parseOnly: true,
       }),
       locate(source, options.separator),

@@ -33,16 +33,35 @@ pub struct MarkdownOptions {
     /// code is not code — a grammar, a diff, a log — where the scanner's
     /// opinion about what a word means is noise.
     pub highlight: bool,
+    /// Parse MDX component syntax and compile registered component names to
+    /// static-first islands.
+    ///
+    /// Off by default. The source stays untouched: this switch only affects
+    /// rendering, so editor byte ranges, undo, and shared documents keep
+    /// referring to the file the author wrote.
+    pub mdx: bool,
 }
 
 impl Default for MarkdownOptions {
     fn default() -> Self {
-        Self { gfm: true, highlight: true }
+        Self { gfm: true, highlight: true, mdx: false }
     }
 }
 
 /// Renders one slide body to HTML.
 pub fn render(source: &str, options: &MarkdownOptions) -> String {
+    let compiled;
+    let source = if options.mdx {
+        compiled = crate::mdx::compile(source, options).source;
+        compiled.as_str()
+    } else {
+        source
+    };
+
+    render_markdown(source, options)
+}
+
+fn render_markdown(source: &str, options: &MarkdownOptions) -> String {
     // Sizing the arena to the source means the whole slide is parsed without a
     // single reallocation, which is where the throughput comes from.
     let allocator = Allocator::for_source_len(source.len());

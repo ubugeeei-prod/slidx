@@ -12,8 +12,8 @@ use slidx_core::parse_deck;
 use slidx_lint::{lint, ImageFormat, Intrinsic, LintInput, LintOptions};
 use slidx_render::{
     render_deck_card, render_presenter, render_print, render_robots, render_sitemap, render_slide,
-    render_snippets, OgOptions, PresenterOptions, PrintOptions, SeoOptions, ShellOptions,
-    SnippetOptions,
+    render_snippets, validate_mdx, MarkdownOptions, OgOptions, PresenterOptions, PrintOptions,
+    SeoOptions, ShellOptions, SnippetOptions,
 };
 use slidx_theme::{Catalogue, Published, Resolved};
 
@@ -30,6 +30,25 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
     let surfaces = theme.surfaces();
 
     let mut diagnostics: Vec<Finding> = deck.diagnostics.iter().map(finding).collect();
+    let markdown = MarkdownOptions { mdx: options.mdx, ..MarkdownOptions::default() };
+    let mdx_findings: Vec<Finding> = if options.mdx {
+        deck.slides
+            .iter()
+            .flat_map(|slide| {
+                validate_mdx(&slide.content, &markdown).into_iter().map(move |issue| Finding {
+                    severity: "error".to_string(),
+                    code: issue.code.to_string(),
+                    message: issue.message,
+                    help: Some(issue.help.to_string()),
+                    slide_index: Some(slide.index),
+                })
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let mdx_has_blocking = !mdx_findings.is_empty();
+    diagnostics.extend(mdx_findings);
 
     // What the packages themselves were found to be, before anything is said
     // about the deck: a document that is not a theme, a name a deck could not
@@ -98,6 +117,7 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
     // packages join the same list for the same reason: a source added after
     // this line is a source that does not count.
     let has_blocking = deck.diagnostics.has_blocking()
+        || mdx_has_blocking
         || findings.has_blocking()
         || placement.has_blocking()
         || packaging.has_blocking()
@@ -119,6 +139,7 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
 
     let shell = ShellOptions {
         theme: theme.clone(),
+        markdown,
         runtime_src: runtime_src.clone(),
         seo: seo.clone(),
         ..ShellOptions::default()
@@ -126,12 +147,8 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
     let print_theme = theme.clone();
     let snippet_theme = theme.clone();
     let og_theme = theme.clone();
-    let presenter = PresenterOptions {
-        theme,
-        runtime_src: runtime_src.clone(),
-        rehearsal_src,
-        ..PresenterOptions::default()
-    };
+    let presenter =
+        PresenterOptions { theme, markdown, runtime_src: runtime_src.clone(), rehearsal_src };
 
     let render = !options.parse_only;
     let og = OgOptions { theme: og_theme, ..OgOptions::default() };
@@ -164,6 +181,7 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
             &deck,
             &PrintOptions {
                 theme: print_theme,
+                markdown,
                 inline_runtime: options.print_runtime.clone(),
                 ..PrintOptions::default()
             },

@@ -58,6 +58,11 @@ pub struct BuildOptions {
     pub theme_packages: Vec<ThemePackage>,
     /// Separator for single-file decks.
     pub separator: Option<String>,
+    /// Enable MDX component syntax while rendering.
+    ///
+    /// Off by default. Components compile to static-first island markers and
+    /// props must be JSON values; no JavaScript is evaluated by the compiler.
+    pub mdx: bool,
     /// Skip rendering and return only the model and diagnostics. The editor
     /// uses this while typing, where the outline matters and the HTML does not.
     pub parse_only: bool,
@@ -933,6 +938,44 @@ mod tests {
         assert!(result.slides[0].presenter_html.as_ref().unwrap().contains("content=\"noindex\""));
         assert!(result.print_html.as_ref().unwrap().contains("content=\"noindex\""));
         assert!(!result.slides[0].html.as_ref().unwrap().contains("noindex"));
+    }
+
+    #[test]
+    fn mdx_is_opt_in_and_reaches_every_rendered_surface() {
+        let source = "# Intro\n\n---\n\n# Sign-ups\n\n<Counter start={128} label=\"people\">\n\n**128 people**\n\n</Counter>\n";
+        let ordinary = build(source, &BuildOptions::default());
+        assert!(!ordinary.slides[1].html.as_ref().unwrap().contains("data-slidx-island"));
+
+        let options =
+            BuildOptions { mdx: true, presenter: true, print: true, ..BuildOptions::default() };
+        let result = build(source, &options);
+
+        for html in [
+            result.slides[1].html.as_ref().unwrap(),
+            // The presenter's preview is deliberately static, but it must be
+            // the same compiled fallback the audience will see next.
+            result.slides[0].presenter_html.as_ref().unwrap(),
+            result.print_html.as_ref().unwrap(),
+        ] {
+            assert!(html.contains("data-slidx-island=\"Counter\""), "{html}");
+            assert!(html.contains("<strong>128 people</strong>"), "{html}");
+        }
+        assert!(!result.has_blocking);
+    }
+
+    #[test]
+    fn executable_mdx_props_are_blocking_and_never_mount() {
+        let options = BuildOptions { mdx: true, ..BuildOptions::default() };
+        let result = build("<Counter value={window.secret}>static</Counter>\n", &options);
+        let html = result.slides[0].html.as_ref().unwrap();
+
+        assert!(result.has_blocking);
+        assert!(result.diagnostics.iter().any(|finding| {
+            finding.severity == "error" && finding.code == "mdx/non-static-props"
+        }));
+        assert!(html.contains("data-slidx-mdx-error"));
+        assert!(!html.contains("data-slidx-island=\"Counter\""));
+        assert!(html.contains("static"));
     }
 
     #[test]

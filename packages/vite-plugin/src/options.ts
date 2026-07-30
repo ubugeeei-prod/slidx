@@ -38,6 +38,13 @@ export interface SlidxOptions {
   /** File extensions treated as slides. Default `[".md"]`. */
   extensions?: string[];
   /**
+   * Enable MDX component syntax and include `.mdx` in the default extensions.
+   *
+   * Off by default. Capitalised components compile to framework islands;
+   * props are static JSON values, so builds never execute deck source.
+   */
+  mdx?: boolean;
+  /**
    * Client setup module for opt-in framework islands.
    *
    * Relative to the Vite root and absent by default. The module default-exports
@@ -112,6 +119,7 @@ export interface ResolvedOptions {
   deckUrl: string | undefined;
   separator: string;
   extensions: string[];
+  mdx: boolean;
   islands: string | undefined;
   presenter: boolean;
   print: boolean;
@@ -122,13 +130,16 @@ export interface ResolvedOptions {
 }
 
 export function resolveOptions(options: SlidxOptions = {}): ResolvedOptions {
+  const defaultExtensions = options.mdx ? [".md", ".mdx"] : [".md"];
+
   return {
     srcDir: trimSlashes(options.srcDir ?? "slides") || "slides",
     base: normaliseBase(options.base ?? "slides"),
     theme: options.theme,
     deckUrl: options.deckUrl?.trim() || undefined,
     separator: options.separator ?? "---",
-    extensions: normaliseExtensions(options.extensions ?? [".md"]),
+    extensions: normaliseExtensions(options.extensions ?? defaultExtensions, defaultExtensions),
+    mdx: options.mdx ?? false,
     islands: options.islands?.trim() || undefined,
     presenter: options.presenter ?? true,
     print: options.print ?? true,
@@ -155,13 +166,13 @@ function trimSlashes(value: string): string {
 }
 
 /** Extensions are stored with the dot, however they were written. */
-function normaliseExtensions(extensions: string[]): string[] {
+function normaliseExtensions(extensions: string[], fallback: string[]): string[] {
   const normalised = extensions
     .map((extension) => extension.trim().toLowerCase())
     .filter(Boolean)
     .map((extension) => (extension.startsWith(".") ? extension : `.${extension}`));
 
-  return normalised.length > 0 ? [...new Set(normalised)] : [".md"];
+  return normalised.length > 0 ? [...new Set(normalised)] : fallback;
 }
 
 /** The public URL of one slide. */

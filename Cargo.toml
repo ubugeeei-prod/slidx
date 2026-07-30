@@ -38,6 +38,7 @@ slidx_wasm = { version = "0.1.0", path = "crates/slidx_wasm" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
+markdown = "1"
 # Reads the `#[serde(...)]` attributes it sits next to, so the TypeScript it
 # emits describes the JSON serde actually produces rather than a second
 # hand-maintained opinion of it.

@@ -35,6 +35,7 @@
 pub mod highlight;
 pub mod layout;
 pub mod markdown;
+mod mdx;
 pub mod og;
 pub mod presenter;
 pub mod presenter_layout;
@@ -51,6 +52,7 @@ pub mod url;
 
 pub use highlight::highlight_code_blocks;
 pub use markdown::{render as render_markdown, MarkdownOptions};
+pub use mdx::{validate as validate_mdx, MdxIssue};
 pub use og::{render_deck_card, render_slide_card, OgOptions, OG_HEIGHT, OG_WIDTH};
 pub use presenter::{render_presenter, PresenterOptions};
 pub use print::{render_print, PrintOptions};
