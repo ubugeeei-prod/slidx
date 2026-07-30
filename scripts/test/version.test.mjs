@@ -5,13 +5,14 @@
  */
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vite-plus/test";
 
 const CHECK = join(import.meta.dirname, "..", "check-version.mjs");
+const RELEASE = join(import.meta.dirname, "..", "release.mjs");
 
 describe("the release version check", () => {
   it("rejects an old generated-platform requirement in the CLI wrapper", async () => {
@@ -39,6 +40,15 @@ describe("the release version check", () => {
     expect(result.stderr).toContain(
       "packages/plugin/package.json: package name must be @ubugeeei/slidx-plugin",
     );
+  });
+
+  it("regenerates versioned brand assets before it verifies the release", async () => {
+    const source = await readFile(RELEASE, "utf8");
+    const generate = source.indexOf('run("pnpm", ["exec", "vp", "run", "generate:brand"]);');
+    const verify = source.indexOf('run("node", ["scripts/check-version.mjs", tag]);');
+
+    expect(generate).toBeGreaterThan(-1);
+    expect(verify).toBeGreaterThan(generate);
   });
 });
 
