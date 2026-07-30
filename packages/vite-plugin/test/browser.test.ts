@@ -496,6 +496,7 @@ describe.each(ENGINES)("%s, on a slide with steps", (engine) => {
 
         // `?step=0` is noise in a URL somebody is about to share.
         await tab.keyboard.press("ArrowLeft");
+        await tab.waitForFunction(() => window.location.search === "");
         expect(new URL(tab.url()).search).toBe("");
         expect(errors).toEqual([]);
       } finally {
