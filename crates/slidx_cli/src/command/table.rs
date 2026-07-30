@@ -40,6 +40,23 @@ pub const ROOT: &[Flag] = &[
 
 pub const ALL: &[Command] = &[
     leaf(
+        "help",
+        "describe a command, or list them all",
+        "help [command]",
+        "\
+Prints the page for one command, or the list of them when given nothing.
+
+    slidx help lint
+    slidx help version install
+
+`slidx lint --help` prints the same page. Both read this table, so they cannot
+disagree — and there is a test that fails if they ever do.
+
+Which spelling somebody reaches for depends on what they used last, so both
+work rather than one being the real one.",
+        &[],
+    ),
+    leaf(
         "doctor",
         "check this machine before you speak",
         "doctor [options]",
@@ -49,7 +66,10 @@ says what to do about each one. Everything it looks at is something that goes
 wrong on stage and never at a desk, so it is worth the ten seconds in the room
 even when it was clean this morning.
 
-A reading that could not be taken is reported as unknown, never as a pass.",
+A reading that could not be taken is reported as unknown, never as a pass.
+
+    slidx doctor --explain
+    slidx doctor --dir ~/talks/vueconf --offline",
         &[
             Flag::taking("dir", "<path>", "Directory whose volume the disk check measures"),
             Flag::switch("offline", "Take no network readings, and say so in the report"),
@@ -68,7 +88,11 @@ time budget against the declared slot.
 
 Exits non-zero when something blocking is found, which is what makes it usable
 in CI. `path` is a deck file or a directory of slide files, and defaults to
-./slides — the same layout @slidx/vite-plugin builds.",
+./slides — the same layout @slidx/vite-plugin builds.
+
+    slidx lint
+    slidx lint ./slides --theme editorial --strict
+    slidx lint --allow contrast --allow structure/missing-alt",
         &[
             Flag::taking("theme", "<name>", "Theme to resolve colours against"),
             Flag::taking("separator", "<text>", "Slide separator in a single-file deck"),
@@ -206,7 +230,10 @@ box here is not evidence it fits the slide. `slidx lint` checks the room, and
 a browser shows the deck.
 
 Piped, it prints one stop and exits rather than waiting for a keypress there
-is nobody to press.",
+is nobody to press.
+
+    slidx tui
+    slidx tui ./slides --slide 4 --stop 2",
         &[
             Flag::taking("slide", "<number>", "Open on this slide, counting from one"),
             Flag::taking("stop", "<number>", "Open on this stop, counting from one"),
@@ -295,7 +322,10 @@ This does not build. When there is nothing there it says so and names
 @slidx/vite-plugin, which is the thing that produces a deck.
 
 Use this to check the RESULT — the same files a static host would serve. While
-you are still writing, `slidx dev` serves the source live and opens the editor.",
+you are still writing, `slidx dev` serves the source live and opens the editor.
+
+    slidx preview
+    slidx preview ./dist --web --port 4321",
         &[
             Flag::switch("web", "Serve the deck and open a browser instead of the PDF"),
             Flag::taking("port", "<number>", "Port to serve on. Default: one the system picks"),
@@ -319,7 +349,11 @@ tool that has to be trusted with a credential.
 
 Exits non-zero when a destination is blocked, naming the frontmatter key that
 would unblock it. Waiting on a person is not a failure. `--plan` writes
-nothing, so it can be read before it is meant and diffed against last time.",
+nothing, so it can be read before it is meant and diffed against last time.
+
+    slidx publish --plan
+    slidx publish --pdf ./dist/deck.pdf --out ./published
+    slidx publish --target resources --target archive",
         &[
             Flag::taking("out", "<path>", "Directory the written pages go under"),
             Flag::taking("pdf", "<path>", "The built PDF the slide hosts take"),
@@ -345,7 +379,10 @@ wherever you are — so any command run inside a repository picks up the pin at
 its root. Failing that, `slidx version use` sets the default for the machine.
 
 With no command it reports what is running and where that binary came from,
-which is `slidx version current`.",
+which is `slidx version current`.
+
+    slidx version
+    slidx version install 0.4.0 --use",
         flags: &[],
         takes_the_caller_with_it: false,
         default_subcommand: Some("current"),
@@ -360,7 +397,10 @@ put it there — then says plainly whether `slidx version use` can change it.
 
 That last part is the point. `npm i -g slidx` earlier on your PATH will win
 over a managed install and nothing else will ever mention it, so a version
-manager that cannot tell you it is not in charge is worse than none.",
+manager that cannot tell you it is not in charge is worse than none.
+
+    slidx version current
+    slidx version current --json",
                 &[Flag::switch("json", "Print the report as JSON")],
             ),
             leaf(
@@ -370,7 +410,9 @@ manager that cannot tell you it is not in charge is worse than none.",
                 "\
 Every version under ~/.slidx/versions, newest first, marking the one in use and
 the one currently running. A directory with no binary in it is a half-finished
-install and is not listed.",
+install and is not listed.
+
+    slidx version list",
                 &[Flag::switch("json", "Print the list as JSON")],
             ),
             leaf(
@@ -385,7 +427,10 @@ A mismatch, or an archive the checksum file does not mention, installs nothing.
 Verification is not optional and has no fallback: slidx computes the digest
 itself rather than looking for sha256sum on the machine.
 
-Does not change which version is in use. `--use` does that in the same breath.",
+Does not change which version is in use. `--use` does that in the same breath.
+
+    slidx version install 0.4.0
+    slidx version install 0.4.0 --use --force",
                 &[
                     Flag::switch("use", "Switch to it once it is installed"),
                     Flag::switch("force", "Download again even if it is already installed"),
@@ -398,14 +443,20 @@ Does not change which version is in use. `--use` does that in the same breath.",
                 "\
 Points ~/.slidx/bin/slidx at an installed version and records the choice in
 ~/.slidx/version. A project's .slidx-version still wins over this inside that
-project — the default is what applies everywhere else.",
+project — the default is what applies everywhere else.
+
+    slidx version use 0.3.0",
                 &[],
             ),
             leaf(
                 "remove",
                 "delete an installed version",
                 "version remove <version>",
-                "Deletes a version from ~/.slidx/versions. Refuses to remove the one in use.",
+                "\
+Deletes a version from ~/.slidx/versions. Refuses to remove the one in use,
+because the next thing you typed would be the shim pointing at nothing.
+
+    slidx version remove 0.2.0",
                 &[],
             ),
         ],
