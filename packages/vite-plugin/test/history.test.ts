@@ -158,6 +158,17 @@ describe("the deck's history in the editor", () => {
     expect(missing.status).toBe(404);
   });
 
+  it("ships the panel that reads these routes in the module the editor loads", async () => {
+    // The routes existing and the panel existing are two facts; a person can
+    // only reach the feature if the module the dev server serves has both. It
+    // is the same check that would have caught a compiled step pipeline
+    // nothing ever asked for.
+    const module = await (await fetch(`${session.url}__slidx/editor.js`)).text();
+
+    expect(module).toContain("slidx-revisions");
+    expect(module).toContain("history/change?rev=");
+  });
+
   it("refuses a revision that is a git option rather than an object name", async () => {
     // `--upload-pack` names a program to run. It never reaches a process:
     // the rule is checked before one starts.
