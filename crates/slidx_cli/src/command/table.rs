@@ -90,6 +90,68 @@ a keypress there is nobody to press.",
         ],
     ),
     leaf(
+        "list",
+        "show the decks on this machine",
+        "list [options]",
+        "\
+Every project in the index, most recently touched first, with the things that
+tell one deck from another: how many slides it has, how long the slot is, when
+it was last worked on, and the event it was written for.
+
+The index fills itself — running any command on a deck is what puts it in the
+list — so nothing has to be registered, and a project that has been deleted or
+moved stops appearing on its own.
+
+Slide counts and durations are read out of the decks rather than remembered, so
+a number in the table is the number in the file.",
+        &[Flag::switch("json", "Print the list as JSON")],
+    ),
+    leaf(
+        "cd",
+        "print a deck's directory, for a shell to enter",
+        "cd [query]",
+        "\
+Fuzzy-finds a project and prints its directory, which is all a program can do
+here: a child process cannot change the working directory of the shell that
+started it, and no flag will make it. That is how processes work rather than
+something missing, so the `cd` belongs to a shell function that reads this
+command's output — and directly, to a command substitution:
+
+    cd \"$(slidx cd vueconf)\"
+
+The quotes are not optional. A deck kept in a directory whose name has a space
+in it is otherwise split into two arguments, and `cd` is handed the first half.
+
+Exactly one path is printed, ever. A query matching several projects opens a
+picker — on the terminal, which is why it works inside a substitution — and
+where there is no terminal to pick on it takes the closest match and names it on
+standard error. A query matching nothing prints nothing and exits non-zero, so a
+substitution fails loudly rather than entering the empty string.",
+        &[],
+    ),
+    leaf(
+        "grep",
+        "search every deck this machine has seen",
+        "grep <text> [options]",
+        "\
+Searches the deck sources of every project in the index and reports the SLIDE a
+match is on, not just the line: a line number in a Markdown file is not where a
+speaker keeps their content, and `slide 7 of the VueConf deck` is.
+
+Plain text, matched anywhere in a line — there is no pattern syntax to learn
+and none to escape. A query in all lowercase matches either case; a query with
+a capital in it is matched exactly, so `Vue` finds the framework and not
+`revue`.
+
+Only decks are read: `node_modules`, build output and dot directories are
+skipped, which is what keeps this fast enough to type on a whim rather than
+schedule.",
+        &[
+            Flag::taking("limit", "<number>", "Stop after this many matches. Default: 100"),
+            Flag::switch("json", "Print the matches as JSON"),
+        ],
+    ),
+    leaf(
         "tui",
         "walk a deck's structure in the terminal",
         "tui [path] [options]",

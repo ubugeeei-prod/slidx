@@ -113,7 +113,12 @@ fn listed(entries: &[&Entry], matches: &Matches, style: &Style) -> Outcome {
     Outcome { stdout: text, stderr: names, code: OK }
 }
 
-fn nothing_indexed() -> String {
+/// What to say on a machine that has not seen a deck yet.
+///
+/// Shared with [`crate::cd`], which reaches the same dead end from the same
+/// empty index. Two wordings for one state would send two people looking for
+/// two different setup steps, neither of which exists.
+pub fn nothing_indexed() -> String {
     format!(
         "slidx has not seen any decks on this machine yet.\n\n\
          The index fills itself: run a command on a deck and it is remembered.\n\n\
