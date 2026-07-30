@@ -36,6 +36,7 @@
 //! of slidx. `--message` overrules it entirely, and `--dry-run` prints what
 //! would be written without writing anything.
 
+pub mod message;
 pub mod summary;
 
 use std::path::{Path, PathBuf};
