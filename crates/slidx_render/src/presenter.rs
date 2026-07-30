@@ -51,6 +51,7 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Presenter — {deck_title}</title>
+{noindex}
 <style>
 {theme_css}
 {layout_css}
@@ -89,6 +90,10 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
 </html>
 "#,
         deck_title = escape(deck.meta.title.as_deref().unwrap_or("slidx")),
+        // Never indexed, whatever the deck says about being published. This page
+        // holds the speaker's notes — the half of a talk written to be said and
+        // not read — and it is one URL away from every audience slide.
+        noindex = crate::seo::NOINDEX,
         theme_css = css::render(&options.theme),
         layout_css = presenter_layout::STYLESHEET,
         budget_label = budget_label(deck),

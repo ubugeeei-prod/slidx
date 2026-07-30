@@ -42,8 +42,10 @@ pub mod print;
 pub mod print_layout;
 pub mod qr;
 pub mod region;
+pub mod seo;
 pub mod shell;
 pub mod snippet;
+pub mod url;
 
 pub use highlight::highlight_code_blocks;
 pub use markdown::{render as render_markdown, MarkdownOptions};
@@ -52,6 +54,7 @@ pub use presenter::{render_presenter, PresenterOptions};
 pub use print::{render_print, PrintOptions};
 pub use qr::{render_qr, SlideQrOptions};
 pub use region::{layout_of, BLOCK_ATTRIBUTE};
+pub use seo::{describe, render_robots, render_sitemap, SeoOptions};
 pub use shell::{render_slide, ShellOptions};
 pub use snippet::{
     collect as collect_snippets, render_snippet, render_snippets, Snippet, SnippetOptions,

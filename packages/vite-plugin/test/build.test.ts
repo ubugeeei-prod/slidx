@@ -89,8 +89,13 @@ describe("building a deck with no configuration", () => {
     // empty chunk from the virtual entry would break it silently.
     expect(result.files.filter((file) => file.endsWith(".js"))).toEqual(["slides/runtime.js"]);
 
+    // The one `<script>` on an audience slide is the structured data, which is
+    // a block of JSON in the container the JSON-LD specification chose for it.
+    // No browser executes it; `browser.test.ts` checks that in three of them.
     const slide = await readFile(join(result.root, "dist/slides/index.html"), "utf8");
-    expect(slide).not.toContain("<script");
+    expect(slide).not.toContain('<script type="module"');
+    expect(slide.match(/<script/g)).toEqual(["<script"]);
+    expect(slide).toContain('<script type="application/ld+json">');
   });
 
   it("ships no way to edit the deck it was built from", async () => {
@@ -130,7 +135,11 @@ describe("building a deck with no configuration", () => {
   });
 
   it("emits nothing else", () => {
+    // `robots.txt` and no `sitemap.xml`: this deck has said nothing about where
+    // it is deployed, and a sitemap's `<loc>` is a full URL. Every directive in
+    // a robots file is root-relative, so that one needs no origin.
     expect(result.files.filter((file) => !file.startsWith("slides/og"))).toEqual([
+      "robots.txt",
       "slides/2/index.html",
       "slides/2/presenter/index.html",
       "slides/index.html",
@@ -153,7 +162,11 @@ describe("building a deck with no configuration", () => {
 
     expect(html).toMatch(/^<!doctype html>/);
     expect(html).toContain("--slidx-color-text:");
-    expect(html).not.toContain("<link");
+    // Nothing the browser has to go and get. The `<link>` elements a page does
+    // carry are `prev` and `next`, which name the neighbouring slides and are
+    // not fetched by anything.
+    expect(html).not.toContain('<link rel="stylesheet"');
+    expect(html).not.toContain('<link rel="preload"');
   });
 
   it("puts the deck title on every page", async () => {
@@ -169,6 +182,8 @@ describe("options", () => {
       "index.html",
       "presenter/index.html",
       "print/index.html",
+      // Still the site root, because that is the only place a crawler looks.
+      "robots.txt",
       "runtime.js",
     ]);
   }, 60_000);
@@ -178,7 +193,7 @@ describe("options", () => {
       { "0001.md": "# One\n" },
       { presenter: false, print: false, og: false },
     );
-    expect(files).toEqual(["slides/index.html"]);
+    expect(files).toEqual(["robots.txt", "slides/index.html"]);
   }, 60_000);
 
   it("keeps the print shell without the presenter view", async () => {
