@@ -164,7 +164,7 @@ pub fn findings(deck: &Deck, theme: Option<&str>, options: &LintOptions) -> Vec<
     // and rendered correctly by the build. `slidx theme` is how an author reads
     // a document this command cannot find for them.
     diagnostics.extend(slidx_dialect::check(deck, &options.allow, &Default::default()));
-    diagnostics.extend(lint(&LintInput::new(deck, &surfaces), &options));
+    diagnostics.extend(lint(&LintInput::new(deck, &surfaces), options));
 
     // A block placed in a region its layout does not have is decidable from the
     // source and the theme, which is exactly what this command is for. It comes

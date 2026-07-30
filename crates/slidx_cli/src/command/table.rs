@@ -191,7 +191,13 @@ a slidx command on, and nothing else.
 Read-only unless --write is passed, and then only under a directory it was
 started in or pointed at. Every change it makes is a slidx edit operation that
 hands back the edit reversing it, so `undo` takes the last one back byte for
-byte — but a deck under version control is still the real safety net.",
+byte — but a deck under version control is still the real safety net.
+
+A client's configuration names it, so the worked example is the line that goes
+in one:
+
+    slidx mcp
+    slidx mcp --write --root ~/talks",
         &[
             Flag::taking("root", "<path>", "A directory it may read decks under; repeatable")
                 .repeatable(),
