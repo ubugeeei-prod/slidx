@@ -169,6 +169,11 @@ writePackages(from, to);
 // release's binary builds fail on it.
 run("cargo", ["update", "--workspace", "--quiet"]);
 
+// Brand tokens carry the workspace version so published assets can be traced
+// back to the release that generated them. Regenerate after the Cargo bump,
+// before verification, so a release never commits stale derived files.
+run("pnpm", ["exec", "vp", "run", "generate:brand"]);
+
 // The same check the release workflow runs before it publishes. If this fails,
 // somewhere a version lives that this script does not know about, and the
 // answer is to teach it rather than to tag anyway.
