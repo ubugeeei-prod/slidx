@@ -38,6 +38,13 @@ export interface EditorState {
   source: string;
   spans: SlideSpans[];
   slides: SlideSummary[];
+  /**
+   * Length of the speaking slot, when the deck declares one.
+   *
+   * Deck-level rather than per-slide because it is what the per-slide budgets
+   * are laid against, and nothing else in the deck answers "does this fit".
+   */
+  durationSeconds?: number | undefined;
   diagnostics: Finding[];
   selection: Selection;
   canUndo: boolean;
@@ -99,6 +106,7 @@ export function createSession(client: EditorClient, history: History = createHis
       source: deck.source,
       spans: deck.spans,
       slides: deck.deck.slides,
+      durationSeconds: deck.deck.durationSeconds,
       diagnostics: deck.deck.diagnostics,
       // A selection is a range in a body that has just been rewritten, so it
       // cannot survive the edit that rewrote it. The slide it was on can.

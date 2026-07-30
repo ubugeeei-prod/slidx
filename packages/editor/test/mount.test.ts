@@ -167,6 +167,19 @@ describe("the mounted editor", () => {
     expect(server.reverted).toHaveLength(0);
   });
 
+  it("opens the storyboard onto the deck and the slot it was given", async () => {
+    // The reachable path, which is the only thing that makes the feature real:
+    // one control in the editor a dev server serves, and behind it the deck laid
+    // against the `duration:` the session carried through from the pipeline.
+    const { root } = open();
+    await settled();
+
+    root.querySelector<HTMLElement>(".slidx-sb-launch")!.click();
+
+    expect(root.querySelectorAll(".slidx-sb-slide")).toHaveLength(3);
+    expect(root.querySelector(".slidx-sb-summary")!.textContent).toContain("a 10m slot");
+  });
+
   it("says what the linter found without asking for it again", async () => {
     // The pipeline returns findings with every parse, so showing them inline
     // costs a read rather than a second analysis.

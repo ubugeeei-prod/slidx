@@ -53,10 +53,24 @@ export function deckOf(...titles: string[]): DeckState {
     title,
     notes: [],
     stopCount: 1,
+    estimatedSeconds: 0,
+    optional: false,
     frontmatter: index === 0 ? { title: "A Deck" } : {},
   }));
 
-  return { source, spans, deck: { title: "A Deck", slides, diagnostics: [], hasBlocking: false } };
+  return {
+    source,
+    spans,
+    deck: {
+      title: "A Deck",
+      // A slot, because a deck without one cannot say whether it fits, and the
+      // storyboard reads it through the session rather than from the frontmatter.
+      durationSeconds: 600,
+      slides,
+      diagnostics: [],
+      hasBlocking: false,
+    },
+  };
 }
 
 export function fakeServer(initial: DeckState = deckOf("One", "Two", "Three")): FakeServer {
