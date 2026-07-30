@@ -185,11 +185,18 @@ jobs:
       - name: Publish
         run: |
           set -euo pipefail
-          for dir in $(node scripts/publish-order.mjs npm) packages/cli/dist/* packages/cli; do
-            echo "::group::$dir"
-            (cd "$dir" && npm publish --provenance --access public)
+          tarballs="$RUNNER_TEMP/slidx-npm-tarballs"
+          node scripts/pack-npm.mjs \
+            "$RUNNER_TEMP/slidx-npm" \
+            $(node scripts/publish-order.mjs npm) \
+            packages/cli/dist/* \
+            packages/cli > "$tarballs"
+
+          while IFS= read -r tarball; do
+            echo "::group::$tarball"
+            npm publish "$tarball" --provenance --access public
             echo "::endgroup::"
-          done
+          done < "$tarballs"
 
   github-release:
     name: github release
