@@ -497,6 +497,14 @@ name = "slidx_highlight"
 version = "0.1.0"
 
 [[package]]
+name = "slidx_jsonrpc"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "slidx_lint"
 version = "0.1.0"
 dependencies = [
@@ -513,6 +521,7 @@ dependencies = [
  "serde_json",
  "slidx_core",
  "slidx_fmt",
+ "slidx_jsonrpc",
  "slidx_lint",
  "slidx_theme",
 ]
