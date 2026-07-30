@@ -102,9 +102,16 @@ Text is edited where it sits, and a block's width is a share of its region
 rather than a length, so a resize still means something at 4:3. Nothing reloads:
 the slide is swapped in place, and your caret stays where it was.
 
-`node scripts/record-editor.mjs` regenerates that recording by performing the
-drag again — so a gesture that stopped working fails to reproduce rather than
-showing something that no longer happens.
+<a href="./docs/media/editor-tour.webm">
+  <img alt="The visual editor editing text and addressed styles, choosing a layout that appears in a Markdown style tag, adding and reordering slides with keyboard shortcuts, undoing the move, and receiving a collaborator's edit" src="./docs/media/editor-tour.png">
+</a>
+
+The full tour above is one real session: visual and Markdown modes, layout,
+transition, slide creation, duplicate and reorder shortcuts, undo and redo, then
+a second editor changing the same source. Click it for the video.
+`vp run record:editor` and `vp run record:tour` regenerate both recordings by
+performing their gestures again, so a gesture that stopped working fails to
+reproduce rather than showing something that no longer happens.
 
 ## The CLI
 
@@ -123,6 +130,13 @@ slidx publish              # all that needs no account, and the payload for what
 `slidx self-update` verifies the latest stable release and hands it to the
 version manager. Binaries owned by another package manager stay with that
 manager; the command names the correct update path instead of shadowing it.
+
+<a href="./docs/media/cli-tour.webm">
+  <img alt="A terminal running the development server, formatter, linter, browser export, room doctor, and publish plan in lifecycle order" src="./docs/media/cli-tour.png">
+</a>
+
+The command tour is captured from the real binary under a terminal. Click it for
+the video; `vp run media` rebuilds it from fresh command output.
 
 A speaker keeps five decks in five repositories, so slidx indexes them:
 

@@ -13,6 +13,12 @@ the terminal, **the room** — what is about to happen to your talk that no edit
 can see — and **the decks you already have**, because a speaker who gives four
 talks a year has four repositories and remembers where none of them are.
 
+<video src="../media/cli-tour.webm" controls loop muted playsinline preload="metadata" width="960"></video>
+
+The recording runs the real binary through the authoring lifecycle: start the
+deck and editor, format, lint, export, inspect the room, and prepare a publish
+plan. `vp run media` captures fresh output for every command.
+
 Everything on this page comes from
 [the table the binary itself reads](../../crates/slidx_cli/src/command/table.rs).
 The argument parser, the help text and six shell completion scripts read the

@@ -32,13 +32,15 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, rmSync, writeFileSync, readFileSync, renameSync } from "node:fs";
+import { cpSync, mkdirSync, rmSync, writeFileSync, readFileSync, renameSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { chromium } from "playwright";
 
-import { capture, page as terminalPage } from "./terminal.mjs";
+import { encodeApng } from "./animate.mjs";
+import { decodePng } from "./png.mjs";
+import { capture, captureUntil, page as terminalPage, toHtml } from "./terminal.mjs";
 
 const OUT = process.argv[2] ?? "docs/media";
 const DECK = "examples/deck/dist/slides";
@@ -78,6 +80,9 @@ duration: 5m
 const scratch = join(OUT, ".scratch");
 mkdirSync(join(scratch, "slides"), { recursive: true });
 writeFileSync(join(scratch, "slides", "0001.md"), BROKEN_DECK);
+const exportRoot = join(scratch, "export");
+cpSync(resolve("examples/deck/slides"), join(exportRoot, "slides"), { recursive: true });
+cpSync(resolve("examples/deck/dist"), join(exportRoot, "dist"), { recursive: true });
 
 const slidx = binary();
 const css = execFileSync("cargo", ["run", "-q", "-p", "slidx_docs", "--example", "tokens"], {
@@ -102,6 +107,39 @@ const captures = [
     text: capture(slidx, ["lint"], { cwd: scratch }),
   },
 ];
+const cli = [
+  {
+    command: "slidx dev --no-open --port 41795",
+    text: await captureUntil(slidx, ["dev", "--no-open", "--port", "41795"], {
+      cwd: resolve("examples/deck"),
+      until: /Editor:\s+http/,
+    }),
+  },
+  {
+    command: "slidx fmt --check",
+    text: capture(slidx, ["fmt", "--check"], { cwd: resolve("examples/deck") }),
+  },
+  {
+    command: "slidx lint",
+    text: capture(slidx, ["lint"], { cwd: resolve("examples/deck") }),
+  },
+  {
+    command: "slidx export --target browser --no-build --out exports",
+    text: capture(slidx, ["export", "--target", "browser", "--no-build", "--out", "exports"], {
+      cwd: exportRoot,
+    }),
+  },
+  {
+    command: "slidx doctor --offline",
+    text: excerpt(capture(slidx, ["doctor", "--offline"], { cwd: resolve("examples/deck") }), 18),
+  },
+  {
+    command: "slidx publish --plan --target blog",
+    text: capture(slidx, ["publish", "--plan", "--target", "blog"], {
+      cwd: resolve("examples/deck"),
+    }),
+  },
+];
 
 const browser = await chromium.launch();
 
@@ -109,13 +147,13 @@ for (const shot of captures) {
   await terminalStills(shot);
 }
 
-await terminalAnimation(captures[1]);
+await cliAnimation(cli);
 await deckAnimation();
 
 await browser.close();
 rmSync(scratch, { recursive: true, force: true });
 
-process.stdout.write(`\n${captures.length * 2 + 2} file(s) in ${OUT}\n`);
+process.stdout.write(`\n${captures.length * 2 + 3} file(s) in ${OUT}\n`);
 
 /**
  * The debug binary, built if it is not there.
@@ -163,31 +201,50 @@ async function terminalStills({ name, title, text }) {
  * the order the command wrote them, revealed at a speed a reader can follow.
  * What is being animated is the reading rather than the running.
  */
-async function terminalAnimation({ title, text }) {
-  const html = join(scratch, "animated.html");
-  const lines = JSON.stringify(text.split("\n"));
-
+async function cliAnimation(commands) {
+  const html = join(scratch, "cli.html");
   writeFileSync(
     html,
-    terminalPage(title, "", { tokens: css }).replace(
-      "</body>",
-      `<script type="module">
-const lines = ${lines};
-const pre = document.querySelector("pre");
-const wait = (ms) => new Promise((done) => setTimeout(done, ms));
-for (const line of lines) {
-  pre.textContent += line + "\\n";
-  await wait(line.trim() === "" ? 90 : 220);
-}
-await wait(1200);
-</script></body>`,
+    terminalPage("slidx command tour", "", { tokens: css }).replace(
+      "</style>",
+      ".terminal { height: calc(100vh - 48px); }\n</style>",
     ),
   );
 
-  await record("terminal.webm", TERMINAL, async (page) => {
+  const frames = [];
+  await record("cli-tour.webm", TERMINAL, async (page) => {
     await page.goto(pathToFileURL(resolve(html)).href);
-    await page.waitForTimeout(text.split("\n").length * 220 + 1600);
+    const pre = page.locator("pre");
+
+    for (const command of commands) {
+      await pre.evaluate((node) => {
+        node.textContent = "$ ";
+      });
+
+      for (const character of command.command) {
+        await pre.evaluate((node, typed) => {
+          node.textContent += typed;
+        }, character);
+        await page.waitForTimeout(24);
+      }
+
+      await page.waitForTimeout(280);
+      await pre.evaluate((node, output) => {
+        node.insertAdjacentHTML("beforeend", `\n${output}`);
+      }, toHtml(command.text));
+      await page.waitForTimeout(1_450);
+      frames.push({ shot: await page.screenshot(), delay: 1_450 });
+    }
   });
+
+  const first = decodePng(frames[0].shot);
+  const preview = encodeApng(
+    frames.map(({ shot, delay }) => ({ pixels: decodePng(shot).pixels, delay })),
+    { width: first.width, height: first.height },
+  );
+  const out = join(OUT, "cli-tour.png");
+  writeFileSync(out, preview);
+  process.stdout.write(`  ${out} (${(preview.length / 1024).toFixed(0)} kB)\n`);
 }
 
 /**
@@ -231,4 +288,9 @@ async function record(name, size, scene) {
   const out = join(OUT, name);
   renameSync(await video.path(), out);
   process.stdout.write(`  ${out} (${(readFileSync(out).length / 1024).toFixed(0)} kB)\n`);
+}
+
+/** The top of a real report, clipped only so the next command fits the frame. */
+function excerpt(text, lines) {
+  return `${text.split("\n").slice(0, lines).join("\n")}\n`;
 }

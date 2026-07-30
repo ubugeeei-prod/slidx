@@ -23,6 +23,18 @@ describe("the README identity", () => {
       expect(existsSync(join(ROOT, asset)), asset).toBe(true);
     }
   });
+
+  it("links animated tour previews to their full recordings", () => {
+    for (const name of ["editor-tour", "cli-tour"]) {
+      const preview = `./docs/media/${name}.png`;
+      const video = `./docs/media/${name}.webm`;
+
+      expect(README, name).toContain(`<a href="${video}">`);
+      expect(README, name).toContain(`src="${preview}"`);
+      expect(existsSync(join(ROOT, preview.slice(2))), preview).toBe(true);
+      expect(existsSync(join(ROOT, video.slice(2))), video).toBe(true);
+    }
+  });
 });
 
 describe("the CLI examples", () => {
