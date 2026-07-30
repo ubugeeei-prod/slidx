@@ -28,9 +28,10 @@ use serde_json::{json, Value};
 use slidx_jsonrpc::{error_code, Message, RequestId};
 
 use super::content;
-use super::instructions::INSTRUCTIONS;
+use super::history::History;
+use super::instructions;
 use super::protocol::{negotiate, Negotiation, SUPPORTED};
-use super::tool;
+use super::tool::{self, Context};
 use super::workspace::Workspace;
 use super::SERVER_NAME;
 
@@ -43,11 +44,18 @@ pub struct Session {
     /// Holds the negotiation result rather than a boolean because it decides the
     /// shape of every later reply, not just whether there was one.
     version: Option<&'static str>,
+    /// What this session has changed, so `undo` can take it back.
+    history: History,
 }
 
 impl Session {
     pub fn new(workspace: Workspace) -> Self {
-        Self { workspace, version: None }
+        Self { workspace, version: None, history: History::default() }
+    }
+
+    /// How many changes this session could still take back.
+    pub fn undo_depth(&self) -> usize {
+        self.history.len()
     }
 
     /// The revision this session agreed on, once it has.
@@ -114,10 +122,13 @@ impl Session {
         };
 
         match method {
-            "tools/list" => Message::response(
-                id,
-                json!({ "tools": tool::ALL.iter().map(|tool| tool.describe(version)).collect::<Vec<_>>() }),
-            ),
+            "tools/list" => {
+                let writing = self.workspace.authority().writes();
+                let listed: Vec<Value> =
+                    tool::listed(writing).iter().map(|tool| tool.describe(version)).collect();
+
+                Message::response(id, json!({ "tools": listed }))
+            }
             "tools/call" => self.call(id, params, version),
             _ => Message::error(
                 id,
@@ -172,7 +183,7 @@ impl Session {
                     "title": "slidx",
                     "version": crate::version(),
                 },
-                "instructions": INSTRUCTIONS,
+                "instructions": instructions::for_authority(self.workspace.authority()),
             }),
         )
     }
@@ -202,7 +213,19 @@ impl Session {
         };
 
         let arguments = params.get("arguments").cloned().unwrap_or_else(|| json!({}));
-        let answered = (tool.run)(&self.workspace, &arguments);
+
+        // Refused here rather than deeper down, so the reason is about authority
+        // rather than about whichever argument happened to be checked first.
+        let answered = if tool.writes && !self.workspace.authority().writes() {
+            Err(format!(
+                "`{name}` changes a deck, and this server was started read-only. Nothing was \
+                 written. Whoever runs it can allow writes with `slidx mcp --write`; that is \
+                 their decision and not one a deck or a tool call can make for them.",
+            ))
+        } else {
+            let mut context = Context { workspace: &self.workspace, history: &mut self.history };
+            (tool.run)(&mut context, &arguments)
+        };
 
         Message::response(id, content::result(answered, version))
     }
@@ -290,12 +313,53 @@ mod tests {
     }
 
     #[test]
-    fn every_tool_in_the_table_is_listed() {
+    fn a_read_only_session_lists_only_the_tools_it_will_run() {
+        // A tool advertised and refused spends a model's attention on a call
+        // that comes back as an error, and reads as a broken server.
         let mut session = started();
         let replies = session.handle(request(2, "tools/list", Value::Null));
         let listed = replies[0].result.clone().expect("a result");
 
-        assert_eq!(listed["tools"].as_array().expect("tools").len(), tool::ALL.len());
+        assert_eq!(listed["tools"].as_array().expect("tools").len(), tool::listed(false).len());
+        assert!(listed["tools"].as_array().expect("tools").len() < tool::all().len());
+    }
+
+    #[test]
+    fn a_writing_session_lists_the_operations_too() {
+        let workspace = Workspace::new(vec![std::env::temp_dir()])
+            .with_index(std::env::temp_dir().join("slidx-mcp-no-index.json"))
+            .writing();
+        let mut session = Session::new(workspace);
+        session.handle(request(1, "initialize", json!({ "protocolVersion": PROTOCOL_VERSION })));
+
+        let replies = session.handle(request(2, "tools/list", Value::Null));
+        let listed = replies[0].result.clone().expect("a result");
+
+        assert_eq!(listed["tools"].as_array().expect("tools").len(), tool::all().len());
+    }
+
+    #[test]
+    fn a_mutating_tool_on_a_read_only_session_is_refused_by_authority_not_by_argument() {
+        // The reason has to be about what the server was allowed to do. A
+        // complaint about a missing argument would send a model round again
+        // with a better-formed call that is refused for the same reason.
+        let mut session = started();
+        let replies = session.handle(request(
+            3,
+            "tools/call",
+            json!({ "name": "set_heading", "arguments": {} }),
+        ));
+        let result = replies[0].result.clone().expect("a result");
+
+        assert_eq!(result["isError"], true);
+        let reason = result["content"][0]["text"].as_str().expect("a reason");
+        assert!(reason.contains("read-only"), "{reason}");
+        assert!(reason.contains("--write"), "{reason}");
+    }
+
+    #[test]
+    fn nothing_is_on_the_undo_stack_until_something_changes() {
+        assert_eq!(started().undo_depth(), 0);
     }
 
     #[test]

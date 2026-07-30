@@ -15,13 +15,21 @@
 //! *structurally* incapable of reflowing a paragraph or reordering frontmatter,
 //! because there is no call that takes raw file content.
 //!
-//! ## Read-only, and stdio only
+//! ## Every mutation hands back its own inverse
 //!
-//! Nothing in this module writes to a file. A server that would rewrite a
-//! conference talk is a liability, and a deck's own slides, notes and code
-//! fences are untrusted input that an agent will read on the author's behalf.
-//! [`instructions`] says so to the client, and no resource's content changes what
-//! the server is willing to do.
+//! [`slidx_edit::Edit`] is already a value that knows how to reverse itself, so
+//! this is nearly free — and no other editing surface an agent has can offer it.
+//! An agent told its third change was wrong walks back three calls, byte for
+//! byte, rather than reconstructing a file from memory. See [`history`].
+//!
+//! ## Read-only by default, and stdio only
+//!
+//! Writes are behind `--write`, and a mutating tool is neither listed nor
+//! runnable without it. A server that would rewrite a conference talk because
+//! something in the deck told it to is a liability, and a deck's own slides,
+//! notes and code fences are untrusted input that an agent reads on the author's
+//! behalf. [`instructions`] says so to the client, and no resource's content
+//! changes what the server is willing to do.
 //!
 //! There is no listener, no port, and no outbound request. The transport is
 //! standard input and standard output, and the only thing this process can reach
@@ -35,6 +43,9 @@
 //! anything worth saying goes to standard error.
 
 pub mod content;
+pub mod deck;
+pub mod edit;
+pub mod history;
 pub mod instructions;
 pub mod protocol;
 pub mod session;
@@ -66,7 +77,7 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
         return Outcome::misuse(spoken_to_not_typed(style));
     }
 
-    let mut session = Session::new(Workspace::new(roots(matches)));
+    let mut session = Session::new(workspace(matches));
     let mut input = BufReader::new(io::stdin().lock());
     let mut output = io::stdout().lock();
 
@@ -94,10 +105,26 @@ fn spoken_to_not_typed(style: &Style) -> String {
          \x20 }}\n\
          }}\n\
          \n\
-         It serves the directory it is started in. Pass --root <path> for each\n\
-         other project it should be able to read.\n",
+         It serves the directory it is started in, read-only. Pass --root <path>\n\
+         for each other project it may read, and --write to let an agent apply\n\
+         slidx edit operations to a deck under a root.\n",
         style.paint(crate::style::Ink::Strong, "slidx mcp")
     )
+}
+
+/// The workspace the command line asked for.
+///
+/// Read-only unless `--write` was passed. That default is the whole point: a
+/// client that spawns this server without being asked to allow writes gets a
+/// server that cannot make any.
+fn workspace(matches: &Matches) -> Workspace {
+    let workspace = Workspace::new(roots(matches));
+
+    if matches.is_set("write") {
+        return workspace.writing();
+    }
+
+    workspace
 }
 
 /// The directories the server will open a file under.

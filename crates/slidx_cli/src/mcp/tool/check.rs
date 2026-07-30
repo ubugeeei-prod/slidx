@@ -24,7 +24,7 @@ use slidx_doctor::probe::{self, Request};
 use slidx_lint::LintOptions;
 
 use crate::mcp::content::Answer;
-use crate::mcp::workspace::Workspace;
+use crate::mcp::tool::Context;
 use crate::style::Style;
 
 pub fn lint_schema() -> Value {
@@ -98,14 +98,14 @@ pub fn lint_output() -> Value {
     })
 }
 
-pub fn lint(workspace: &Workspace, arguments: &Value) -> Result<Answer, String> {
+pub fn lint(context: &mut Context<'_>, arguments: &Value) -> Result<Answer, String> {
     let path = text(arguments, "deck").ok_or_else(|| {
         "`deck` is required: the path to a Markdown deck, a directory of slide files, or the \
          project holding one."
             .to_string()
     })?;
 
-    let reading = workspace.read_deck(path, text(arguments, "separator"))?;
+    let reading = context.workspace.read_deck(path, text(arguments, "separator"))?;
 
     let options = LintOptions {
         allow: strings(arguments, "allow"),
@@ -178,7 +178,7 @@ pub fn machine_output() -> Value {
     })
 }
 
-pub fn machine(workspace: &Workspace, arguments: &Value) -> Result<Answer, String> {
+pub fn machine(context: &mut Context<'_>, arguments: &Value) -> Result<Answer, String> {
     let base = if arguments.get("offline").and_then(Value::as_bool).unwrap_or_default() {
         Request::offline()
     } else {
@@ -189,8 +189,8 @@ pub fn machine(workspace: &Workspace, arguments: &Value) -> Result<Answer, Strin
     // the deck is on. Defaulting to a root rather than to the process's working
     // directory, which is wherever the client happened to spawn this server.
     let workspace_dir = match text(arguments, "dir") {
-        Some(path) => Some(workspace.readable(path)?),
-        None => workspace.roots().first().cloned(),
+        Some(path) => Some(context.workspace.readable(path)?),
+        None => context.workspace.roots().first().cloned(),
     };
 
     let request = match workspace_dir {
@@ -224,6 +224,8 @@ fn strings(arguments: &Value, key: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mcp::history::History;
+    use crate::mcp::workspace::Workspace;
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -258,13 +260,25 @@ mod tests {
             .with_index(scratch.path().join("no-index.json"))
     }
 
+    /// One call's worth of context. Neither of these tools touches the history.
+    fn ran(
+        scratch: &Scratch,
+        tool: fn(&mut Context<'_>, &Value) -> Result<Answer, String>,
+        arguments: &Value,
+    ) -> Result<Answer, String> {
+        let workspace = workspace(scratch);
+        let mut history = History::default();
+
+        tool(&mut Context { workspace: &workspace, history: &mut history }, arguments)
+    }
+
     fn lint_deck(scratch: &Scratch, extra: Value) -> Result<Answer, String> {
         let mut arguments = json!({ "deck": scratch.path().display().to_string() });
         for (key, value) in extra.as_object().cloned().unwrap_or_default() {
             arguments[key] = value;
         }
 
-        lint(&workspace(scratch), &arguments)
+        ran(scratch, lint, &arguments)
     }
 
     /// The structured half of whatever a tool answered.
@@ -336,7 +350,7 @@ mod tests {
     #[test]
     fn a_missing_deck_argument_says_what_the_argument_is_for() {
         let scratch = Scratch::new("missing");
-        let refusal = lint(&workspace(&scratch), &json!({})).expect_err("no deck");
+        let refusal = ran(&scratch, lint, &json!({})).expect_err("no deck");
 
         assert!(refusal.contains("`deck` is required"), "{refusal}");
     }
@@ -346,7 +360,7 @@ mod tests {
         // An unavailable reading is unknown, never a pass. This runs on a
         // continuous integration machine with no battery and no window server.
         let scratch = Scratch::new("machine");
-        let structured = data(machine(&workspace(&scratch), &json!({ "offline": true })));
+        let structured = data(ran(&scratch, machine, &json!({ "offline": true })));
 
         let checks = structured["findings"].as_array().expect("findings");
         assert!(!checks.is_empty());
@@ -365,7 +379,7 @@ mod tests {
         // The working directory of an MCP server is whatever the client chose.
         // The volume worth measuring is the one the deck is on.
         let scratch = Scratch::new("disk");
-        let answer = machine(&workspace(&scratch), &json!({ "offline": true })).expect("a report");
+        let answer = ran(&scratch, machine, &json!({ "offline": true })).expect("a report");
         let text = crate::mcp::content::result(Ok(answer), crate::mcp::PROTOCOL_VERSION);
 
         assert!(text["content"][0]["text"].as_str().expect("a report").contains("slidx doctor"));
@@ -375,7 +389,7 @@ mod tests {
     fn a_directory_outside_the_roots_cannot_be_measured_either() {
         let scratch = Scratch::new("disk-outside");
         let above = std::env::temp_dir().display().to_string();
-        let refusal = machine(&workspace(&scratch), &json!({ "dir": above })).expect_err("outside");
+        let refusal = ran(&scratch, machine, &json!({ "dir": above })).expect_err("outside");
 
         assert!(refusal.contains("outside"), "{refusal}");
     }

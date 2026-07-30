@@ -122,11 +122,19 @@ bullets and their hand-wrapped paragraphs — invisible on a slide and enormous 
 the diff. So this serves slidx's own operations rather than a file writer, and
 an agent working through it cannot reflow a paragraph it did not mean to touch.
 
-It is read-only, opens no port, and makes no outbound request. It reads decks
-under the directory it was started in and under the projects this machine has
-already run a slidx command on, and nothing else.",
-        &[Flag::taking("root", "<path>", "A directory it may read decks under; repeatable")
-            .repeatable()],
+It opens no port and makes no outbound request. It reads decks under the
+directory it was started in and under the projects this machine has already run
+a slidx command on, and nothing else.
+
+Read-only unless --write is passed, and then only under a directory it was
+started in or pointed at. Every change it makes is a slidx edit operation that
+hands back the edit reversing it, so `undo` takes the last one back byte for
+byte — but a deck under version control is still the real safety net.",
+        &[
+            Flag::taking("root", "<path>", "A directory it may read decks under; repeatable")
+                .repeatable(),
+            Flag::switch("write", "Let an agent apply slidx edit operations to a deck"),
+        ],
     ),
     leaf(
         "open",
