@@ -1,6 +1,6 @@
 {
   "name": "@ubugeeei/slidx-vite-plugin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Author, preview, and build slidx decks with Vite",
   "license": "MIT",
   "repository": {
