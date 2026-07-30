@@ -24,6 +24,7 @@
 import { createArrange } from "./arrange";
 import { createCanvas } from "./canvas";
 import { createClient, type EditorClient } from "./client";
+import { createPresence } from "./collab";
 import { createDiagnostics } from "./diagnostics";
 import { element } from "./dom";
 import { createInspector } from "./inspector";
@@ -112,6 +113,7 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
       { measure: (measured) => client.measured(measured) },
     ),
     storyboard,
+    createPresence({ reload: () => void session.open() }),
   ];
   const frame = element(
     "div",

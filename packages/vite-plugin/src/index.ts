@@ -118,10 +118,15 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
      * guarantee: `vite build` never calls this hook.
      */
     configureServer(server) {
-      watchSlides(server, root, options.srcDir);
-      announceEditor(server);
-
       const session = createEditSession(root, options);
+
+      // The session is told before the browser is: a slide the author saved in
+      // their own text editor has to reach the shared document, or the next
+      // operation from a co-presenter would be planned against bytes that are
+      // no longer on disk.
+      watchSlides(server, root, options.srcDir, () => void session.refresh());
+      announceEditor(server);
+      server.httpServer?.on("close", () => session.close());
 
       server.middlewares.use(async (request, response, next) => {
         const url = request.url ?? "/";
@@ -435,12 +440,18 @@ function readRuntime(): Promise<string> {
  * module boundary to swap. Reloading is also what proves the built page works,
  * since it is the same path the browser takes in production.
  */
-function watchSlides(server: ViteDevServer, root: string, srcDir: string): void {
+function watchSlides(
+  server: ViteDevServer,
+  root: string,
+  srcDir: string,
+  changed: () => void,
+): void {
   const directory = `${root}/${srcDir}`;
   server.watcher.add(directory);
 
   const reload = (path: string) => {
     if (!path.startsWith(directory)) return;
+    changed();
     server.ws.send({ type: "full-reload", path: "*" });
   };
 

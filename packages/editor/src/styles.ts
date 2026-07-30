@@ -447,6 +447,38 @@ textarea { resize: vertical; font-size: 12px; }
  * the question. Excluded from the transition above rather than switched off
  * here, but stated so nobody adds it back.
  */
+
+/*
+ * Presence, and why it floats rather than taking a row of the grid.
+ *
+ * An author working alone is the normal case and must see no new chrome at all,
+ * so this is hidden until somebody else connects — and a panel that appears and
+ * disappears from the layout would move the canvas under the author's cursor.
+ * Floating costs nothing when it is not there.
+ */
+.slidx-presence {
+  position: fixed;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  max-width: 60vw;
+  padding: 2px 8px;
+  background: var(--slidx-e-surface);
+  border: var(--slidx-e-hairline) solid var(--slidx-e-line);
+  border-radius: var(--slidx-e-radius);
+  font-size: 12px;
+}
+
+.slidx-presence[data-empty="true"] { display: none; }
+.slidx-presence-label { color: var(--slidx-e-muted); }
+.slidx-presence-list { display: flex; gap: 8px; margin: 0; padding: 0; list-style: none; overflow-x: auto; }
+.slidx-presence-who { display: flex; gap: 4px; align-items: baseline; white-space: nowrap; }
+.slidx-presence-who[data-local="true"] .slidx-presence-name { color: var(--slidx-e-accent); }
+.slidx-presence-where { color: var(--slidx-e-muted); }
+.slidx-presence-role { color: var(--slidx-e-muted); font-size: 11px; }
 `;
 
 /** Puts the chrome's stylesheet into a document, once. */

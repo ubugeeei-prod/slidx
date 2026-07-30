@@ -21,14 +21,25 @@
  * land in a neighbouring file — a session that ends where it began would still
  * leave a diff. So an emptied file keeps its place in the list until the dev
  * server stops.
+ *
+ * # Sharing changes who may ask, and nothing else
+ *
+ * When a share secret has been issued, every route here is answered only for a
+ * request that is allowed to reach it: reading needs a secret, editing needs a
+ * *different* secret, and loopback is the author and needs neither. The answers
+ * themselves are identical either way — a co-presenter's editor and the
+ * author's are the same page talking to the same routes, which is what keeps
+ * this from becoming two servers with two behaviours.
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 
+import { createRoom, type Room } from "./collab/room";
 import { readDeck, type DeckSource } from "./deck";
 import { EDITOR_MODULE, EDITOR_PAGE, editorPage, readEditor } from "./editor";
 import { joinDeck } from "./files";
 import { createDeckHistory } from "./history";
+import { createSharing, isLoopback, CREDENTIAL_HEADER, Grant, type Sharing } from "./share";
 import {
   applyOperation,
   locate,
@@ -76,11 +87,32 @@ export interface EditSession {
    * as of one. `null` when this repository has no such commit.
    */
   deckAt(rev: string): Promise<DeckSource | null>;
+  /**
+   * Re-reads the deck and tells every connected editor.
+   *
+   * Called by the watcher. This is the other half of the merge story: a file the
+   * author saved in their own editor becomes a splice in the shared document
+   * here, rather than waiting for the next operation to notice.
+   */
+  refresh(): Promise<void>;
+  /** Ends every held connection. */
+  close(): void;
 }
 
-export function createEditSession(root: string, options: ResolvedOptions): EditSession {
+export interface SessionOptions {
+  /** Injected so a test can share a deck without setting process-wide state. */
+  sharing?: Sharing;
+}
+
+export function createEditSession(
+  root: string,
+  options: ResolvedOptions,
+  session: SessionOptions = {},
+): EditSession {
   const emptied = new Map<string, DeckFile>();
   const history = createDeckHistory(root, options);
+  const sharing = session.sharing ?? createSharing();
+  const room = createRoom({ deckState: () => current() });
 
   async function files(): Promise<DeckFile[]> {
     const { files: found } = await readDeck(
@@ -120,15 +152,43 @@ export function createEditSession(root: string, options: ResolvedOptions): EditS
     return { source, spans: located.slides, deck };
   }
 
+  /** The deck as the files say it reads, right now. */
+  async function current() {
+    return state(joinDeck(await files(), options.separator).source);
+  }
+
   return {
     deckAt: (rev) => history.deckAt(rev),
+    async refresh() {
+      const deck = await current();
+      // Through the reconciler rather than straight into the room, because a
+      // file that changed on disk is a splice like any other and has to enter
+      // the shared document by the one door.
+      room.reconciler.adopt(deck.source);
+      room.announce(deck);
+    },
+
+    close: () => room.close(),
 
     async handle(request, response) {
       const url = request.url ?? "";
       const path = url.split("?")[0]!;
       if (!path.startsWith(EDITOR_ROUTE_PREFIX)) return false;
 
+      const local = isLoopback(request.socket.remoteAddress);
+      const grant = sharing.grant(credential(request), request.socket.remoteAddress);
+
+      // A shared deck answers only what the presented secret allows. Editing is
+      // a second secret rather than a flag on the first, so a viewer cannot
+      // reach this branch with the link they were given.
+      if (grant === Grant.None || (grant === Grant.Read && path === EDIT_ROUTE)) {
+        send(response, 403, { message: refused(grant) });
+        return true;
+      }
+
       try {
+        if (await room.handle(request, response, { grant, local })) return true;
+
         if (path === EDITOR_PAGE && request.method === "GET") {
           const deck = await state(joinDeck(await files(), options.separator).source);
           // The generated deck type says `null` because that is what serde
@@ -204,22 +264,52 @@ export function createEditSession(root: string, options: ResolvedOptions): EditS
   };
 
   async function edit(payload: EditRequest) {
-    const current = await files();
+    const before = await files();
+    // The reconciler is only threaded in when somebody is sharing. With nobody
+    // else connected the pipeline is the same function it has always been, and
+    // the bytes it writes are the ones the splice named.
+    const reconciler = sharing.on ? room.reconciler : undefined;
     const result = payload.edit
-      ? await revertOperation(current, options.separator, payload.edit)
-      : await applyOperation(current, options.separator, payload.op ?? {});
+      ? await revertOperation(before, options.separator, payload.edit, reconciler)
+      : await applyOperation(before, options.separator, payload.op ?? {}, reconciler);
 
     if (result.error) return { error: result.error, ...(await state(result.source)) };
 
     await writeDeck(result.writes);
-    remember(current, result.writes, emptied);
+    remember(before, result.writes, emptied);
 
-    return {
+    const answer = {
       undo: result.undo,
       written: result.writes.map((write) => write.label),
       ...(await state(result.source)),
     };
+
+    // Everyone else sees the deck the operation produced without asking for it.
+    // The author's own editor already has this in the reply it is reading.
+    room.announce(answer);
+
+    return answer;
   }
+}
+
+/** Why a request was refused, in words a co-presenter can act on. */
+function refused(grant: Grant): string {
+  return grant === Grant.Read
+    ? "This link can read the deck but not change it. Editing needs a link from `slidx dev --crdt --allow-edit`."
+    : "This deck is shared by link, and this request carried no valid one.";
+}
+
+/**
+ * The share credential a request presented.
+ *
+ * A header rather than a query parameter, for the same reason the secret lives
+ * in the fragment: a query string reaches an access log, and this is the value
+ * that log would then be enough to replay.
+ */
+function credential(request: IncomingMessage): string | undefined {
+  const presented = request.headers[CREDENTIAL_HEADER];
+
+  return Array.isArray(presented) ? presented[0] : presented;
 }
 
 /**
