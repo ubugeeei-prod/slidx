@@ -67,6 +67,7 @@ pub mod project;
 pub mod publish;
 pub mod report;
 pub mod sha256;
+pub mod shell;
 pub mod style;
 pub mod terminal;
 pub mod tui;
@@ -132,6 +133,7 @@ pub fn run(argv: &[String], style: &Style) -> Outcome {
             (None, "grep") => grep::run(&matches, style),
             (None, "preview") => preview::run(&matches, style),
             (None, "completions") => completions::run(&matches, style),
+            (None, "shell") => shell::run(&matches, style),
             (None, "publish") => publish::run(&matches, style),
             (None, "tui") => tui::run(&matches, style),
             (Some("version"), action) => version::run(action, &matches, style),

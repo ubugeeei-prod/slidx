@@ -17,7 +17,16 @@ const fn leaf(
     about: &'static str,
     flags: &'static [Flag],
 ) -> Command {
-    Command { name, summary, usage, about, flags, subcommands: &[], default_subcommand: None }
+    Command {
+        name,
+        summary,
+        usage,
+        about,
+        flags,
+        subcommands: &[],
+        default_subcommand: None,
+        takes_the_caller_with_it: false,
+    }
 }
 
 /// Accepted by every command, so they are not repeated in each table.
@@ -82,13 +91,17 @@ Only the chosen path goes to standard output, so this composes:
 
     cd \"$(slidx open vueconf)\"
 
+With `slidx shell` loaded you are simply taken there, because the shell
+function can do the one thing this command cannot.
+
 Piped, or with --list, it prints every match and exits rather than waiting for
 a keypress there is nobody to press.",
         &[
             Flag::switch("list", "Print every match and exit, without the picker"),
             Flag::switch("json", "Print the matches as JSON"),
         ],
-    ),
+    )
+    .taking_the_caller_with_it(),
     leaf(
         "list",
         "show the decks on this machine",
@@ -182,17 +195,40 @@ is nobody to press.",
         "print a completion script for your shell",
         "completions <shell>",
         "\
-Writes a completion script to standard output, for bash, zsh, fish or
-powershell. It is generated from the same table the parser and the help text
-read, so what completes is what actually runs.
+Writes a completion script to standard output. It is generated from the same
+table the parser and the help text read, so what completes is what actually
+runs.
 
-Where it goes depends on the shell:
-
-    slidx completions bash > ~/.local/share/bash-completion/completions/slidx
-    slidx completions zsh  > ~/.zfunc/_slidx
     slidx completions fish > ~/.config/fish/completions/slidx.fish
 
-    slidx completions powershell >> $PROFILE",
+With no shell it lists every shell it knows and where that shell's script has
+to go. That list is not repeated here, so it cannot go stale here.
+
+A shell with no programmable completion is told so in a sentence rather than
+handed a script that would do nothing — and the shell integration, which is a
+different thing and works everywhere, is `slidx shell`.",
+        &[],
+    ),
+    leaf(
+        "shell",
+        "let slidx move the directory you are standing in",
+        "shell <name>",
+        "\
+Writes a shell function to standard output. Load it from your profile:
+
+    eval \"$(slidx shell sh)\"
+
+A process cannot change its parent's working directory. Nothing can, on any
+operating system, and no version of slidx will be able to — so a command that
+finds a deck can only print where that deck is, and the shell you typed into
+is the only thing that can take you there. This function closes that gap: it
+runs slidx, prints what slidx printed, and follows it when what came back was
+a directory.
+
+Every other command is passed straight through, untouched and unbuffered,
+because a report that arrived all at once at the end would be a worse report.
+
+With no name it lists every shell it knows and which file the line goes in.",
         &[],
     ),
     leaf(
@@ -262,6 +298,7 @@ its root. Failing that, `slidx version use` sets the default for the machine.
 With no command it reports what is running and where that binary came from,
 which is `slidx version current`.",
         flags: &[],
+        takes_the_caller_with_it: false,
         default_subcommand: Some("current"),
         subcommands: &[
             leaf(
@@ -368,4 +405,14 @@ pub fn declined(name: &str) -> Option<&'static str> {
 /// Every command name, for the help text and for shell completions.
 pub fn names() -> Vec<&'static str> {
     ALL.iter().map(|command| command.name).collect()
+}
+
+/// Every command whose output the shell that called it has to act on.
+///
+/// The list [`crate::shell::integration`] writes into its wrapper function, in
+/// every shell. Derived rather than written down, so a command that gains the
+/// property gains it in bash, zsh, fish, PowerShell, Nushell and ush at once —
+/// and one that loses it stops being captured everywhere at once too.
+pub fn taking_the_caller_with_them() -> Vec<&'static str> {
+    ALL.iter().filter(|command| command.takes_the_caller_with_it).map(|c| c.name).collect()
 }

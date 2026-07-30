@@ -393,6 +393,29 @@ and `%LOCALAPPDATA%\slidx` on Windows. `slidx version` resolves the same path in
 the same order, which is what lets the version manager ever be in charge of the
 binary you are running.
 
+### In your shell
+
+```bash
+slidx completions <shell>   # what `slidx <tab>` offers
+slidx shell <shell>         # the function that lets slidx move you
+```
+
+Both are generated from the one table the parser reads, so what completes is
+what runs. Run either with no argument and it lists the shells it knows and
+which file the output belongs in — the list is not repeated in this README,
+because a list in prose is a list that goes stale.
+
+Two of those shells are honest special cases. **sh** has no programmable
+completion and no script will ever give it one, so it is told so in a sentence
+rather than handed a stub that installs cleanly and changes nothing. **ush**
+completes from a catalogue compiled into itself, so what slidx writes is that
+catalogue entry, in ush's own shape, for its maintainer to adopt.
+
+The integration is the other half, and every shell has it: a process cannot
+change its parent's working directory, so a command that finds a deck can only
+print where it is. One shell function closes that gap, and it is derived from
+the table too — a command that needs your shell gets it in every shell at once.
+
 Prebuilt for macOS on Apple silicon and Intel, Linux on x86-64 and ARM64
 (statically linked, so Alpine works), and Windows on x86-64. Anywhere else,
 `cargo install slidx_cli` builds it.
