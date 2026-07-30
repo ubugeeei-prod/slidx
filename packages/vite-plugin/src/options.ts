@@ -245,3 +245,8 @@ export const ROBOTS_FILE_NAME = "robots.txt";
 export function runtimeFileName(options: ResolvedOptions): string {
   return options.base ? `${options.base}/runtime.js` : "runtime.js";
 }
+
+/** Where the runtime's one shared effect stylesheet is written. */
+export function effectsFileName(options: ResolvedOptions): string {
+  return options.base ? `${options.base}/effects.css` : "effects.css";
+}

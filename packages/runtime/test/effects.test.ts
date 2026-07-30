@@ -18,6 +18,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vite-plus/test";
 
+import { loadEffects } from "../src/effects";
+
 // `import.meta.dirname` rather than `new URL(...)`: the DOM environment
 // replaces the global URL, and its instances are not accepted by node:url.
 const css = readFileSync(join(import.meta.dirname, "../src/effects.css"), "utf8");
@@ -109,6 +111,42 @@ describe("degradation", () => {
     for (const easing of union("Easing")) {
       expect(css).toContain(`--slidx-easing-${easing}:`);
     }
+  });
+});
+
+describe("loading", () => {
+  it("adds one stylesheet and resolves only after the browser applied it", async () => {
+    const page = document.implementation.createHTMLDocument();
+    const loaded = loadEffects(page, "data:text/css,[data-slidx-hidden]{visibility:hidden}");
+    const link = page.querySelector<HTMLLinkElement>("[data-slidx-effects]");
+
+    expect(link?.rel).toBe("stylesheet");
+    expect(link?.getAttribute("href")).toContain("data:text/css");
+
+    link?.dispatchEvent(new Event("load"));
+    await expect(loaded).resolves.toBe(true);
+  });
+
+  it("shares an in-flight load rather than requesting the stylesheet twice", () => {
+    const page = document.implementation.createHTMLDocument();
+    const href = "data:text/css,[data-slidx-hidden]{visibility:hidden}";
+    const first = loadEffects(page, href);
+    const second = loadEffects(page, href);
+
+    expect(second).toBe(first);
+    expect(page.querySelectorAll("[data-slidx-effects]")).toHaveLength(1);
+  });
+
+  it("keeps the slide visible and permits a retry when loading fails", async () => {
+    const page = document.implementation.createHTMLDocument();
+    const failed = loadEffects(page, "data:text/css,");
+    const link = page.querySelector<HTMLLinkElement>("[data-slidx-effects]");
+
+    link?.dispatchEvent(new Event("error"));
+
+    await expect(failed).resolves.toBe(false);
+    expect(page.querySelector("[data-slidx-effects]")).toBeNull();
+    expect(loadEffects(page, "data:text/css,body{}")).not.toBe(failed);
   });
 });
 

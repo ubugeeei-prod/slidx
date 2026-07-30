@@ -156,13 +156,13 @@ fn stage_script(deck: &Deck, slide: &Slide, options: &ShellOptions) -> String {
 
     format!(
         r#"<script type="module">
-import {{ createStage, createNavigator, createMirror, markScriptEnabled, LAST_STEP }} from "{runtime_src}";
+import {{ createStage, createNavigator, createMirror, loadEffects, markScriptEnabled, LAST_STEP }} from "{runtime_src}";
 
 // Staging is gated on this attribute, so a deck whose script never arrived
 // shows every element rather than a slide that is mostly invisible. Setting it
 // is therefore what *switches staging on*, and it has to happen before the
 // first frame is applied or the slide flashes its whole content on load.
-markScriptEnabled(document);
+if (await loadEffects(document)) markScriptEnabled(document);
 
 const stage = createStage(document.querySelector(".slidx-slide"), {timeline});
 

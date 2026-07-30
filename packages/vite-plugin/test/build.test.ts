@@ -175,6 +175,19 @@ describe("building a deck with no configuration", () => {
   });
 });
 
+describe("a staged deck", () => {
+  it("ships the effect stylesheet beside the runtime that loads it", async () => {
+    const { root, files } = await buildDeck({
+      "0001.md": "# One\n\n- now\n- later <!-- step -->\n",
+    });
+
+    expect(files).toContain("slides/effects.css");
+    expect(await readFile(join(root, "dist/slides/effects.css"), "utf8")).toContain(
+      "[data-slidx-hidden]",
+    );
+  }, 60_000);
+});
+
 describe("options", () => {
   it("serves the deck at the site root when asked", async () => {
     const { files } = await buildDeck({ "0001.md": "# One\n" }, { base: "/" });
