@@ -197,7 +197,14 @@ export function createRevisions(
       [open],
     );
 
-    if (commit.rev === selected) item.append(changeFor(commit.rev));
+    if (commit.rev === selected) {
+      item.append(changeFor(commit.rev));
+      // What a commit did can be several lines, and the row it belongs to may
+      // be most of a screen above them. `nearest` so a row already in view is
+      // left where the reader put it.
+      queueMicrotask(() => item.scrollIntoView({ block: "nearest" }));
+    }
+
     open.addEventListener("click", () => void choose(commit.rev));
 
     return item;

@@ -144,9 +144,18 @@ export const REVISIONS_STYLESHEET = `
 
 .slidx-revisions-preview[data-showing="false"] { display: none; }
 
+/*
+ * Sized by its height rather than its width, so a short window gives the
+ * commit list room instead of handing the whole panel to one slide. It stays
+ * recognisable small because it is the deck's real page and not a thumbnail
+ * of one.
+ */
 .slidx-revision-frame {
   display: block;
-  width: 100%;
+  height: min(26vh, 200px);
+  width: auto;
+  max-width: 100%;
+  margin: 0 auto;
   aspect-ratio: 16 / 9;
   border: var(--slidx-e-hairline) solid var(--slidx-e-line);
   border-radius: var(--slidx-e-radius);
