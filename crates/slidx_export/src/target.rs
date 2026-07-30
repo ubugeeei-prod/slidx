@@ -22,7 +22,7 @@ pub enum ExportTarget {
     PdfZip,
     /// One image per stop.
     Png,
-    /// A presentation, for somebody who will open it in Google Slides.
+    /// A presentation for tools that import the open OOXML format.
     Pptx,
 }
 
@@ -69,15 +69,9 @@ impl ExportTarget {
 
     /// Other names somebody would reasonably type for the same thing.
     ///
-    /// One entry, and it earns its place: a person exporting for Google Slides
-    /// has no reason to know the format is called pptx, and "unknown target"
-    /// would send them looking for a feature that is already there. Kept beside
-    /// the token so the two cannot drift into two lists.
+    /// Kept beside the token so a future alias cannot drift into a second list.
     pub fn aliases(&self) -> &'static [&'static str] {
-        match self {
-            Self::Pptx => &["google-slides"],
-            _ => &[],
-        }
+        &[]
     }
 
     pub fn parse(token: &str) -> Option<Self> {
@@ -94,7 +88,7 @@ impl ExportTarget {
             Self::Pdf => "the deck as one document",
             Self::PdfZip => "one PDF per slide, in a zip",
             Self::Png => "one image per stop, in a zip",
-            Self::Pptx => "a presentation, which Google Slides imports natively",
+            Self::Pptx => "an OOXML presentation accepted by presentation tools",
         }
     }
 
@@ -190,14 +184,6 @@ mod tests {
         for target in EXPORT_TARGETS {
             assert_eq!(ExportTarget::parse(target.as_token()), Some(*target));
         }
-    }
-
-    #[test]
-    fn google_slides_finds_the_file_google_slides_opens() {
-        // Somebody exporting for Google Slides has no reason to know the format
-        // is called pptx, and "unknown target" would send them looking for a
-        // feature that is already there.
-        assert_eq!(ExportTarget::parse("google-slides"), Some(ExportTarget::Pptx));
     }
 
     #[test]
