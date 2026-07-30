@@ -31,7 +31,7 @@
 //! error.
 
 use std::fs::File;
-use std::io::Read;
+use std::io::{IsTerminal, Read};
 use std::process::{Command, Stdio};
 
 /// The terminal, by name rather than by inherited handle.
@@ -41,6 +41,35 @@ use std::process::{Command, Stdio};
 /// command write its answer to standard output without the interface following
 /// it there.
 pub const TTY: &str = "/dev/tty";
+
+/// Set by the shell integration while it is holding a command's output.
+///
+/// [`crate::shell::integration`]'s wrapper function captures standard output so
+/// it can follow a path a command printed. That makes stdout a pipe while a
+/// person is still sitting in front of the terminal — and every command that
+/// asks "is anybody there" would answer no, so the picker would print a list
+/// with nobody to choose from it. This is the wrapper saying it is the pipe.
+///
+/// Read here rather than in each command, because the variable and the script
+/// that sets it have to be one spelling.
+pub const HELD_BY_A_SHELL_FUNCTION: &str = "SLIDX_SHELL_INTEGRATION";
+
+/// Whether there is a person here to press a key.
+pub fn someone_is_there() -> bool {
+    watching(
+        std::io::stdout().is_terminal(),
+        std::env::var(HELD_BY_A_SHELL_FUNCTION).ok().as_deref(),
+    )
+}
+
+/// The decision, as a function of the two things it depends on.
+///
+/// Separated from [`someone_is_there`] so both branches are reachable from a
+/// test without setting a process-wide variable two parallel tests would fight
+/// over — the same shape [`crate::style::wants_color`] uses.
+pub fn watching(is_terminal: bool, held: Option<&str>) -> bool {
+    is_terminal || held.is_some_and(|value| !value.is_empty())
+}
 
 /// A keypress, decoded.
 ///
@@ -285,6 +314,29 @@ mod tests {
         assert_eq!(key_of(b"q"), Key::Char('q'));
         assert_eq!(key_of(b"?"), Key::Char('?'));
         assert_eq!(key_of(&[0x01]), Key::Ignored);
+    }
+
+    #[test]
+    fn a_pipe_means_nobody_is_there_to_press_a_key() {
+        // Which is what makes `slidx open | head` print a list rather than wait
+        // for a keypress in a CI job.
+        assert!(!watching(false, None));
+        assert!(watching(true, None));
+    }
+
+    #[test]
+    fn a_shell_function_holding_the_output_is_not_a_pipe_with_nobody_behind_it() {
+        // The integration captures stdout so it can follow a path. The person
+        // is still at the terminal, and a picker that refused to draw would be
+        // the integration making slidx worse.
+        assert!(watching(false, Some("1")));
+    }
+
+    #[test]
+    fn an_empty_variable_is_not_a_shell_function_holding_anything() {
+        // Exported-but-empty is how a variable looks when a script unset it
+        // badly, the same reading `NO_COLOR` gets.
+        assert!(!watching(false, Some("")));
     }
 
     #[test]

@@ -67,9 +67,30 @@ pub struct Command {
     pub subcommands: &'static [Command],
     /// What a parent command does when given no subcommand.
     pub default_subcommand: Option<&'static str>,
+    /// True when everything this command prints is a directory the person who
+    /// ran it wants to be standing in.
+    ///
+    /// A process cannot change its parent's directory — so a command like this
+    /// can only ever print where to go, and the shell that was typed into is
+    /// the only thing that can go there. [`crate::shell::integration`] reads
+    /// this to decide which commands its wrapper function captures, in every
+    /// shell at once.
+    ///
+    /// It is deliberately narrow. A command whose output is a report must not
+    /// be captured: capturing turns its standard output into a pipe, which
+    /// costs it colour and makes it arrive all at once at the end.
+    pub takes_the_caller_with_it: bool,
 }
 
 impl Command {
+    /// Marks a command whose output the caller's shell has to act on.
+    ///
+    /// Written as a builder so adding a command stays one call to
+    /// [`table::leaf`], and so the property reads as the exception it is.
+    pub const fn taking_the_caller_with_it(self) -> Self {
+        Self { takes_the_caller_with_it: true, ..self }
+    }
+
     /// Finds a flag by its long name or its short letter.
     pub fn flag(&self, token: &str) -> Option<&'static Flag> {
         self.flags.iter().chain(GLOBAL.iter()).find(|flag| {
@@ -106,7 +127,7 @@ impl Command {
 /// A leaf command with no children, which is most of them.
 mod table;
 
-pub use table::{declined, find, names, ALL, DECLINED, GLOBAL, ROOT};
+pub use table::{declined, find, names, taking_the_caller_with_them, ALL, DECLINED, GLOBAL, ROOT};
 
 #[cfg(test)]
 mod tests {
@@ -209,6 +230,46 @@ mod tests {
     fn every_command_accepts_the_global_flags_without_declaring_them() {
         for command in ALL {
             assert!(command.flag("help").is_some(), "{} cannot be asked for help", command.name);
+        }
+    }
+
+    #[test]
+    fn at_least_one_command_needs_the_callers_shell_or_the_integration_is_a_stub() {
+        // `slidx shell` writes a wrapper function whose whole job is to follow
+        // these. With none of them declared it would write a function that
+        // shadows the binary and does nothing, which is worse than writing
+        // nothing at all.
+        assert!(!taking_the_caller_with_them().is_empty());
+    }
+
+    #[test]
+    fn only_a_top_level_command_asks_for_the_callers_shell() {
+        // The wrapper matches on the first word after `slidx`, in four shells.
+        // A nested command marked here would be silently ignored by all of
+        // them, which is the kind of dead declaration this table exists to
+        // make impossible.
+        for parent in ALL.iter().filter(|entry| entry.has_subcommands()) {
+            for child in parent.subcommands {
+                assert!(
+                    !child.takes_the_caller_with_it,
+                    "`{} {}` asks for the caller's shell, which only a top-level command can",
+                    parent.name, child.name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_command_that_takes_the_caller_with_it_says_where_it_is_going() {
+        // Its standard output is captured by a shell function and read as a
+        // path, so anything else it printed there would be read as one too.
+        // Saying so in the help is what stops somebody adding a banner to it.
+        for command in ALL.iter().filter(|entry| entry.takes_the_caller_with_it) {
+            assert!(
+                command.about.contains("standard output"),
+                "{} is captured by the shell integration and does not say so",
+                command.name
+            );
         }
     }
 

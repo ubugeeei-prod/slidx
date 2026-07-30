@@ -42,7 +42,7 @@ pub mod code;
 pub mod outline;
 pub mod screen;
 
-use std::io::{IsTerminal, Write};
+use std::io::Write;
 use std::path::PathBuf;
 
 use slidx_core::{parse_deck, Deck, DeckParseOptions};
@@ -90,7 +90,7 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
     let stop = starting_stop(matches, &deck, start);
 
     // A pipe or a CI job has nobody in it to press a key. One stop, then out.
-    if !std::io::stdout().is_terminal() {
+    if !terminal::someone_is_there() {
         let view = View { deck: &deck, slide: start, stop, size };
         return Outcome::out(screen::frame(&view, style));
     }

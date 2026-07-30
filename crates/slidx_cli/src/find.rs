@@ -30,7 +30,6 @@ pub mod picker;
 pub mod scoring;
 pub mod screen;
 
-use std::io::IsTerminal;
 use std::path::PathBuf;
 
 use crate::args::Matches;
@@ -62,7 +61,7 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
     }
 
     // One match for a query somebody typed is an answer, not a menu.
-    if matches.is_set("list") || !std::io::stdout().is_terminal() {
+    if matches.is_set("list") || !crate::terminal::someone_is_there() {
         return listed(&entries, matches, style);
     }
 
