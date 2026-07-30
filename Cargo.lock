@@ -471,6 +471,7 @@ dependencies = [
  "slidx_lsp",
  "slidx_publish",
  "slidx_qr",
+ "slidx_render",
  "slidx_theme",
 ]
 

@@ -33,6 +33,7 @@ slidx_lint = { workspace = true }
 slidx_lsp = { workspace = true }
 slidx_publish = { workspace = true }
 slidx_qr = { workspace = true }
+slidx_render = { workspace = true }
 slidx_theme = { workspace = true }
 getrandom = { workspace = true }
 serde = { workspace = true }

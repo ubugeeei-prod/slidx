@@ -33,6 +33,7 @@
 pub mod apply;
 pub mod args;
 pub mod check;
+pub mod find;
 pub mod format;
 pub mod mark;
 pub mod slide;
@@ -148,6 +149,7 @@ the report worse than useless. Nothing here reads the deck.",
 pub fn all() -> Vec<&'static Tool> {
     READING
         .iter()
+        .chain(find::ALL)
         .chain(slide::ALL)
         .chain(mark::ALL)
         .chain(step::ALL)

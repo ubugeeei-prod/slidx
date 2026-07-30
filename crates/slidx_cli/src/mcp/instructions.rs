@@ -86,7 +86,16 @@ byte. Never tidy Markdown by hand: the bytes you did not mean to touch are
 exactly the ones that make a diff unreadable.
 
 This server opens no port and makes no network request. `slidx preview --web`
-serves a built deck on loopback, and a person runs it.";
+serves a built deck on loopback, and a person runs it.
+
+WHAT YOU CAN READ
+
+Beyond the tools there are resources: the deck index across every project this
+machine has seen, a deck's parsed model, its diagnostics, its compiled timeline,
+and per slide its source, its HTML and its CARD AS AN IMAGE. Read the card when
+you need to see a slide rather than read it — a title running to three lines is
+not visible in Markdown. It is not a screenshot: a card carries fewer words,
+larger, because it is read at four hundred pixels wide.";
 
 /// What a server that was not asked to write says about itself.
 const READ_ONLY: &str = "\

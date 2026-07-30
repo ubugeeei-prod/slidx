@@ -113,6 +113,11 @@ impl Workspace {
         &self.roots
     }
 
+    /// Where the deck index is read from.
+    pub fn index_path(&self) -> PathBuf {
+        self.index.clone()
+    }
+
     /// Every directory a file may be opened under, roots first.
     ///
     /// Recomputed per call rather than cached, because the index fills itself
