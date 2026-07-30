@@ -36,7 +36,7 @@ use crate::home::Home;
 use crate::index::{Entry, Index};
 use crate::lint::source;
 use crate::project;
-use crate::style::{Ink, Style};
+use crate::style::{self, Ink, Style};
 use crate::{Outcome, OK};
 
 /// Past this a title is cut short, so the columns after it stay where the eye
@@ -147,9 +147,13 @@ fn table(rows: &[Row], now: u64, style: &Style) -> String {
     let mut sorted: Vec<&Row> = rows.iter().collect();
     sorted.sort_by_key(|row| std::cmp::Reverse(row.touched));
 
+    // Cells rather than characters. A Japanese title is one character and two
+    // cells, so a column sized by character count is half the width the row
+    // needs — and every column after it starts in a different place on that row
+    // than on the others.
     let width = sorted
         .iter()
-        .map(|row| clipped(&row.title).chars().count())
+        .map(|row| style::width::of(&clipped(&row.title)))
         .max()
         .unwrap_or(0)
         .min(TITLE_BUDGET);
@@ -211,12 +215,14 @@ fn slot(seconds: Option<u32>) -> String {
 /// A title cut to the column, with an ellipsis so nobody reads a clipped title
 /// as the whole one.
 fn clipped(title: &str) -> String {
-    if title.chars().count() <= TITLE_BUDGET {
+    if style::width::of(title) <= TITLE_BUDGET {
         return title.to_string();
     }
 
-    let kept: String = title.chars().take(TITLE_BUDGET - 1).collect();
-    format!("{}…", kept.trim_end())
+    // The budget is cells, so a title of Japanese is cut at fourteen characters
+    // rather than at twenty-eight — which is what keeps it inside the column
+    // instead of pushing the four columns after it along.
+    format!("{}…", style::width::clip(title, TITLE_BUDGET - 1).trim_end())
 }
 
 fn now() -> u64 {
@@ -302,6 +308,54 @@ mod tests {
         assert_eq!(slot(Some(1200)), "20m");
         assert_eq!(slot(Some(90)), "1m30s");
         assert_eq!(slot(None), MISSING);
+    }
+
+    #[test]
+    fn a_japanese_title_keeps_the_columns_after_it_where_they_are() {
+        // The bug this replaced: the column was sized in characters and the
+        // title drawn in cells, so `SLIDES` began seven cells further right on
+        // the one row with a Japanese title in it — and this maintainer's decks
+        // are in Japanese.
+        let text = rendered(
+            &[
+                row("日本語のトーク", Some(12), Some(1200), 0),
+                row("Making decks fast", Some(9), None, 0),
+            ],
+            0,
+        );
+
+        let starts: Vec<usize> = text
+            .lines()
+            .filter(|line| line.contains("12") || line.contains('9'))
+            .filter_map(|line| line.rfind("  ").map(|_| column_of(line, "  ")))
+            .collect();
+
+        assert!(starts.windows(2).all(|pair| pair[0] == pair[1]), "{starts:?}\n{text}");
+    }
+
+    #[test]
+    fn a_long_japanese_title_is_cut_by_the_cells_it_occupies() {
+        // Twenty-eight characters of Japanese is fifty-six cells, which is most
+        // of the page. The budget is a column width, so it has to be cells.
+        let title = "日".repeat(40);
+        let text = rendered(&[row(&title, Some(3), None, 0)], 0);
+
+        assert!(text.contains('…'), "{text}");
+        for line in text.lines() {
+            assert!(
+                crate::style::width::of(line) <= crate::style::WIDTH,
+                "{} columns: {line}",
+                crate::style::width::of(line)
+            );
+        }
+    }
+
+    /// Where the last run of two spaces ends, in cells — the start of the final
+    /// column on a row.
+    fn column_of(line: &str, separator: &str) -> usize {
+        let at = line.rfind(separator).map(|at| at + separator.len()).unwrap_or(0);
+
+        crate::style::width::of(&line[..at])
     }
 
     #[test]

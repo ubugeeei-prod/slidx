@@ -57,25 +57,28 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
     }
 
     let query = matches.first_positional().unwrap_or_default();
-    let matched: Vec<&Entry> = scoring::rank(query, index.entries(), Entry::haystack)
+    // The match travels with the entry, because the picker draws a highlight
+    // from it — see `crate::find::highlight`.
+    let matched: Vec<find::Hit> = scoring::rank(query, index.entries(), Entry::haystack)
         .into_iter()
-        .map(|(entry, _)| entry)
+        .map(|(entry, found)| find::Hit { entry, found })
         .collect();
 
     match matched.as_slice() {
         [] => Outcome { stderr: no_match(query), code: FOUND, ..Outcome::default() },
-        [only] => entered(&only.path),
+        [only] => entered(&only.entry.path),
         several => match picker::choose(several, query, style) {
-            picker::Outcome::Chose(index) => entered(&several[index].path),
+            picker::Outcome::Chose(index) => entered(&several[index].entry.path),
             // Cancelled on purpose. Nothing on standard output, so the shell
             // stays where it was rather than going somewhere arbitrary.
             picker::Outcome::Cancelled => Outcome::default().with_code(FOUND),
             // No terminal to pick on: a pipe, a script, a CI job. The ranking
             // is the answer, and saying which one was taken costs a line of
             // standard error that no substitution will capture.
-            picker::Outcome::Unavailable => {
-                Outcome { stderr: guessed(query, several, style), ..entered(&several[0].path) }
-            }
+            picker::Outcome::Unavailable => Outcome {
+                stderr: guessed(query, several, style),
+                ..entered(&several[0].entry.path)
+            },
         },
     }
 }
@@ -97,8 +100,8 @@ fn no_match(query: &str) -> String {
 /// On standard error, which is where it can be read by a person and not by a
 /// command substitution. Silence here would be the one bad outcome: entering a
 /// directory somebody did not choose *and* not saying so.
-fn guessed(query: &str, entries: &[&Entry], style: &Style) -> String {
-    let chosen = entries[0];
+fn guessed(query: &str, entries: &[find::Hit<'_>], style: &Style) -> String {
+    let chosen = entries[0].entry;
     let occasion = chosen.occasion().map(|text| format!(" — {text}")).unwrap_or_default();
 
     format!(
@@ -179,7 +182,10 @@ mod tests {
             entry("/talks/vueconf-tokyo", "Fast decks"),
             entry("/talks/vueconf-osaka", "Fast decks again"),
         ];
-        let refs: Vec<&Entry> = entries.iter().collect();
+        let refs: Vec<find::Hit> = entries
+            .iter()
+            .map(|entry| find::Hit { entry, found: scoring::Match::default() })
+            .collect();
 
         let stderr = guessed("vueconf", &refs, &Style::plain());
 
