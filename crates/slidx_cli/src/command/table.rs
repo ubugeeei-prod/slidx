@@ -170,6 +170,41 @@ in one:
         &[],
     ),
     leaf(
+        "mcp",
+        "serve slidx to an agent over the Model Context Protocol",
+        "mcp [options]",
+        "\
+Speaks the Model Context Protocol over standard input and output, so an agent
+can read and check a deck through slidx rather than around it. A client starts
+it; typing it at a prompt prints the configuration instead of waiting.
+
+The reason it exists is the same reason the visual editor does. An agent that
+edits a deck by rewriting the file regularises the author's blank lines, their
+bullets and their hand-wrapped paragraphs — invisible on a slide and enormous in
+the diff. So this serves slidx's own operations rather than a file writer, and
+an agent working through it cannot reflow a paragraph it did not mean to touch.
+
+It opens no port and makes no outbound request. It reads decks under the
+directory it was started in and under the projects this machine has already run
+a slidx command on, and nothing else.
+
+Read-only unless --write is passed, and then only under a directory it was
+started in or pointed at. Every change it makes is a slidx edit operation that
+hands back the edit reversing it, so `undo` takes the last one back byte for
+byte — but a deck under version control is still the real safety net.
+
+A client's configuration names it, so the worked example is the line that goes
+in one:
+
+    slidx mcp
+    slidx mcp --write --root ~/talks",
+        &[
+            Flag::taking("root", "<path>", "A directory it may read decks under; repeatable")
+                .repeatable(),
+            Flag::switch("write", "Let an agent apply slidx edit operations to a deck"),
+        ],
+    ),
+    leaf(
         "open",
         "find a deck this machine has seen",
         "open [query] [options]",

@@ -70,11 +70,11 @@ export const WRITE_ONLY = new Map([
     "the lockup half of assets/brand/tokens.json; nothing in this workspace draws a lockup",
   ],
   [
-    "crates/slidx_lsp/src/protocol.rs:Message.jsonrpc",
+    "crates/slidx_jsonrpc/src/message.rs:Message.jsonrpc",
     "JSON-RPC requires the version on every message; the client checks it, we only send it",
   ],
   [
-    "crates/slidx_lsp/src/protocol.rs:Message.result",
+    "crates/slidx_jsonrpc/src/message.rs:Message.result",
     "the response half of the envelope, written on the way out and never parsed back",
   ],
   [

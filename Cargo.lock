@@ -466,10 +466,12 @@ dependencies = [
  "slidx_fmt",
  "slidx_highlight",
  "slidx_i18n",
+ "slidx_jsonrpc",
  "slidx_lint",
  "slidx_lsp",
  "slidx_publish",
  "slidx_qr",
+ "slidx_render",
  "slidx_theme",
 ]
 
@@ -553,6 +555,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "slidx_jsonrpc"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "slidx_lint"
 version = "0.1.0"
 dependencies = [
@@ -570,6 +580,7 @@ dependencies = [
  "slidx_core",
  "slidx_dialect",
  "slidx_fmt",
+ "slidx_jsonrpc",
  "slidx_lint",
  "slidx_theme",
 ]
