@@ -365,9 +365,18 @@ async function openDeclaringCamera(engine: Engine) {
         const tile = document.querySelector("[data-slidx-camera]");
         const heading = document.querySelector("h1");
 
+        // Counted the way `measure` counts it: by what the browser would run.
+        // The structured data in the head is a `<script>` holding a block of
+        // JSON, of a type nothing executes, and only something that executes
+        // could ask for a device.
+        const executable = [...document.scripts].filter(
+          (script) =>
+            script.type === "" || script.type === "module" || /javascript/i.test(script.type),
+        );
+
         return {
           requests: (window as unknown as Counted).__cameraRequests,
-          scripts: document.scripts.length,
+          scripts: executable.length,
           videos: document.querySelectorAll("video").length,
           declared: tile !== null,
           tileWidth: tile === null ? 0 : tile.getBoundingClientRect().width,
@@ -400,7 +409,8 @@ describe.each(ENGINES)("%s, on a slide that declares a camera", (engine) => {
       const { requests, scripts, errors } = await openDeclaringCamera(engine);
 
       expect(requests).toBe(0);
-      // The reason it cannot: there is nothing on the page that could ask.
+      // The reason it cannot: there is nothing on the page that runs, and so
+      // nothing that could ask.
       expect(scripts).toBe(0);
       expect(errors).toEqual([]);
     },
