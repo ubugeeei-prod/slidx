@@ -118,10 +118,15 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
      * guarantee: `vite build` never calls this hook.
      */
     configureServer(server) {
-      watchSlides(server, root, options.srcDir);
-      announceEditor(server);
-
       const session = createEditSession(root, options);
+
+      // The session is told before the browser is: a slide the author saved in
+      // their own text editor has to reach the shared document, or the next
+      // operation from a co-presenter would be planned against bytes that are
+      // no longer on disk.
+      watchSlides(server, root, options.srcDir, () => session.refresh());
+      announceEditor(server);
+      server.httpServer?.on("close", () => session.close());
 
       server.middlewares.use(async (request, response, next) => {
         const url = request.url ?? "/";
@@ -435,12 +440,31 @@ function readRuntime(): Promise<string> {
  * module boundary to swap. Reloading is also what proves the built page works,
  * since it is the same path the browser takes in production.
  */
-function watchSlides(server: ViteDevServer, root: string, srcDir: string): void {
+function watchSlides(
+  server: ViteDevServer,
+  root: string,
+  srcDir: string,
+  changed: () => void | Promise<void>,
+): void {
   const directory = `${root}/${srcDir}`;
   server.watcher.add(directory);
 
-  const reload = (path: string) => {
+  const reload = async (path: string) => {
     if (!path.startsWith(directory)) return;
+
+    try {
+      // Awaited, because the reload is what makes every browser ask for the
+      // deck again. Telling them first would race the read this is waiting for,
+      // and the answer they got back would be the bytes from before the save.
+      await changed();
+    } catch {
+      // A save caught half-written reads as a failure here, and the reload
+      // below is still the right thing to do: it sends every browser back to
+      // the deck route, which reads the files itself and has its own answer
+      // for a deck it cannot read. Swallowed rather than thrown, because a
+      // watcher callback has nobody to throw to but the process.
+    }
+
     server.ws.send({ type: "full-reload", path: "*" });
   };
 

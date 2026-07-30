@@ -11,12 +11,22 @@
  * An operation that names a slide the deck no longer has comes back as an
  * answer rather than a throw: the editor builds operations from a deck it
  * parsed a keystroke ago, and that race is ordinary traffic.
+ *
+ * # Where a second writer would go, and does not
+ *
+ * With collaboration on, a [`Reconciler`](./collab/room) is threaded through
+ * here. It does not get to decide anything: the splice is still computed by
+ * `slidx_edit`, and the reconciler is only asked to apply that splice into the
+ * document every writer shares and hand back the result. With nobody else
+ * connected the result is the bytes it was given, which is what keeps this the
+ * same function it has always been.
  */
 
 import { writeFile, rm } from "node:fs/promises";
 
 import { applyEdit, revertEdit, slideSpans } from "@slidx/wasm";
 
+import type { Reconciler } from "./collab/room";
 import {
   joinDeck,
   planFileWrites,
@@ -68,11 +78,13 @@ export async function applyOperation(
   files: readonly DeckFile[],
   separator: string,
   op: EditOp,
+  reconciler?: Reconciler,
 ): Promise<DeckEdit> {
   return plan(
     files,
     separator,
     (before) => applyEdit(before.source, op, { separator }) as WasmEdit,
+    reconciler,
   );
 }
 
@@ -86,11 +98,13 @@ export async function revertOperation(
   files: readonly DeckFile[],
   separator: string,
   edit: Edit,
+  reconciler?: Reconciler,
 ): Promise<DeckEdit> {
   return plan(
     files,
     separator,
     (before) => revertEdit(before.source, edit, { separator }) as WasmEdit,
+    reconciler,
   );
 }
 
@@ -112,18 +126,35 @@ async function plan(
   files: readonly DeckFile[],
   separator: string,
   run: (before: LocatedSource) => WasmEdit,
+  reconciler?: Reconciler,
 ): Promise<DeckEdit> {
   await ensureReady();
 
-  const before = await locate(joinDeck(files, separator).source, separator);
+  const joined = joinDeck(files, separator).source;
+  // What the files say enters the shared document here, as a splice, and the
+  // copy the operation is planned against is taken in the same breath. Both
+  // have to happen before the await below: that await is where a file the
+  // author saved in their own editor gets in, and it is what makes the
+  // operation's byte offsets stale.
+  const pending = reconciler?.begin(joined);
+
+  const before = await locate(joined, separator);
   const after = run(before);
 
   if (after.error) return { writes: [], source: before.source, undo: [], error: after.error };
 
+  const settled = pending ? pending.settle(before.source, after.source) : after.source;
+  const merged = settled !== after.source;
+  const located = merged ? await locate(settled, separator) : after;
+
   return {
-    writes: planFileWrites(files, separator, before, after),
-    source: after.source,
-    undo: after.undo,
+    writes: planFileWrites(files, separator, before, located),
+    source: settled,
+    // The inverse is measured against the source the operation produced. When
+    // something else merged in, that source never reached disk, so the ranges
+    // in it name bytes that were never there — and an undo stack is better
+    // empty than wrong. An empty edit costs no press: see `history.ts`.
+    undo: merged ? [] : after.undo,
   };
 }
 

@@ -31,7 +31,8 @@
   "dependencies": {
     "@slidx/editor": "workspace:*",
     "@slidx/runtime": "workspace:*",
-    "@slidx/wasm": "workspace:*"
+    "@slidx/wasm": "workspace:*",
+    "yjs": "^13.6.31"
   },
   "peerDependencies": {
     "playwright": ">=1.40",

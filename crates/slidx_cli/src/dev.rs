@@ -44,8 +44,10 @@
 
 pub mod launch;
 pub mod project;
+pub mod share;
 
 use std::io::Write;
+use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -61,6 +63,7 @@ use crate::{Outcome, OK};
 
 use launch::Runner;
 use project::Project;
+use share::{address, Share};
 
 /// Where the visual editor is served.
 ///
@@ -92,7 +95,12 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
         return Outcome::misuse(no_project(&deck));
     };
 
-    let flags = match vite_flags(matches) {
+    let shared = match sharing(matches) {
+        Ok(shared) => shared,
+        Err(message) => return Outcome::misuse(message),
+    };
+
+    let flags = match vite_flags(matches, shared.as_ref()) {
         Ok(flags) => flags,
         Err(message) => return Outcome::misuse(message),
     };
@@ -106,15 +114,74 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
     // stops the dev server, so an Outcome printed afterwards would appear when
     // the server is already gone.
     let mut out = std::io::stdout();
-    let _ = write!(out, "{}", ready(&project, runner, style));
+    let _ = write!(out, "{}", ready(&project, runner, shared.as_ref(), style));
     let _ = out.flush();
 
-    let started =
-        Command::new(&planned.program).args(&planned.args).current_dir(&project.root).status();
+    let mut command = Command::new(&planned.program);
+    command.args(&planned.args).current_dir(&project.root);
 
-    match started {
+    // The environment rather than the command line: an argument list is readable
+    // by every process on this machine, and this is a capability.
+    if let Some(shared) = &shared {
+        command.envs(shared.share.environment());
+    }
+
+    match command.status() {
         Ok(status) => finished(status.code()),
         Err(_) => Outcome::misuse(cannot_run(runner)),
+    }
+}
+
+/// A share, once every part of it is settled.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Shared {
+    pub share: Share,
+    /// The address the other laptops in the room can reach this one at.
+    pub address: IpAddr,
+    /// Fixed, because a link cannot be printed for a port Vite has not chosen
+    /// yet. See [`vite_flags`] on why `--strictPort` goes with it.
+    pub port: u16,
+}
+
+/// What `--crdt` asked for, or nothing.
+fn sharing(matches: &Matches) -> Result<Option<Shared>, String> {
+    let allow_edit = matches.is_set("allow-edit");
+
+    if !matches.is_set("crdt") {
+        // Granting edit access to a deck nobody can reach is not a thing to do
+        // quietly: somebody who typed this wanted to share.
+        return if allow_edit { Err(edit_without_sharing()) } else { Ok(None) };
+    }
+
+    let port = match chosen_port(matches)? {
+        Some(port) => port,
+        None => free_port().ok_or_else(no_port)?,
+    };
+
+    let Some(address) = address::on_this_network() else {
+        return Err(no_network());
+    };
+
+    Ok(Some(Shared {
+        share: Share::mint(allow_edit).map_err(|error| error.message())?,
+        address,
+        port,
+    }))
+}
+
+/// A port nothing is listening on, for a link that has to be printed up front.
+fn free_port() -> Option<u16> {
+    // Bound and released: there is a window in which something else could take
+    // it, which is exactly why `--strictPort` is passed rather than letting Vite
+    // move to the next number under a link that has already been printed.
+    crate::preview::server::bind(0).ok()?.local_addr().ok().map(|address| address.port())
+}
+
+/// The port the command line asked for, if it asked.
+fn chosen_port(matches: &Matches) -> Result<Option<u16>, String> {
+    match matches.value("port") {
+        None => Ok(None),
+        Some(port) => port.parse().map(Some).map_err(|_| bad_port(port)),
     }
 }
 
@@ -123,15 +190,30 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
 /// Only flags Vite and `vp dev` both accept, which is what lets one vocabulary
 /// serve every runner. `--open` takes the editor's route, so the browser lands
 /// on the page the command exists for rather than on the first slide.
-fn vite_flags(matches: &Matches) -> Result<Vec<String>, String> {
+///
+/// Sharing adds two, and the second is the interesting one. A share link names a
+/// port, and it is printed before the server is listening — so if that port turns
+/// out to be taken, Vite must refuse rather than quietly move to the next number
+/// and leave a printed URL pointing at nothing. `--strictPort` is what makes the
+/// link either right or absent.
+fn vite_flags(matches: &Matches, shared: Option<&Shared>) -> Result<Vec<String>, String> {
     let mut flags = Vec::new();
 
-    if let Some(port) = matches.value("port") {
-        if port.parse::<u16>().is_err() {
-            return Err(bad_port(port));
+    match (shared, chosen_port(matches)?) {
+        (Some(shared), _) => {
+            flags.push("--port".to_string());
+            flags.push(shared.port.to_string());
+            flags.push("--strictPort".to_string());
+            // Bound wide only because sharing was asked for. Without --crdt
+            // nothing here mentions --host and the deck stays on loopback.
+            flags.push("--host".to_string());
+            flags.push("0.0.0.0".to_string());
         }
-        flags.push("--port".to_string());
-        flags.push(port.to_string());
+        (None, Some(port)) => {
+            flags.push("--port".to_string());
+            flags.push(port.to_string());
+        }
+        (None, None) => {}
     }
 
     if !matches.is_set("no-open") {
@@ -143,8 +225,9 @@ fn vite_flags(matches: &Matches) -> Result<Vec<String>, String> {
 }
 
 /// What is printed before the dev server takes the terminal.
-pub fn ready(project: &Project, runner: Runner, style: &Style) -> String {
-    let mut text = format!("{}\n\n", style.paint(Ink::Strong, "slidx dev"));
+pub fn ready(project: &Project, runner: Runner, shared: Option<&Shared>, style: &Style) -> String {
+    let heading = if shared.is_some() { "slidx dev — shared" } else { "slidx dev" };
+    let mut text = format!("{}\n\n", style.paint(Ink::Strong, heading));
 
     text.push_str(&report::flowed(
         &format!("the editor is at {EDITOR_ROUTE} on the address printed below"),
@@ -171,6 +254,17 @@ pub fn ready(project: &Project, runner: Runner, style: &Style) -> String {
             Ink::Warn,
             style,
         ));
+    }
+
+    if let Some(shared) = shared {
+        text.push_str(&share::block(
+            &shared.share,
+            shared.address,
+            shared.port,
+            VALUE_INDENT,
+            style,
+        ));
+        text.push('\n');
     }
 
     text.push_str(&report::flowed("ctrl-c to stop", VALUE_INDENT, Ink::Faint, style));
@@ -267,6 +361,28 @@ fn bad_port(given: &str) -> String {
     format!("`{given}` is not a port number.\n\n  slidx dev --port 5173\n")
 }
 
+fn edit_without_sharing() -> String {
+    "--allow-edit grants a second person the right to change your deck, and nothing is \
+     shared without --crdt.\n\n\
+     \x20 slidx dev --crdt --allow-edit\n\n\
+     Without --crdt the dev server is on loopback and the editor is already yours.\n"
+        .to_string()
+}
+
+fn no_network() -> String {
+    "This machine has no address another machine could reach it at, so there is no share \
+     link to print.\n\n\
+     A share link is for the laptop next to you on the same Wi-Fi. With no network there \
+     is nothing to share to, and slidx will not print a loopback URL as though there \
+     were.\n\n\
+     `slidx dev` without --crdt still works.\n"
+        .to_string()
+}
+
+fn no_port() -> String {
+    "No free port could be found to share on.\n\n  slidx dev --crdt --port 5173\n".to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -284,6 +400,18 @@ mod tests {
         Project { root: PathBuf::from("/talks/vueconf"), config: PathBuf::from("/nowhere") }
     }
 
+    fn shared_session(allow_edit: bool) -> Shared {
+        Shared {
+            share: Share {
+                session: "0123456789abcdef".into(),
+                read: "00112233445566778899aabbccddeeff".into(),
+                edit: allow_edit.then(|| "ffeeddccbbaa99887766554433221100".to_string()),
+            },
+            address: IpAddr::V4(std::net::Ipv4Addr::new(192, 168, 1, 42)),
+            port: 5173,
+        }
+    }
+
     #[test]
     fn the_editor_route_is_the_one_the_plugin_serves() {
         // Pinned on both sides of the wasm boundary. Nothing in Rust can read a
@@ -296,18 +424,18 @@ mod tests {
     fn a_browser_is_opened_on_the_editor_rather_than_on_the_first_slide() {
         // The page this command exists for. Vite has no reason to know it is
         // there, so slidx is the thing that has to say so.
-        assert_eq!(vite_flags(&matches_of("dev")).unwrap(), ["--open", EDITOR_ROUTE]);
+        assert_eq!(vite_flags(&matches_of("dev"), None).unwrap(), ["--open", EDITOR_ROUTE]);
     }
 
     #[test]
     fn no_open_passes_no_flags_at_all_so_a_headless_machine_is_left_alone() {
-        assert!(vite_flags(&matches_of("dev --no-open")).unwrap().is_empty());
+        assert!(vite_flags(&matches_of("dev --no-open"), None).unwrap().is_empty());
     }
 
     #[test]
     fn a_port_is_handed_to_vite_in_vites_own_spelling() {
         assert_eq!(
-            vite_flags(&matches_of("dev --port 4000 --no-open")).unwrap(),
+            vite_flags(&matches_of("dev --port 4000 --no-open"), None).unwrap(),
             ["--port", "4000"]
         );
     }
@@ -316,7 +444,7 @@ mod tests {
     fn a_port_that_is_not_a_number_is_refused_here_rather_than_by_the_child() {
         // The child would report it too, in its own words, after slidx had
         // already printed a ready line promising an editor.
-        let message = vite_flags(&matches_of("dev --port http")).expect_err("a refusal");
+        let message = vite_flags(&matches_of("dev --port http"), None).expect_err("a refusal");
 
         assert!(message.contains("not a port number"), "{message}");
         assert!(message.contains("slidx dev --port"), "{message}");
@@ -324,7 +452,7 @@ mod tests {
 
     #[test]
     fn the_ready_line_says_where_the_editor_is_and_what_is_being_run() {
-        let text = ready(&project(), Runner::Pnpm, &Style::plain());
+        let text = ready(&project(), Runner::Pnpm, None, &Style::plain());
 
         assert!(text.contains(EDITOR_ROUTE), "{text}");
         assert!(text.contains("pnpm exec vite"), "{text}");
@@ -337,14 +465,92 @@ mod tests {
         // A project whose config is unreadable from here is exactly that case,
         // and promising an editor that is not there would be worse than saying
         // which half is a guess.
-        let text = ready(&project(), Runner::Npm, &Style::plain());
+        let text = ready(&project(), Runner::Npm, None, &Style::plain());
 
         assert!(text.contains("may not exist"), "{text}");
     }
 
     #[test]
     fn the_ready_line_carries_no_escape_sequences_when_colour_is_off() {
-        assert!(!ready(&project(), Runner::Yarn, &Style::plain()).contains('\u{1b}'));
+        assert!(!ready(&project(), Runner::Yarn, None, &Style::plain()).contains('\u{1b}'));
+    }
+
+    #[test]
+    fn nothing_is_bound_beyond_localhost_unless_sharing_was_asked_for() {
+        // The default that matters. An unreleased talk on conference wifi is how
+        // that happens without anybody deciding it.
+        let flags = vite_flags(&matches_of("dev --port 4000"), None).unwrap();
+
+        assert!(!flags.contains(&"--host".to_string()), "{flags:?}");
+    }
+
+    #[test]
+    fn sharing_binds_wide_and_pins_the_port_the_link_names() {
+        // The link is printed before the server is listening. Without
+        // --strictPort, Vite would move to the next free number and leave that
+        // printed URL pointing at nothing.
+        let flags = vite_flags(&matches_of("dev --crdt --no-open"), Some(&shared_session(false)))
+            .expect("flags");
+
+        assert_eq!(flags, ["--port", "5173", "--strictPort", "--host", "0.0.0.0"]);
+    }
+
+    #[test]
+    fn granting_edit_access_without_sharing_is_refused_rather_than_ignored() {
+        // Somebody who typed --allow-edit wanted to share. Doing nothing would
+        // leave them believing they had.
+        let message = sharing(&matches_of("dev --allow-edit")).expect_err("a refusal");
+
+        assert!(message.contains("--crdt"), "{message}");
+    }
+
+    #[test]
+    fn asking_for_nothing_shares_nothing() {
+        assert_eq!(sharing(&matches_of("dev")).expect("no sharing"), None);
+    }
+
+    #[test]
+    fn the_ready_line_of_a_shared_deck_prints_the_link_and_says_it_is_read_only() {
+        let text = ready(&project(), Runner::Pnpm, Some(&shared_session(false)), &Style::plain());
+
+        assert!(text.contains("slidx dev — shared"), "{text}");
+        assert!(text.contains("http://192.168.1.42:5173/__slidx/#s="), "{text}");
+        assert!(text.contains("read only"), "{text}");
+        assert!(!text.contains("can edit"), "{text}");
+    }
+
+    #[test]
+    fn the_ready_line_of_an_editable_share_names_both_links() {
+        let text = ready(&project(), Runner::Pnpm, Some(&shared_session(true)), &Style::plain());
+
+        assert!(text.contains("read only"), "{text}");
+        assert!(text.contains("can edit"), "{text}");
+        assert!(text.contains("ctrl-c"), "{text}");
+    }
+
+    #[test]
+    fn a_shared_ready_line_never_puts_the_secret_before_the_hash() {
+        // A URL whose secret is in the path or the query is a URL that reaches an
+        // access log. This is the assertion that would catch a link built wrong.
+        let shared = shared_session(true);
+        let text = ready(&project(), Runner::Pnpm, Some(&shared), &Style::plain());
+
+        for line in text.lines().filter(|line| line.contains("http://")) {
+            let url = line.trim();
+            let before = url.split('#').next().unwrap_or("");
+            assert!(!before.contains(&shared.share.read), "{url}");
+            assert!(!before.contains(shared.share.edit.as_deref().unwrap()), "{url}");
+        }
+    }
+
+    #[test]
+    fn a_machine_with_no_network_is_told_rather_than_handed_a_loopback_link() {
+        // Printing 127.0.0.1 as though it were shareable would be a link the
+        // person next to you cannot open, with no sign of why.
+        let message = no_network();
+
+        assert!(message.contains("no address another machine could reach"), "{message}");
+        assert!(message.contains("without --crdt still works"), "{message}");
     }
 
     #[test]

@@ -23,6 +23,14 @@ export interface OutlineHandlers {
 export interface Surface {
   root: HTMLElement;
   render(state: EditorState): void;
+  /**
+   * Let go of anything that outlives the element.
+   *
+   * Optional because most surfaces are their own DOM and nothing else: removing
+   * the frame is all the teardown they need. It exists for the one that holds a
+   * connection, which a removed element does not close.
+   */
+  destroy?(): void;
 }
 
 export function createOutline(handlers: OutlineHandlers): Surface {
