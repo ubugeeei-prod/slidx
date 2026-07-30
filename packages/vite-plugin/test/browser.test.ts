@@ -163,7 +163,13 @@ async function buildDeck(name: string, slides: Record<string, string>): Promise<
 
 beforeAll(async () => {
   const [plain, staged] = await Promise.all([
-    buildDeck("browser", { "0001.md": "# Making Decks Fast\n\nA framework.\n" }),
+    // Published, and at a stated address, so the page under test carries every
+    // absolute URL a deck can carry — a canonical, an `og:image`, structured
+    // data. None of them may cost the room a request.
+    buildDeck("browser", {
+      "0001.md":
+        "---\ndraft: false\nurl: https://example.com/talk/\n---\n\n# Making Decks Fast\n\nA framework.\n",
+    }),
     buildDeck("staged", {
       "0001.md": "# Latency\n\nDropped to [120ms]{#latency}[38ms]{#latency}.\n",
       "0002.md": "# After\n",
@@ -193,10 +199,18 @@ async function measure(engine: Engine, width: number, height: number) {
     });
     tab.on("pageerror", (error) => errors.push(error.message));
 
+    // Every request the page makes, so the offline guarantee is measured
+    // rather than inferred from the markup. The page under test names a
+    // canonical URL, an `og:image` and a JSON-LD `@context`, none of which a
+    // browser fetches — and this is the assertion that says so out loud.
+    const requested: string[] = [];
+    tab.on("request", (request) => requested.push(request.url()));
+
     await tab.goto(page);
 
     return {
       errors,
+      requested,
       ...(await tab.evaluate(() => {
         const slide = document.querySelector(".slidx-slide");
         const heading = document.querySelector("h1");
@@ -204,11 +218,18 @@ async function measure(engine: Engine, width: number, height: number) {
 
         const box = slide.getBoundingClientRect();
 
+        // Counted by what the browser would run. A `<script>` holding
+        // `application/ld+json` is a container for a block of JSON — an unknown
+        // type is never executed, and `document.scripts` counts it anyway.
+        const executable = [...document.scripts].filter(
+          (script) => script.type === "" || script.type === "module" || /javascript/i.test(script.type),
+        );
+
         return {
           slideWidth: box.width,
           slideHeight: box.height,
           headingPx: Number.parseFloat(getComputedStyle(heading).fontSize),
-          scripts: document.scripts.length,
+          scripts: executable.length,
           text: heading.textContent ?? "",
         };
       })),
@@ -271,6 +292,21 @@ describe.each(ENGINES)("%s", (engine) => {
       expect(scripts).toBe(0);
       expect(errors).toEqual([]);
       expect(text).toBe("Making Decks Fast");
+    },
+    120_000,
+  );
+
+  runs(
+    "makes no request to anywhere",
+    async () => {
+      // The offline guarantee, measured. This deck's pages name an origin —
+      // there is a canonical link, an `og:image` and a JSON-LD `@context` in
+      // the head of the page being opened — and the number of requests a
+      // browser makes because of them has to be zero. The only thing fetched
+      // is the document itself, off `file://`.
+      const { requested } = await measure(engine, 1280, 800);
+
+      expect(requested.filter((url) => !url.startsWith("file://"))).toEqual([]);
     },
     120_000,
   );
@@ -369,7 +405,14 @@ describe.each(ENGINES)("%s, on a slide with steps", (engine) => {
         const tab = await browser.newPage();
         await tab.goto(`${served}/slides/2/`);
 
-        expect(await tab.evaluate(() => document.scripts.length)).toBe(0);
+        // Executable scripts. The structured data in the head is a `<script>`
+        // element holding JSON that nothing runs, and `document.scripts`
+        // counts it regardless of type.
+        const running = await tab.evaluate(
+          () => [...document.scripts].filter((script) => script.type !== "application/ld+json").length,
+        );
+
+        expect(running).toBe(0);
       } finally {
         await browser.close();
       }

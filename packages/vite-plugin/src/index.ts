@@ -30,7 +30,10 @@ import {
   printFileName,
   resolveOptions,
   runtimeFileName,
+  ROBOTS_FILE_NAME,
+  sitemapFileName,
   slideFileName,
+  slideRoute,
   snippetFileName,
   withPdf,
   type SlidxOptions,
@@ -57,6 +60,10 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
   const options = resolveOptions(userOptions);
   let root = process.cwd();
 
+  // Where the project's own static files come from, so a `robots.txt` it
+  // already ships is not overwritten by one this plugin wrote.
+  let publicDir: string | false = false;
+
   // Kept from the bundle so the measurement pass does not read and parse the
   // deck a second time. It runs against files, so it cannot run any earlier.
   let lastBuild: Awaited<ReturnType<typeof renderDeck>> | undefined;
@@ -66,6 +73,7 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
 
     configResolved(config) {
       root = config.root;
+      publicDir = config.publicDir;
     },
 
     /**
@@ -262,6 +270,31 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
           source: await readRuntime(),
         });
       }
+
+      // The list of pages, written by the thing that emitted them. Absent for a
+      // deck nobody has given an address, because a `<loc>` is a full URL and a
+      // relative one makes the file invalid rather than lenient.
+      if (built.sitemap) {
+        this.emitFile({
+          type: "asset",
+          fileName: sitemapFileName(options),
+          source: built.sitemap,
+        });
+      }
+
+      // `robots.txt` is the one file a deck writes outside its own base, and
+      // therefore the one that can belong to somebody else. A project that
+      // already has one keeps it: it is the whole site's file, this plugin owns
+      // a directory of it, and silently replacing it could open a site up as
+      // easily as close it down. The `noindex` on every page is what still
+      // holds in that case, which is why a draft deck says it both ways.
+      if (built.robots && !(await hasOwnRobots(publicDir))) {
+        this.emitFile({
+          type: "asset",
+          fileName: ROBOTS_FILE_NAME,
+          source: built.robots,
+        });
+      }
     },
 
     /**
@@ -322,6 +355,12 @@ async function renderDeck(
     presenter,
     print,
     og,
+    deckUrl: options.deckUrl,
+    // Where the deck sits in the site, which only `robots.txt` needs: it lives
+    // at the site root and has to name the deck from there. Everything else a
+    // page says is either relative to that page or absolute from the deck's own
+    // URL.
+    deckPath: slideRoute(options, 0),
     runtimeSrc: runtimeSrcFor(options),
     // The print shell carries the runtime rather than importing it, so the
     // one document a speaker falls back to opens from anywhere.
@@ -339,6 +378,19 @@ async function renderDeck(
  */
 function runtimeSrcFor(options: ReturnType<typeof resolveOptions>): string {
   return `/${runtimeFileName(options)}`;
+}
+
+/** Whether the project already ships a `robots.txt` of its own. */
+async function hasOwnRobots(publicDir: string | false): Promise<boolean> {
+  if (publicDir === false) return false;
+
+  const { access } = await import("node:fs/promises");
+  const { join } = await import("node:path");
+
+  return access(join(publicDir, ROBOTS_FILE_NAME)).then(
+    () => true,
+    () => false,
+  );
 }
 
 /** The built runtime, read once. */
