@@ -159,7 +159,7 @@ pub fn findings(deck: &Deck, theme: Option<&str>, options: &LintOptions) -> Vec<
 
     let mut diagnostics: Vec<Diagnostic> = deck.diagnostics.iter().cloned().collect();
     diagnostics.extend(slidx_dialect::check(deck, &options.allow));
-    diagnostics.extend(lint(&LintInput::new(deck, &surfaces), &options));
+    diagnostics.extend(lint(&LintInput::new(deck, &surfaces), options));
 
     // A block placed in a region its layout does not have is decidable from the
     // source and the theme, which is exactly what this command is for. It comes
