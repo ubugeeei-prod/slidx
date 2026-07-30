@@ -18,9 +18,8 @@ const WORKFLOW = readFileSync(join(ROOT, ".github/workflows/docs.yml"), "utf8");
 describe("the documentation deployment", () => {
   it("uses a pinned Void CLI over GitHub OIDC", () => {
     expect(WORKFLOW).toContain("id-token: write");
-    expect(WORKFLOW).toContain(
-      'pnpm exec vpx void@0.10.11 deploy --dir docs/dist --project "$VOID_PROJECT"',
-    );
+    expect(WORKFLOW).toContain('vpx void@0.10.11 deploy --dir docs/dist --project "$VOID_PROJECT"');
+    expect(WORKFLOW).toContain('vpx() { pnpm exec vp dlx "$@"; }');
     expect(WORKFLOW).not.toContain("VOID_TOKEN");
     expect(WORKFLOW).not.toContain("secrets.");
   });

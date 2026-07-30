@@ -53,4 +53,9 @@ jobs:
       - name: Deploy
         env:
           VOID_PROJECT: ${{ vars.VOID_PROJECT }}
-        run: pnpm exec vpx void@0.10.11 deploy --dir docs/dist --project "$VOID_PROJECT"
+        # An explicitly versioned `vpx` command delegates to `vp dlx`. The
+        # repository package supplies `vp`; defining the thin command here
+        # keeps CI independent of a machine-global Vite+ installation.
+        run: |
+          vpx() { pnpm exec vp dlx "$@"; }
+          vpx void@0.10.11 deploy --dir docs/dist --project "$VOID_PROJECT"
