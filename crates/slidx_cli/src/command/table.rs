@@ -118,7 +118,11 @@ a diff nobody asked for is how a tool loses the right to touch a file.
 
 --check writes nothing and exits non-zero when a file is not already
 formatted, which is the form for CI. Each file is formatted on its own, so a
-deck kept as one file per slide stays that way.",
+deck kept as one file per slide stays that way.
+
+    slidx fmt
+    slidx fmt ./slides --check
+    slidx fmt deck.md --separator '***'",
         &[
             Flag::switch("check", "Write nothing; exit non-zero if a file would change"),
             Flag::taking("separator", "<text>", "Slide separator in a single-file deck"),
@@ -308,7 +312,10 @@ place.
 
 Use this while WRITING. `slidx preview` is for looking at what a build
 produced: the editor writes to your slide files and exists only here, and only
-the build output is what a host will actually serve.",
+the build output is what a host will actually serve.
+
+    slidx dev
+    slidx dev ./slides --port 5173 --no-open",
         &[
             Flag::taking("port", "<number>", "Port to serve on. Default: Vite's own"),
             Flag::switch("no-open", "Do not open a browser at the editor"),
