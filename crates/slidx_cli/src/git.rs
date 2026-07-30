@@ -77,6 +77,28 @@ impl Repo {
         run(&self.root, &["rev-parse", "--verify", "HEAD"]).is_ok()
     }
 
+    /// The commit HEAD is at, short.
+    ///
+    /// Recorded when a project is archived, so somebody reading the manifest a
+    /// year later can find the same state in a clone. Short because it is for a
+    /// person to read and paste, not for a program to resolve.
+    pub fn head(&self) -> Option<String> {
+        let short = run(&self.root, &["rev-parse", "--short", "HEAD"]).ok()?;
+        let short = short.trim().to_string();
+
+        (!short.is_empty()).then_some(short)
+    }
+
+    /// The branch HEAD is on, or `None` when it is detached.
+    pub fn branch(&self) -> Option<String> {
+        let name = run(&self.root, &["rev-parse", "--abbrev-ref", "HEAD"]).ok()?;
+        let name = name.trim().to_string();
+
+        // A detached HEAD reports itself as `HEAD`, which is not a branch and
+        // would be a confusing thing to write into a manifest as one.
+        (!name.is_empty() && name != "HEAD").then_some(name)
+    }
+
     /// What has changed under one directory, staged or not, tracked or not.
     ///
     /// `-z` rather than the default quoting: git escapes unusual bytes in a
@@ -416,6 +438,24 @@ mod tests {
         let log = scratch.log();
         assert!(log.contains("slides/0001.md"), "{log}");
         assert!(!log.contains("notes.txt"), "{log}");
+    }
+
+    #[test]
+    fn the_commit_and_branch_a_project_was_on_are_readable_for_a_manifest() {
+        if !git_is_here() {
+            return;
+        }
+
+        let scratch = Scratch::new("head");
+        assert_eq!(scratch.repo().head(), None, "a fresh repository has no HEAD");
+
+        scratch.write("slides/0001.md", "# One\n");
+        let repo = scratch.repo();
+        repo.stage(&scratch.0.join("slides")).expect("stage");
+        repo.commit("first", &[scratch.0.join("slides")]).expect("commit");
+
+        assert!(repo.head().is_some_and(|head| head.len() >= 7), "{:?}", repo.head());
+        assert!(repo.branch().is_some(), "{:?}", repo.branch());
     }
 
     #[test]
