@@ -393,13 +393,15 @@ mod tests {
     #[test]
     fn a_project_is_four_files_and_the_deck_is_where_the_plugin_looks_for_it() {
         let project = planned("create ~/talks/x");
-        let names: Vec<String> =
-            project.files.iter().map(|(path, _)| path.display().to_string()).collect();
+        // Compared as paths rather than strings: the separator a `Display` puts
+        // between `slides` and `0001.md` is the platform's, not this crate's.
+        let paths: Vec<&PathBuf> = project.files.iter().map(|(path, _)| path).collect();
+        let has = |path: PathBuf| paths.contains(&&path);
 
-        assert!(names.contains(&format!("{DEFAULT_DIR}/0001.md")), "{names:?}");
-        assert!(names.contains(&"vite.config.ts".to_string()), "{names:?}");
-        assert!(names.contains(&"package.json".to_string()), "{names:?}");
-        assert!(names.contains(&".gitignore".to_string()), "{names:?}");
+        assert!(has(PathBuf::from(DEFAULT_DIR).join("0001.md")), "{paths:?}");
+        assert!(has(PathBuf::from("vite.config.ts")), "{paths:?}");
+        assert!(has(PathBuf::from("package.json")), "{paths:?}");
+        assert!(has(PathBuf::from(".gitignore")), "{paths:?}");
     }
 
     #[test]
