@@ -25,13 +25,15 @@ export default defineConfig({
   plugins: [
     slidx({
       islands: "./islands.ts",
+      mdx: true,
     }),
   ],
 });
 ```
 
-That option is the deck-level opt-in. Leaving it out preserves the ordinary
-zero-JavaScript audience slide.
+`islands` is the client-runtime opt-in. `mdx` is separate: it adds `.mdx` to the
+default slide extensions and enables component syntax. Leave both out and the
+ordinary `.md` path remains unchanged, with a zero-JavaScript audience slide.
 
 ## 2. Register only what the deck uses
 
@@ -68,7 +70,34 @@ does not patch timers, promises and event listeners for every slide.
 
 ## 3. Put a complete fallback in Markdown
 
-The island name selects the registry entry and props cross one JSON attribute:
+With `mdx: true`, a capitalised tag selects the registry entry with the same
+name:
+
+```mdx
+## Sign-ups
+
+<Counter start={128} label="people">
+
+**128 people**
+
+</Counter>
+```
+
+String attributes and JSON values in braces become props. Arrays and objects
+are allowed too. Imports are unnecessary: the setup registry resolves
+`Counter`, so removing that one registration also removes its framework and
+component from the Vite graph.
+
+The compiler never executes an expression from a deck. A value such as
+`start={window.total}` is a blocking `mdx/non-static-props` diagnostic, renders
+the fallback without an island marker, and cannot run during the build.
+
+The `.mdx` file remains the editor's source of truth. Visual text, style,
+layout, animation, slide order, undo, and shared edits splice that file; MDX is
+compiled only for rendering. Code fences and lowercase HTML are left alone.
+
+The explicit form works in ordinary `.md` as well. The island name selects the
+registry entry and props cross one JSON attribute:
 
 ```md
 ## Sign-ups

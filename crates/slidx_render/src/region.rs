@@ -27,6 +27,8 @@
 //! is the smallest unit whose content is genuinely independent, because it is
 //! laid out independently.
 
+use std::collections::{BTreeMap, BTreeSet};
+
 use slidx_core::{Block, Deck, Slide};
 use slidx_theme::layout::{
     css::REGION_ATTRIBUTE, place, width, BlockWidth, Layout, REGION_NAMES, WIDTH_ATTRIBUTE,
@@ -62,6 +64,7 @@ pub fn body(
 ) -> String {
     let placement = place(&slide.blocks, layout);
     let sources = block_sources(deck, slide, theme);
+    let (components, component_blocks) = component_blocks(slide, options);
     let default = layout.fallback().name.clone();
 
     placement
@@ -72,11 +75,17 @@ pub fn body(
                 .blocks
                 .iter()
                 .filter_map(|at| sources.get(*at).map(|markdown| (*at, markdown)))
-                .map(|(at, markdown)| {
+                .filter_map(|(at, markdown)| {
                     let block = &slide.blocks[at];
                     let share = width::of(block).ok();
 
-                    wrap(at, block, share, &render(markdown, options))
+                    if let Some(component) = components.get(&at) {
+                        Some(wrap(at, block, share, component))
+                    } else if component_blocks.contains(&at) {
+                        None
+                    } else {
+                        Some(wrap(at, block, share, &render(markdown, options)))
+                    }
                 })
                 .collect();
 
@@ -88,6 +97,44 @@ pub fn body(
             )
         })
         .collect()
+}
+
+/// Maps a flow component to the first Markdown block it occupies and remembers
+/// the later blocks its fallback consumed.
+///
+/// Later ordinary blocks keep their original indices. That is the property the
+/// visual editor relies on when it selects a block after an MDX component and
+/// sends an operation back against the untouched `.mdx` source.
+fn component_blocks(
+    slide: &Slide,
+    options: &MarkdownOptions,
+) -> (BTreeMap<usize, String>, BTreeSet<usize>) {
+    if !options.mdx {
+        return (BTreeMap::new(), BTreeSet::new());
+    }
+
+    let mut components = BTreeMap::new();
+    let mut consumed = BTreeSet::new();
+
+    for component in crate::mdx::flow_replacements(&slide.content, options) {
+        let occupied: Vec<usize> = slide
+            .blocks
+            .iter()
+            .enumerate()
+            .filter(|(_, block)| {
+                block.span.start < component.end && block.span.end > component.start
+            })
+            .map(|(index, _)| index)
+            .collect();
+        let Some((&first, rest)) = occupied.split_first() else {
+            continue;
+        };
+
+        components.insert(first, component.value);
+        consumed.extend(rest);
+    }
+
+    (components, consumed)
 }
 
 /// One block's box, carrying its index and the share of the region it takes.
@@ -225,6 +272,22 @@ mod tests {
         for index in 0..3 {
             assert!(html.contains(&format!("data-slidx-block=\"{index}\"")), "no block {index}");
         }
+    }
+
+    #[test]
+    fn a_flow_mdx_component_spans_blocks_without_renumbering_what_follows() {
+        let source =
+            "# One\n\n<Counter start={1}>\n\n**fallback**\n\n</Counter>\n\nAfter the island.\n";
+        let deck = parse_deck(source, &DeckParseOptions::default());
+        let slide = &deck.slides[0];
+        let options = MarkdownOptions { mdx: true, ..MarkdownOptions::default() };
+        let html =
+            body(&deck, slide, &layout_of(slide), &slidx_theme::default_theme(), &options, "");
+
+        assert!(html.contains("data-slidx-island=\"Counter\""), "{html}");
+        assert!(html.contains("<strong>fallback</strong>"), "{html}");
+        assert!(html.contains("data-slidx-block=\"4\""), "{html}");
+        assert!(html.contains("After the island."), "{html}");
     }
 
     #[test]

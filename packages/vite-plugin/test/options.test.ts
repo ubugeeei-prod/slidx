@@ -24,6 +24,7 @@ describe("defaults", () => {
     expect(options.base).toBe("slides");
     expect(options.separator).toBe("---");
     expect(options.extensions).toEqual([".md"]);
+    expect(options.mdx).toBe(false);
     expect(options.islands).toBeUndefined();
   });
 
@@ -56,6 +57,12 @@ describe("normalising", () => {
       ".md",
       ".markdown",
     ]);
+  });
+
+  it("adds mdx to the default extensions only when opted in", () => {
+    expect(resolveOptions({ mdx: true }).extensions).toEqual([".md", ".mdx"]);
+    expect(resolveOptions({ mdx: true, extensions: [] }).extensions).toEqual([".md", ".mdx"]);
+    expect(resolveOptions({ mdx: true, extensions: [".deck"] }).extensions).toEqual([".deck"]);
   });
 
   it("is case-insensitive about extensions", () => {

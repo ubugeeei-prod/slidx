@@ -449,6 +449,7 @@ async function renderDeck(
     theme: options.theme,
     themePackages,
     separator: options.separator,
+    mdx: options.mdx,
     assets,
     presenter,
     print,

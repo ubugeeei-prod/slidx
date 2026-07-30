@@ -134,6 +134,7 @@ slidx cd vueconf           # with `slidx shell` loaded, takes you there
 | ----------------------------------------------------------------------------------------- |
 | **Zero network requests.** Asserted in three browser engines, not written down as advice. |
 | **No framework in the output.** Vue, React, Svelte, Solid and Angular opt in per deck.    |
+| **MDX is opt-in.** `.md` stays plain; `.mdx` components keep a static Markdown fallback.  |
 | **An edit is a byte-range splice.** Your blank lines and `*` bullets survive untouched.   |
 | **The linter checks the room.** Projector washout; angular size from the back row.        |
 | **One model, one execution.** Editor, projector, PDF and card share one parser.           |
