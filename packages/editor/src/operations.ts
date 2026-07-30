@@ -95,6 +95,16 @@ export type StepAction =
 export type EditOp =
   | { op: "setBody"; slide: SlideRef; body: string }
   | { op: "setHeading"; slide: SlideRef; text: string }
+  /**
+   * Typing on the canvas: a run of the slide's body, and the words for it.
+   *
+   * `range` is measured in the source body, the same as a mark's, because that
+   * is what a caret in a rendered slide maps onto — `text.ts` does the mapping
+   * and `slidx_edit` decides what the bytes become. A mark the range reaches is
+   * not collateral: its `#key` survives, which is what makes the same gesture
+   * safe on a phrase a step animates.
+   */
+  | { op: "setText"; slide: SlideRef; range: ByteSpan; text: string }
   | { op: "insertSlide"; at: number; body: string }
   | { op: "removeSlide"; slide: SlideRef }
   | { op: "moveSlide"; slide: SlideRef; to: number }

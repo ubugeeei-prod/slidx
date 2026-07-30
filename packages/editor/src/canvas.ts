@@ -13,26 +13,44 @@
  *
  * # What is editable in place
  *
- * The heading, because a heading is plain text on both sides and setting one is
- * an operation that carries plain text. Everything else in the body is edited
- * as the Markdown it is: rendered HTML does not convert back without a second
- * writer, and there is only ever one writer.
+ * Every line of text whose words the pipeline can point at in the file: a
+ * heading, a paragraph, a list item, a table cell, and the words inside a mark.
+ * The addresses come with the deck — `slidx_edit` reports where each block and
+ * each mark is — and [`text`](./text) walks the text a reader sees against them
+ * until each run has a byte range. A line whose words are not written anywhere in
+ * the source, because a reference or a footnote produced them, gets no range and
+ * is not offered for editing at all. Refusing beats guessing: a guess here
+ * splices the wrong bytes of somebody's talk.
+ *
+ * The Markdown view stays, and is still the way to add a block, split a
+ * paragraph, or write a fence. What it is no longer is the only way to change a
+ * word.
  */
 
 import { element } from "./dom";
+import type { BlockSpans } from "./client";
+import { BLOCK_ATTRIBUTE } from "./geometry";
 import type { EditOp } from "./operations";
-import type { EditorState } from "./session";
 import type { Surface } from "./outline";
+import { changeBetween, editableIn, planBlock, rangeOf, type TextPlan } from "./text";
 
 export interface CanvasHandlers {
   run(op: EditOp): void;
   selected(text: string, at: number): void;
 }
 
+/** The slide as the file has it, which is what a text edit names bytes of. */
+export interface EditableSource {
+  body(): string;
+  blocks(): readonly BlockSpans[];
+}
+
 export interface CanvasOptions {
   /** The route the deck is served under, so the frame shows the real page. */
   deckBase: string;
   bodyOf(slide: number): string;
+  /** Where the slide's blocks and marks are. Absent leaves the page read-only. */
+  blocksOf?(slide: number): readonly BlockSpans[];
 }
 
 export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): Surface {
@@ -69,7 +87,12 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
 
   frame.addEventListener("load", () => {
     const document = frame.contentDocument;
-    if (document) attachEditing(document, slide, handlers);
+    if (!document) return;
+
+    attachEditing(document, slide, handlers, {
+      body: () => options.bodyOf(slide),
+      blocks: () => options.blocksOf?.(slide) ?? [],
+    });
   });
 
   return {
@@ -105,25 +128,30 @@ export function routeFor(base: string, slide: number): string {
 /**
  * Makes the rendered slide answer to a cursor.
  *
- * Takes a document rather than the frame so it can be driven without one.
+ * Takes a document rather than the frame so it can be driven without one. The
+ * source is read now rather than at commit time, because now is the moment the
+ * page and the file are known to agree: this runs on the load the render caused.
  */
-export function attachEditing(document: Document, slide: number, handlers: CanvasHandlers): void {
+export function attachEditing(
+  document: Document,
+  slide: number,
+  handlers: CanvasHandlers,
+  source: EditableSource,
+): void {
   const body = document.querySelector(".slidx-slide-body");
   if (!body) return;
 
-  const heading = body.querySelector("h1, h2, h3, h4, h5, h6");
+  const text = source.body();
+  const blocks = source.blocks();
 
-  if (heading) {
-    heading.setAttribute("contenteditable", "true");
-    heading.addEventListener("blur", () => commitHeading(heading, slide, handlers));
-    heading.addEventListener("keydown", (event) => {
-      const key = (event as KeyboardEvent).key;
-      // Enter commits rather than starting a second line: a heading is one
-      // line in the file, so a second one here would have nowhere to go.
-      if (key !== "Enter") return;
-      event.preventDefault();
-      commitHeading(heading, slide, handlers);
-    });
+  for (const wrapper of body.querySelectorAll(`[${BLOCK_ATTRIBUTE}]`)) {
+    const index = Number(wrapper.getAttribute(BLOCK_ATTRIBUTE));
+    const spans = Number.isInteger(index) ? blocks[index] : undefined;
+    if (spans === undefined) continue;
+
+    for (const [line, plan] of planBlock(text, spans, editableIn(wrapper))) {
+      open(line, plan, slide, handlers);
+    }
   }
 
   const report = () => {
@@ -138,11 +166,47 @@ export function attachEditing(document: Document, slide: number, handlers: Canva
   document.addEventListener("keyup", report);
 }
 
-function commitHeading(heading: Element, slide: number, handlers: CanvasHandlers): void {
-  const text = (heading.textContent ?? "").trim();
-  if (text.length === 0) return;
+/**
+ * Lets one line be typed in, and commits what it says when it is left.
+ *
+ * On blur rather than on every keystroke, for the reason the Markdown view has:
+ * an operation per character would write the file per character, and the undo
+ * stack is a list of operations.
+ *
+ * Nothing intercepts a paste. Only the line's text is ever read, so markup a
+ * browser drops into it changes nothing that is sent and is gone on the next
+ * render — and an editor that fought the clipboard would break dictation and an
+ * input method with it.
+ */
+function open(line: Element, plan: TextPlan, slide: number, handlers: CanvasHandlers): void {
+  line.setAttribute("contenteditable", "true");
 
-  handlers.run({ op: "setHeading", slide, text });
+  line.addEventListener("keydown", (event) => {
+    // Enter commits rather than starting a second line: this is one line of the
+    // file, and a second one here would have nowhere to go. Splitting a
+    // paragraph is still a thing the Markdown view does.
+    if ((event as KeyboardEvent).key !== "Enter") return;
+
+    event.preventDefault();
+    commit(line, plan, slide, handlers);
+  });
+
+  line.addEventListener("blur", () => commit(line, plan, slide, handlers));
+}
+
+function commit(line: Element, plan: TextPlan, slide: number, handlers: CanvasHandlers): void {
+  const change = changeBetween(plan.plain, line.textContent ?? "");
+  if (change === undefined) return;
+
+  // A line emptied by accident is left alone. Deleting a block is an operation
+  // of its own, and a stray Backspace on the last word of a heading should not
+  // be the way to reach it.
+  if (line.textContent?.trim().length === 0) return;
+
+  const range = rangeOf(plan, change);
+  if (range === undefined) return;
+
+  handlers.run({ op: "setText", slide, range, text: change.text });
 }
 
 /**

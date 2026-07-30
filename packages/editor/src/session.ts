@@ -13,7 +13,14 @@
  */
 
 import { sliceBytes } from "./bytes";
-import type { DeckState, EditorClient, Finding, SlideSpans, SlideSummary } from "./client";
+import type {
+  BlockSpans,
+  DeckState,
+  EditorClient,
+  Finding,
+  SlideSpans,
+  SlideSummary,
+} from "./client";
 import { createHistory, type History } from "./history";
 import type { EditOp, EditRefusal } from "./operations";
 
@@ -77,6 +84,14 @@ export interface Session {
   foresee(findings: Finding[]): void;
   /** The Markdown of one slide's body, as the author wrote it. */
   bodyOf(slide: number): string;
+  /**
+   * Where that body's blocks and marks are, for a gesture that names bytes.
+   *
+   * From the pipeline rather than worked out here: a second answer about where a
+   * mark's words end would let typing in a paragraph take away the `#key` a step
+   * animates.
+   */
+  blocksOf(slide: number): readonly BlockSpans[];
 }
 
 const EMPTY: EditorState = {
@@ -197,5 +212,7 @@ export function createSession(client: EditorClient, history: History = createHis
       const span = state.spans[slide]?.body;
       return span ? sliceBytes(state.source, span.start, span.end) : "";
     },
+
+    blocksOf: (slide) => state.spans[slide]?.blocks ?? [],
   };
 }
