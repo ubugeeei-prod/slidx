@@ -5,7 +5,7 @@
 //! **Nothing here renders a deck.** The pages, the PDF, and the images all come
 //! from `@slidx/vite-plugin` driving a real browser over the emitted print
 //! shell; this crate takes those files and puts them in a container a
-//! conference form, a review panel, or Google Slides will accept. That
+//! conference form, a review panel, or a presentation tool will accept. That
 //! separation is the whole design: a second renderer would mean the artefact a
 //! speaker hands over could differ from the one they checked, which is the one
 //! failure this project spends most of its architecture avoiding.

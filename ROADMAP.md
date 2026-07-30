@@ -216,9 +216,9 @@ The chore that is currently done exhausted, and therefore often not done.
 - [x] Attach the recording after the fact; archive record and talk index — #20
 - [x] `slidx export`: the static site, the deck as one document, one PDF per
       slide, one image per stop — reachable for all four from the command line
-- [x] `slidx export --target pptx`, for a deck somebody opens in Google Slides —
-      a rendered image per stop plus the notes as real notes text, so what a
-      speaker has to keep editing survives the trip
+- [x] `slidx export --target pptx`, for an OOXML presentation — a rendered
+      image per stop plus the notes as real notes text, so what a speaker has to
+      keep editing survives the trip
 
 **Done when** publishing everywhere is one command driven by frontmatter the
 author already wrote at proposal time.

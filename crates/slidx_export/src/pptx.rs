@@ -1,11 +1,10 @@
-//! A presentation somebody can open in Google Slides.
+//! An OOXML presentation that common presentation tools can import.
 //!
-//! The honest offline answer to "something Google Slides can open" is a
-//! `.pptx`. Google Slides imports one natively and keeps the slides separate;
-//! an imported PDF collapses into a stack of flat images with no slide
-//! boundaries, no notes, and nothing to edit. And a `.pptx` is a zip holding a
-//! few XML parts, so writing one needs no service, no account, and no network —
-//! which is the whole point. slidx produces a file; the author opens it.
+//! A `.pptx` keeps slides and notes as separate presentation parts; an imported
+//! PDF collapses into a stack of flat pages with no slide boundaries or notes.
+//! And a `.pptx` is a zip holding a few XML parts, so writing one needs no
+//! service, no account, and no network — which is the whole point. slidx
+//! produces a file; the author opens it.
 //!
 //! ## What survives the trip, and what does not
 //!
@@ -27,11 +26,11 @@
 //!
 //! ## Notes belong to the slide, not to the stop
 //!
-//! A slide that builds in four steps becomes four slides here, because Google
-//! Slides has no timeline to import one into and the stop is the unit every
-//! slidx export uses. Its notes are attached to all four: they are what the
-//! speaker means to say about that slide, and a speaker who has advanced to the
-//! third stop still needs them.
+//! A slide that builds in four steps becomes four slides here, because OOXML
+//! has no portable timeline matching a compiled deck and the stop is the unit
+//! every slidx export uses. Its notes are attached to all four: they are what
+//! the speaker means to say about that slide, and a speaker who has advanced to
+//! the third stop still needs them.
 
 pub mod parts;
 
@@ -380,8 +379,8 @@ mod tests {
 
     #[test]
     fn a_presentation_is_a_zip_holding_the_parts_a_reader_opens_first() {
-        // A pptx Google Slides refuses is this target's failure mode, and it
-        // starts with the package not being a package.
+        // A presentation tool refusing the pptx is this target's failure mode,
+        // and it starts with the package not being a package.
         let archive = write(&deck(vec![slide("One", &[])]));
         let names = zip::names(&archive);
 
