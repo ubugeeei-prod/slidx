@@ -16,6 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
+import { BLOCK_ATTRIBUTE, REGION_ATTRIBUTE } from "@slidx/editor";
 import { createServer, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
@@ -283,6 +284,65 @@ describe("the editor in the dev server", () => {
 
   afterAll(async () => {
     await session?.server.close();
+  });
+
+  it("serves a slide the editor's overlay can find its blocks in", async () => {
+    // The two attributes the renderer writes and the overlay reads are declared
+    // in Rust and again in TypeScript, and a name spelled differently on one
+    // side would report every slide as empty and draw no handles at all — which
+    // looks exactly like a canvas that has not finished loading.
+    const page = await (await fetch(`${session.url}slides/4/`)).text();
+
+    expect(page).toContain(`${REGION_ATTRIBUTE}="left"`);
+    expect(page).toContain(`${REGION_ATTRIBUTE}="right"`);
+    expect(page).toContain(`${BLOCK_ATTRIBUTE}="0"`);
+  });
+
+  it("writes one line when a block is dragged into a region", async () => {
+    // The whole of direct manipulation, in the file: an attribute group on a
+    // line of its own, and nothing else on the slide moved.
+    await post(session, { op: { op: "moveBlock", slide: 3, block: 1, to: 1, region: "right" } });
+    const source = await readFile(join(session.root, "slides", "0004.md"), "utf8");
+
+    expect(source).toBe(DECK["0004.md"]!.replace("See the", "{.right}\nSee the"));
+  });
+
+  it("takes the class away again when the block is dragged back", async () => {
+    // `left` is what `split` does with a block that says nothing, so the two
+    // spellings mean the same thing and only one of them is a line in the diff.
+    await post(session, { op: { op: "moveBlock", slide: 3, block: 1, to: 1, region: "left" } });
+    const source = await readFile(join(session.root, "slides", "0004.md"), "utf8");
+
+    expect(source).toBe(DECK["0004.md"]);
+  });
+
+  it("costs no press of undo when a drag ends where it started", async () => {
+    // `createHistory().applied` ignores an empty inverse, so an empty `undo`
+    // here is what keeps a drag that changed nothing out of the stack.
+    const answer = await post(session, {
+      op: { op: "moveBlock", slide: 3, block: 0, to: 0, region: "left" },
+    });
+
+    expect(answer.undo).toEqual([]);
+    expect(answer.written).toEqual([]);
+  });
+
+  it("says what the linter makes of something the editor measured", async () => {
+    // The route that changes nothing. Whether content fits its box depends on
+    // where lines break, so the editor measures its canvas and the same Rust
+    // rule the build runs decides what the numbers mean — which is what lets a
+    // block warn before it has landed.
+    const response = await fetch(`${session.url}__slidx/measured`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        measured: [{ slideIndex: 3, stop: 0, overHeight: 0, overWidth: 0.9, region: "right" }],
+      }),
+    });
+
+    const findings = (await response.json()) as { code: string; message: string }[];
+    expect(findings.map((finding) => finding.code)).toContain("overflow/clipped");
+    expect(findings[0]!.message).toContain("right");
   });
 
   it("is served by the server that already has the deck, with nothing else to start", async () => {

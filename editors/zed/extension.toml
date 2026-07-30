@@ -1,0 +1,16 @@
+id = "slidx"
+name = "slidx"
+description = "Diagnostics, completion, outline, hover and formatting for slidx decks"
+version = "0.1.0"
+schema_version = 1
+authors = ["ubugeeei"]
+repository = "https://github.com/ubugeeei-prod/slidx"
+
+# Bound to Markdown, because a deck is Markdown and Zed has nowhere finer to
+# bind. It cannot scope a language server to a path, so this attaches to every
+# Markdown file open in the editor and the *server* decides which of them is a
+# deck — see `slidx_lsp::deck`. That rule lives there rather than here for
+# exactly this reason: one of the three editors slidx supports cannot express it.
+[language_servers.slidx]
+name = "slidx"
+languages = ["Markdown"]

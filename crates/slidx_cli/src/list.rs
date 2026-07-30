@@ -119,7 +119,7 @@ fn read(path: &Path) -> Option<Read> {
     let touched = if deck_source.files.is_empty() {
         project::touched(&[path.to_path_buf()])
     } else {
-        project::touched(&deck_source.files)
+        project::touched(&deck_source.paths())
     };
 
     Some(Read {

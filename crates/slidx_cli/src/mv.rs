@@ -24,7 +24,7 @@ use slidx_core::DeckParseOptions;
 use slidx_edit::{apply, EditOp};
 
 use crate::args::Matches;
-use crate::find::scoring;
+use crate::find;
 use crate::home::Home;
 use crate::index::{Entry, Index};
 use crate::lint::source;
@@ -41,7 +41,7 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
     let home = Home::discover();
     let mut index = Index::load(&home.index());
 
-    let Some(from) = resolve(query, &index) else {
+    let Some(from) = find::project(query, &index) else {
         return Outcome::misuse(no_match(query));
     };
 
@@ -66,23 +66,6 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
     let retitled = matches.value("title").map(|title| retitle(&to, title));
 
     Outcome::out(report(&from, &to, retitled.as_ref(), style))
-}
-
-/// The project a query names: a path if it is one, otherwise the closest match.
-///
-/// A path first, because `slidx mv . vue-fes-2026` is the obvious thing to type
-/// while standing in the project, and a fuzzy search over the index would be a
-/// strange way to answer it.
-fn resolve(query: &str, index: &Index) -> Option<PathBuf> {
-    let given = PathBuf::from(query);
-    if given.is_dir() {
-        return given.canonicalize().ok().or(Some(given));
-    }
-
-    scoring::rank(query, index.entries(), Entry::haystack)
-        .first()
-        .map(|(entry, _)| entry.path.clone())
-        .filter(|path| path.is_dir())
 }
 
 /// Where the project is going.
@@ -140,7 +123,7 @@ fn retitle(project: &Path, title: &str) -> Result<PathBuf, String> {
 
     // A deck kept as one file per slide has its own frontmatter in the first
     // file, which is where the title is. That is the only file this can change.
-    let target = read.files.first().cloned().unwrap_or_else(|| deck.clone());
+    let target = read.files.first().map(|file| file.path.clone()).unwrap_or_else(|| deck.clone());
     let source = fs::read_to_string(&target).map_err(|error| error.to_string())?;
 
     let edited = apply(
@@ -330,7 +313,7 @@ mod tests {
         let scratch = Scratch::new("path-query");
         let project = scratch.project("vueconf", DECK);
 
-        let resolved = resolve(&project.display().to_string(), &Index::default());
+        let resolved = find::project(&project.display().to_string(), &Index::default());
 
         assert_eq!(resolved.map(|path| path.canonicalize().unwrap()), project.canonicalize().ok());
     }
@@ -342,8 +325,8 @@ mod tests {
         let mut index = Index::default();
         index.record(Entry::new(&project));
 
-        assert_eq!(resolve("vueconf", &index), Some(project));
-        assert_eq!(resolve("nothing-like-it", &index), None);
+        assert_eq!(find::project("vueconf", &index), Some(project));
+        assert_eq!(find::project("nothing-like-it", &index), None);
     }
 
     #[test]

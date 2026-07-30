@@ -21,6 +21,7 @@
  * the author's files, and `vite build` never registers them.
  */
 
+import { createArrange } from "./arrange";
 import { createCanvas } from "./canvas";
 import { createClient, type EditorClient } from "./client";
 import { createDiagnostics } from "./diagnostics";
@@ -33,8 +34,18 @@ import { createSession, type Session } from "./session";
 import { applyStyles } from "./styles";
 import { createTimeline } from "./timeline";
 
-export type { EditOp, Edit, MarkAttributes, ByteSpan } from "./operations";
-export type { EditorClient, DeckState, EditAnswer, Finding, SlideSummary } from "./client";
+export type { EditOp, Edit, MarkAttributes, BlockAttributes, ByteSpan } from "./operations";
+export type {
+  EditorClient,
+  DeckState,
+  EditAnswer,
+  Finding,
+  Measurement,
+  SlideSummary,
+} from "./client";
+export type { SlideGeometry, RegionBox, BlockBox, Rect } from "./geometry";
+export { readGeometry, BLOCK_ATTRIBUTE, REGION_ATTRIBUTE } from "./geometry";
+export { landing, nudge, guides, arrival } from "./placement";
 export type { EditorState, Selection, Session } from "./session";
 export { createClient } from "./client";
 export { createSession } from "./session";
@@ -90,6 +101,10 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
     diagnostics,
     createTimeline({ run }),
     createRevisions(),
+    createArrange(
+      { run, foresee: (findings) => session.foresee(findings) },
+      { measure: (measured) => client.measured(measured) },
+    ),
   ];
   const frame = element(
     "div",

@@ -173,7 +173,7 @@ fn write(
         .ok_or_else(|| "the slide was spliced and then could not be found\n".to_string())?;
     let body = format!("{}\n", slide.content.slice(edited).trim());
 
-    let plan = name(&deck.files, at, spans.len())?;
+    let plan = name(&deck.paths(), at, spans.len())?;
 
     // Every rename is checked before any of them happens: a deck half-renumbered
     // is a deck whose slides are in the wrong order, and that is worse than a

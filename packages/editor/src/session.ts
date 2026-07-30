@@ -46,6 +46,15 @@ export interface EditorState {
   refusal?: EditRefusal | undefined;
   /** A message about something that stopped, rather than something refused. */
   problem?: string | undefined;
+  /**
+   * What the linter says about something that has not happened yet.
+   *
+   * A block being dragged has a landing before it has a line in the file, and
+   * whether it will fit the region it is heading for is knowable then. These
+   * are cleared the moment the gesture ends, because a warning about a
+   * placement nobody made is a warning about nothing.
+   */
+  foreseen?: Finding[] | undefined;
 }
 
 export interface Session {
@@ -57,6 +66,8 @@ export interface Session {
   undo(): Promise<void>;
   redo(): Promise<void>;
   select(selection: Partial<Selection>): void;
+  /** What the linter says about a change that has not been made yet. */
+  foresee(findings: Finding[]): void;
   /** The Markdown of one slide's body, as the author wrote it. */
   bodyOf(slide: number): string;
 }
@@ -96,6 +107,9 @@ export function createSession(client: EditorClient, history: History = createHis
       canRedo: history.canRedo,
       refusal: undefined,
       problem: undefined,
+      // The change has happened, so what was foreseen about it is now either
+      // in `diagnostics` or was never true.
+      foreseen: undefined,
       ...extra,
     });
   }
@@ -161,6 +175,14 @@ export function createSession(client: EditorClient, history: History = createHis
 
     select(selection) {
       set({ selection: { ...state.selection, ...selection } });
+    },
+
+    foresee(findings) {
+      // Nothing to nothing is not a change, and a gesture that clears these on
+      // every pointer event would re-render the whole editor on every one.
+      if (findings.length === 0 && (state.foreseen ?? []).length === 0) return;
+
+      set({ foreseen: findings });
     },
 
     bodyOf(slide) {

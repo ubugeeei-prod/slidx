@@ -464,7 +464,9 @@ dependencies = [
  "slidx_export",
  "slidx_fmt",
  "slidx_highlight",
+ "slidx_i18n",
  "slidx_lint",
+ "slidx_lsp",
  "slidx_publish",
  "slidx_theme",
 ]
@@ -495,7 +497,10 @@ version = "0.1.0"
 dependencies = [
  "serde_json",
  "slidx_brand",
+ "slidx_cli",
  "slidx_core",
+ "slidx_lint",
+ "slidx_lsp",
  "slidx_render",
  "slidx_theme",
 ]
@@ -515,6 +520,7 @@ dependencies = [
  "serde",
  "serde_json",
  "slidx_core",
+ "slidx_theme",
 ]
 
 [[package]]
@@ -533,6 +539,16 @@ dependencies = [
 [[package]]
 name = "slidx_highlight"
 version = "0.1.0"
+
+[[package]]
+name = "slidx_i18n"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "slidx_core",
+ "slidx_edit",
+]
 
 [[package]]
 name = "slidx_lint"

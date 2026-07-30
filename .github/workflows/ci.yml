@@ -31,13 +31,43 @@ jobs:
       - run: pnpm exec vp run ci:conventions
       - run: node scripts/check-version.mjs
 
+  # Which runners this run uses.
+  #
+  # A pull request is checked on Linux alone. Running three platforms on every
+  # push and then all three again on the way to main is the same work twice, and
+  # the second time is the one that decides whether main is good.
+  #
+  # So the full matrix runs where it settles something: on main, and on the
+  # release workflow that calls this one before it publishes. The cost is that a
+  # Windows-only break reaches main and is caught by main's own run rather than
+  # by the pull request — a slower report on a rarer failure, which is the trade
+  # this repository wants while a wave of work is landing.
+  platforms:
+    name: platforms
+    runs-on: ubuntu-latest
+    outputs:
+      all: ${{ steps.pick.outputs.all }}
+      browsers: ${{ steps.pick.outputs.browsers }}
+    steps:
+      - id: pick
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo 'all=["ubuntu-latest"]' >> "$GITHUB_OUTPUT"
+            echo 'browsers=["ubuntu-latest"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'all=["ubuntu-latest","macos-latest","windows-latest"]' >> "$GITHUB_OUTPUT"
+            echo 'browsers=["ubuntu-latest","macos-latest"]' >> "$GITHUB_OUTPUT"
+          fi
+
   rust:
     name: rust / ${{ matrix.os }}
+    needs: platforms
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ${{ fromJSON(needs.platforms.outputs.all) }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
@@ -47,11 +77,12 @@ jobs:
 
   typescript:
     name: typescript / ${{ matrix.os }}
+    needs: platforms
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ${{ fromJSON(needs.platforms.outputs.all) }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
@@ -62,11 +93,12 @@ jobs:
 
   build:
     name: build / ${{ matrix.os }}
+    needs: platforms
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ${{ fromJSON(needs.platforms.outputs.all) }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
@@ -80,11 +112,12 @@ jobs:
   # build closest to the Safari a speaker will actually open.
   browsers:
     name: browsers / ${{ matrix.os }}
+    needs: platforms
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: ${{ fromJSON(needs.platforms.outputs.browsers) }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
@@ -93,6 +126,22 @@ jobs:
           browsers: chromium firefox webkit
       - run: pnpm exec vp run build:packages
       - run: pnpm exec vp test run packages/vite-plugin/test/browser.test.ts
+
+  # The Zed extension compiles to a target nothing else here uses, in a Cargo
+  # workspace of its own. One runner settles it: it is glue, Zed builds it the
+  # same way on every platform, and asking three runners to install
+  # wasm32-wasip2 would buy nothing. Without this job, a change to it would be
+  # found by whoever next tried to install the extension.
+  zed:
+    name: zed extension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          rust: "true"
+      - run: rustup target add wasm32-wasip2
+      - run: pnpm exec vp run build:zed
 
   # One artifact serves every runtime, and each one instantiates it itself.
   # That path is where they differ, so all three build the same deck and the
@@ -117,7 +166,7 @@ jobs:
   ci:
     name: ci
     if: always()
-    needs: [conventions, rust, typescript, build, browsers, runtimes]
+    needs: [conventions, rust, typescript, build, zed, browsers, runtimes]
     runs-on: ubuntu-latest
     steps:
       - name: Report

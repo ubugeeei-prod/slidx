@@ -15,7 +15,7 @@
 //! 4. **No panics.** An operation naming something that is not there is an
 //!    error value, on every source in the corpus.
 
-use slidx_core::{parse_deck, ByteSpan, DeckParseOptions, StepAction};
+use slidx_core::{parse_deck, Attributes, ByteSpan, DeckParseOptions, StepAction};
 use slidx_edit::{apply, plan, EditOp, MarkAttributes, SlideRef};
 
 /// Decks chosen so that every structural case appears at least once.
@@ -104,6 +104,46 @@ fn operations(source: &str) -> Vec<EditOp> {
                 attributes: attributes.clone(),
             });
             ops.push(EditOp::RemoveMark { slide: index.into(), mark: 0.into() });
+        }
+        if !slide.blocks.is_empty() {
+            ops.push(EditOp::SetBlockAttributes {
+                slide: index.into(),
+                block: 0.into(),
+                attributes: Attributes::default().with_key("placed").with_class("side"),
+            });
+            ops.push(EditOp::SetBlockAttributes {
+                slide: index.into(),
+                block: 0.into(),
+                attributes: Attributes::default(),
+            });
+            ops.push(EditOp::MoveBlock {
+                slide: index.into(),
+                block: 0.into(),
+                to: 0,
+                region: Some("side".into()),
+            });
+        }
+        // A move needs two blocks to be about anything.
+        if slide.blocks.len() > 1 {
+            let end = slide.blocks.len() - 1;
+            ops.push(EditOp::MoveBlock {
+                slide: index.into(),
+                block: 0.into(),
+                to: end,
+                region: None,
+            });
+            ops.push(EditOp::MoveBlock {
+                slide: index.into(),
+                block: end.into(),
+                to: 0,
+                region: None,
+            });
+            ops.push(EditOp::MoveBlock {
+                slide: index.into(),
+                block: end.into(),
+                to: 0,
+                region: Some("right".into()),
+            });
         }
     }
 
@@ -287,6 +327,62 @@ fn a_moved_slide_lands_where_the_operation_said_and_arrives_intact() {
 }
 
 #[test]
+fn the_blocks_in_the_file_are_the_blocks_on_the_slide() {
+    // The renderer writes each block's index — its index in the *model* — onto
+    // the page, and a drag sends that number back as the block to move. So the
+    // list an operation counts in the file has to be the list the author was
+    // looking at. Two things separate them: notes come out of the content
+    // before a slide is rendered, and a step marker becomes an anchor that is
+    // folded into the block it stages.
+    for source in corpus() {
+        let spans = slidx_edit::slide_spans(source, &DeckParseOptions::default());
+
+        for (index, slide) in parse(source).slides.iter().enumerate() {
+            let found = slidx_core::find_blocks(spans[index].body.slice(source));
+
+            assert_eq!(
+                found.len(),
+                slide.blocks.len(),
+                "slide {index} of {source:?} counts {} blocks in the file and {} on the slide",
+                found.len(),
+                slide.blocks.len()
+            );
+        }
+    }
+}
+
+#[test]
+fn a_moved_block_lands_where_the_operation_said_and_arrives_intact() {
+    for source in corpus() {
+        for (index, slide) in parse(source).slides.iter().enumerate() {
+            let before = block_text(slide);
+            if before.len() < 2 {
+                continue;
+            }
+
+            for (from, to) in [(0, before.len() - 1), (before.len() - 1, 0), (0, 1)] {
+                let op =
+                    EditOp::MoveBlock { slide: index.into(), block: from.into(), to, region: None };
+                let mut expected = before.clone();
+                let moved = expected.remove(from);
+                expected.insert(to, moved);
+
+                assert_eq!(
+                    block_text(&parse(&edited(source, &op)).slides[index]),
+                    expected,
+                    "{op:?} on {source:?}"
+                );
+            }
+        }
+    }
+}
+
+/// Each block of a slide, as the model has it.
+fn block_text(slide: &slidx_core::Slide) -> Vec<String> {
+    slide.blocks.iter().map(|block| block.span.slice(&slide.content).to_string()).collect()
+}
+
+#[test]
 fn a_removed_slide_is_the_only_one_that_goes() {
     for source in corpus() {
         let before = written_titles(source);
@@ -391,6 +487,20 @@ fn an_operation_naming_something_that_is_not_there_is_an_error_not_a_crash() {
         EditOp::AddStep { slide: 99.into(), at: None, action: StepAction::reveal(".a") },
         EditOp::RemoveStep { slide: 0.into(), index: 99 },
         EditOp::SetNotes { slide: 99.into(), notes: "x".into() },
+        EditOp::SetBlockAttributes {
+            slide: 0.into(),
+            block: 99.into(),
+            attributes: Default::default(),
+        },
+        EditOp::SetBlockAttributes {
+            slide: 0.into(),
+            block: "gone".into(),
+            attributes: Default::default(),
+        },
+        EditOp::MoveBlock { slide: 0.into(), block: 99.into(), to: 0, region: None },
+        // A drop target one past the last block, which is where the editor
+        // aims when an author drags something to the bottom of a region.
+        EditOp::MoveBlock { slide: 0.into(), block: 0.into(), to: 99, region: Some("side".into()) },
     ];
 
     for source in corpus() {

@@ -1,0 +1,99 @@
+---
+title: Layout and regions
+summary: How a slide is divided, and how one block chooses where it goes.
+section: reference
+order: 2
+---
+
+# Layout and regions
+
+A slide picks a layout, and the layout offers named regions. A block says which
+region it belongs in, and everything else lands in the default one in the order
+it was written.
+
+```md
+---
+layout: aside
+---
+
+## How the pipeline fits together
+
+{.side}
+![The four stages, end to end](./pipeline.svg)
+```
+
+That is the whole mechanism: one word in the frontmatter, one line above a
+block.
+
+## Why a region and not a rectangle
+
+The obvious way to let someone move something is a freeform canvas, and what it
+puts in the file is four floats. Nobody can review them, they mean a different
+thing at a different aspect ratio, and no rule can reason about them — a linter
+cannot tell you whether text will be legible in a box whose width it only learns
+at runtime.
+
+A region is the same gesture with a name. `{.side}` is one word in a diff, it
+still means the right thing on a 4:3 projector in a hall that has not been
+refitted since 2009, and it is something the overflow rule can measure, because
+the geometry belongs to the layout rather than to the slide.
+
+## The layouts
+
+Each region name below is what you write in an attribute line.
+
+<!-- slidx-docs: layouts -->
+
+A layout is one `grid-template-areas` and a region's name _is_ its grid area, so
+one string describes the geometry rather than two that can disagree. The slide
+is already a size container, so the grid inside it inherits the scaling for
+free: every region is a share of the slide, at every projector size, with no
+transform and no script.
+
+## The attribute line
+
+An attribute group on a line of its own attaches to the block below it:
+
+```md
+{.side}
+![The pipeline](./pipeline.svg)
+```
+
+It is the same grammar you have already met twice — `{#key .class prop=value}`.
+It appears after a span of text as a [mark](steps.md#addressing-part-of-a-line),
+after a fence's language to [publish a snippet](tonight.md#somebody-is-going-to-ask-for-the-code),
+and here on a line of its own. One grammar, written down once, because a second
+parser for it would be a second set of answers about what `prop="two words"`
+means.
+
+A line that starts with `{` and does not parse as a group is ordinary content,
+and nothing is said about it. Someone writing a paragraph that begins with a
+brace is not making a mistake.
+
+## Naming a region the layout does not have
+
+The block lands in the default region, and the build reports it. Both halves
+matter: the slide still renders, because a deck edited twenty minutes before a
+talk has to render, and the mistake is named, because a block that silently went
+somewhere else is exactly the kind of thing you discover from the stage.
+
+The finding comes from the theme rather than from the linter. The regions belong
+to the layout, and the linter deliberately knows nothing about themes.
+
+## Overflow is measured per region
+
+A region is its own box. A column a third of the width holds a third of the
+line, and a slide's own scroll height never notices that the bottom of one
+column has gone.
+
+So every region is measured separately and each gets its own finding, naming the
+region. "The slide is too tall" sends you to the wrong half of it; the help says
+to move a block rather than to split the slide. See [Lint rules](lint.md) for
+what else the overflow group covers, and for why _unchecked_ is not _clean_.
+
+## What is not here yet
+
+Dragging a block into a region. The regions exist and a block can be placed by
+editing the file, and the visual editor's gesture for it is the half with no
+implementation — [ROADMAP.md](../../ROADMAP.md) is where that lives, along with
+everything else that is stated rather than shipped.

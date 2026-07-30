@@ -136,19 +136,22 @@ describe("where the rule applies", () => {
     expect(files).toContain("assets/brand/mark-light.svg");
   });
 
-  it("exempts only the checkers and their own tests", () => {
-    // A checker and its test have to contain what they reject. Naming them
-    // rather than loosening the patterns keeps the next real shadow caught.
-    expect(EXEMPT).toEqual([
-      "scripts/flat.mjs",
-      "scripts/test/flat.test.mjs",
-      "scripts/borrowed.mjs",
-      "scripts/test/borrowed.test.mjs",
-    ]);
+  it("exempts only the two checkers themselves", () => {
+    // A checker cannot be held to the rule it implements: the patterns it
+    // matches are written out in it. Naming them rather than loosening the
+    // patterns keeps the next real shadow caught.
+    expect(EXEMPT).toEqual(["scripts/flat.mjs", "scripts/borrowed.mjs"]);
 
     for (const exempt of EXEMPT) {
       expect(shippedFiles()).not.toContain(exempt);
     }
+  });
+
+  it("does not look at a test, which ships to nobody", () => {
+    // The editor's stylesheet test asserts the chrome declares no shadow by
+    // naming one, which is the only way a test can make that claim.
+    expect(shippedFiles()).not.toContain("packages/editor/test/chrome.test.ts");
+    expect(shippedFiles().every((file) => !/\.test\.[cm]?[jt]s$/.test(file))).toBe(true);
   });
 
   it("does not look at an author's own deck", () => {

@@ -43,6 +43,17 @@ impl SlugAllocator {
         Self::default()
     }
 
+    /// Marks an id as taken without handing it out, reporting whether it was free.
+    ///
+    /// A slide can pin its id, and a pinned id is an address the deck already
+    /// published. Reserving every pin before a single slug is allocated is what
+    /// makes a heading that now slugs onto one move aside rather than displace
+    /// it — the other way round is a deep link that breaks with nothing to say
+    /// about why.
+    pub fn reserve(&mut self, id: &str) -> bool {
+        self.taken.insert(id.to_string(), 1).is_none()
+    }
+
     /// Returns `base`, or `base-2`, `base-3`, … if it is already taken.
     pub fn allocate(&mut self, base: &str) -> String {
         let count = self.taken.entry(base.to_string()).or_insert(0);
@@ -108,6 +119,21 @@ mod tests {
         assert_eq!(allocator.allocate("demo"), "demo-2");
         assert_eq!(allocator.allocate("demo"), "demo-3");
         assert_eq!(allocator.allocate("other"), "other");
+    }
+
+    #[test]
+    fn a_reserved_id_is_not_handed_to_a_heading_that_slugs_onto_it() {
+        let mut allocator = SlugAllocator::new();
+        assert!(allocator.reserve("overview"));
+        assert_eq!(allocator.allocate("overview"), "overview-2");
+    }
+
+    #[test]
+    fn reserving_the_same_id_twice_reports_the_second_one() {
+        // Two slides pinning one id would publish one address for two slides.
+        let mut allocator = SlugAllocator::new();
+        assert!(allocator.reserve("intro"));
+        assert!(!allocator.reserve("intro"));
     }
 
     #[test]

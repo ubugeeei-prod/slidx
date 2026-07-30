@@ -65,15 +65,18 @@ pub mod git;
 pub mod grep;
 pub mod help;
 pub mod home;
+pub mod i18n;
 pub mod index;
 pub mod lint;
 pub mod list;
+pub mod lsp;
 pub mod mv;
 pub mod preview;
 pub mod project;
 pub mod prompt;
 pub mod publish;
 pub mod report;
+pub mod rm;
 pub mod save;
 pub mod sha256;
 pub mod shell;
@@ -139,11 +142,13 @@ pub fn run(argv: &[String], style: &Style) -> Outcome {
             (None, "export") => export::run(&matches, style),
             (None, "fmt") => fmt::run(&matches, style),
             (None, "lint") => lint::run(&matches, style),
+            (None, "lsp") => lsp::run(&matches, style),
             (None, "open") => find::run(&matches, style),
             (None, "list") => list::run(&matches, style),
             (None, "add") => add::run(&matches, style),
             (None, "create") => create::run(&matches, style),
             (None, "mv") => mv::run(&matches, style),
+            (None, "rm") => rm::run(&matches, style),
             (None, "save") => save::run(&matches, style),
             (None, "cd") => cd::run(&matches, style),
             (None, "grep") => grep::run(&matches, style),
@@ -152,6 +157,11 @@ pub fn run(argv: &[String], style: &Style) -> Outcome {
             (None, "shell") => shell::run(&matches, style),
             (None, "publish") => publish::run(&matches, style),
             (None, "tui") => tui::run(&matches, style),
+            // `i18n` alone has no obvious reading: extract and apply are
+            // opposite directions, and guessing one would be a guess about
+            // whether somebody wanted to write a catalogue or a deck.
+            (None, "i18n") => Outcome::out(help::command(&route, style)),
+            (Some("i18n"), action) => i18n::run(action, &matches, style),
             (Some("version"), action) => version::run(action, &matches, style),
             // Unreachable while the table and this match agree, which the
             // suite asserts. A panic here would be a crash in front of a room.

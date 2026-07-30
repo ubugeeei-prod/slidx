@@ -17,14 +17,27 @@
 //! A check that compares the two (fonts, time zone) needs both halves present
 //! and independent, which is why the expectation does not live inside a
 //! reading. [`crate::probe`] is the one module that turns a machine into this.
+//!
+//! [`Platform`] is in neither half. It is not read off the machine and nobody
+//! declares it — it is what this build was compiled for, and it is here because
+//! three checks need it to say where a setting lives. "Turn Do Not Disturb on"
+//! without naming the menu is thirty seconds of a speaker hunting for a switch.
 
+pub mod audio;
+pub mod displays;
 pub mod fonts;
 pub mod machine;
+pub mod notifications;
+pub mod platform;
 
 use serde::{Deserialize, Serialize};
 
+pub use audio::Audio;
+pub use displays::{Display, Displays, Resolution};
 pub use fonts::{FontStack, InstalledFonts};
 pub use machine::{Cameras, Clock, Disk, Network, Power, PowerSource, RunningProcesses, Skew};
+pub use notifications::Notifications;
+pub use platform::Platform;
 
 /// A measurement that may not have been possible.
 ///
@@ -142,7 +155,13 @@ pub struct Environment {
     pub processes: Reading<RunningProcesses>,
     pub cameras: Reading<Cameras>,
     pub network: Reading<Network>,
+    pub displays: Reading<Displays>,
+    pub notifications: Reading<Notifications>,
+    pub audio: Reading<Audio>,
     pub expected: Expectation,
+    /// What this build was compiled for, so a remedy can name the right menu.
+    /// Not a reading: it is never missing and never measured.
+    pub platform: Platform,
 }
 
 impl Environment {
@@ -193,8 +212,34 @@ impl Environment {
         self
     }
 
+    pub fn with_displays(mut self, displays: Reading<Displays>) -> Self {
+        self.displays = displays;
+        self
+    }
+
+    pub fn with_notifications(mut self, notifications: Reading<Notifications>) -> Self {
+        self.notifications = notifications;
+        self
+    }
+
+    pub fn with_audio(mut self, audio: Reading<Audio>) -> Self {
+        self.audio = audio;
+        self
+    }
+
     pub fn expecting(mut self, expected: Expectation) -> Self {
         self.expected = expected;
+        self
+    }
+
+    /// Says which platform these readings came from.
+    ///
+    /// The seam the three platform checks are tested through: a Linux runner
+    /// builds an environment `on(Platform::Windows)` and asserts the remedy
+    /// names Focus assist, which is the only way those branches are ever
+    /// exercised anywhere but the one runner they run on.
+    pub fn on(mut self, platform: Platform) -> Self {
+        self.platform = platform;
         self
     }
 }
@@ -218,6 +263,17 @@ mod tests {
         assert!(!environment.processes.is_known());
         assert!(!environment.cameras.is_known());
         assert!(!environment.network.is_known());
+        assert!(!environment.displays.is_known());
+        assert!(!environment.notifications.is_known());
+        assert!(!environment.audio.is_known());
+    }
+
+    #[test]
+    fn a_fresh_environment_does_not_claim_a_platform_either() {
+        // A remedy naming System Settings on a machine nobody said was a Mac
+        // sends a speaker looking for a menu that is not there.
+        assert_eq!(Environment::new().platform, Platform::Unknown);
+        assert_eq!(Environment::new().on(Platform::Windows).platform, Platform::Windows);
     }
 
     #[test]

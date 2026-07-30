@@ -29,7 +29,41 @@ export const STYLESHEET = `
   --slidx-e-warning: #9a6700;
   --slidx-e-hairline: 1px;
   --slidx-e-radius: 4px;
+
+  /*
+   * Both stacks name a CJK family, which the deck themes have been held to all
+   * along and the chrome was not. Without one a Japanese slide title in the
+   * outline falls back to a Latin-only face and renders as tofu — in the panel
+   * whose whole job is telling an author which slide they are on.
+   */
+  --slidx-e-font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+  --slidx-e-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Noto Sans Mono CJK JP", monospace;
+
+  /*
+   * One rhythm, in multiples of a 4px step.
+   *
+   * The chrome used to reach for 4, 5, 6, 8, 10, 12, 14 and 18 pixels in
+   * different places, which is what makes an interface feel assembled rather
+   * than designed: nothing lines up with anything, and no gap means the same as
+   * any other gap. Four stops cover every distance this tool actually needs.
+   */
+  --slidx-e-tight: 4px;
+  --slidx-e-snug: 8px;
   --slidx-e-gap: 12px;
+  --slidx-e-loose: 16px;
+
+  /*
+   * The smallest a control may be.
+   *
+   * Not the 44px touch guideline: this is a dense desktop tool driven by a
+   * mouse and a keyboard, and 44px rows would put a third as much of the deck
+   * on screen. 28 is the smallest a pointer reliably hits without the row
+   * becoming a target you have to aim at, and every interactive element here
+   * meets it whether or not its ink fills it.
+   */
+  --slidx-e-hit: 28px;
 
   color-scheme: light dark;
 }
@@ -49,14 +83,40 @@ export const STYLESHEET = `
 
 *, *::before, *::after { box-sizing: border-box; }
 
+/*
+ * Selection and scrollbars, chosen rather than left to the browser.
+ *
+ * A default selection is the operating system's accent, which is whatever the
+ * author last picked in their settings — so the one moment the tool asserts a
+ * colour of its own is a colour it did not choose. The accent at low alpha keeps
+ * the selected text legible, which a solid fill does not.
+ */
+::selection {
+  background: color-mix(in srgb, var(--slidx-e-accent) 26%, transparent);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--slidx-e-line) transparent;
+}
+
 body {
   margin: 0;
   height: 100vh;
   background: var(--slidx-e-canvas);
   color: var(--slidx-e-text);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--slidx-e-font-sans);
   font-size: 13px;
-  line-height: 1.5;
+  /*
+   * Looser than a Latin-only interface would need.
+   *
+   * This editor is used to write Japanese decks. CJK glyphs fill their em box
+   * where Latin lowercase fills about half of it, so lines set at 1.5 that look
+   * airy in English look cramped in Japanese — and an outline of slide titles
+   * is the one place a whole panel is set in it. 1.65 is the smallest that
+   * reads as comfortable in both.
+   */
+  line-height: 1.65;
 }
 
 .slidx-editor {
@@ -110,21 +170,42 @@ button {
   background: transparent;
   border: var(--slidx-e-hairline) solid var(--slidx-e-line);
   border-radius: var(--slidx-e-radius);
-  padding: 2px 8px;
+  /* Ink can be small; the target cannot. */
+  min-height: var(--slidx-e-hit);
+  padding: 0 var(--slidx-e-snug);
   cursor: pointer;
 }
 
 button:hover { background: var(--slidx-e-surface); }
-button:focus-visible, [contenteditable]:focus-visible, input:focus-visible, textarea:focus-visible {
+
+/*
+ * The focus ring.
+ *
+ * Deliberate and identical everywhere, because a keyboard user's only way of
+ * knowing where they are is this ring. Two pixels rather than one — a hairline
+ * ring disappears against a hairline border — and offset by two so it reads as a
+ * ring around the control rather than as a thicker edge on it.
+ *
+ * :focus-visible rather than :focus, so clicking a button does not leave a
+ * ring behind that a mouse user has to wonder about.
+ */
+button:focus-visible,
+[contenteditable]:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
   outline: 2px solid var(--slidx-e-accent);
-  outline-offset: 1px;
+  outline-offset: 2px;
+  /* Above a neighbouring row's background, which would otherwise clip it. */
+  position: relative;
+  z-index: 1;
 }
 
 /* Outline. */
 
 .slidx-outline-list {
   margin: 0;
-  padding: 4px;
+  padding: var(--slidx-e-tight);
   list-style: none;
   overflow-y: auto;
 }
@@ -132,7 +213,8 @@ button:focus-visible, [contenteditable]:focus-visible, input:focus-visible, text
 .slidx-outline-row {
   display: flex;
   align-items: center;
-  padding-right: 4px;
+  min-height: var(--slidx-e-hit);
+  padding-right: var(--slidx-e-tight);
   border-radius: var(--slidx-e-radius);
 }
 
@@ -141,8 +223,8 @@ button:focus-visible, [contenteditable]:focus-visible, input:focus-visible, text
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 8px;
+  gap: var(--slidx-e-snug);
+  padding: 0 var(--slidx-e-snug);
   border: 0;
   border-radius: var(--slidx-e-radius);
   text-align: left;
@@ -151,7 +233,21 @@ button:focus-visible, [contenteditable]:focus-visible, input:focus-visible, text
 .slidx-outline-open:hover { background: transparent; }
 
 .slidx-outline-row:hover { background: var(--slidx-e-surface); }
-.slidx-outline-row[aria-current="true"] { background: var(--slidx-e-surface); }
+
+/*
+ * The current slide, said twice.
+ *
+ * Hover and selection used to be the same background, so an author moving the
+ * mouse through the outline could not tell which slide they were actually on.
+ * The rule on the leading edge is the part that does not move under a pointer.
+ */
+.slidx-outline-row[aria-current="true"] {
+  background: var(--slidx-e-surface);
+  border-left: 2px solid var(--slidx-e-accent);
+  padding-left: 0;
+}
+
+.slidx-outline-row[aria-current="true"] .slidx-outline-open { padding-left: 6px; }
 .slidx-outline-row[aria-current="true"] .slidx-outline-title { font-weight: 600; }
 
 .slidx-outline-number {
@@ -178,14 +274,29 @@ button:focus-visible, [contenteditable]:focus-visible, input:focus-visible, text
 
 .slidx-outline-row[data-severity="error"] .slidx-dot { background: var(--slidx-e-error); }
 
+/*
+ * Revealed by hover *or* focus, and never removed from the layout.
+ *
+ * It used to be opacity: 0 with only a hover rule to bring it back, which
+ * makes it unreachable by keyboard in the literal sense: tabbing to it moved
+ * focus to something invisible, and the focus ring was drawn on a control nobody
+ * could see. Opacity rather than display: none for the same reason the demo
+ * switch uses display: none and this does not — here the row must not change
+ * width when a pointer enters it.
+ */
 .slidx-outline-remove {
   border: 0;
-  padding: 0 4px;
+  min-width: var(--slidx-e-hit);
+  min-height: var(--slidx-e-hit);
+  padding: 0 var(--slidx-e-tight);
   color: var(--slidx-e-muted);
   opacity: 0;
 }
 
-.slidx-outline-row:hover .slidx-outline-remove { opacity: 1; }
+.slidx-outline-row:hover .slidx-outline-remove,
+.slidx-outline-remove:focus-visible {
+  opacity: 1;
+}
 
 /* Canvas. */
 
@@ -217,7 +328,7 @@ button:focus-visible, [contenteditable]:focus-visible, input:focus-visible, text
   background: var(--slidx-e-surface);
   border: var(--slidx-e-hairline) solid var(--slidx-e-line);
   border-radius: var(--slidx-e-radius);
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-family: var(--slidx-e-font-mono);
   font-size: 12px;
   tab-size: 2;
 }
@@ -227,13 +338,13 @@ button:focus-visible, [contenteditable]:focus-visible, input:focus-visible, text
 .slidx-inspector-panels { padding: var(--slidx-e-gap); overflow-y: auto; }
 
 .slidx-group + .slidx-group {
-  margin-top: 18px;
-  padding-top: 14px;
+  margin-top: var(--slidx-e-loose);
+  padding-top: var(--slidx-e-gap);
   border-top: var(--slidx-e-hairline) solid var(--slidx-e-line);
 }
 
 .slidx-group h3 {
-  margin: 0 0 8px;
+  margin: 0 0 var(--slidx-e-snug);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -241,43 +352,75 @@ button:focus-visible, [contenteditable]:focus-visible, input:focus-visible, text
   color: var(--slidx-e-muted);
 }
 
-.slidx-field { display: grid; grid-template-columns: 78px minmax(0, 1fr); align-items: center; gap: 8px; margin-bottom: 6px; }
+.slidx-field {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--slidx-e-snug);
+  margin-bottom: var(--slidx-e-tight);
+}
 .slidx-field-name { color: var(--slidx-e-muted); }
 
 input, textarea {
   width: 100%;
+  min-height: var(--slidx-e-hit);
   font: inherit;
   color: inherit;
   background: var(--slidx-e-canvas);
   border: var(--slidx-e-hairline) solid var(--slidx-e-line);
   border-radius: var(--slidx-e-radius);
-  padding: 3px 6px;
+  padding: var(--slidx-e-tight) var(--slidx-e-snug);
 }
+
+/*
+ * A field the author has not filled says what belongs in it, quietly.
+ *
+ * Browsers set placeholder text at the same weight as a value, which makes an
+ * empty field look filled in at a glance.
+ */
+::placeholder { color: var(--slidx-e-muted); opacity: 1; }
 
 textarea { resize: vertical; font-size: 12px; }
 
 .slidx-hint { margin: 0; color: var(--slidx-e-muted); }
 .slidx-selected {
-  margin: 0 0 8px;
-  padding: 6px 8px;
+  margin: 0 0 var(--slidx-e-snug);
+  padding: var(--slidx-e-snug);
   background: var(--slidx-e-surface);
   border-radius: var(--slidx-e-radius);
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-family: var(--slidx-e-font-mono);
   font-size: 12px;
 }
 
 /* Diagnostics. */
 
 .slidx-diagnostics { max-height: 26vh; overflow-y: auto; }
-.slidx-diagnostics[data-empty="true"] { display: none; }
 
-.slidx-findings { margin: 0; padding: 6px var(--slidx-e-gap); list-style: none; }
+/*
+ * Nothing wrong is a state, not an absence.
+ *
+ * The panel used to vanish, which moves every other panel by its height the
+ * moment an author fixes the last diagnostic — the layout jumping is how they
+ * find out. It now keeps one row and says so, and the row is the calm one: a
+ * linter that is quiet should look quiet rather than look broken.
+ */
+.slidx-diagnostics[data-empty="true"] .slidx-findings { display: none; }
+
+.slidx-diagnostics[data-empty="true"]::after {
+  content: attr(data-empty-label);
+  display: block;
+  min-height: var(--slidx-e-hit);
+  padding: var(--slidx-e-snug) var(--slidx-e-gap);
+  color: var(--slidx-e-muted);
+}
+
+.slidx-findings { margin: 0; padding: var(--slidx-e-snug) var(--slidx-e-gap); list-style: none; }
 
 .slidx-finding {
   display: flex;
-  gap: 10px;
+  gap: var(--slidx-e-snug);
   align-items: baseline;
-  padding: 2px 0;
+  padding: var(--slidx-e-tight) 0;
 }
 
 .slidx-finding[role="button"] { cursor: default; }
@@ -292,8 +435,18 @@ textarea { resize: vertical; font-size: 12px; }
  * decorating one: a row that just changed, and a control that just took focus.
  */
 @media (prefers-reduced-motion: no-preference) {
-  .slidx-outline-row, button, .slidx-outline-remove { transition: background 90ms linear, opacity 90ms linear; }
+  .slidx-outline-row, button, .slidx-outline-remove {
+    transition: background 90ms linear, opacity 90ms linear;
+  }
 }
+
+/*
+ * The focus ring never animates, at any setting.
+ *
+ * It is the answer to "where am I", and an answer that fades in arrives after
+ * the question. Excluded from the transition above rather than switched off
+ * here, but stated so nobody adds it back.
+ */
 `;
 
 /** Puts the chrome's stylesheet into a document, once. */

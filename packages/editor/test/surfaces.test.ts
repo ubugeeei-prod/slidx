@@ -403,4 +403,26 @@ describe("diagnostics", () => {
 
     expect(diagnostics.root.getAttribute("data-empty")).toBe("true");
   });
+
+  it("puts a finding about something that has not happened yet above the rest", () => {
+    // A block being dragged has a landing before it has a line in the file, and
+    // a warning an author can act on by not letting go is worth more than the
+    // same warning once they did.
+    const diagnostics = createDiagnostics({ select: () => {} });
+    diagnostics.render(
+      stateOf({
+        diagnostics: [
+          { severity: "warning", code: "a11y/alt", message: "no alt text", slideIndex: 1 },
+        ],
+        foreseen: [
+          { severity: "error", code: "overflow/clipped", message: "loses its right edge" },
+        ],
+      }),
+    );
+
+    const rows = [...diagnostics.root.querySelectorAll(".slidx-finding")];
+    expect(rows[0]!.textContent).toContain("on landing");
+    expect(rows[0]!.textContent).toContain("loses its right edge");
+    expect(rows[1]!.textContent).toContain("no alt text");
+  });
 });

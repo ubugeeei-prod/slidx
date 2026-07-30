@@ -47,10 +47,14 @@ pub const ORDER: &[&str] = &[
     "title",
     "description",
     "author",
+    "lang",
     "theme",
     "aspect",
     "duration",
     "safeArea",
+    // Which of two decks of the same talk this is. Written by `slidx i18n
+    // apply` rather than by hand, and next to the metadata it qualifies.
+    "translationOf",
     // Where it was given and where it is published. Written once, at proposal
     // time, and rarely opened again.
     "event",
@@ -62,7 +66,9 @@ pub const ORDER: &[&str] = &[
     "slug",
     "tags",
     "recording",
-    // What one slide does.
+    // What one slide does. `id` leads, because it is the slide's address and
+    // the one key here that something outside the deck depends on.
+    "id",
     "transition",
     "layout",
     "budget",

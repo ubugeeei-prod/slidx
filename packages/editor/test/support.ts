@@ -8,17 +8,28 @@
  */
 
 import { byteLength } from "../src/bytes";
-import type { DeckState, EditAnswer, EditorClient, SlideSummary } from "../src/client";
+import type {
+  DeckState,
+  EditAnswer,
+  EditorClient,
+  Finding,
+  Measurement,
+  SlideSummary,
+} from "../src/client";
 import type { Edit, EditOp } from "../src/operations";
 
 export interface Recorded {
   ops: EditOp[];
   reverted: Edit[];
+  /** What the editor asked the linter about a landing that had not happened. */
+  asked: Measurement[][];
 }
 
 export interface FakeServer extends EditorClient, Recorded {
   /** What the next answer will say. */
   answer: Partial<EditAnswer>;
+  /** What the linter will make of the next measurement. */
+  findings: Finding[];
 }
 
 export function deckOf(...titles: string[]): DeckState {
@@ -52,9 +63,16 @@ export function fakeServer(initial: DeckState = deckOf("One", "Two", "Three")): 
   const server: FakeServer = {
     ops: [],
     reverted: [],
+    asked: [],
     answer: {},
+    findings: [],
 
     deck: async () => initial,
+
+    measured: async (measured) => {
+      server.asked.push(measured);
+      return server.findings;
+    },
 
     apply: async (op) => {
       server.ops.push(op);

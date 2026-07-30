@@ -96,9 +96,10 @@ impl Edit {
 /// nothing, which is how every operation gets to be idempotent without each
 /// planner remembering to check.
 ///
-/// Public because `slidx_fmt` is an operation planner too: a formatter that
-/// built its own splices would be a second answer to what a byte-range change
-/// is, and would have to re-derive idempotence for itself.
+/// Public because the editor is not the only operation planner. `slidx_fmt`
+/// formats a deck and `slidx_i18n` splices a translation into it, and either
+/// one building its own splices would be a second answer to what a byte-range
+/// change is — and would have to re-derive idempotence for itself.
 #[derive(Debug)]
 pub struct EditBuilder<'a> {
     source: &'a str,

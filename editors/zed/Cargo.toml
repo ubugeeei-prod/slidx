@@ -1,0 +1,21 @@
+# Outside the Cargo workspace on purpose. Zed compiles this itself, to
+# `wasm32-wasip2`, against its own extension API — so it is a `cdylib` nothing
+# in this repository links, and its lockfile is its own.
+#
+# The empty table is what makes that true from here rather than only from the
+# root: cargo walks *up* looking for a workspace, and a checkout sitting inside
+# somebody else's would otherwise be claimed by theirs.
+[workspace]
+
+[package]
+name = "slidx_zed"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+zed_extension_api = "0.7"

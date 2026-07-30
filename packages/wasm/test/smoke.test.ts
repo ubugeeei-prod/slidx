@@ -74,11 +74,17 @@ describe("building a deck", () => {
     expect(slide.stopCount).toBe(3);
   });
 
-  it("carries speaker notes without rendering them", () => {
+  it("carries speaker notes without putting them on the slide", () => {
+    // Never in the body, which is the screen the room is looking at. They do
+    // describe the page in its head: the author's own prose about a slide is
+    // what a description wants, and the blog draft `slidx publish` writes is
+    // already built from the same words.
     const slide = onlySlide(buildDeck("# One\n\n<!-- notes: out loud -->\n").slides);
+    const body = slide.html?.split("<body>")[1] ?? "";
 
     expect(slide.notes).toEqual(["out loud"]);
-    expect(slide.html).not.toContain("out loud");
+    expect(body).not.toContain("out loud");
+    expect(slide.html).toContain('<meta name="description" content="out loud">');
   });
 
   it("skips the HTML when asked to parse only", () => {

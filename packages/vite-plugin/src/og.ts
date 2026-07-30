@@ -9,6 +9,7 @@
  */
 
 import { renderPdf } from "./pdf";
+import { capture } from "./capture";
 
 /** What every scraper crops to. */
 export const OG_WIDTH = 1200;
@@ -44,29 +45,15 @@ export async function rasterise(svg: string): Promise<Buffer | null> {
       waitUntil: "load",
     });
 
-    return await page.screenshot({ type: "png" });
+    return await capture(() => page.screenshot({ type: "png" }));
   } finally {
     await browser.close();
   }
 }
 
-/** The tags a scraper reads, for one page. */
-export function metaTags(url: string | undefined, title: string, cardPath: string): string {
-  const absolute = url ? new URL(cardPath, url).href : cardPath;
-
-  return [
-    `<meta property="og:title" content="${escapeAttribute(title)}">`,
-    `<meta property="og:image" content="${escapeAttribute(absolute)}">`,
-    `<meta property="og:image:width" content="${OG_WIDTH}">`,
-    `<meta property="og:image:height" content="${OG_HEIGHT}">`,
-    // Without this, X shows a small square crop and the title is unreadable.
-    `<meta name="twitter:card" content="summary_large_image">`,
-  ].join("\n");
-}
-
-function escapeAttribute(value: string): string {
-  return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
-}
+// The tags that point a scraper at these cards are composed in Rust, beside the
+// canonical link and the structured data they have to agree with. A second
+// composer here was written before any of that existed and never called.
 
 // Re-exported so the plugin has one import for browser-backed work.
 export { renderPdf };

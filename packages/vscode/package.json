@@ -1,0 +1,53 @@
+{
+  "name": "slidx-vscode",
+  "displayName": "slidx",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Diagnostics, completion, outline, hover and formatting for slidx decks, from the slidx language server",
+  "categories": [
+    "Linters",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "markdown",
+    "presentation",
+    "slides",
+    "slidx"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ubugeeei-prod/slidx.git",
+    "directory": "packages/vscode"
+  },
+  "publisher": "ubugeeei",
+  "type": "module",
+  "main": "./dist/extension.cjs",
+  "scripts": {
+    "pack:lib": "vp pack src/extension.ts --format cjs --out-dir dist"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.82.0"
+  },
+  "contributes": {
+    "configuration": {
+      "title": "slidx",
+      "properties": {
+        "slidx.path": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to the `slidx` binary. Empty means: whatever is on your PATH, then the slidx install directory. `slidx version current` in a terminal prints which one that is."
+        }
+      }
+    }
+  },
+  "activationEvents": [
+    "workspaceContains:**/slides/*.md"
+  ],
+  "engines": {
+    "vscode": "^1.82.0"
+  }
+}

@@ -30,15 +30,33 @@
 //! begins with a brace is not making a mistake, and a diagnostic there would be
 //! a diagnostic on prose.
 //!
-//! # Why a step anchor never stands alone
+//! # Why a chunk that shows nothing never stands alone
 //!
-//! A marker on its own line stages the block above it — the runtime resolves it
-//! to the anchor's previous element sibling. So a chunk that holds nothing but
-//! anchors is folded into the block before it rather than counted as a block of
-//! its own. That is what keeps the anchor in the same region when the block it
-//! stages is moved to another one, and it is why the block list is the same
-//! length whether it was taken from the source an author saved or from the
-//! content the pipeline compiled.
+//! A step marker on its own line stages the block above it — the runtime
+//! resolves an anchor to its previous element sibling. So a chunk that holds
+//! nothing but anchors is folded into the block before it rather than counted
+//! as a block of its own. That is what keeps the anchor in the same region when
+//! the block it stages is moved to another one.
+//!
+//! The same folding covers the two other things an author writes that an
+//! audience never sees: the marker in the form they typed it, and a notes
+//! comment. That is what makes the block list **the same length and the same
+//! order** whether it was taken from the source an author saved or from the
+//! content the pipeline compiled — the two are separated by notes extraction,
+//! step compilation and mark compilation, and every one of those removes or
+//! rewrites something that would otherwise be a chunk of its own.
+//!
+//! An editor depends on that agreement rather than merely benefiting from it.
+//! The renderer writes each block's index in *model* order onto the page, and a
+//! drag sends that number back as the block to move; if the source counted one
+//! more chunk than the slide did, a drag would move the block above the one the
+//! author picked up.
+//!
+//! Notes are the one case that folds differently at the top of a slide. An
+//! anchor with nothing above it is still a block, because it is still markup
+//! the page has to carry; a notes comment with nothing above it belongs to no
+//! block at all, because the pipeline takes it out before the slide is rendered
+//! and there is nothing for it to be part of.
 
 use serde::{Deserialize, Serialize};
 
@@ -96,11 +114,17 @@ pub fn find_blocks(source: &str) -> Vec<FoundBlock> {
     let mut carried: Option<ByteSpan> = None;
 
     for chunk in chunks(source) {
-        // A chunk that is only anchors belongs to the block it stages, so the
-        // two cannot be separated by a move.
-        if is_anchor_only(chunk.slice(source)) {
+        // A chunk an audience never sees belongs to the block it was written
+        // against, so the two cannot be separated by a move.
+        if let Some(hidden) = shows_nothing(chunk.slice(source)) {
             if let Some(last) = blocks.last_mut() {
                 last.block.span.end = chunk.end;
+                continue;
+            }
+            // Nothing above it to belong to. An anchor is still markup the page
+            // carries, so it stands alone; a note is taken out before the slide
+            // is rendered, so it belongs to nothing and is not counted.
+            if hidden == Hidden::Notes {
                 continue;
             }
         }
@@ -274,25 +298,74 @@ fn attributes_of(line: &str) -> Option<Attributes> {
     attributes::parse(inside)
 }
 
-/// True when a chunk holds step anchors and nothing an audience sees.
-fn is_anchor_only(text: &str) -> bool {
+/// What a chunk holds, when it holds nothing an audience sees.
+///
+/// The two are not interchangeable at the top of a slide: an anchor is markup
+/// the page still carries, and a note is taken out before the page exists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Hidden {
+    /// Step anchors, or the markers an author writes them as.
+    Staging,
+    /// Speaker notes.
+    Notes,
+}
+
+/// What a chunk holds, when everything in it is hidden from the audience.
+///
+/// `None` for anything with a word of prose in it, which is almost every chunk.
+/// An ordinary HTML comment counts as prose here and always will: it is not
+/// slidx's, the pipeline leaves it alone, and folding it would put the source
+/// and the model one block apart in the other direction.
+fn shows_nothing(text: &str) -> Option<Hidden> {
     let mut rest = text.trim();
     if rest.is_empty() {
-        return false;
+        return None;
     }
 
-    while let Some(open) = rest.find("<span ") {
-        if !rest[..open].trim().is_empty() {
-            return false;
-        }
-        let Some(close) = rest[open..].find("</span>") else { return false };
-        if !rest[open..open + close].contains(ANCHOR_ATTRIBUTE) {
-            return false;
-        }
-        rest = rest[open + close + "</span>".len()..].trim();
+    let mut seen: Option<Hidden> = None;
+
+    while !rest.is_empty() {
+        let (kind, after) = if rest.starts_with("<span ") {
+            (Hidden::Staging, anchor_end(rest)?)
+        } else if rest.starts_with("<!--") {
+            let (kind, at) = comment_end(rest)?;
+            (kind, at)
+        } else {
+            return None;
+        };
+
+        // A note above a marker is both, and both belong to the block above.
+        // Only a chunk that is *entirely* notes is one nothing may hold on to.
+        seen = Some(match seen {
+            Some(Hidden::Staging) => Hidden::Staging,
+            _ => kind,
+        });
+        rest = rest[after..].trim_start();
     }
 
-    rest.is_empty()
+    seen
+}
+
+/// Where an anchor element ends, or nothing when the span is not one.
+fn anchor_end(rest: &str) -> Option<usize> {
+    let close = rest.find("</span>")?;
+    rest[..close].contains(ANCHOR_ATTRIBUTE).then_some(close + "</span>".len())
+}
+
+/// What a comment is and where it ends, or nothing when it is neither of ours.
+fn comment_end(rest: &str) -> Option<(Hidden, usize)> {
+    let close = rest.find("-->")?;
+    let inner = &rest[4..close];
+
+    let kind = if crate::markers::marker_body(inner).is_some() {
+        Hidden::Staging
+    } else if crate::notes::keyword_len(inner.trim()).is_some() {
+        Hidden::Notes
+    } else {
+        return None;
+    };
+
+    Some((kind, close + "-->".len()))
 }
 
 #[cfg(test)]
@@ -441,8 +514,46 @@ mod tests {
 
     #[test]
     fn an_anchor_with_no_block_above_it_is_a_block_of_its_own() {
+        // Markup the page still has to carry, so something has to render it.
         let source = "<span data-slidx-step=\"1\" hidden></span>\n\n# One\n";
         assert_eq!(find_blocks(source).len(), 2);
+    }
+
+    #[test]
+    fn a_step_marker_on_its_own_line_folds_the_same_way_the_anchor_it_becomes_does() {
+        // The source and the compiled content have to count the same blocks, or
+        // a drag aimed at the third block on a slide moves the second.
+        let source = "# One\n\n<!-- step -->\n\nSecond.\n";
+        let found = find_blocks(source);
+
+        assert_eq!(found.len(), 2);
+        assert!(found[0].block.span.slice(source).contains("<!-- step -->"));
+    }
+
+    #[test]
+    fn a_chunk_of_nothing_but_a_notes_comment_belongs_to_the_block_above_it() {
+        let source = "# One\n\n<!-- notes:\nsaid out loud\n-->\n\nSecond.\n";
+        let found = find_blocks(source);
+
+        assert_eq!(found.len(), 2);
+        assert!(found[0].block.span.slice(source).contains("said out loud"));
+    }
+
+    #[test]
+    fn a_notes_comment_with_nothing_above_it_belongs_to_no_block_at_all() {
+        // Notes come out of the content before a slide is rendered, so there is
+        // nothing for one at the top of a slide to be part of. Counting it
+        // would put the source one block ahead of the slide for the whole file.
+        let source = "<!-- notes: said first -->\n\n# One\n";
+        assert_eq!(blocks(source), ["# One"]);
+    }
+
+    #[test]
+    fn an_ordinary_html_comment_is_content_and_is_counted() {
+        // It is not slidx's and the pipeline leaves it alone, so the compiled
+        // content has a chunk here too.
+        let source = "# One\n\n<!-- TODO: redraw this -->\n\nSecond.\n";
+        assert_eq!(find_blocks(source).len(), 3);
     }
 
     #[test]

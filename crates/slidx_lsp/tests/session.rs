@@ -16,7 +16,9 @@ use serde_json::{json, Value};
 use slidx_lsp::protocol::{self, Message, RequestId};
 use slidx_lsp::Server;
 
-const URI: &str = "file:///デッキ.md";
+/// A slide file in the layout every other slidx command assumes, because that
+/// is the only shape the server answers for at all.
+const URI: &str = "file:///デッキ/slides/0001.md";
 
 const DECK: &str = "---\ntitle: 高速なデッキ\ntheme: terminal\n---\n\n# 導入\n\n\
                     - 速い <!-- step -->\n\n---\n\n# まとめ\n";

@@ -22,13 +22,21 @@
 /// roadmap as it stands, not as it stood at the last release.
 const REPOSITORY_BLOB: &str = "https://github.com/ubugeeei-prod/slidx/blob/main/";
 
+/// Where the pictures and recordings live, from a page in `docs/content/`.
+///
+/// The same files are published beside the pages rather than one level up, so
+/// this prefix is the one thing a page spells differently in the two places it
+/// is read. Rewritten for `src` as well as `href`, because a `<video>` is
+/// neither a Markdown link nor a Markdown image.
+const MEDIA: (&str, &str) = ("\"../media/", "\"media/");
+
 /// Rewrites every relative Markdown link in a rendered page.
 ///
 /// Applied to the HTML rather than to the Markdown, so nothing here has to know
 /// which of the several link spellings CommonMark accepts produced the `href`.
 /// Ox Content has already collapsed them all into one attribute by this point.
 pub fn rewrite(html: &str) -> String {
-    replace_hrefs(html, rewrite_href)
+    replace_hrefs(&html.replace(MEDIA.0, MEDIA.1), rewrite_href)
 }
 
 /// One `href`, as the site should spell it.
@@ -44,16 +52,17 @@ fn rewrite_href(href: &str) -> String {
         None => (href, String::new()),
     };
 
-    if !path.ends_with(".md") {
-        return href.to_string();
-    }
-
     if path.starts_with("../") {
-        // Out of `docs/content/` and therefore out of the site. `docs/content`
-        // is two directories deep, so the first two `../` are the ones that
-        // reach the repository root and anything after them is a real path.
+        // Out of `docs/content/` and therefore out of the site, whatever the
+        // extension. A reference page linking the Rust module its table came
+        // from is the same move as linking ROADMAP.md, and both resolve on
+        // GitHub and nowhere else.
         let repository_path = path.trim_start_matches("../");
         return format!("{REPOSITORY_BLOB}{repository_path}{fragment}");
+    }
+
+    if !path.ends_with(".md") {
+        return href.to_string();
     }
 
     format!("{}.html{fragment}", path.trim_end_matches(".md"))
@@ -126,6 +135,42 @@ mod tests {
         assert_eq!(
             rewrite(r#"<a href="../../CONTRIBUTING.md#checks">"#),
             r#"<a href="https://github.com/ubugeeei-prod/slidx/blob/main/CONTRIBUTING.md#checks">"#
+        );
+    }
+
+    #[test]
+    fn a_link_to_source_leaves_the_site_the_same_way_a_link_to_a_document_does() {
+        // A reference page whose table is generated says which module generated
+        // it. That link has to reach the repository, not a page that is not
+        // there.
+        assert_eq!(
+            rewrite(r#"<a href="../../crates/slidx_lsp/src/vocabulary.rs">"#),
+            r#"<a href="https://github.com/ubugeeei-prod/slidx/blob/main/crates/slidx_lsp/src/vocabulary.rs">"#
+        );
+    }
+
+    #[test]
+    fn both_halves_of_a_two_scheme_picture_are_rewritten() {
+        // A terminal photographed in one scheme and shown on a page in the
+        // other is the jarring thing the README already solved with `<picture>`.
+        let html = rewrite(
+            r#"<source media="(prefers-color-scheme: dark)" srcset="../media/terminal-doctor-dark.png">"#,
+        );
+
+        assert!(html.contains(r#"srcset="media/terminal-doctor-dark.png""#), "got {html}");
+    }
+
+    #[test]
+    fn a_picture_or_a_recording_is_published_beside_the_page_that_shows_it() {
+        // The one path a page spells differently in its two homes: one level up
+        // in the repository, and alongside on the site.
+        assert_eq!(
+            rewrite(r#"<img src="../media/terminal-lint-light.png">"#),
+            r#"<img src="media/terminal-lint-light.png">"#
+        );
+        assert_eq!(
+            rewrite(r#"<video src="../media/deck.webm" controls></video>"#),
+            r#"<video src="media/deck.webm" controls></video>"#
         );
     }
 

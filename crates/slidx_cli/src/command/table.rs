@@ -44,12 +44,21 @@ pub const ALL: &[Command] = &[
         "check this machine before you speak",
         "doctor [options]",
         "\
-Reads power, disk, clock, fonts, running applications and the network, and
-says what to do about each one. Everything it looks at is something that goes
-wrong on stage and never at a desk, so it is worth the ten seconds in the room
-even when it was clean this morning.
+Reads power, the display arrangement, notifications, the audio output, disk,
+clock, fonts, running applications and the network, and says what to do about
+each one. Everything it looks at is something that goes wrong on stage and
+never at a desk, so it is worth the ten seconds in the room even when it was
+clean this morning.
 
-A reading that could not be taken is reported as unknown, never as a pass.",
+A reading that could not be taken is reported as unknown, never as a pass.
+Platforms differ most on the three that are settings rather than measurements:
+macOS names display mirroring outright, Windows will not say whether its
+screens are duplicated, and Windows has no output level a command line can
+read. Each of those is reported as unknown with the reason, and never guessed.
+
+It changes nothing. Mirroring, Do Not Disturb and the volume are all things a
+speaker may want set, and none of them are set by a command run to find out
+what they are — the remedy names the switch instead.",
         &[
             Flag::taking("dir", "<path>", "Directory whose volume the disk check measures"),
             Flag::switch("offline", "Take no network readings, and say so in the report"),
@@ -108,6 +117,27 @@ deck kept as one file per slide stays that way.",
         ],
     ),
     leaf(
+        "lsp",
+        "run the language server, for an editor to talk to",
+        "lsp",
+        "\
+Speaks the language server protocol on stdin and stdout: diagnostics as you
+type, completion for frontmatter keys and step presets, the deck outline, hover,
+and formatting on save. Everything it reports is what `slidx lint` and
+`slidx fmt` report, from the same rules, at the moment it is still cheap to act
+on.
+
+An EDITOR runs this, not a person. It takes no arguments and reads no
+configuration — an editor starts it and everything else is protocol — and typed
+at a prompt it says so rather than waiting for a frame that is not coming. The
+configuration for VS Code, Zed and Neovim is in docs/content/editors.md.
+
+It serves Markdown under a slides directory and nothing else. A deck is
+Markdown and most Markdown is not a deck, so a language server that claimed
+every .md file would put slide diagnostics on somebody's README.",
+        &[],
+    ),
+    leaf(
         "open",
         "find a deck this machine has seen",
         "open [query] [options]",
@@ -119,13 +149,16 @@ appearing.
 
 Only the chosen path goes to standard output, so this composes:
 
-    cd \"$(slidx open vueconf)\"
+    slidx open vueconf | xargs -o $EDITOR
 
 With `slidx shell` loaded you are simply taken there, because the shell
 function can do the one thing this command cannot.
 
 Piped, or with --list, it prints every match and exits rather than waiting for
-a keypress there is nobody to press.",
+a keypress there is nobody to press. That is what makes it a list to feed to
+something — and why `slidx cd` is the one to put inside `cd \"$(…)\"`: it prints
+exactly one path however many decks match, and a substitution has no way to
+hold two.",
         &[
             Flag::switch("list", "Print every match and exit, without the picker"),
             Flag::switch("json", "Print the matches as JSON"),
@@ -216,6 +249,34 @@ merge.",
         &[Flag::taking("title", "<text>", "Retitle the deck's frontmatter as well")],
     ),
     leaf(
+        "rm",
+        "archive a project, reversibly",
+        "rm [query] [options]",
+        "\
+Moves a project into an archive under ~/.slidx and records where it came from,
+so `slidx rm --restore` puts it back exactly where it was. Nothing is unlinked.
+
+That is deliberate, and it is not timidity. A deck is often the only copy of
+work that took weeks: written at night, not always in a repository, and in a
+repository that has usually never been pushed. An archive somebody meant to
+delete costs disk space; a delete somebody meant to archive costs the talk.
+
+    slidx rm vueconf              archive it
+    slidx rm --restore vueconf    put it back
+    slidx rm --list               what is archived, and where it came from
+
+--delete really deletes, and asks for the project's name to be typed back
+rather than accepting a keypress. A project holding changes that are in no
+commit is asked about twice, because that is the case where the copy being
+deleted is the only one. Where there is no terminal to ask on, it deletes
+nothing.",
+        &[
+            Flag::switch("restore", "Put an archived project back where it was"),
+            Flag::switch("list", "Show what is archived"),
+            Flag::switch("delete", "Really delete, after confirming"),
+        ],
+    ),
+    leaf(
         "save",
         "commit the deck, described in the deck's own terms",
         "save [path] [options]",
@@ -253,7 +314,11 @@ Fuzzy-finds a project and prints its directory, which is all a program can do
 here: a child process cannot change the working directory of the shell that
 started it, and no flag will make it. That is how processes work rather than
 something missing, so the `cd` belongs to a shell function that reads this
-command's output — and directly, to a command substitution:
+command's output. `slidx shell` writes that function:
+
+    eval \"$(slidx shell sh)\"
+
+Without it, a command substitution does the same job by hand:
 
     cd \"$(slidx cd vueconf)\"
 
@@ -465,6 +530,96 @@ nothing, so it can be read before it is meant and diffed against last time.",
             Flag::switch("json", "Print the plan as JSON"),
         ],
     ),
+    Command {
+        name: "i18n",
+        summary: "give the same talk in another language",
+        usage: "i18n <command> [options]",
+        about: "\
+Pulls a deck's prose out into a catalogue, and puts a translated one back —
+without touching anything slidx addresses.
+
+That second half is the work. A mark key is an address a `steps:` entry points
+at, a fence carries code and a snippet's file name, a link's destination is not
+its words, and a slide's id is a slug of its heading — so a translated heading
+moves the slide and breaks every deep link and every QR code into the deck.
+All of it is replaced by numbered placeholders before a translator ever sees
+the text, and `apply` pins any id the translation would have moved.
+
+slidx does not translate. Producing the translation is yours to do, with
+whichever tool or person you choose; the catalogue is an ordinary Gettext PO
+file, so every translation tool already opens it. Nothing here makes a network
+call, and no build ever runs any of this.
+
+    slidx i18n extract --lang ja        # the deck's prose, as a PO file
+    slidx i18n apply ja.po --lang ja    # a translation, spliced back",
+        flags: &[],
+        default_subcommand: None,
+        takes_the_caller_with_it: false,
+        subcommands: &[
+            leaf(
+                "extract",
+                "write the catalogue a translator works in",
+                "i18n extract [path] --lang <tag> [options]",
+                "\
+Writes one entry per translatable string: the deck's title and description,
+every heading, paragraph, bullet, quote and table row, and every speaker note —
+because a translated slide with untranslated notes is worse than neither.
+
+Everything else is left out on purpose. Fenced code and inline code, URLs and
+image paths, mark keys and classes, step markers, HTML tags, and every
+frontmatter key that is vocabulary rather than prose. Where one of those sits
+inside a sentence it becomes %1, %2 … — so it cannot be retyped wrongly, and can
+still be moved when the grammar needs it.
+
+Run over an existing catalogue, it keeps every translation whose string has not
+changed, so re-extracting after fixing a typo does not throw away a week of
+somebody's work.",
+                &[
+                    Flag::taking("lang", "<tag>", "BCP 47 tag being translated into. Required"),
+                    Flag::taking("out", "<path>", "Where to write it. Default: standard output"),
+                    Flag::taking("separator", "<text>", "Slide separator in a single-file deck"),
+                ],
+            ),
+            leaf(
+                "apply",
+                "write the translated deck beside the original",
+                "i18n apply [path] --catalogue <file> --out <dir>",
+                "\
+Splices every translation into the deck as a byte-range change, so the author's
+blank lines, their bullet markers and their hand-wrapped paragraphs come through
+untouched and the diff is one a reviewer can read. A string nobody has
+translated yet is left in the original language rather than blanked, so a
+half-finished catalogue is safe to apply.
+
+Then it pins the ids. A slide's id is a slug of its heading, so translating
+headings moves slides — including ones nobody translated, when two slides shared
+a title. Every id the translation would have moved is written back as `id:` in
+that slide's frontmatter, so the translated deck answers at the URLs the
+original one published.
+
+A translation that dropped a placeholder is refused rather than written, and
+named. Dropping %1 silently drops the mark key it stood for, and a deck whose
+`steps:` entry addresses nothing still renders — it just does not animate.
+
+`--out` writes a sibling deck, which is the layout that keeps a translation
+change legible: `slides.ja/0001.md` diffs against `slides/0001.md` line for
+line. Two things do not come across and are reported instead: per-slide
+budgets, because speaking rate is not language independent, and the linter's
+overflow verdict, because a slide that fitted in one language may not in
+another.",
+                &[
+                    Flag::taking("catalogue", "<path>", "The translated PO file. Required"),
+                    Flag::taking(
+                        "out",
+                        "<path>",
+                        "Directory the translated deck goes in. Required",
+                    ),
+                    Flag::taking("separator", "<text>", "Slide separator in a single-file deck"),
+                    Flag::switch("plan", "Say what would change and write nothing"),
+                ],
+            ),
+        ],
+    },
     Command {
         name: "version",
         summary: "install and switch between slidx versions",

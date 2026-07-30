@@ -201,6 +201,19 @@ export default defineConfig({
         "cargo run -q -p slidx_cli --bin slidx -- lint examples/deck/slides",
         { dependsOn: ["check:rust"] },
       ),
+      // The Zed extension, which is a workspace of its own and a target no
+      // other task uses. Compiling it is the whole check there is: Zed builds
+      // it the same way, and nothing else in this repository links it, so
+      // without this a change to its forty lines of glue would be found by
+      // whoever next tried to install it.
+      //
+      // Not in `ci:rust` — that job runs on three platforms and this needs
+      // `wasm32-wasip2` on each of them to prove something that is true once.
+      // CI gives it a runner of its own; see `.github/workflows/ci.yml`.
+      "build:zed": uncached(
+        "cargo build --release --locked --target wasm32-wasip2 --manifest-path editors/zed/Cargo.toml",
+      ),
+
       "test:rust-verbose": uncached("cargo test --workspace -- --nocapture"),
       "build:rust": uncached("cargo build --workspace --release"),
       "doc:rust": uncached("cargo doc --workspace --no-deps"),
@@ -274,7 +287,24 @@ export default defineConfig({
         dependsOn: ["build:wasm"],
       }),
 
-      "build:packages": group(["build:wasm", "build:runtime", "build:editor", "build:plugin"]),
+      // The VS Code extension. Nothing in this repository imports it, so
+      // `check:packages-built` cannot see it — and an extension nobody builds
+      // is an extension nobody can install, which is the exact shape of the
+      // problem this whole editor item exists to end. So it is built here,
+      // where a failure to compile is a failure of the build rather than a
+      // surprise at packaging time.
+      //
+      // CommonJS because that is what an extension host loads, in a package
+      // that is `"type": "module"` like every other one here.
+      "build:vscode": uncached("vp run --filter slidx-vscode pack:lib"),
+
+      "build:packages": group([
+        "build:wasm",
+        "build:runtime",
+        "build:editor",
+        "build:plugin",
+        "build:vscode",
+      ]),
 
       // Asks the filesystem rather than reading the task graph, because the
       // graph cannot answer it: `build:wasm` runs a script and never names the
@@ -307,6 +337,12 @@ export default defineConfig({
       // reporting a miss on every run.
       "test:ts": uncached(builtin("vp test"), { dependsOn: ["build:packages"] }),
 
+      // Cutting a release. `vp run release minor` writes the version everywhere
+      // it lives, runs `check:version` against the tag it is about to create,
+      // and pushes that tag — which starts a publish nobody can take back.
+      // Uncached for the obvious reason: it is not a function of the tree.
+      release: uncached("node scripts/release.mjs"),
+
       "check:conventions": task("node scripts/check-conventions.mjs"),
       "check:dead-config": task("node scripts/check-dead-config.mjs"),
 
@@ -332,8 +368,21 @@ export default defineConfig({
 
       // The README images are output of the pipeline, not artwork. Kept as a
       // task so regenerating them is one command and never a manual crop.
-      "preview:deck": uncached("vp exec --filter slidx-example-deck -- vite build"),
+      //
+      // Depends on the plugin, which the example deck imports through its
+      // `exports`. Without that edge, regenerating the images on a clean
+      // checkout fails inside esbuild with "Failed to resolve entry for package
+      // @slidx/vite-plugin" — a message about a bundler, for a missing build.
+      "preview:deck": uncached("vp exec --filter slidx-example-deck -- vite build", {
+        dependsOn: ["build:plugin"],
+      }),
       screenshots: uncached("node scripts/screenshot.mjs", { dependsOn: ["preview:deck"] }),
+
+      // Every picture and recording the documentation site uses, from real
+      // runs: `slidx` under a pty so its own colour survives, and the built
+      // deck driven by the arrow key a remote sends. Needs the built deck for
+      // the same reason the screenshots do.
+      media: uncached("node scripts/record.mjs", { dependsOn: ["preview:deck"] }),
 
       // Benchmarks measure wall-clock time, so a cached result is a wrong one.
       "bench:rust": uncached("cargo bench --workspace"),

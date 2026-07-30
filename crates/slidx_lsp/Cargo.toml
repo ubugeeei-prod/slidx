@@ -11,9 +11,9 @@ description = "Language server that puts slidx's parse diagnostics, lint finding
 name = "slidx_lsp"
 path = "src/lib.rs"
 
-[[bin]]
-name = "slidx-lsp"
-path = "src/main.rs"
+# There is no binary here. The server is reached as `slidx lsp`, because slidx
+# ships one binary and an editor that had to find a second would find neither
+# on every machine where only one install channel ran.
 
 [dependencies]
 serde = { workspace = true }

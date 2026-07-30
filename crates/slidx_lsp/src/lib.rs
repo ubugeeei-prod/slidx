@@ -47,9 +47,19 @@
 //!
 //! ## Running it
 //!
-//! The `slidx-lsp` binary speaks the base protocol over stdin and stdout. It
-//! takes no arguments and reads no configuration: an editor starts it, and
-//! everything else is protocol.
+//! `slidx lsp` speaks the base protocol over stdin and stdout. It takes no
+//! arguments and reads no configuration: an editor starts it, and everything
+//! else is protocol. It is a subcommand of the one binary slidx ships rather
+//! than a second one, because an editor extension that had to find a second
+//! binary would find neither on every machine where only one install channel
+//! ran. See [`stdio`].
+//!
+//! ## Which files it is for
+//!
+//! Markdown under a `slides/` directory, and nothing else. A deck is Markdown
+//! and most Markdown is not a deck, so the rule is answered here rather than in
+//! each editor's client — one of the three cannot express a path rule at all.
+//! See [`deck`].
 //!
 //! ```
 //! use slidx_lsp::{analyze, PositionEncoding};
@@ -66,6 +76,7 @@
 
 pub mod analysis;
 pub mod completion;
+pub mod deck;
 pub mod diagnostics;
 pub mod document;
 pub mod formatting;
@@ -73,11 +84,13 @@ pub mod hover;
 pub mod position;
 pub mod protocol;
 pub mod server;
+pub mod stdio;
 pub mod symbols;
 pub mod vocabulary;
 
 pub use analysis::{analyze, Analysis};
 pub use completion::CompletionItem;
+pub use deck::is_deck;
 pub use diagnostics::LspDiagnostic;
 pub use document::{DocumentStore, TextDocument};
 pub use formatting::TextEdit;

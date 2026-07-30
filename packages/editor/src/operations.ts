@@ -17,10 +17,31 @@ export type SlideRef = number | string;
 /** A mark, by position in source order or by its `#key`. */
 export type MarkRef = number | string;
 
+/**
+ * A block, by position in source order or by its `#key`.
+ *
+ * The renderer writes the position onto every block as `data-slidx-block`, so a
+ * drag reads the number off the page rather than counting the Markdown for
+ * itself. It is stable for exactly one operation.
+ */
+export type BlockRef = number | string;
+
 /** A half-open byte range. Bytes, not characters — a selection has to survive CJK. */
 export interface ByteSpan {
   start: number;
   end: number;
+}
+
+/**
+ * What a block's attribute line carries.
+ *
+ * The same three things a mark's group does, because it is the same group on a
+ * line of its own. Mirrors `slidx_core::Attributes`.
+ */
+export interface BlockAttributes {
+  key?: string | undefined;
+  classes?: string[] | undefined;
+  properties?: Record<string, string> | undefined;
 }
 
 /** A mark without its text, which is whatever the author selected. */
@@ -81,6 +102,15 @@ export type EditOp =
   | { op: "addMark"; slide: SlideRef; range: ByteSpan; attributes: MarkAttributes }
   | { op: "setMark"; slide: SlideRef; mark: MarkRef; attributes: MarkAttributes }
   | { op: "removeMark"; slide: SlideRef; mark: MarkRef }
+  | { op: "setBlockAttributes"; slide: SlideRef; block: BlockRef; attributes: BlockAttributes }
+  /**
+   * Where a block is on the slide, which is a region and a position in it.
+   *
+   * Both in one operation because a drag is one gesture: an editor that wrote
+   * them separately would make its primary gesture cost two presses of undo.
+   * `region` absent leaves the block's placement alone.
+   */
+  | { op: "moveBlock"; slide: SlideRef; block: BlockRef; to: number; region?: string }
   | { op: "addStep"; slide: SlideRef; at?: number; action: StepAction }
   | { op: "removeStep"; slide: SlideRef; index: number }
   | { op: "moveStep"; slide: SlideRef; from: number; to: number }

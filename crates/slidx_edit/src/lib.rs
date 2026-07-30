@@ -66,8 +66,9 @@
 #![deny(missing_debug_implementations)]
 #![warn(clippy::all)]
 
+mod block;
 mod edit;
-mod frontmatter;
+pub mod frontmatter;
 mod inline;
 mod notes;
 mod op;
@@ -76,7 +77,7 @@ mod source;
 mod step;
 
 pub use edit::{Edit, EditBuilder, Splice};
-pub use op::{EditError, EditOp, MarkAttributes, MarkRef, SlideRef};
+pub use op::{BlockRef, EditError, EditOp, MarkAttributes, MarkRef, SlideRef};
 
 use serde::{Deserialize, Serialize};
 
@@ -105,6 +106,12 @@ pub fn plan(source: &str, options: &DeckParseOptions, op: &EditOp) -> Result<Edi
             inline::set(&deck, slide, mark, attributes, &mut builder)?
         }
         EditOp::RemoveMark { slide, mark } => inline::remove(&deck, slide, mark, &mut builder)?,
+        EditOp::SetBlockAttributes { slide, block, attributes } => {
+            block::set_attributes(&deck, slide, block, attributes, &mut builder)?
+        }
+        EditOp::MoveBlock { slide, block, to, region } => {
+            block::move_to(&deck, options, slide, block, *to, region.as_deref(), &mut builder)?
+        }
         EditOp::AddStep { slide, at, action } => {
             step::add(&deck, options, slide, *at, action, &mut builder)?
         }
