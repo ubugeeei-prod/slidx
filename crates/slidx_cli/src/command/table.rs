@@ -134,7 +134,10 @@ a diff nobody asked for is how a tool loses the right to touch a file.
 
 --check writes nothing and exits non-zero when a file is not already
 formatted, which is the form for CI. Each file is formatted on its own, so a
-deck kept as one file per slide stays that way.",
+deck kept as one file per slide stays that way.
+
+    slidx fmt
+    slidx fmt ./slides --check",
         &[
             Flag::switch("check", "Write nothing; exit non-zero if a file would change"),
             Flag::taking("separator", "<text>", "Slide separator in a single-file deck"),
@@ -509,7 +512,10 @@ link, and only that one can change the deck.
 
 Sharing is on your local network and involves no third party. There is no
 tunnel and no flag that adds one — a public URL to an unannounced talk, served
-by something that can write your files, is not a switch this should have.",
+by something that can write your files, is not a switch this should have.
+
+    slidx dev
+    slidx dev ./slides --port 5173 --no-open",
         &[
             Flag::taking("port", "<number>", "Port to serve on. Default: Vite's own"),
             Flag::switch("crdt", "Share on this network, read-only, to edit together"),
