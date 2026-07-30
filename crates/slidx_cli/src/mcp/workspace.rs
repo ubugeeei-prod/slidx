@@ -198,9 +198,13 @@ impl Workspace {
         let read = source::read(&target, separator)?;
         let options = DeckParseOptions { separator: separator.to_string(), ..Default::default() };
 
+        // `source::read` now returns each file with the span it contributed to
+        // the joined source; this wants only which files there were.
+        let paths: Vec<_> = read.files.iter().map(|file| file.path.clone()).collect();
+
         // Joined the way the build joins, not the way `source::read` does. The
         // two differ, and the one that matters is the deck a browser gets.
-        let files = super::deck::read_files(&target, &read.files)?;
+        let files = super::deck::read_files(&target, &paths)?;
         let source = super::deck::join(&files, separator).source;
 
         Ok(Reading {
@@ -208,7 +212,7 @@ impl Workspace {
             label: read.label,
             deck: parse_deck(&source, &options),
             source,
-            files: read.files,
+            files: paths,
             separator: separator.to_string(),
         })
     }
