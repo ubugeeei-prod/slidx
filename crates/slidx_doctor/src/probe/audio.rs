@@ -27,9 +27,9 @@ pub fn read(platform: Platform, tools: &Tools) -> Reading<Audio> {
         // Not "slidx has not got round to it": there is no documented reading
         // of the output level from a Windows command line, and the interface
         // that has one needs native code compiled against it.
-        Platform::Windows => Reading::unavailable(
-            "Windows exposes no output level a command line can read",
-        ),
+        Platform::Windows => {
+            Reading::unavailable("Windows exposes no output level a command line can read")
+        }
         Platform::Unknown => {
             Reading::unavailable("slidx has no way to read the output level on this platform")
         }
@@ -209,7 +209,10 @@ mod tests {
     fn a_boosted_pipewire_sink_is_clamped_rather_than_reported_above_a_hundred() {
         // PipeWire will go past 1.0. A percentage that cannot exist makes the
         // line look broken at the moment it needs to be believed.
-        assert_eq!(parse_wpctl("Volume: 1.53\n").unwrap_or(Audio::level_only(0)).level_percent, Some(100));
+        assert_eq!(
+            parse_wpctl("Volume: 1.53\n").unwrap_or(Audio::level_only(0)).level_percent,
+            Some(100)
+        );
     }
 
     #[test]

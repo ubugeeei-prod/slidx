@@ -98,9 +98,16 @@ impl Display {
     }
 
     /// One line naming this screen for the report.
+    ///
+    /// The pixel count is only mentioned where it differs from the points. On
+    /// an unscaled screen the two are the same number, and printing it twice
+    /// reads as a bug in the line rather than as a fact about the display.
     pub fn label(&self) -> String {
         let size = match self.points {
-            Some(points) => format!("{} ({} pixels)", points.label(), self.pixels.label()),
+            Some(points) if points != self.pixels => {
+                format!("{} ({} pixels)", points.label(), self.pixels.label())
+            }
+            Some(points) => points.label(),
             None => self.pixels.label(),
         };
 
@@ -164,13 +171,10 @@ impl Displays {
     /// The worst case is the one worth reporting: a laptop panel is never the
     /// screen that loses the room, and the projector beside it might be.
     pub fn smallest(&self) -> Option<&Display> {
-        self.screens
-            .iter()
-            .filter(|screen| !screen.drawn_size().is_empty())
-            .min_by_key(|screen| {
-                let size = screen.drawn_size();
-                (size.width as u64) * (size.height as u64)
-            })
+        self.screens.iter().filter(|screen| !screen.drawn_size().is_empty()).min_by_key(|screen| {
+            let size = screen.drawn_size();
+            (size.width as u64) * (size.height as u64)
+        })
     }
 
     /// Every screen, named, for one line of a finding.
@@ -238,6 +242,16 @@ mod tests {
     #[test]
     fn an_unnamed_unscaled_screen_says_only_its_size() {
         assert_eq!(Display::new(1920, 1080).label(), "1920x1080");
+    }
+
+    #[test]
+    fn a_screen_drawn_at_its_own_pixel_size_says_that_size_once() {
+        // An external monitor at 1:1 reports both numbers and they are the same
+        // number. "2560x1080 (2560x1080 pixels)" reads as a bug in the line.
+        let screen = Display::new(2560, 1080).drawn_at(2560, 1080).named("LG");
+
+        assert_eq!(screen.label(), "LG 2560x1080");
+        assert_eq!(screen.scale_percent(), Some(100));
     }
 
     #[test]

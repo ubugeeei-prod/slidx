@@ -44,7 +44,10 @@ pub fn read(platform: Platform, home: Option<&Path>, tools: &Tools) -> Reading<N
         Platform::MacOs => read_macos(home),
         Platform::Linux => read_linux(tools),
         Platform::Windows => tools::parsed(
-            tools.output("powershell", &["-NoProfile", "-NonInteractive", "-Command", WINDOWS_TOASTS]),
+            tools.output(
+                "powershell",
+                &["-NoProfile", "-NonInteractive", "-Command", WINDOWS_TOASTS],
+            ),
             parse_windows_toasts,
             "Windows does not report whether Focus assist is on, and banners are not switched off",
         ),
@@ -72,7 +75,25 @@ fn read_macos(home: Option<&Path>) -> Reading<Notifications> {
                 "this macOS records its Focus state in a shape slidx does not recognise",
             ),
         },
-        Err(_) => Reading::unavailable("this macOS keeps no Focus state where slidx looks"),
+        Err(error) => Reading::unavailable(why_unreadable(error.kind())),
+    }
+}
+
+/// Why macOS would not hand the file over.
+///
+/// The two answers are different sentences to a speaker and only one of them is
+/// about slidx. Recent macOS protects this directory, so a terminal without
+/// Full Disk Access is refused rather than told the file is absent — and
+/// reporting "there is no Focus state here" to somebody who has one turned on
+/// is the guess this whole line exists to refuse.
+fn why_unreadable(kind: std::io::ErrorKind) -> &'static str {
+    match kind {
+        std::io::ErrorKind::PermissionDenied => {
+            "macOS will not let slidx read the Focus state — recent versions protect that folder, \
+             and a terminal without Full Disk Access is refused"
+        }
+        std::io::ErrorKind::NotFound => "this macOS keeps no Focus state where slidx looks",
+        _ => "this macOS would not hand over the Focus state",
     }
 }
 
@@ -267,6 +288,20 @@ mod tests {
 
         assert!(!reading.is_known());
         assert!(reading.reason().is_some_and(|why| why.contains("Focus state")));
+    }
+
+    #[test]
+    fn a_mac_that_refused_the_read_says_so_rather_than_that_there_is_nothing_there() {
+        // Recent macOS protects that folder, so a terminal without Full Disk
+        // Access is refused. Telling a speaker who has Do Not Disturb switched
+        // on that their machine keeps no Focus state is exactly the wrong
+        // answer, and the two errors are the only thing that tells them apart.
+        let refused = why_unreadable(std::io::ErrorKind::PermissionDenied);
+        let absent = why_unreadable(std::io::ErrorKind::NotFound);
+
+        assert!(refused.contains("Full Disk Access"), "got: {refused}");
+        assert!(absent.contains("keeps no Focus state"), "got: {absent}");
+        assert_ne!(refused, absent);
     }
 
     #[test]

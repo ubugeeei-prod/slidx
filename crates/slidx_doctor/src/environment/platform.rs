@@ -94,10 +94,7 @@ mod tests {
         // Every CI runner is macOS, Linux or Windows, so a build that reports
         // Unknown on one of them means the detection stopped matching the
         // target and every platform reading silently went dark.
-        assert!(matches!(
-            Platform::host(),
-            Platform::MacOs | Platform::Linux | Platform::Windows
-        ));
+        assert!(matches!(Platform::host(), Platform::MacOs | Platform::Linux | Platform::Windows));
     }
 
     #[test]
@@ -110,8 +107,7 @@ mod tests {
 
     #[test]
     fn every_platform_has_a_token_and_a_name_that_differ_from_each_others() {
-        let platforms =
-            [Platform::MacOs, Platform::Linux, Platform::Windows, Platform::Unknown];
+        let platforms = [Platform::MacOs, Platform::Linux, Platform::Windows, Platform::Unknown];
 
         let mut tokens: Vec<&str> = platforms.iter().map(|p| p.as_token()).collect();
         tokens.sort_unstable();

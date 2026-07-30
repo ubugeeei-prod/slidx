@@ -430,7 +430,9 @@ fn a_reading_a_platform_will_not_give_is_unknown_rather_than_absent_from_the_rep
     let windows = healthy()
         .on(Platform::Windows)
         .with_audio(Reading::unavailable("Windows exposes no output level a command line can read"))
-        .with_notifications(Reading::unavailable("Windows does not report whether Focus assist is on"));
+        .with_notifications(Reading::unavailable(
+            "Windows does not report whether Focus assist is on",
+        ));
 
     let report = slidx_doctor::run(&windows);
 

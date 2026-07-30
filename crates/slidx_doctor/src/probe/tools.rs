@@ -25,9 +25,14 @@ use std::time::Duration;
 use crate::environment::Reading;
 use crate::probe::command;
 
+/// One tool run: a program and its arguments in, its output or the reason
+/// there is none out. The error half is written for a speaker, because it ends
+/// up in front of one as the reason a line reads unknown.
+type Run<'a> = Box<dyn Fn(&str, &[&str]) -> Result<String, String> + 'a>;
+
 /// The platform tools a probe is allowed to run.
 pub struct Tools<'a> {
-    run: Box<dyn Fn(&str, &[&str]) -> Result<String, String> + 'a>,
+    run: Run<'a>,
 }
 
 impl Tools<'static> {
@@ -51,9 +56,7 @@ impl<'a> Tools<'a> {
     /// Public because the tests are not the only caller that wants it: an
     /// embedder replaying a captured machine, or reading one over a wire, has
     /// the same need the crate's `Environment` builder already serves.
-    pub fn answering(
-        run: impl Fn(&str, &[&str]) -> Result<String, String> + 'a,
-    ) -> Self {
+    pub fn answering(run: impl Fn(&str, &[&str]) -> Result<String, String> + 'a) -> Self {
         Self { run: Box::new(run) }
     }
 

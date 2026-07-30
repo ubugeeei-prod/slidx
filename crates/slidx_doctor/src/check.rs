@@ -260,8 +260,7 @@ mod tests {
     fn two_checks_sharing_a_subject_are_spelled_with_the_same_prefix() {
         // The grouping the report and any `--only` filter key off. A subject
         // split across `display/` and `displays/` would be two subjects.
-        let grouped: Vec<&str> =
-            ids().into_iter().filter(|id| id.starts_with("display")).collect();
+        let grouped: Vec<&str> = ids().into_iter().filter(|id| id.starts_with("display")).collect();
 
         assert_eq!(grouped, ["display/mirroring", "display/resolution"]);
     }

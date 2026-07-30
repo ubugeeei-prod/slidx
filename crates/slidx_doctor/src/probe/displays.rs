@@ -318,7 +318,10 @@ DP-1 disconnected (normal left inverted right x axis y axis)
 
     #[test]
     fn a_mac_reporting_mirror_on_for_any_screen_is_a_mirrored_arrangement() {
-        let mirrored = MACOS.replace("Mirror: Off\n          Online: Yes\n        LG", "Mirror: On\n          Online: Yes\n        LG");
+        let mirrored = MACOS.replace(
+            "Mirror: Off\n          Online: Yes\n        LG",
+            "Mirror: On\n          Online: Yes\n        LG",
+        );
         let displays = parse_system_profiler(&mirrored).unwrap_or_default();
 
         assert_eq!(displays.is_mirrored(), Some(true));
@@ -438,7 +441,8 @@ DP-1 disconnected (normal left inverted right x axis y axis)
         // The one call that touches the operating system. What it says depends
         // on whether anything is plugged into the runner, which is exactly why
         // every assertion above uses the seam instead.
-        let reading = read(Platform::host(), &Tools::on_this_machine(std::time::Duration::from_secs(5)));
+        let reading =
+            read(Platform::host(), &Tools::on_this_machine(std::time::Duration::from_secs(5)));
 
         let _ = format!("{reading:?}");
     }

@@ -189,9 +189,8 @@ mod tests {
         // where thirty seconds is not available.
         let mirrored = Displays::new([laptop(), projector()]).mirrored();
 
-        let named = |platform| {
-            mirroring(&seeing(mirrored.clone()).on(platform)).remedy.unwrap_or_default()
-        };
+        let named =
+            |platform| mirroring(&seeing(mirrored.clone()).on(platform)).remedy.unwrap_or_default();
 
         assert!(named(Platform::MacOs).contains("System Settings"), "{}", named(Platform::MacOs));
         assert!(named(Platform::Windows).contains("Win+P"), "{}", named(Platform::Windows));

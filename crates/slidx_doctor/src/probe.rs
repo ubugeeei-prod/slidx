@@ -166,14 +166,9 @@ pub fn read(request: &Request) -> Environment {
         let displays =
             scope.spawn(|| displays::read(platform, &Tools::on_this_machine(request.timeout)));
         let notifications = scope.spawn(|| {
-            notifications::read(
-                platform,
-                home.as_deref(),
-                &Tools::on_this_machine(request.timeout),
-            )
+            notifications::read(platform, home.as_deref(), &Tools::on_this_machine(request.timeout))
         });
-        let audio =
-            scope.spawn(|| audio::read(platform, &Tools::on_this_machine(request.timeout)));
+        let audio = scope.spawn(|| audio::read(platform, &Tools::on_this_machine(request.timeout)));
 
         Environment {
             power: joined(power),
