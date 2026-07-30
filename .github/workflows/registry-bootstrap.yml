@@ -83,6 +83,12 @@ jobs:
       - uses: useblacksmith/checkout@v1
         with:
           ref: ${{ inputs.ref }}
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: .release-tools
+          sparse-checkout: scripts
+          persist-credentials: false
       - uses: ./.github/actions/setup
         with:
           wasm: "true"
@@ -107,16 +113,16 @@ jobs:
             esac
           done
 
-      - run: node scripts/build-platform-packages.mjs binaries
+      - run: node .release-tools/scripts/build-platform-packages.mjs binaries
 
       - name: Pack in publish order
         run: |
           set -euo pipefail
           bundle="$GITHUB_WORKSPACE/bundle"
           mkdir -p "$bundle"
-          node scripts/pack-npm.mjs \
+          node .release-tools/scripts/pack-npm.mjs \
             "$bundle" \
-            $(node scripts/publish-order.mjs npm) \
+            $(node .release-tools/scripts/publish-order.mjs npm) \
             packages/cli/dist/* \
             packages/cli > "$RUNNER_TEMP/tarballs"
           while IFS= read -r tarball; do
