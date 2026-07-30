@@ -39,6 +39,7 @@ import {
   toggleCell,
   type CellKind,
 } from "./timeline-cells";
+import { drawGrid } from "./timeline-grid";
 import { applyTimelineStyles } from "./timeline-styles";
 
 export interface TimelineHandlers {
@@ -49,15 +50,6 @@ export interface TimelineOptions extends PlayheadOptions {
   /** Substituted in tests; otherwise the panel makes its own. */
   playhead?: Playhead;
 }
-
-/** What each intent looks like in a cell, at one character wide. */
-const GLYPH: Record<string, string> = {
-  reveal: "▸",
-  hide: "▪",
-  emphasize: "◆",
-  set: "≡",
-  group: "◈",
-};
 
 const KINDS: CellKind[] = ["reveal", "hide", "emphasize"];
 
@@ -179,109 +171,26 @@ export function createTimeline(handlers: TimelineHandlers, options: TimelineOpti
     ]);
   }
 
+  /** The grid, and what each of its presses means here. */
   function gridOf(grid: StepGrid): HTMLElement {
-    // One column per stop plus one past the end, which is where a new stop goes.
-    const columns = grid.stops + 1;
-    const table = element("div", {
-      class: "slidx-timeline-grid",
-      role: "grid",
-      style: `--slidx-t-columns: ${columns}`,
-      "data-generated": String(isGenerated(grid)),
-    });
+    return drawGrid(grid, {
+      stop: playhead.stop,
+      row,
+      scrub: scrubTo,
+      pick(picked, stop) {
+        row = picked;
+        // Picking a cell also moves the canvas to that stop: the point of the
+        // grid is to see what the change did, and stop `n` is one index away.
+        if (stop < grid.stops) playhead.show(stop);
 
-    const header = element("div", { class: "slidx-timeline-stops", role: "row" }, [
-      element("span", { class: "slidx-timeline-label" }, ["Stop"]),
-    ]);
-
-    for (let stop = 0; stop < columns; stop += 1) {
-      const last = stop === grid.stops;
-      const button = element(
-        "button",
-        {
-          type: "button",
-          class: "slidx-timeline-stop",
-          role: "columnheader",
-          "aria-current": stop === playhead.stop ? "true" : undefined,
-          "aria-label": last ? "A new stop" : `Stop ${stop}`,
-          tabindex: -1,
-        },
-        [last ? "+" : String(stop)],
-      );
-      // A column past the end is not a stop the canvas can show.
-      if (!last) button.addEventListener("click", () => scrubTo(stop));
-      header.append(button);
-    }
-    table.append(header);
-
-    for (const [index, entry] of grid.rows.entries()) {
-      table.append(rowOf(grid, entry, index, columns));
-    }
-
-    return table;
-  }
-
-  function rowOf(grid: StepGrid, entry: StepRow, index: number, columns: number): HTMLElement {
-    const label = element(
-      "span",
-      {
-        class: "slidx-timeline-label",
-        role: "rowheader",
-        // The selector rather than the words: a row whose label was cut, or
-        // whose bullet reads the same as another, is still identifiable.
-        title: entry.target,
-        "data-named": String(entry.key !== undefined),
+        // A cell with nothing to ask for still moved the selection and the
+        // playhead, and the grid has to say so — a press that appeared to do
+        // nothing is the one an author repeats.
+        const op = toggleCell(grid, slide, grid.rows[picked]!, stop);
+        if (op) handlers.run(op);
+        else draw();
       },
-      [entry.label],
-    );
-
-    const cells: HTMLElement[] = [];
-    for (let stop = 0; stop < columns; stop += 1) {
-      cells.push(cellOf(grid, entry, index, stop));
-    }
-
-    return element("div", { class: "slidx-timeline-row", role: "row" }, [label, ...cells]);
-  }
-
-  function cellOf(grid: StepGrid, entry: StepRow, index: number, stop: number): HTMLElement {
-    const found = stop < grid.stops ? actionAt(grid, entry.target, stop) : undefined;
-    const grouped = found?.kind === "group";
-    const on = entry.visible[Math.min(stop, grid.stops - 1)] ?? false;
-    const current = index === row && stop === playhead.stop;
-
-    const cell = element(
-      "button",
-      {
-        type: "button",
-        class: "slidx-timeline-cell",
-        role: "gridcell",
-        "data-on": String(on),
-        "data-kind": found?.kind,
-        "data-current": String(current),
-        "aria-current": current ? "true" : undefined,
-        // Roving: one tab stop for the whole grid, so Tab still leaves the
-        // panel rather than walking thirty buttons to get out of it.
-        tabindex: current ? 0 : -1,
-        title: found?.source,
-        "aria-label": describe(entry, stop, found?.kind, grouped),
-      },
-      [found ? (GLYPH[found.kind] ?? "•") : ""],
-    );
-
-    cell.addEventListener("click", () => {
-      row = index;
-      // Clicking a cell also moves the canvas to that stop: the point of the
-      // grid is to see what the change did, and stop `n` is one index away.
-      if (stop < grid.stops) playhead.show(stop);
-
-      // A cell with nothing to ask for still moved the selection and the
-      // playhead, and the grid has to say so — a click that appeared to do
-      // nothing is the one an author repeats.
-      const op = toggleCell(grid, slide, entry, stop);
-      if (op) handlers.run(op);
-      else draw();
     });
-
-    return cell;
   }
 
   /**
@@ -412,19 +321,4 @@ function gridFor(slide: SlideSummary | undefined): StepGrid {
 
 function clamp(value: number, top: number): number {
   return Math.max(0, Math.min(value, Math.max(top, 0)));
-}
-
-/** What a cell is, said in words, because a glyph says nothing out loud. */
-function describe(
-  entry: StepRow,
-  stop: number,
-  kind: string | undefined,
-  grouped: boolean,
-): string {
-  const where = `“${entry.label}” at stop ${stop}`;
-
-  if (grouped) return `part of a group ${where}`;
-  if (kind) return `${kind} ${where}`;
-
-  return `nothing happens to ${where}`;
 }
