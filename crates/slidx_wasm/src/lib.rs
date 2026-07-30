@@ -59,6 +59,25 @@ pub struct BuildOptions {
     pub print: bool,
     /// Also draw a social card per slide, and one for the deck.
     pub og: bool,
+    /// Absolute URL of the deck's root, overriding the deck's own `url:`.
+    ///
+    /// A canonical link, an `og:url` and a sitemap entry are absolute by
+    /// definition, and a build has no way to know the origin it will be deployed
+    /// to. So the origin is something someone states: usually `url:` in the
+    /// frontmatter, which is where authors already write it for the QR codes,
+    /// and this when the deployment knows better than the file does — a preview
+    /// build of the same deck is at a different address, and the file cannot say
+    /// so without being edited per environment.
+    ///
+    /// Absent means nothing absolute is emitted at all. A guessed origin sends a
+    /// search engine to a page that does not exist.
+    pub deck_url: Option<String>,
+    /// Where the deck is mounted in the site, root-relative. Defaults to `/`.
+    ///
+    /// Only `robots.txt` needs it: that file lives at the site root and has to
+    /// name the deck from there, so it is the one artefact that cannot be
+    /// written relative to the deck itself.
+    pub deck_path: Option<String>,
     /// Module URL the presenter view imports the runtime from.
     pub runtime_src: Option<String>,
     /// Image sizes the caller already read, keyed by the path a slide writes.
@@ -145,6 +164,21 @@ pub struct BuildResult {
     /// boundary has no filesystem. Empty when the deck shares nothing, which
     /// is most decks.
     pub snippets: Vec<SnippetFile>,
+    /// `sitemap.xml` for the deck, for the caller to write beside the slides.
+    ///
+    /// Absent when nobody has said where the deck is deployed: `<loc>` is
+    /// defined as a full URL, so a sitemap without an origin is an invalid file
+    /// rather than a relative one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub sitemap: Option<String>,
+    /// `robots.txt` for the site the deck is deployed into.
+    ///
+    /// Every directive in it is root-relative, so unlike the sitemap it is
+    /// always something. Absent only when nothing was rendered at all.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub robots: Option<String>,
 }
 
 /// One shared snippet, as a file waiting to be written.
@@ -404,8 +438,11 @@ mod tests {
         let result = build("# One\n\n<!-- notes: out loud -->\n", &options);
 
         let presenter = result.slides[0].presenter_html.as_ref().unwrap();
+        let slide = result.slides[0].html.as_ref().unwrap();
+        let body = slide.split_once("<body>").expect("a body").1;
+
         assert!(presenter.contains("out loud"));
-        assert!(!result.slides[0].html.as_ref().unwrap().contains("out loud"));
+        assert!(!body.contains("out loud"), "the notes reached the slide:\n{body}");
     }
 
     #[test]
@@ -537,12 +574,85 @@ mod tests {
     }
 
     #[test]
-    fn notes_are_carried_but_never_rendered_into_the_page() {
+    fn notes_are_carried_but_never_shown_to_the_audience() {
+        // Never on the slide, which is the screen the room is looking at. They
+        // do describe the page in its head, where the deck's description comes
+        // from — the author's prose about a slide is what a description wants,
+        // and `slidx publish` already builds a blog draft out of the same words.
         let result =
             build("# One\n\n<!-- notes: say this out loud -->\n", &BuildOptions::default());
+        let html = result.slides[0].html.as_ref().unwrap();
+        let body = html.split_once("<body>").expect("a body").1;
 
         assert_eq!(result.slides[0].notes, vec!["say this out loud".to_string()]);
-        assert!(!result.slides[0].html.as_ref().unwrap().contains("say this out loud"));
+        assert!(!body.contains("say this out loud"), "the notes are on the slide:\n{body}");
+        assert!(html.contains("<meta name=\"description\" content=\"say this out loud\">"));
+    }
+
+    #[test]
+    fn a_built_deck_carries_the_files_a_crawler_asks_for() {
+        // Composed here and written by the caller, like the snippet pages. The
+        // one thing that cannot be checked on this side is whether anybody
+        // writes them, which the plugin's own build test asserts.
+        let source = "---\ndraft: false\nurl: https://example.com/talk/\n---\n\n# One\n\n---\n\n# Two\n";
+        let result = build(source, &BuildOptions::default());
+
+        let sitemap = result.sitemap.expect("a sitemap");
+        assert!(sitemap.contains("<loc>https://example.com/talk/2/</loc>"), "{sitemap}");
+        assert!(result.robots.expect("a robots.txt").contains("Sitemap: "));
+    }
+
+    #[test]
+    fn a_deck_with_no_address_gets_no_sitemap_and_no_canonical() {
+        // Both are absolute by definition. A guessed origin would point a search
+        // engine at a page that does not exist.
+        let result = build("---\ndraft: false\n---\n\n# One\n", &BuildOptions::default());
+
+        assert!(result.sitemap.is_none());
+        assert!(!result.slides[0].html.as_ref().unwrap().contains("canonical"));
+        assert!(result.robots.is_some(), "robots.txt needs no origin");
+    }
+
+    #[test]
+    fn the_caller_can_name_an_address_the_deck_file_does_not_know() {
+        // A preview deployment of the same deck is at a different origin, and
+        // the file cannot say so without being edited per environment.
+        let options = BuildOptions {
+            deck_url: Some("https://preview.example.com/pr-12/".into()),
+            ..BuildOptions::default()
+        };
+        let source = "---\ndraft: false\nurl: https://example.com/talk/\n---\n\n# One\n";
+        let result = build(source, &options);
+
+        assert!(result.sitemap.unwrap().contains("https://preview.example.com/pr-12/"));
+        assert!(result.slides[0]
+            .html
+            .as_ref()
+            .unwrap()
+            .contains("href=\"https://preview.example.com/pr-12/\""));
+    }
+
+    #[test]
+    fn a_deck_that_never_said_it_was_public_is_kept_out_of_every_index() {
+        // The judgement this feature turns on: a talk that leaks before the
+        // conference announces it cannot be un-leaked.
+        let options = BuildOptions { presenter: true, print: true, ..BuildOptions::default() };
+        let result = build("---\nurl: https://example.com/talk/\n---\n\n# One\n", &options);
+
+        assert!(result.slides[0].html.as_ref().unwrap().contains("content=\"noindex\""));
+        assert!(!result.sitemap.unwrap().contains("<url>"));
+        assert!(result.robots.unwrap().contains("Disallow: /"));
+    }
+
+    #[test]
+    fn the_speakers_own_page_is_never_indexable_however_public_the_deck_is() {
+        // It carries the notes. A published deck is one URL away from it.
+        let options = BuildOptions { presenter: true, print: true, ..BuildOptions::default() };
+        let result = build("---\ndraft: false\n---\n\n# One\n", &options);
+
+        assert!(result.slides[0].presenter_html.as_ref().unwrap().contains("content=\"noindex\""));
+        assert!(result.print_html.as_ref().unwrap().contains("content=\"noindex\""));
+        assert!(!result.slides[0].html.as_ref().unwrap().contains("noindex"));
     }
 
     #[test]
