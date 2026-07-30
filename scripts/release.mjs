@@ -117,11 +117,19 @@ function writeCargo(from, to) {
   writeFileSync("Cargo.toml", head + tail);
 }
 
-/** Every package.json git tracks that is not marked private. */
-function writePackages(to) {
+/**
+ * Every publishable package and each exact internal package requirement.
+ *
+ * pnpm resolves `workspace:*` while packing, so those stay declarative. The
+ * native CLI packages do not exist in the workspace, however: their exact
+ * versions are generated during the release and the wrapper must request the
+ * same version or a first install receives no executable.
+ */
+function writePackages(from, to) {
   const listed = execFileSync("git", ["ls-files", "-z", "packages"], { encoding: "utf8" })
     .split("\0")
     .filter((path) => path.endsWith("package.json"));
+  const version = new RegExp(`("(?:@slidx/[^"]+|slidx)"\\s*:\\s*)"${escapeRegExp(from)}"`, "g");
 
   for (const path of listed) {
     const source = readFileSync(path, "utf8");
@@ -130,8 +138,17 @@ function writePackages(to) {
     // Rewritten as text rather than re-serialised, so key order, indentation
     // and the trailing newline survive — the same reason nothing in this
     // repository rewrites a file it only needed to edit part of.
-    writeFileSync(path, source.replace(/^(\s*"version"\s*:\s*)"[^"]+"/m, `$1"${to}"`));
+    writeFileSync(
+      path,
+      source
+        .replace(/^(\s*"version"\s*:\s*)"[^"]+"/m, `$1"${to}"`)
+        .replaceAll(version, `$1"${to}"`),
+    );
   }
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 const from = currentVersion();
@@ -143,7 +160,7 @@ process.stdout.write(`release: ${from} → ${to}\n`);
 refuseUnlessReady(tag);
 
 writeCargo(from, to);
-writePackages(to);
+writePackages(from, to);
 // The lockfile records a version per workspace member, and nothing in `vp
 // check` passes `--locked`, so a forgotten update is invisible until the
 // release's binary builds fail on it.
