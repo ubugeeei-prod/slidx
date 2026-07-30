@@ -13,11 +13,14 @@ describe.skipIf(process.platform === "win32")("a live terminal capture", () => {
     const output = await captureUntil(
       process.execPath,
       ["-e", "console.log('editor ready'); setInterval(() => {}, 1_000)"],
-      { cwd: import.meta.dirname, until: /editor ready/, timeout: 2_000 },
+      // The budget covers a loaded machine starting a pty and a runtime. Stopping
+      // the process group afterwards takes seconds of its own, which is why the
+      // test's own timeout is well clear of this one.
+      { cwd: import.meta.dirname, until: /editor ready/, timeout: 10_000 },
     );
 
     expect(output).toContain("editor ready");
-  });
+  }, 30_000);
 
   it("fails instead of leaving a command alive when readiness never arrives", async () => {
     await expect(

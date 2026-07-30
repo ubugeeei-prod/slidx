@@ -85,6 +85,9 @@ export function captureUntil(command, args, options) {
       }
     };
 
+    // The deadline bounds waiting for readiness, and nothing after it: `script`
+    // takes a couple of seconds to reap the pty once it is signalled, so a timer
+    // left running through shutdown would fail a capture that already succeeded.
     const timeout = setTimeout(() => {
       failure = new Error(`the command did not print ${options.until} before the timeout`);
       stop();
@@ -94,6 +97,7 @@ export function captureUntil(command, args, options) {
       output += chunk.toString("utf8");
       if (ready || !options.until.test(output)) return;
       ready = true;
+      clearTimeout(timeout);
       stop();
     };
     child.stdout.on("data", read);
