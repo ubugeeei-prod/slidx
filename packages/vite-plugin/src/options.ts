@@ -14,6 +14,25 @@ export interface SlidxOptions {
   base?: string;
   /** Theme name, overriding the deck's own `theme:`. */
   theme?: string;
+  /**
+   * Absolute URL the deck's root is deployed at, overriding its own `url:`.
+   *
+   * A canonical link, an `og:url` and a sitemap entry are absolute by
+   * definition, and a build has no way of knowing the origin it will be served
+   * from. So it is stated rather than guessed — usually once, as `url:` in the
+   * deck's frontmatter, which is where an author already writes it for the QR
+   * codes and the published description. This option is for when the
+   * deployment knows better than the file does: a preview build of the same
+   * deck is at a different address, and editing the deck per environment is
+   * how the two get out of step.
+   *
+   * Left out, nothing absolute is emitted at all: no canonical, no sitemap.
+   * That is deliberate. A guessed origin points a search engine at a page that
+   * does not exist, which is worse than the relative links the pages still
+   * carry — and it is the rule the QR codes already follow, where no URL means
+   * no code rather than a code that scans to nothing.
+   */
+  deckUrl?: string;
   /** Separator for single-file decks. Default `"---"`. */
   separator?: string;
   /** File extensions treated as slides. Default `[".md"]`. */
@@ -80,6 +99,7 @@ export interface ResolvedOptions {
   srcDir: string;
   base: string;
   theme: string | undefined;
+  deckUrl: string | undefined;
   separator: string;
   extensions: string[];
   presenter: boolean;
@@ -95,6 +115,7 @@ export function resolveOptions(options: SlidxOptions = {}): ResolvedOptions {
     srcDir: trimSlashes(options.srcDir ?? "slides") || "slides",
     base: normaliseBase(options.base ?? "slides"),
     theme: options.theme,
+    deckUrl: options.deckUrl?.trim() || undefined,
     separator: options.separator ?? "---",
     extensions: normaliseExtensions(options.extensions ?? [".md"]),
     presenter: options.presenter ?? true,
@@ -198,6 +219,27 @@ export function snippetFileName(options: ResolvedOptions, path: string): string 
 export function printFileName(options: ResolvedOptions): string {
   return options.base ? `${options.base}/print/index.html` : "print/index.html";
 }
+
+/**
+ * Where the sitemap is written.
+ *
+ * Beside the slides rather than at the site root, because a sitemap may only
+ * list URLs at or below its own directory — and a deck is usually one part of
+ * somebody's site rather than the whole of it. `robots.txt` is what points at
+ * it from the root.
+ */
+export function sitemapFileName(options: ResolvedOptions): string {
+  return options.base ? `${options.base}/sitemap.xml` : "sitemap.xml";
+}
+
+/**
+ * Where `robots.txt` is written, which a crawler gives no choice about.
+ *
+ * `/robots.txt` and nowhere else: a copy inside the deck's directory is a file
+ * nothing ever asks for. It is therefore the one thing a deck emits outside its
+ * own base, and the one that can collide with a file the project already owns.
+ */
+export const ROBOTS_FILE_NAME = "robots.txt";
 
 /** Where the runtime module is written, and imported from. */
 export function runtimeFileName(options: ResolvedOptions): string {

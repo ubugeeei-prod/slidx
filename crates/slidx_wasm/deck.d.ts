@@ -37,6 +37,29 @@ export type BuildOptions = {
    */
   og: boolean;
   /**
+   * Absolute URL of the deck's root, overriding the deck's own `url:`.
+   *
+   * A canonical link, an `og:url` and a sitemap entry are absolute by
+   * definition, and a build has no way to know the origin it will be deployed
+   * to. So the origin is something someone states: usually `url:` in the
+   * frontmatter, which is where authors already write it for the QR codes,
+   * and this when the deployment knows better than the file does — a preview
+   * build of the same deck is at a different address, and the file cannot say
+   * so without being edited per environment.
+   *
+   * Absent means nothing absolute is emitted at all. A guessed origin sends a
+   * search engine to a page that does not exist.
+   */
+  deckUrl: string | null;
+  /**
+   * Where the deck is mounted in the site, root-relative. Defaults to `/`.
+   *
+   * Only `robots.txt` needs it: that file lives at the site root and has to
+   * name the deck from there, so it is the one artefact that cannot be
+   * written relative to the deck itself.
+   */
+  deckPath: string | null;
+  /**
    * Module URL the presenter view imports the runtime from.
    */
   runtimeSrc: string | null;
@@ -108,6 +131,21 @@ export type BuildResult = {
    * is most decks.
    */
   snippets: Array<SnippetFile>;
+  /**
+   * `sitemap.xml` for the deck, for the caller to write beside the slides.
+   *
+   * Absent when nobody has said where the deck is deployed: `<loc>` is
+   * defined as a full URL, so a sitemap without an origin is an invalid file
+   * rather than a relative one.
+   */
+  sitemap?: string;
+  /**
+   * `robots.txt` for the site the deck is deployed into.
+   *
+   * Every directive in it is root-relative, so unlike the sitemap it is
+   * always something. Absent only when nothing was rendered at all.
+   */
+  robots?: string;
 };
 
 /**

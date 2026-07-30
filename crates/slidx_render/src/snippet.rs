@@ -46,6 +46,7 @@ use slidx_core::{find_marks, scanner::FenceTracker, Deck, Mark, Slide, SlugAlloc
 use slidx_theme::Theme;
 
 use crate::qr::{render_qr, SlideQrOptions};
+use crate::url::resolve;
 
 mod page;
 
@@ -316,29 +317,6 @@ fn attributes(info: &str) -> Option<Mark> {
     let found = find_marks(&format!("[]{}", &info[braced..]));
 
     found.into_iter().next().map(|found| found.mark)
-}
-
-/// Resolves a path against the deck's own URL.
-///
-/// The ordinary relative-URL rule: a base naming a file is replaced from its
-/// last segment, a base naming a directory is appended to. Authors write both —
-/// `https://example.com/talk/` and `https://example.com/talk/index.html` are
-/// the same deck — and only one of them works if this guesses.
-fn resolve(base: &str, path: &str) -> String {
-    let trimmed = base.trim_end_matches('/');
-
-    // The host is not a path segment, so `https://example.com` is a directory
-    // even though `example.com` looks like a file name.
-    let host_at = trimmed.find("://").map_or(0, |at| at + 3);
-
-    let directory = match trimmed[host_at..].rsplit_once('/') {
-        Some((head, last)) if last.contains('.') && !base.ends_with('/') => {
-            &trimmed[..host_at + head.len()]
-        }
-        _ => trimmed,
-    };
-
-    format!("{directory}/{path}")
 }
 
 #[cfg(test)]

@@ -100,6 +100,7 @@ pub fn render_print(deck: &Deck, options: &PrintOptions) -> String {
 <head>
 <meta charset="utf-8">
 <title>{title}</title>
+{noindex}
 <style>
 {theme_css}
 {print_css}
@@ -118,6 +119,11 @@ pub fn render_print(deck: &Deck, options: &PrintOptions) -> String {
 </html>
 "#,
         title = escape(deck.meta.title.as_deref().unwrap_or("slidx")),
+        // This document is every slide again, on one page. Indexed, it would
+        // compete with the pages it duplicates for the same words, and win —
+        // sending a reader to a handout instead of to the slide they searched
+        // for.
+        noindex = crate::seo::NOINDEX,
         theme_css = css::render(&options.theme),
         print_css = print_layout::STYLESHEET,
         layout_css = slidx_theme::layout::css(&slidx_theme::layout::all()),

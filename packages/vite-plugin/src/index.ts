@@ -23,6 +23,7 @@ import type { Plugin, ViteDevServer } from "vite";
 import { readAssetSizes } from "./assets";
 import { readDeck } from "./deck";
 import { exportPdf, rasteriseCards, reportOverflow } from "./artifacts";
+import { emitCrawlerFiles } from "./crawler";
 import { frameRequested, renderSlideDocuments, renderStopImages } from "./frames";
 import {
   ogFileBase,
@@ -31,6 +32,7 @@ import {
   resolveOptions,
   runtimeFileName,
   slideFileName,
+  slideRoute,
   snippetFileName,
   withPdf,
   type SlidxOptions,
@@ -57,6 +59,10 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
   const options = resolveOptions(userOptions);
   let root = process.cwd();
 
+  // Where the project's own static files come from, so a `robots.txt` it
+  // already ships is not overwritten by one this plugin wrote.
+  let publicDir: string | false = false;
+
   // Kept from the bundle so the measurement pass does not read and parse the
   // deck a second time. It runs against files, so it cannot run any earlier.
   let lastBuild: Awaited<ReturnType<typeof renderDeck>> | undefined;
@@ -66,6 +72,7 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
 
     configResolved(config) {
       root = config.root;
+      publicDir = config.publicDir;
     },
 
     /**
@@ -262,6 +269,10 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
           source: await readRuntime(),
         });
       }
+
+      // The sitemap and the robots file, which are the deck describing itself
+      // to something that is not a person.
+      await emitCrawlerFiles(this, built, options, publicDir);
     },
 
     /**
@@ -322,6 +333,12 @@ async function renderDeck(
     presenter,
     print,
     og,
+    deckUrl: options.deckUrl,
+    // Where the deck sits in the site, which only `robots.txt` needs: it lives
+    // at the site root and has to name the deck from there. Everything else a
+    // page says is either relative to that page or absolute from the deck's own
+    // URL.
+    deckPath: slideRoute(options, 0),
     runtimeSrc: runtimeSrcFor(options),
     // The print shell carries the runtime rather than importing it, so the
     // one document a speaker falls back to opens from anywhere.

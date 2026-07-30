@@ -11,8 +11,9 @@ use std::collections::BTreeMap;
 use slidx_core::parse_deck;
 use slidx_lint::{lint, ImageFormat, Intrinsic, LintInput, LintOptions};
 use slidx_render::{
-    render_deck_card, render_presenter, render_print, render_slide, render_snippets, OgOptions,
-    PresenterOptions, PrintOptions, ShellOptions, SnippetOptions,
+    render_deck_card, render_presenter, render_print, render_robots, render_sitemap, render_slide,
+    render_snippets, OgOptions, PresenterOptions, PrintOptions, SeoOptions, ShellOptions,
+    SnippetOptions,
 };
 
 use crate::{parse_options, BuildOptions, BuildResult, BuiltSlide, Finding, SnippetFile};
@@ -70,9 +71,21 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
         deck.diagnostics.has_blocking() || findings.has_blocking() || placement.has_blocking();
 
     let runtime_src = options.runtime_src.clone().unwrap_or_else(|| "./runtime.js".to_string());
+
+    // An address the caller states wins over the deck's own, for the same reason
+    // an explicit theme does: the file describes the deck, and the build knows
+    // which deployment of it this is.
+    let seo = SeoOptions {
+        deck_url: options.deck_url.clone().or_else(|| deck.meta.talk.url.clone()),
+        deck_path: options.deck_path.clone().unwrap_or_else(|| "/".to_string()),
+        cards: options.og,
+        presenter: options.presenter,
+    };
+
     let shell = ShellOptions {
         theme: theme.clone(),
         runtime_src: runtime_src.clone(),
+        seo: seo.clone(),
         ..ShellOptions::default()
     };
     let print_theme = theme.clone();
@@ -127,9 +140,18 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
         Vec::new()
     };
 
+    // Files rather than tags, and composed here for the same reason the snippet
+    // pages are: this side of the boundary has no filesystem, and the decision
+    // about what a crawler is told belongs with the deck rather than with
+    // whichever caller happens to be writing the output.
+    let sitemap = render.then(|| render_sitemap(&deck, &seo)).flatten();
+    let robots = render.then(|| render_robots(&deck, &seo));
+
     BuildResult {
         og_svg: (render && options.og).then(|| render_deck_card(&deck, &og)),
         snippets,
+        sitemap,
+        robots,
         title: deck.meta.title.clone(),
         description: deck.meta.description.clone(),
         slides,

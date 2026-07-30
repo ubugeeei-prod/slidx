@@ -294,6 +294,8 @@ mod tests {
             print_html: None,
             og_svg: None,
             snippets: Vec::new(),
+            sitemap: None,
+            robots: None,
         };
         let state = ElementState {
             target: "[data-slidx-anchor]".into(),
