@@ -448,6 +448,7 @@ dependencies = [
  "serde_json",
  "slidx_core",
  "slidx_doctor",
+ "slidx_export",
  "slidx_fmt",
  "slidx_highlight",
  "slidx_lint",
@@ -482,6 +483,10 @@ dependencies = [
  "serde_json",
  "slidx_core",
 ]
+
+[[package]]
+name = "slidx_export"
+version = "0.1.0"
 
 [[package]]
 name = "slidx_fmt"

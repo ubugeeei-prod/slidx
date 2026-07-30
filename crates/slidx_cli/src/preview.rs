@@ -38,7 +38,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use crate::args::Matches;
-use crate::report;
+use crate::report::{self, VALUE_INDENT};
 use crate::style::{Ink, Style};
 use crate::{Outcome, MISUSE, OK};
 
@@ -51,11 +51,6 @@ const DEFAULT_BASE: &str = "slides";
 
 /// The PDF name the plugin uses when nobody chooses one.
 const DEFAULT_PDF: &str = "deck.pdf";
-
-/// This command reports one value at a time rather than a column of
-/// findings, so it does not wear the status column's indent — that space is
-/// reserved for a word, and leaving it empty reads as something missing.
-const VALUE_INDENT: usize = 2;
 
 pub fn run(matches: &Matches, style: &Style) -> Outcome {
     let out = matches

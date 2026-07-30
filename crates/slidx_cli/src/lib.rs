@@ -56,6 +56,7 @@ pub mod command;
 pub mod completions;
 pub mod dev;
 pub mod doctor;
+pub mod export;
 pub mod find;
 pub mod fmt;
 pub mod grep;
@@ -129,6 +130,7 @@ pub fn run(argv: &[String], style: &Style) -> Outcome {
         Invocation::Run(route, matches) => match route.key() {
             (None, "dev") => dev::run(&matches, style),
             (None, "doctor") => doctor::run(&matches, style),
+            (None, "export") => export::run(&matches, style),
             (None, "fmt") => fmt::run(&matches, style),
             (None, "lint") => lint::run(&matches, style),
             (None, "open") => find::run(&matches, style),

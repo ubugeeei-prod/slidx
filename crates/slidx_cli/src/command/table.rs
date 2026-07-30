@@ -303,6 +303,38 @@ you are still writing, `slidx dev` serves the source live and opens the editor."
         ],
     ),
     leaf(
+        "export",
+        "package what the build produced, for somewhere else",
+        "export --target <name> [path] [options]",
+        "\
+Produces one file from a deck: the static site as a zip, the deck as one PDF,
+one PDF per slide, or one image per stop.
+
+It does not render anything. Every page, every PDF and every image comes from
+@slidx/vite-plugin driving a browser over the print shell it emitted — this
+runs that build and packages what it wrote. A second renderer here would mean
+the file you hand over could differ from the deck you checked, which is the one
+failure this whole pipeline is shaped to prevent.
+
+Nothing is uploaded and no account is involved. slidx produces a file and you
+open it, the same boundary `slidx publish` holds.
+
+`path` is a deck file or a directory of slide files and defaults to ./slides.
+The file lands in the current directory, named for the deck, unless --out says
+otherwise.",
+        &[
+            Flag::taking(
+                "target",
+                "<name>",
+                "What to produce: browser, pdf, pdf-zip, png. Required",
+            ),
+            Flag::taking("out", "<path>", "Directory the exported file goes in. Default: ."),
+            Flag::taking("dist", "<path>", "Build output directory. Default: dist beside the deck"),
+            Flag::taking("separator", "<text>", "Slide separator in a single-file deck"),
+            Flag::switch("no-build", "Package what is already in the build output"),
+        ],
+    ),
+    leaf(
         "publish",
         "do the half of publishing that needs no account",
         "publish [path] [options]",
@@ -422,15 +454,29 @@ project — the default is what applies everywhere else.",
 /// would be two answers to one question — the artifact a speaker stands in
 /// front of has to come from one place.
 ///
-/// `dev` used to be on this list and is now a command, and the distinction is
-/// worth being precise about: it does not *implement* a dev server, it starts
-/// the project's own. Every name still here would have had to build something.
+/// `dev` and `export` used to be on this list and are now commands, and the
+/// distinction is worth being precise about: `dev` does not *implement* a dev
+/// server, it starts the project's own, and `export` is still not a build — it
+/// runs the plugin's and packages what that wrote. Every name still here would
+/// have had to build something.
 pub const DECLINED: &[(&str, &str)] = &[
     ("build", BUILD_LIVES_IN_THE_PLUGIN),
     ("serve", BUILD_LIVES_IN_THE_PLUGIN),
-    ("export", BUILD_LIVES_IN_THE_PLUGIN),
-    ("pdf", BUILD_LIVES_IN_THE_PLUGIN),
+    ("pdf", PDF_IS_AN_EXPORT),
 ];
+
+/// `slidx pdf` is a reasonable thing to type and names a real artefact, so it
+/// gets its own answer rather than the pipeline lecture. The lecture still
+/// applies underneath — `export` runs the plugin's build and packages it — and
+/// saying so is what keeps somebody from expecting a renderer in the binary.
+const PDF_IS_AN_EXPORT: &str = "\
+The PDF is an export of a build:
+
+    slidx export --target pdf
+
+That runs @slidx/vite-plugin's build, which renders the PDF from the print shell
+it emitted, and puts the document where you asked for it. `slidx export --help`
+lists the other things it can package.";
 
 const BUILD_LIVES_IN_THE_PLUGIN: &str = "\
 Building a deck belongs to @slidx/vite-plugin, and slidx will not grow a second
@@ -443,7 +489,10 @@ copy of it:
     export default { plugins: [slidx()] };
 
 `vite build` emits the static deck, the PDF and the OG images. To serve the deck
-while you write it, `slidx dev` starts that same dev server for you.";
+while you write it, `slidx dev` starts that same dev server for you. To turn that
+build's output into one file for somewhere else:
+
+    slidx export --target pdf";
 
 pub fn find(name: &str) -> Option<&'static Command> {
     ALL.iter().find(|command| command.name == name)
