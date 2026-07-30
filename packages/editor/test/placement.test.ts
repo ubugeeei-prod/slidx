@@ -152,8 +152,15 @@ describe("what can be known before the block lands", () => {
     // A `pre` scrolls its own overflow, so the width it needs is the width it
     // needs whatever box it is put in. This is arithmetic, not a guess.
     const narrow = split({
-      regions: [region("left", 100, [0, 1]), region("right", 500, [2], { rect: { left: 500, top: 100, width: 200, height: 600 } })],
-      blocks: [block(0, "left", 100, { needsWidth: 380 }), block(1, "left", 200), block(2, "right", 100)],
+      regions: [
+        region("left", 100, [0, 1]),
+        region("right", 500, [2], { rect: { left: 500, top: 100, width: 200, height: 600 } }),
+      ],
+      blocks: [
+        block(0, "left", 100, { needsWidth: 380 }),
+        block(1, "left", 200),
+        block(2, "right", 100),
+      ],
     });
     const target = landing(narrow, 0, 600, 400)!;
 
@@ -166,7 +173,10 @@ describe("what can be known before the block lands", () => {
     // The trade the linter already makes everywhere else: silence beats a
     // number that looks measured and is not.
     const geometry = split({
-      regions: [region("left", 100, [0, 1]), region("right", 500, [2], { rect: { left: 500, top: 100, width: 200, height: 600 } })],
+      regions: [
+        region("left", 100, [0, 1]),
+        region("right", 500, [2], { rect: { left: 500, top: 100, width: 200, height: 600 } }),
+      ],
     });
 
     expect(arrival(geometry, 0, landing(geometry, 0, 600, 400)!, 0)).toEqual([]);
@@ -178,7 +188,10 @@ describe("what can be known before the block lands", () => {
     const full = split({
       regions: [
         region("left", 100, [0, 1]),
-        region("right", 500, [2], { contentHeight: 560, rect: { left: 500, top: 100, width: 400, height: 600 } }),
+        region("right", 500, [2], {
+          contentHeight: 560,
+          rect: { left: 500, top: 100, width: 400, height: 600 },
+        }),
       ],
     });
     const target = landing(full, 0, 600, 400)!;

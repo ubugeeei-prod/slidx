@@ -226,9 +226,7 @@ export function createArrange(handlers: ArrangeHandlers, options: ArrangeOptions
     asked = key;
 
     const measured =
-      geometry !== undefined && target !== undefined
-        ? arrival(geometry, index, target, slide)
-        : [];
+      geometry !== undefined && target !== undefined ? arrival(geometry, index, target, slide) : [];
 
     if (measured.length === 0 || options.measure === undefined) {
       handlers.foresee([]);
@@ -330,7 +328,11 @@ function line(guide: Guide, geometry: SlideGeometry): HTMLElement {
       : { left: geometry.slide.left, top: guide.at, width: geometry.slide.width, height: 1 };
 
   return box(
-    element("div", { class: "slidx-arrange-guide", "data-kind": guide.kind, "data-axis": guide.axis }),
+    element("div", {
+      class: "slidx-arrange-guide",
+      "data-kind": guide.kind,
+      "data-axis": guide.axis,
+    }),
     rect,
   );
 }

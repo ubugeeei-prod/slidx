@@ -82,7 +82,12 @@ export function landing(
   // everybody to expect.
   const at = boxes.filter((box) => box !== undefined && middle(box.rect) < y).length;
 
-  return { region: region.name, at, to: sourcePosition(geometry, region, index, at), rect: slot(geometry, region, others, at) };
+  return {
+    region: region.name,
+    at,
+    to: sourcePosition(geometry, region, index, at),
+    rect: slot(geometry, region, others, at),
+  };
 }
 
 /**
@@ -92,7 +97,11 @@ export function landing(
  * be arranged with a pointer is a deck half the people who write one cannot
  * arrange at all.
  */
-export function nudge(geometry: SlideGeometry, index: number, direction: Nudge): Landing | undefined {
+export function nudge(
+  geometry: SlideGeometry,
+  index: number,
+  direction: Nudge,
+): Landing | undefined {
   const box = geometry.blocks.find((candidate) => candidate.index === index);
   const from = geometry.regions.findIndex((region) => region.name === box?.region);
   if (box === undefined || from < 0) return undefined;
@@ -216,9 +225,7 @@ function sourcePosition(
   index: number,
   at: number,
 ): number {
-  const others = geometry.blocks
-    .map((block) => block.index)
-    .filter((block) => block !== index);
+  const others = geometry.blocks.map((block) => block.index).filter((block) => block !== index);
   const inside = region.blocks.filter((block) => block !== index);
 
   const before = inside[at];

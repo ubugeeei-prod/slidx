@@ -75,11 +75,7 @@ interface Opened {
   grip(index: number): HTMLButtonElement;
 }
 
-function open(
-  geometry: SlideGeometry = split(),
-  findings: Finding[] = [],
-  slide = 0,
-): Opened {
+function open(geometry: SlideGeometry = split(), findings: Finding[] = [], slide = 0): Opened {
   const ops: EditOp[] = [];
   const foreseen: Finding[][] = [];
   const asked: Measurement[][] = [];
@@ -152,9 +148,7 @@ describe("arranging a slide", () => {
     const opened = open();
     drag(opened, 0, 600, 120);
 
-    expect(opened.ops).toEqual([
-      { op: "moveBlock", slide: 0, block: 0, to: 1, region: "right" },
-    ]);
+    expect(opened.ops).toEqual([{ op: "moveBlock", slide: 0, block: 0, to: 1, region: "right" }]);
   });
 
   it("sends the place a block is already in when a drag ends where it started", () => {
