@@ -118,6 +118,16 @@ pub fn diagnose(deck: &Deck) -> Diagnostics {
             diagnostics.push(no_such_region(&layout, &misplaced.requested, "the block", at(slide)));
         }
 
+        // A width that is not a share of the region. This is where the door a
+        // pixel would come through is closed out loud rather than by omission:
+        // `width=340px` parses as an attribute and would otherwise be a value
+        // nothing reads, which is how `layout:` came to be documented and inert.
+        for block in &slide.blocks {
+            if let Err(written) = super::width::of(block) {
+                diagnostics.push(no_such_width(written, at(slide)));
+            }
+        }
+
         // A camera names a region the same way a block does, so it goes wrong
         // the same way — an author who changed `layout:` and left the camera
         // pointing at a region the new one does not have.
@@ -142,6 +152,22 @@ fn no_such_region(layout: &Layout, requested: &str, subject: &str, at: SourceSpa
     )
     .at(at)
     .with_help(format!("`{}` offers {}", layout.id, quoted(&layout.region_names())))
+}
+
+/// A width that is not one of the shares the theme names.
+///
+/// The help lists them, because the value an author reached for was almost
+/// certainly a length and the answer is a word rather than a smaller number.
+fn no_such_width(written: &str, at: SourceSpan) -> Diagnostic {
+    Diagnostic::warning(
+        "layout/no-such-width",
+        format!("`{written}` is not a share of a region, so the block fills its region instead"),
+    )
+    .at(at)
+    .with_help(format!(
+        "a width is one of {} — a length would be right on one screen and wrong on the next",
+        quoted(&super::width::BlockWidth::names())
+    ))
 }
 
 /// The layout a slide asked for, reporting a name that resolves to nothing.
@@ -296,6 +322,23 @@ mod tests {
     #[test]
     fn a_deck_that_places_nothing_reports_nothing() {
         assert!(diagnose(&deck("# One\n\n- a\n- b\n")).is_empty());
+    }
+
+    #[test]
+    fn a_width_written_as_a_length_is_reported_and_the_shares_are_named() {
+        // The pixel this vocabulary exists to refuse. Silence here is how
+        // `layout:` came to be documented, parsed, and inert.
+        let diagnostics = diagnose(&deck("# One\n\n{width=340px}\nSecond.\n"));
+        let first = diagnostics.iter().find(|d| d.code == "layout/no-such-width").unwrap();
+
+        assert!(first.message.contains("`340px`"), "got: {}", first.message);
+        assert!(first.help.as_ref().unwrap().contains("`half`"), "got: {:?}", first.help);
+        assert!(!diagnostics.has_blocking());
+    }
+
+    #[test]
+    fn a_width_that_is_a_share_is_said_nothing_about() {
+        assert!(diagnose(&deck("# One\n\n{width=two-thirds}\nSecond.\n")).is_empty());
     }
 
     #[test]

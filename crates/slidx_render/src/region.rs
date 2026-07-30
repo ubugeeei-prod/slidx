@@ -28,7 +28,9 @@
 //! laid out independently.
 
 use slidx_core::{Block, Deck, Slide};
-use slidx_theme::layout::{css::REGION_ATTRIBUTE, place, Layout};
+use slidx_theme::layout::{
+    css::REGION_ATTRIBUTE, place, width, BlockWidth, Layout, WIDTH_ATTRIBUTE,
+};
 use slidx_theme::Theme;
 
 use crate::markdown::{render, MarkdownOptions};
@@ -70,7 +72,11 @@ pub fn body(
                 .blocks
                 .iter()
                 .filter_map(|at| sources.get(*at).map(|markdown| (*at, markdown)))
-                .map(|(at, markdown)| wrap(at, &render(markdown, options)))
+                .map(|(at, markdown)| {
+                    let share = slide.blocks.get(at).map(width::of).and_then(Result::ok);
+
+                    wrap(at, share, &render(markdown, options))
+                })
                 .collect();
 
             let extra = if region.region.name == default { appended } else { "" };
@@ -83,10 +89,22 @@ pub fn body(
         .collect()
 }
 
-fn wrap(index: usize, html: &str) -> String {
+/// One block's box, carrying its index and the share of the region it takes.
+///
+/// A share that is the whole region writes no attribute, the same way a block in
+/// the default region writes no class: the theme's rule for it would be a rule
+/// that changes nothing, and the editor reads an absent attribute as `full`.
+fn wrap(index: usize, share: Option<BlockWidth>, html: &str) -> String {
+    let width = match share.filter(|share| *share != BlockWidth::Full) {
+        Some(share) => format!(" {WIDTH_ATTRIBUTE}=\"{}\"", share.as_token()),
+        None => String::new(),
+    };
+
     // The rendered Markdown is emitted verbatim. Indenting it would indent the
     // inside of every `<pre>`, where whitespace is content.
-    format!("        <div class=\"slidx-block\" {BLOCK_ATTRIBUTE}=\"{index}\">\n{html}\n        </div>\n")
+    format!(
+        "        <div class=\"slidx-block\" {BLOCK_ATTRIBUTE}=\"{index}\"{width}>\n{html}\n        </div>\n"
+    )
 }
 
 /// Each block's Markdown, with any shared-code figure that belongs to it.
@@ -184,6 +202,33 @@ mod tests {
         for index in 0..3 {
             assert!(html.contains(&format!("data-slidx-block=\"{index}\"")), "no block {index}");
         }
+    }
+
+    #[test]
+    fn a_block_that_names_a_share_of_its_region_carries_it_onto_the_page() {
+        let html = rendered("---\nlayout: aside\n---\n\n{.side width=half}\n![D](./a.svg)\n");
+
+        assert!(html.contains("data-slidx-width=\"half\""), "{html}");
+    }
+
+    #[test]
+    fn a_block_that_takes_its_whole_region_says_nothing_about_width() {
+        // The default writes no attribute, the same way the default region writes
+        // no class — and the editor reads an absent one as the whole region.
+        let html = rendered("# One\n\n{width=full}\nSecond.\n");
+
+        assert!(!html.contains("data-slidx-width"), "{html}");
+    }
+
+    #[test]
+    fn a_width_that_is_not_a_share_leaves_the_block_filling_its_region() {
+        // A pixel is refused by the vocabulary and reported by the linter. The
+        // slide still renders, because a slide that lost a block over a typo is
+        // worse than one that shows it too wide.
+        let html = rendered("# One\n\n{width=340px}\nSecond.\n");
+
+        assert!(!html.contains("data-slidx-width"), "{html}");
+        assert!(html.contains("Second."));
     }
 
     #[test]

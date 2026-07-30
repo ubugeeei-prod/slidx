@@ -29,7 +29,7 @@
 //! a second copy.
 
 use slidx_core::{find_blocks, parse_deck, Attributes, ByteSpan, DeckParseOptions, FoundBlock};
-use slidx_theme::layout::{Layout, REGION_NAMES};
+use slidx_theme::layout::{BlockWidth, Layout, REGION_NAMES, WIDTH_PROPERTY};
 
 use crate::edit::EditBuilder;
 use crate::op::{BlockRef, EditError, SlideRef};
@@ -48,6 +48,36 @@ pub(crate) fn set_attributes(
     let at = locate(&found, block)?;
 
     write_line(deck, body, &found[at], attributes, builder);
+    Ok(())
+}
+
+/// Writes how much of its region a block takes, and nothing else about it.
+///
+/// The default share is written by taking the property away rather than by
+/// writing `width=full`, the same rule [`move_to`] holds for the default region:
+/// a block that says nothing already fills its region, so the property would be
+/// a line in the diff that changes nothing on the slide — and dragging a block
+/// narrower and back again would not come out where it started.
+pub(crate) fn set_width(
+    deck: &DeckSource<'_>,
+    slide: &SlideRef,
+    block: &BlockRef,
+    width: BlockWidth,
+    builder: &mut EditBuilder<'_>,
+) -> Result<(), EditError> {
+    let index = deck.resolve(slide)?;
+    let body = deck.at(index).body;
+    let found = find_blocks(body.slice(deck.source));
+    let at = locate(&found, block)?;
+
+    let mut attributes = found[at].block.attributes.clone();
+    if width == BlockWidth::Full {
+        attributes.properties.remove(WIDTH_PROPERTY);
+    } else {
+        attributes.properties.insert(WIDTH_PROPERTY.to_string(), width.as_token().to_string());
+    }
+
+    write_line(deck, body, &found[at], &attributes, builder);
     Ok(())
 }
 
@@ -361,6 +391,61 @@ mod tests {
         let result = edited(source, &moved(0, 0, 0, Some("right")));
 
         assert_eq!(result, "---\nlayout: split\n---\n\n{.accent .right}\n# One\n\nSecond.\n");
+    }
+
+    fn widened(block: usize, width: BlockWidth) -> EditOp {
+        EditOp::SetBlockWidth { slide: 0.into(), block: block.into(), width }
+    }
+
+    #[test]
+    fn narrowing_a_block_writes_the_share_of_its_region_it_now_takes() {
+        let result = edited("# One\n\nSecond.\n", &widened(1, BlockWidth::Half));
+
+        assert_eq!(result, "# One\n\n{width=half}\nSecond.\n");
+    }
+
+    #[test]
+    fn taking_a_block_back_to_its_whole_region_removes_the_property_rather_than_writing_full() {
+        // `width=full` says what the block already does, so writing it would be a
+        // line in the diff that changes nothing on the slide — and a drag
+        // narrower and back would not come out where it started.
+        let source = "# One\n\n{width=half}\nSecond.\n";
+
+        assert_eq!(edited(source, &widened(1, BlockWidth::Full)), "# One\n\nSecond.\n");
+    }
+
+    #[test]
+    fn a_resize_that_ends_where_it_started_is_not_an_edit_at_all() {
+        let source = "# One\n\n{width=half}\nSecond.\n";
+
+        assert!(planned(source, &widened(1, BlockWidth::Half)).unwrap().is_empty());
+        assert!(planned("# One\n\nSecond.\n", &widened(1, BlockWidth::Full)).unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_share_written_onto_a_placed_block_keeps_the_class_that_places_it() {
+        // A resize must not be a drag. The editor sends the share and nothing
+        // about the classes, so the operation reads them off the file.
+        let source = "---\nlayout: aside\n---\n\n{#hero .side}\n![D](./a.svg)\n";
+        let op = EditOp::SetBlockWidth {
+            slide: 0.into(),
+            block: 0.into(),
+            width: BlockWidth::TwoThirds,
+        };
+
+        assert_eq!(
+            edited(source, &op),
+            "---\nlayout: aside\n---\n\n{#hero .side width=two-thirds}\n![D](./a.svg)\n"
+        );
+    }
+
+    #[test]
+    fn a_length_someone_wrote_by_hand_is_replaced_rather_than_joined() {
+        // `width` is one property, so a resize over a hand-written pixel takes
+        // the pixel out. The linter had already reported it.
+        let result = edited("{width=340px}\n# One\n", &widened(0, BlockWidth::Third));
+
+        assert_eq!(result, "{width=third}\n# One\n");
     }
 
     #[test]
