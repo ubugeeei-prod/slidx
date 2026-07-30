@@ -102,6 +102,8 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
         || theme_findings.has_blocking();
 
     let runtime_src = options.runtime_src.clone().unwrap_or_else(|| "./runtime.js".to_string());
+    let rehearsal_src =
+        options.rehearsal_src.clone().unwrap_or_else(|| "./rehearsal.js".to_string());
 
     // An address the caller states wins over the deck's own, for the same reason
     // an explicit theme does: the file describes the deck, and the build knows
@@ -122,8 +124,12 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
     let print_theme = theme.clone();
     let snippet_theme = theme.clone();
     let og_theme = theme.clone();
-    let presenter =
-        PresenterOptions { theme, runtime_src: runtime_src.clone(), ..PresenterOptions::default() };
+    let presenter = PresenterOptions {
+        theme,
+        runtime_src: runtime_src.clone(),
+        rehearsal_src,
+        ..PresenterOptions::default()
+    };
 
     let render = !options.parse_only;
     let og = OgOptions { theme: og_theme, ..OgOptions::default() };

@@ -176,8 +176,8 @@ beforeAll(async () => {
     }),
     buildDeck("staged", {
       "0001.md":
-        "# Latency\n\nDropped to [120ms]{#latency}[38ms]{#latency}.\n\n- Now\n- Later <!-- step -->\n",
-      "0002.md": "# After\n",
+        "---\nbudget: 30s\n---\n\n# Latency\n\nDropped to [120ms]{#latency}[38ms]{#latency}.\n\n- Now\n- Later <!-- step -->\n",
+      "0002.md": "---\nbudget: 30s\n---\n\n# After\n",
     }),
     buildDeck("camera", {
       "0001.md": "---\nlayout: aside\ncamera: side\n---\n\n# Remote\n\nA talk from a desk.\n",
@@ -317,6 +317,92 @@ describe.each(ENGINES)("%s", (engine) => {
       const { requested } = await measure(engine, 1280, 800);
 
       expect(requested.filter((url) => !url.startsWith("file://"))).toEqual([]);
+    },
+    120_000,
+  );
+});
+
+/**
+ * A complete rehearsal across real presenter documents.
+ *
+ * This is deliberately a cross-page browser test rather than a renderer
+ * assertion. The failure #127 described was exactly that the recorder existed
+ * as code while no speaker could reach it; this starts it through the visible
+ * control, navigates the deck, and reads the report the speaker receives.
+ */
+describe.each(ENGINES)("%s, rehearsing from the presenter view", (engine) => {
+  const runs = it.skipIf(!available[engine]);
+
+  runs(
+    "keeps time across slides and finishes with a budget report",
+    async () => {
+      const playwright = await import("playwright");
+      const browser = await playwright[engine].launch();
+      const tab = await browser.newPage();
+      const errors: string[] = [];
+      tab.on("pageerror", (error) => errors.push(error.message));
+
+      try {
+        await tab.goto(`${served}/slides/presenter/`);
+        await tab.click('[data-slidx-action="rehearse"]');
+        await tab.waitForTimeout(1_100);
+
+        // Two stops within the first slide, then the next presenter document.
+        await tab.keyboard.press("ArrowRight");
+        await tab.keyboard.press("ArrowRight");
+        await Promise.all([
+          tab.waitForURL(/\/slides\/2\/presenter\/$/),
+          tab.keyboard.press("ArrowRight"),
+        ]);
+
+        await tab.waitForFunction(() =>
+          document
+            .querySelector("[data-slidx-rehearsal-status]")
+            ?.textContent?.includes("recording"),
+        );
+        await tab.waitForTimeout(1_100);
+        await tab.click('[data-slidx-action="finish-rehearsal"]');
+        await tab.waitForFunction(
+          () => !(document.querySelector("[data-slidx-rehearsal-report]") as HTMLElement).hidden,
+        );
+        await tab.setViewportSize({ width: 390, height: 844 });
+
+        const result = await tab.evaluate(() => {
+          const key = Object.keys(localStorage).find((entry) =>
+            entry.startsWith("slidx:rehearsal:"),
+          );
+          if (!key) throw new Error("the rehearsal was not stored");
+
+          return {
+            clock: document.querySelector("[data-slidx-elapsed]")?.textContent,
+            report: JSON.parse(localStorage.getItem(key) ?? "null"),
+            rows: [...document.querySelectorAll("[data-slidx-rehearsal-slides] li")].map(
+              (row) => row.textContent,
+            ),
+            viewport: {
+              inner: window.innerWidth,
+              content: document.documentElement.scrollWidth,
+            },
+          };
+        });
+
+        expect(result.clock).not.toBe("0:00");
+        expect(result.report).toMatchObject({
+          status: "finished",
+          slides: [
+            { budgetMs: 30_000, visits: 1 },
+            { budgetMs: 30_000, visits: 1 },
+          ],
+        });
+        expect(result.report.slides[0].actualMs).toBeGreaterThan(0);
+        expect(result.report.slides[1].actualMs).toBeGreaterThan(0);
+        expect(result.rows).toHaveLength(2);
+        expect(result.rows.every((row) => row?.includes("/ 30s"))).toBe(true);
+        expect(result.viewport.content).toBe(result.viewport.inner);
+        expect(errors).toEqual([]);
+      } finally {
+        await browser.close();
+      }
     },
     120_000,
   );

@@ -423,6 +423,7 @@ async function renderDeck(
     // URL.
     deckPath: slideRoute(options, 0),
     runtimeSrc: runtimeSrcFor(options),
+    rehearsalSrc: rehearsalSrcFor(options),
     // The print shell carries the runtime rather than importing it, so the
     // one document a speaker falls back to opens from anywhere.
     printRuntime: print ? await readRuntime() : undefined,
@@ -453,6 +454,11 @@ function revisionAsked(url: string): string | undefined {
  */
 function runtimeSrcFor(options: ReturnType<typeof resolveOptions>): string {
   return `/${runtimeFileName(options)}`;
+}
+
+/** The presenter-only module sits beside the shared runtime. */
+function rehearsalSrcFor(options: ReturnType<typeof resolveOptions>): string {
+  return `/${rehearsalFileName(options)}`;
 }
 
 /** The built runtime, read once. */

@@ -75,6 +75,10 @@ export type BuildOptions = {
    */
   runtimeSrc: string | null;
   /**
+   * Module URL the presenter view imports rehearsal recording from.
+   */
+  rehearsalSrc: string | null;
+  /**
    * Image sizes the caller already read, keyed by the path a slide writes.
    *
    * There is no filesystem on this side of the boundary, so the resolution
