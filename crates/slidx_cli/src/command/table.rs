@@ -108,6 +108,27 @@ deck kept as one file per slide stays that way.",
         ],
     ),
     leaf(
+        "lsp",
+        "run the language server, for an editor to talk to",
+        "lsp",
+        "\
+Speaks the language server protocol on stdin and stdout: diagnostics as you
+type, completion for frontmatter keys and step presets, the deck outline, hover,
+and formatting on save. Everything it reports is what `slidx lint` and
+`slidx fmt` report, from the same rules, at the moment it is still cheap to act
+on.
+
+An EDITOR runs this, not a person. It takes no arguments and reads no
+configuration — an editor starts it and everything else is protocol — and typed
+at a prompt it says so rather than waiting for a frame that is not coming.
+docs/editors.md has the configuration for VS Code, Zed and Neovim.
+
+It serves Markdown under a slides directory and nothing else. A deck is
+Markdown and most Markdown is not a deck, so a language server that claimed
+every .md file would put slide diagnostics on somebody's README.",
+        &[],
+    ),
+    leaf(
         "open",
         "find a deck this machine has seen",
         "open [query] [options]",

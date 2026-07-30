@@ -69,6 +69,7 @@ pub mod i18n;
 pub mod index;
 pub mod lint;
 pub mod list;
+pub mod lsp;
 pub mod mv;
 pub mod preview;
 pub mod project;
@@ -141,6 +142,7 @@ pub fn run(argv: &[String], style: &Style) -> Outcome {
             (None, "export") => export::run(&matches, style),
             (None, "fmt") => fmt::run(&matches, style),
             (None, "lint") => lint::run(&matches, style),
+            (None, "lsp") => lsp::run(&matches, style),
             (None, "open") => find::run(&matches, style),
             (None, "list") => list::run(&matches, style),
             (None, "add") => add::run(&matches, style),

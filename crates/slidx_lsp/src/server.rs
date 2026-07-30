@@ -23,6 +23,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::completion::complete;
+use crate::deck;
 use crate::diagnostics::publish;
 use crate::document::{ContentChange, DocumentStore};
 use crate::formatting::format;
@@ -183,6 +184,11 @@ impl Server {
         let uri = params.text_document.uri;
 
         match method {
+            // A file that is not a deck is never opened, so every later
+            // request for it answers with nothing and no diagnostic is ever
+            // published against it. That is the whole enforcement: a client
+            // that filters is saving traffic rather than deciding anything.
+            "textDocument/didOpen" if !deck::is_deck(&uri) => {}
             "textDocument/didOpen" => {
                 self.store.open(&uri, params.text_document.version, params.text_document.text);
                 self.mark_dirty(uri);
@@ -294,7 +300,7 @@ fn publication(uri: &str, diagnostics: Vec<Value>) -> Message {
 mod tests {
     use super::*;
 
-    const URI: &str = "file:///deck.md";
+    const URI: &str = "file:///talks/slides/0001.md";
 
     fn request(id: i64, method: &str, params: Value) -> Message {
         Message {
@@ -520,11 +526,36 @@ mod tests {
         let replies = server.handle(request(
             9,
             "textDocument/documentSymbol",
-            json!({ "textDocument": { "uri": "file:///gone.md" } }),
+            json!({ "textDocument": { "uri": "file:///talks/slides/gone.md" } }),
         ));
 
         assert_eq!(replies[0].result, Some(Value::Null));
         assert!(replies[0].error.is_none(), "not an error dialog for a client bug");
+    }
+
+    #[test]
+    fn a_markdown_file_that_is_not_a_deck_is_never_opened() {
+        // A client that cannot scope by path — a Zed extension binds to a
+        // language and nothing finer — sends every Markdown file it has. None
+        // of them may come back with a slidx finding on it.
+        let readme = "file:///talks/vueconf/README.md";
+        let mut server = Server::new();
+        server.handle(request(1, "initialize", json!({})));
+        server.handle(Message::notification(
+            "textDocument/didOpen",
+            json!({
+                "textDocument": { "uri": readme, "version": 1, "text": "# Build\n\n![](./a.png)\n" },
+            }),
+        ));
+
+        assert!(server.flush().is_empty(), "nothing is owed for a file that is not a deck");
+
+        let replies = server.handle(request(
+            9,
+            "textDocument/documentSymbol",
+            json!({ "textDocument": { "uri": readme } }),
+        ));
+        assert_eq!(replies[0].result, Some(Value::Null), "and it has no outline either");
     }
 
     #[test]
