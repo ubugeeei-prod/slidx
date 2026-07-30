@@ -77,7 +77,10 @@ describe.skipIf(!hasBrowser)("measuring", () => {
     const measured = await measureOverflow(join(directory, printFileName(resolveOptions())));
 
     expect(measured).not.toBeNull();
-    expect(measured).toEqual([{ slideIndex: 0, stop: 0, overHeight: 0, overWidth: 0 }]);
+    expect(measured).toEqual([
+      { slideIndex: 0, stop: 0, overHeight: 0, overWidth: 0 },
+      { slideIndex: 0, stop: 0, overHeight: 0, overWidth: 0, region: "body" },
+    ]);
   }, 120_000);
 
   it("finds the content a slide with too much on it loses", async () => {
@@ -96,8 +99,30 @@ describe.skipIf(!hasBrowser)("measuring", () => {
     const directory = await buildDeck("- a <!-- step -->\n- b <!-- step -->\n");
     const measured = await measureOverflow(join(directory, printFileName(resolveOptions())));
 
-    expect(measured).toHaveLength(3);
-    expect(measured?.map((found) => found.stop)).toEqual([0, 1, 2]);
+    const slides = measured?.filter((found) => found.region === undefined);
+    expect(slides?.map((found) => found.stop)).toEqual([0, 1, 2]);
+  }, 120_000);
+
+  it("measures each region, because a region is its own box", async () => {
+    // A layout gives every region its own grid track, so a block moved into a
+    // narrower column can lose its last lines while the body's own scroll
+    // height stays exactly what it was.
+    const directory = await buildDeck("---\nlayout: split\n---\n\n# Left\n\n{.right}\nBeside.\n");
+    const measured = await measureOverflow(join(directory, printFileName(resolveOptions())));
+
+    expect(measured?.map((found) => found.region)).toEqual([undefined, "left", "right"]);
+  }, 120_000);
+
+  it("finds the content a narrow region loses while the slide itself fits", async () => {
+    // The failure a layout introduces, and the reason the slide's own numbers
+    // are not enough: everything is inside the design box, and a third of the
+    // right-hand column is gone.
+    const source = `---\nlayout: split\n---\n\n# Left\n\n{.right}\n${CROWDED}\n`;
+    const directory = await buildDeck(source);
+    const measured = await measureOverflow(join(directory, printFileName(resolveOptions())));
+
+    const right = measured?.find((found) => found.region === "right");
+    expect(right?.overHeight).toBeGreaterThan(0.05);
   }, 120_000);
 });
 

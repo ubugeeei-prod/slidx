@@ -34,6 +34,14 @@ export interface Measurement {
   overHeight: number;
   /** The same across. */
   overWidth: number;
+  /**
+   * The layout region this measures, when it is one rather than the whole slide.
+   *
+   * A region is its own grid track, so it can lose content while the slide as a
+   * whole fits — which is exactly what happens to a block moved into a narrower
+   * column. Measuring only the body would report that slide as clean.
+   */
+  region?: string;
 }
 
 export interface MeasureOptions {
@@ -83,39 +91,62 @@ export async function measureOverflow(
 /**
  * Runs inside the page. Must be self-contained — it is serialised across.
  *
- * Two things are measured, and both are content the audience does not get:
- * the body against the box the padding leaves it, and any block that clips its
- * own overflow. A code block is the second case in practice — it scrolls on a
- * laptop, which is indistinguishable from fitting, and on a wall it is simply
- * missing its right-hand side.
+ * Three things are measured, and all of them are content the audience does not
+ * get. The body against the box the padding leaves it. Each **region**, because
+ * a layout gives every region its own grid track: a block moved into a narrower
+ * column can lose its last lines while the body's own scroll height stays
+ * exactly what it was. And any element that clips its own overflow — a code
+ * block in practice, which scrolls on a laptop, indistinguishable from fitting,
+ * and on a wall is simply missing its right-hand side.
  */
 function measureInPage(): Measurement[] {
   const stops = new Map<number, number>();
+  const measured: Measurement[] = [];
 
-  return [...document.querySelectorAll(".slidx-page")].map((page) => {
+  const over = (scroll: number, client: number) =>
+    client > 0 ? Math.max(0, (scroll - client) / client) : 0;
+
+  for (const page of document.querySelectorAll(".slidx-page")) {
     const slideIndex = Number((page as HTMLElement).dataset["slidxSlide"] ?? 0);
     const stop = stops.get(slideIndex) ?? 0;
     stops.set(slideIndex, stop + 1);
 
     const body = page.querySelector(".slidx-slide-body");
-    if (body === null) return { slideIndex, stop, overHeight: 0, overWidth: 0 };
-
-    const over = (scroll: number, client: number) =>
-      client > 0 ? Math.max(0, (scroll - client) / client) : 0;
+    if (body === null) {
+      measured.push({ slideIndex, stop, overHeight: 0, overWidth: 0 });
+      continue;
+    }
 
     let overWidth = over(body.scrollWidth, body.clientWidth);
 
-    // An element that hides its own overflow keeps the body's numbers clean
-    // while losing content all the same.
-    for (const clipped of page.querySelectorAll("pre, table, .slidx-slide-body > *")) {
+    // An element that hides its own overflow keeps its container's numbers clean
+    // while losing content all the same. Counted against the slide rather than
+    // against a region: a `<pre>` too wide for its column is too wide for the
+    // slide, and the region measurement below says which column it was in.
+    for (const clipped of page.querySelectorAll("pre, table, .slidx-block")) {
       overWidth = Math.max(overWidth, over(clipped.scrollWidth, clipped.clientWidth));
     }
 
-    return {
+    measured.push({
       slideIndex,
       stop,
       overHeight: over(body.scrollHeight, body.clientHeight),
       overWidth,
-    };
-  });
+    });
+
+    for (const region of page.querySelectorAll("[data-slidx-region]")) {
+      const name = (region as HTMLElement).dataset["slidxRegion"];
+      if (name === undefined) continue;
+
+      measured.push({
+        slideIndex,
+        stop,
+        overHeight: over(region.scrollHeight, region.clientHeight),
+        overWidth: over(region.scrollWidth, region.clientWidth),
+        region: name,
+      });
+    }
+  }
+
+  return measured;
 }

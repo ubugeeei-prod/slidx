@@ -44,7 +44,7 @@ impl RenderTarget {
 /// Shares of the box rather than pixel counts, because the measuring browser
 /// laid the page out at whatever size it chose. A ratio survives that; a pixel
 /// figure would be true only at the width it was taken at.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Measurement {
     pub slide_index: u32,
@@ -57,16 +57,31 @@ pub struct Measurement {
     pub over_height: f64,
     /// The same across.
     pub over_width: f64,
+    /// The layout region this measures, when it is one rather than the slide.
+    ///
+    /// A layout gives each region its own track, so a region can lose content
+    /// while the slide as a whole still fits — a column that is a third of the
+    /// width holds a third of the line, and the body's own scroll height never
+    /// notices. Naming the region is what makes the finding actionable: "the
+    /// slide is too tall" sends an author looking at the wrong half of it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub region: Option<String>,
 }
 
 impl Measurement {
     pub fn new(slide_index: u32, stop: u32) -> Self {
-        Self { slide_index, stop, over_height: 0.0, over_width: 0.0 }
+        Self { slide_index, stop, over_height: 0.0, over_width: 0.0, region: None }
     }
 
     pub fn over(mut self, height: f64, width: f64) -> Self {
         self.over_height = height;
         self.over_width = width;
+        self
+    }
+
+    /// The same measurement, taken of one region rather than of the slide.
+    pub fn in_region(mut self, name: impl Into<String>) -> Self {
+        self.region = Some(name.into());
         self
     }
 }

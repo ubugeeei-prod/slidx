@@ -322,6 +322,32 @@ in the file:
 The result was [3.2x faster]{#result .accent}.
 ```
 
+### Saying where a block goes
+
+The same attribute group on a line of its own attaches to the block below it,
+and a class that names one of the layout's regions puts the block there:
+
+```md
+---
+layout: aside
+---
+
+## How the pipeline fits together
+
+{.side}
+![The four stages, end to end](./pipeline.svg)
+```
+
+`layout:` names a set of regions — `full`, `top`, `stack`, `split`, `aside`,
+`quad` — and the theme owns where each one sits. A block that names no region
+goes to the layout's default in source order.
+
+That is the whole difference between a placement a reviewer can read and four
+floats in a file. `{.side}` is one word in a diff, it still means the right
+thing on a 4:3 projector, and the linter can measure it — a region is its own
+box, so a block moved into a narrow column that no longer fits is reported as
+that region overflowing rather than as a slide that looks fine.
+
 ### Changing something already on screen
 
 Revealing covers "not there yet". For a value that _changes_, write the takes
