@@ -27,7 +27,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
-use slidx_core::{ByteSpan, Mark, StepAction};
+use slidx_core::{Attributes, ByteSpan, Mark, StepAction};
 
 /// One change to a deck source.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -82,6 +82,40 @@ pub enum EditOp {
     RemoveMark {
         slide: SlideRef,
         mark: MarkRef,
+    },
+    /// Rewrites the attribute line above a block: its key, its classes, and
+    /// its properties.
+    ///
+    /// Attributes that are empty take the line away rather than leaving `{}`
+    /// behind, the same rule [`Self::SetMark`] holds for a mark. A block that
+    /// had no line gains one.
+    SetBlockAttributes {
+        slide: SlideRef,
+        block: BlockRef,
+        attributes: Attributes,
+    },
+    /// Moves a block to position `to` among the slide's blocks, and optionally
+    /// into another region.
+    ///
+    /// `to` is counted after the block is lifted out — the same rule as
+    /// [`Self::MoveSlide`] — and a position past the end lands it last, for the
+    /// reason [`Self::AddStep`] gives: the drop target below the last block is
+    /// one past it, and reaching it must not depend on the editor having
+    /// counted the blocks the same way this crate does.
+    ///
+    /// The region travels with the move because a drag is **one** gesture. A
+    /// block's place on a slide is which region it is in and where it sits in
+    /// that region, and splitting the two would make the editor's primary
+    /// gesture cost two presses of undo to take back. `None` leaves the
+    /// block's placement alone; a region that is the layout's default is
+    /// written by *removing* the class, because a block that says nothing
+    /// already lands there and the class would be noise in the diff.
+    MoveBlock {
+        slide: SlideRef,
+        block: BlockRef,
+        to: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        region: Option<String>,
     },
     /// Adds an action to the slide's `steps:` list, creating it if needed.
     ///
@@ -189,6 +223,36 @@ impl From<&str> for MarkRef {
     }
 }
 
+/// Which block of a slide an operation is about.
+///
+/// The same pair as [`SlideRef`] and [`MarkRef`], and for the same reason. An
+/// index is what a drag produces — the renderer writes it onto every block as
+/// `data-slidx-block`, so the overlay reads the number rather than inferring
+/// it — and is stable for exactly one operation. A key survives a reorder, and
+/// only a block something refers to has one.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum BlockRef {
+    /// Zero-based position in source order, matching [`Slide::blocks`].
+    ///
+    /// [`Slide::blocks`]: slidx_core::Slide::blocks
+    Index(usize),
+    /// The block's `#key`, from its attribute line.
+    Key(String),
+}
+
+impl From<usize> for BlockRef {
+    fn from(index: usize) -> Self {
+        Self::Index(index)
+    }
+}
+
+impl From<&str> for BlockRef {
+    fn from(key: &str) -> Self {
+        Self::Key(key.to_string())
+    }
+}
+
 /// A mark without its text: what the inspector panel holds.
 ///
 /// Separate from [`Mark`] because the text is not the editor's to supply. It
@@ -258,6 +322,9 @@ pub enum EditError {
     NoSuchMark {
         mark: MarkRef,
     },
+    NoSuchBlock {
+        block: BlockRef,
+    },
     NoSuchStep {
         index: usize,
         present: usize,
@@ -285,6 +352,10 @@ impl std::fmt::Display for EditError {
             Self::NoSuchMark { mark } => match mark {
                 MarkRef::Index(index) => write!(formatter, "the slide has no mark {index}"),
                 MarkRef::Key(key) => write!(formatter, "the slide has no mark `#{key}`"),
+            },
+            Self::NoSuchBlock { block } => match block {
+                BlockRef::Index(index) => write!(formatter, "the slide has no block {index}"),
+                BlockRef::Key(key) => write!(formatter, "the slide has no block `#{key}`"),
             },
             Self::NoSuchStep { index, present } => {
                 write!(formatter, "the slide declares {present} steps, so there is no step {index}")
@@ -363,6 +434,58 @@ mod tests {
     }
 
     #[test]
+    fn the_block_operations_cross_the_boundary_as_plain_json() {
+        let op = EditOp::SetBlockAttributes {
+            slide: 0.into(),
+            block: 2.into(),
+            attributes: Attributes::default().with_class("side"),
+        };
+
+        assert_eq!(
+            serde_json::to_value(&op).unwrap(),
+            json!({
+                "op": "setBlockAttributes",
+                "slide": 0,
+                "block": 2,
+                "attributes": { "classes": ["side"] },
+            })
+        );
+        assert_eq!(
+            serde_json::from_value::<EditOp>(serde_json::to_value(&op).unwrap()).unwrap(),
+            op
+        );
+    }
+
+    #[test]
+    fn a_move_that_changes_no_region_carries_no_region_across_the_boundary() {
+        // Reordering inside a region is the common case, and `"region": null`
+        // would be a field every caller then has to decide how to spell.
+        let op = EditOp::MoveBlock { slide: 0.into(), block: 1.into(), to: 0, region: None };
+
+        let json = serde_json::to_value(&op).unwrap();
+        assert_eq!(json.get("region"), None);
+        assert_eq!(serde_json::from_value::<EditOp>(json).unwrap(), op);
+    }
+
+    #[test]
+    fn a_block_is_named_by_a_bare_number_or_a_bare_string() {
+        let by_key: EditOp = serde_json::from_value(
+            json!({ "op": "moveBlock", "slide": 0, "block": "hero", "to": 1, "region": "side" }),
+        )
+        .unwrap();
+
+        assert_eq!(
+            by_key,
+            EditOp::MoveBlock {
+                slide: 0.into(),
+                block: BlockRef::Key("hero".into()),
+                to: 1,
+                region: Some("side".into()),
+            }
+        );
+    }
+
+    #[test]
     fn a_slide_is_named_by_a_bare_number_or_a_bare_string() {
         let by_id: EditOp =
             serde_json::from_value(json!({ "op": "removeSlide", "slide": "intro" })).unwrap();
@@ -395,6 +518,8 @@ mod tests {
             EditError::NoSuchSlide { slide: "gone".into() },
             EditError::NoSuchMark { mark: 3.into() },
             EditError::NoSuchMark { mark: "hero".into() },
+            EditError::NoSuchBlock { block: 3.into() },
+            EditError::NoSuchBlock { block: "hero".into() },
             EditError::NoSuchStep { index: 4, present: 2 },
             EditError::NoSuchPosition { at: 9, slides: 3 },
             EditError::UnusableRange { range: ByteSpan::new(1, 2) },

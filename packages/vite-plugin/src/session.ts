@@ -40,13 +40,15 @@ import {
   type FileWrite,
 } from "./edit";
 import type { ResolvedOptions } from "./options";
-import { build as buildDeck } from "./pipeline";
+import type { Measurement } from "./overflow";
+import { build as buildDeck, lintMeasured } from "./pipeline";
 
 /** Everything the editor posts to, under one prefix nothing else claims. */
 export const EDITOR_ROUTE_PREFIX = "/__slidx/";
 
 const DECK_ROUTE = `${EDITOR_ROUTE_PREFIX}deck`;
 const EDIT_ROUTE = `${EDITOR_ROUTE_PREFIX}edit`;
+const MEASURED_ROUTE = `${EDITOR_ROUTE_PREFIX}measured`;
 const HISTORY_ROUTE = `${EDITOR_ROUTE_PREFIX}history`;
 const CHANGE_ROUTE = `${EDITOR_ROUTE_PREFIX}history/change`;
 
@@ -54,6 +56,11 @@ const CHANGE_ROUTE = `${EDITOR_ROUTE_PREFIX}history/change`;
 interface EditRequest {
   op?: EditOp;
   edit?: Edit;
+}
+
+/** What the editor measured in its canvas, for the linter to read. */
+interface MeasuredRequest {
+  measured?: Measurement[];
 }
 
 /** Reads and writes one project's deck for as long as the dev server runs. */
@@ -125,7 +132,20 @@ export function createEditSession(root: string, options: ResolvedOptions): EditS
         }
 
         if (path === EDIT_ROUTE && request.method === "POST") {
-          send(response, 200, await edit(await read(request)));
+          send(response, 200, await edit(await read<EditRequest>(request)));
+          return true;
+        }
+
+        // The one route that changes nothing. Whether content fits its box
+        // depends on where lines break, so the editor measures its canvas and
+        // the pipeline says what the numbers mean — the same rule the build
+        // runs, which is what lets the editor warn before a block has landed
+        // rather than after it has shipped.
+        if (path === MEASURED_ROUTE && request.method === "POST") {
+          const { measured = [] } = await read<MeasuredRequest>(request);
+          const source = joinDeck(await files(), options.separator).source;
+
+          send(response, 200, await lintMeasured(source, measured, options));
           return true;
         }
 
@@ -220,12 +240,12 @@ function query(url: string, name: string): string {
   return new URL(url, "http://deck.invalid").searchParams.get(name) ?? "";
 }
 
-async function read(request: IncomingMessage): Promise<EditRequest> {
+async function read<T>(request: IncomingMessage): Promise<T> {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(chunk as Buffer);
 
   const body = Buffer.concat(chunks).toString("utf8");
-  return body ? (JSON.parse(body) as EditRequest) : {};
+  return (body ? JSON.parse(body) : {}) as T;
 }
 
 function page(response: ServerResponse, html: string): void {

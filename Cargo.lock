@@ -519,6 +519,7 @@ dependencies = [
  "serde",
  "serde_json",
  "slidx_core",
+ "slidx_theme",
 ]
 
 [[package]]

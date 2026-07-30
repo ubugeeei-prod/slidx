@@ -159,3 +159,33 @@ describe("a deck the server cannot write", () => {
     expect(session.state().problem).toContain("slides/0001.md");
   });
 });
+
+describe("a change that has not been made yet", () => {
+  it("is held next to the deck's own findings and cleared by the change itself", async () => {
+    // A block being dragged has a landing before it has a line in the file.
+    // Once it lands, what was foreseen is either in `diagnostics` or was never
+    // true, so it cannot survive the operation.
+    const session = createSession(fakeServer());
+    await session.open();
+
+    session.foresee([{ severity: "error", code: "overflow/clipped", message: "loses its edge" }]);
+    expect(session.state().foreseen).toHaveLength(1);
+
+    await session.run({ op: "moveBlock", slide: 0, block: 0, to: 1, region: "right" });
+    expect(session.state().foreseen).toBeUndefined();
+  });
+
+  it("does not wake every surface up to say nothing is wrong twice", async () => {
+    // A drag calls this whenever the pointer leaves a region, and a render of
+    // the whole editor per event is a drag that stutters.
+    const session = createSession(fakeServer());
+    await session.open();
+
+    let renders = 0;
+    session.subscribe(() => (renders += 1));
+    session.foresee([]);
+    session.foresee([]);
+
+    expect(renders).toBe(1);
+  });
+});

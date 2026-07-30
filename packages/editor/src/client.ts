@@ -108,10 +108,36 @@ export interface EditAnswer extends DeckState {
   error?: EditRefusal;
 }
 
+/**
+ * What a browser found when it laid one box out.
+ *
+ * Mirrors `slidx_lint::Measurement`. Shares of the box rather than pixels,
+ * because the rule that reads them is comparing against a box whose size it
+ * does not know.
+ */
+export interface Measurement {
+  slideIndex: number;
+  stop: number;
+  overHeight: number;
+  overWidth: number;
+  /** The region measured, when it is one rather than the whole slide. */
+  region?: string;
+}
+
 export interface EditorClient {
   deck(): Promise<DeckState>;
   apply(op: EditOp): Promise<EditAnswer>;
   revert(edit: Edit): Promise<EditAnswer>;
+  /**
+   * What the linter makes of a measurement the editor took.
+   *
+   * The one call that changes nothing. Overflow is the rule no build-time model
+   * can answer — it depends on where lines break — so the editor measures the
+   * canvas and the pipeline decides what the numbers mean. That is what lets a
+   * block being dragged into a column too narrow for it say so *before* it
+   * lands, in the sentence a build would have used.
+   */
+  measured(measured: Measurement[]): Promise<Finding[]>;
 }
 
 /**
@@ -156,5 +182,17 @@ export function createClient(options: ClientOptions = {}): EditorClient {
     },
     apply: (op) => post({ op }),
     revert: (edit) => post({ edit }),
+
+    async measured(measured) {
+      const response = await send(`${base}measured`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ measured }),
+      });
+
+      // A question about a landing is worth nothing if it fails, so it says
+      // nothing rather than interrupting a drag with an error.
+      return response.ok ? ((await response.json()) as Finding[]) : [];
+    },
   };
 }

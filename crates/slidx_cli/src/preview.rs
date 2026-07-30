@@ -459,10 +459,16 @@ mod tests {
         let build = Build::new("ready").deck(DEFAULT_BASE);
         let found = build.found().expect("a deck");
         let text = ready(&found.url(5173), &found, &Style::plain());
+        // Read flat, because the line is flowed around a real directory: where
+        // it wraps depends on how long this machine's temp path is, and a
+        // phrase that lands either side of a break still says the same thing.
+        // Asserting against the wrapped text tests the runner, not the report.
+        let said = text.split_whitespace().collect::<Vec<_>>().join(" ");
 
-        assert!(text.contains("http://127.0.0.1:5173/slides/"), "{text}");
-        assert!(text.contains("loopback only"), "{text}");
-        assert!(text.contains("ctrl-c"), "{text}");
+        assert!(said.contains("http://127.0.0.1:5173/slides/"), "{text}");
+        assert!(said.contains(&found.root.display().to_string()), "{text}");
+        assert!(said.contains("loopback only"), "{text}");
+        assert!(said.contains("ctrl-c"), "{text}");
     }
 
     #[test]

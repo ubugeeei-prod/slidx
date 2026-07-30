@@ -183,4 +183,16 @@ describe("the mounted editor", () => {
       "warning",
     );
   });
+
+  it("puts the arrange overlay over the canvas rather than inside it", async () => {
+    // A surface that works when handed a geometry and is never handed one is a
+    // surface nobody can reach — and the overlay has to be on this side of the
+    // frame, because the deck page is the page the build emits.
+    const { root } = open();
+    await settled();
+
+    const overlay = root.querySelector(".slidx-arrange");
+    expect(overlay).not.toBeNull();
+    expect(overlay!.closest(".slidx-canvas")).toBeNull();
+  });
 });
