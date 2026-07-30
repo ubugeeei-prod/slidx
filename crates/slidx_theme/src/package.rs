@@ -221,20 +221,15 @@ impl Catalogue {
         &self.diagnostics
     }
 
-    /// Every name a deck may write, built-ins first.
-    ///
-    /// What the editor's picker and the language server's completion offer, so
-    /// installing a theme makes it suggestable without either of them knowing
-    /// what a package is.
-    pub fn names(&self) -> Vec<String> {
-        builtin::all()
-            .into_iter()
-            .map(|theme| theme.id)
-            .chain(self.installed.iter().map(|held| held.theme.id.clone()))
-            .collect()
-    }
-
     /// Every installed theme, in the order the caller handed them over.
+    ///
+    /// The ids a deck may write beyond the built-ins, which is what the dialect
+    /// check needs, and the source each came from, which is what a report needs.
+    ///
+    /// There is deliberately no `names()` returning the built-ins alongside
+    /// these. A picker wants that list and no picker reads one yet, so it would
+    /// be a public method documented for a caller that does not exist — the
+    /// failure `ROADMAP.md` opens with. The method arrives with the picker.
     pub fn installed(&self) -> impl Iterator<Item = (&str, &Theme)> {
         self.installed.iter().map(|held| (held.source.as_str(), &held.theme))
     }
@@ -561,13 +556,15 @@ mod tests {
     }
 
     #[test]
-    fn an_installed_theme_is_offered_alongside_the_built_ins() {
-        let names = Catalogue::read(&[published()]).names();
+    fn an_installed_theme_is_reachable_alongside_every_built_in() {
+        // Both halves of the vocabulary, from one catalogue: a package adds a
+        // name and takes none away.
+        let catalogue = Catalogue::read(&[published()]);
 
         for theme in builtin::all() {
-            assert!(names.contains(&theme.id), "the picker lost `{}`", theme.id);
+            assert!(catalogue.resolve(&theme.id).is_some(), "the catalogue lost `{}`", theme.id);
         }
-        assert_eq!(names.last().map(String::as_str), Some("aurora"));
+        assert!(catalogue.resolve("aurora").is_some());
     }
 
     #[test]
