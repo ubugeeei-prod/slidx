@@ -38,6 +38,7 @@ pub mod markdown;
 pub mod og;
 pub mod presenter;
 pub mod presenter_layout;
+mod presenter_script;
 pub mod print;
 pub mod print_layout;
 pub mod qr;
