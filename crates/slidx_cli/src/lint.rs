@@ -134,14 +134,28 @@ pub fn project_root(linted: &Path) -> Option<PathBuf> {
 /// questions — the room, and the dialect — but both answer "is this deck ready",
 /// and that question has one command.
 fn collect(deck: &Deck, matches: &Matches) -> Vec<Diagnostic> {
-    let theme = resolve_theme(matches.value("theme"), deck.meta.theme.as_deref());
-    let surfaces = theme.surfaces();
-
     let options = LintOptions {
         allow: matches.values("allow").map(str::to_string).collect(),
         strict: matches.is_set("strict"),
         ..LintOptions::default()
     };
+
+    findings(deck, matches.value("theme"), &options)
+}
+
+/// Parse diagnostics and lint findings, in that order.
+///
+/// The same order and the same set the wasm pipeline reports, so a deck that is
+/// clean here is a deck that builds clean. A parse problem comes first because
+/// it explains the lint findings underneath it: a slide that failed to parse
+/// lints as an empty slide.
+///
+/// Public because `slidx mcp` serves this to an agent. A second opinion about a
+/// deck is the failure this workspace is arranged to prevent: an agent told a
+/// deck was clean by a linter the build does not run has been told nothing.
+pub fn findings(deck: &Deck, theme: Option<&str>, options: &LintOptions) -> Vec<Diagnostic> {
+    let theme = resolve_theme(theme, deck.meta.theme.as_deref());
+    let surfaces = theme.surfaces();
 
     let mut diagnostics: Vec<Diagnostic> = deck.diagnostics.iter().cloned().collect();
     // With no installed vocabulary. Finding a project's theme packages means

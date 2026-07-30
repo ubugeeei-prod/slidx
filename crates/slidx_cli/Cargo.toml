@@ -25,6 +25,7 @@ slidx_export = { workspace = true }
 slidx_fmt = { workspace = true }
 slidx_highlight = { workspace = true }
 slidx_i18n = { workspace = true }
+slidx_jsonrpc = { workspace = true }
 slidx_lint = { workspace = true }
 # `slidx lsp` is the language server, and it is a subcommand rather than a
 # second binary because an editor extension has to *find* what it starts. One

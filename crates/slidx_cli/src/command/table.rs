@@ -170,6 +170,27 @@ in one:
         &[],
     ),
     leaf(
+        "mcp",
+        "serve slidx to an agent over the Model Context Protocol",
+        "mcp [options]",
+        "\
+Speaks the Model Context Protocol over standard input and output, so an agent
+can read and check a deck through slidx rather than around it. A client starts
+it; typing it at a prompt prints the configuration instead of waiting.
+
+The reason it exists is the same reason the visual editor does. An agent that
+edits a deck by rewriting the file regularises the author's blank lines, their
+bullets and their hand-wrapped paragraphs — invisible on a slide and enormous in
+the diff. So this serves slidx's own operations rather than a file writer, and
+an agent working through it cannot reflow a paragraph it did not mean to touch.
+
+It is read-only, opens no port, and makes no outbound request. It reads decks
+under the directory it was started in and under the projects this machine has
+already run a slidx command on, and nothing else.",
+        &[Flag::taking("root", "<path>", "A directory it may read decks under; repeatable")
+            .repeatable()],
+    ),
+    leaf(
         "open",
         "find a deck this machine has seen",
         "open [query] [options]",

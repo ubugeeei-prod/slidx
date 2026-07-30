@@ -70,6 +70,7 @@ pub mod index;
 pub mod lint;
 pub mod list;
 pub mod lsp;
+pub mod mcp;
 pub mod mv;
 pub mod preview;
 pub mod project;
@@ -145,6 +146,7 @@ pub fn run(argv: &[String], style: &Style) -> Outcome {
             (None, "fmt") => fmt::run(&matches, style),
             (None, "lint") => lint::run(&matches, style),
             (None, "lsp") => lsp::run(&matches, style),
+            (None, "mcp") => mcp::run(&matches, style),
             (None, "theme") => theme::run(&matches, style),
             (None, "open") => find::run(&matches, style),
             (None, "list") => list::run(&matches, style),
