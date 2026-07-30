@@ -103,10 +103,19 @@ export const TIMELINE_STYLESHEET = `
 }
 
 /*
- * On screen at this stop. The bar is the point: it comes straight off the
- * compiled frames, so what it shows is what the deck shows.
+ * On screen at this stop. The bar is the point of the grid — it says how long
+ * something stays up rather than only when it arrives — and it comes straight
+ * off the compiled frames, so what it shows is what the deck shows. Tinted
+ * towards the accent rather than left at the hairline colour, which is a
+ * difference nobody can see across a room or in a screenshot.
  */
 .slidx-timeline-cell[data-on="true"] { background: var(--slidx-e-line); }
+
+@supports (background: color-mix(in srgb, red, blue)) {
+  .slidx-timeline-cell[data-on="true"] {
+    background: color-mix(in srgb, var(--slidx-e-accent) 24%, var(--slidx-e-surface));
+  }
+}
 
 /* Something happens here, which is the only place a colour is spent. */
 .slidx-timeline-cell[data-kind] { background: var(--slidx-e-accent); }

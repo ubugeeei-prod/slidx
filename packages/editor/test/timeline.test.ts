@@ -337,6 +337,18 @@ describe("the timeline panel", () => {
     expect(timeline.root.querySelector(".slidx-timeline-grid")).toBeNull();
     expect(timeline.root.querySelector(".slidx-hint")!.textContent).toContain("name");
   });
+
+  it("hides the playhead on a slide that advances in one press", () => {
+    // A control that cannot move is a control an author tries to move.
+    const timeline = createTimeline({ run: () => {} }, { transport: null });
+    const scrub = timeline.root.querySelector(".slidx-timeline-scrub")!;
+
+    timeline.render(stateOf(NO_STEPS, 1));
+    expect(scrub.hasAttribute("hidden")).toBe(true);
+
+    timeline.render(stateOf(build()));
+    expect(scrub.hasAttribute("hidden")).toBe(false);
+  });
 });
 
 describe("the playhead", () => {

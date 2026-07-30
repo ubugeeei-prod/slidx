@@ -248,6 +248,26 @@ describe("the inspector", () => {
     ]);
   });
 
+  it("shows a key that holds a list without offering to retype it", () => {
+    // `steps:` is a list, and a text box that committed what it holds would
+    // replace an author's whole timeline with the string `[object Object]`.
+    const log = recorder();
+    const inspector = createInspector(log, options);
+    const state = stateOf();
+    state.slides[1]!.frontmatter = { steps: [{ reveal: ".a" }, { hide: ".b" }] };
+    inspector.render(state);
+
+    const steps = inspector.root.querySelector<HTMLInputElement>(
+      '[data-group="slide"] [data-key="steps"]',
+    )!;
+    expect(steps.value).toBe("2 entries");
+    expect(steps.hasAttribute("readonly")).toBe(true);
+
+    steps.value = "wrecked";
+    steps.dispatchEvent(new Event("blur"));
+    expect(log.ops).toEqual([]);
+  });
+
   it("keeps a key slidx has never heard of rather than losing it", () => {
     const log = recorder();
     const inspector = createInspector(log, options);

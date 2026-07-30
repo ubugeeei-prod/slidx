@@ -144,7 +144,13 @@ fn stage_script(deck: &Deck, slide: &Slide, options: &ShellOptions) -> String {
 
     format!(
         r#"<script type="module">
-import {{ createStage, createNavigator, createMirror, LAST_STEP }} from "{runtime_src}";
+import {{ createStage, createNavigator, createMirror, markScriptEnabled, LAST_STEP }} from "{runtime_src}";
+
+// Staging is gated on this attribute, so a deck whose script never arrived
+// shows every element rather than a slide that is mostly invisible. Setting it
+// is therefore what *switches staging on*, and it has to happen before the
+// first frame is applied or the slide flashes its whole content on load.
+markScriptEnabled(document);
 
 const stage = createStage(document.querySelector(".slidx-slide"), {timeline});
 
@@ -340,6 +346,19 @@ mod tests {
         assert!(html.contains("<script type=\"module\">"), "no runtime on a staged slide:\n{html}");
         assert!(html.contains("createStage"));
         assert!(html.contains("./runtime.js"));
+    }
+
+    #[test]
+    fn a_staged_slide_says_its_script_arrived_so_the_staging_css_takes_effect() {
+        // Staging is gated on `data-slidx-js`, so that a deck whose script never
+        // loaded shows everything rather than a mostly blank slide. Nothing on
+        // an audience slide set it, which turned the gate inside out: every
+        // element the pipeline had hidden was painted anyway. The stops still
+        // advanced, the URL still tracked them, the PDF still printed one page
+        // each — and the projector showed the whole slide from the first press.
+        let html = shell(STAGED);
+
+        assert!(html.contains("markScriptEnabled"), "the staging gate stays shut:\n{html}");
     }
 
     #[test]

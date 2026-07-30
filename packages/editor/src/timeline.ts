@@ -133,6 +133,9 @@ export function createTimeline(
 
     scrub.setAttribute("max", String(Math.max(grid.stops - 1, 0)));
     scrub.value = String(playhead.stop);
+    // A slide that advances in one press has nothing to scrub through, and a
+    // control that cannot move is a control an author tries to move.
+    scrub.toggleAttribute("hidden", grid.stops <= 1);
     fill(where, [`${playhead.stop} of ${grid.stops}`]);
 
     fill(body, panels());
