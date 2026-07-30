@@ -25,7 +25,7 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 
-import { readDeck } from "./deck";
+import { readDeck, type DeckSource } from "./deck";
 import { EDITOR_MODULE, EDITOR_PAGE, editorPage, readEditor } from "./editor";
 import { joinDeck } from "./files";
 import { createDeckHistory } from "./history";
@@ -50,17 +50,25 @@ const DECK_ROUTE = `${EDITOR_ROUTE_PREFIX}deck`;
 const EDIT_ROUTE = `${EDITOR_ROUTE_PREFIX}edit`;
 const HISTORY_ROUTE = `${EDITOR_ROUTE_PREFIX}history`;
 const CHANGE_ROUTE = `${EDITOR_ROUTE_PREFIX}history/change`;
+const RESTORE_ROUTE = `${EDITOR_ROUTE_PREFIX}history/restore`;
 
 /** What the editor posts: one operation, or one edit off its undo stack. */
 interface EditRequest {
   op?: EditOp;
   edit?: Edit;
+  /** The commit to put the deck back to, on the restore route. */
+  rev?: string;
 }
 
 /** Reads and writes one project's deck for as long as the dev server runs. */
 export interface EditSession {
   /** True when the request was ours and has been answered. */
   handle(request: IncomingMessage, response: ServerResponse): Promise<boolean>;
+  /**
+   * The deck's files as a commit had them, for a slide URL asking to be shown
+   * as of one. `null` when this repository has no such commit.
+   */
+  deckAt(rev: string): Promise<DeckSource | null>;
 }
 
 export function createEditSession(root: string, options: ResolvedOptions): EditSession {
@@ -106,6 +114,8 @@ export function createEditSession(root: string, options: ResolvedOptions): EditS
   }
 
   return {
+    deckAt: (rev) => history.deckAt(rev),
+
     async handle(request, response) {
       const url = request.url ?? "";
       const path = url.split("?")[0]!;
@@ -139,6 +149,14 @@ export function createEditSession(root: string, options: ResolvedOptions): EditS
 
         if (path === HISTORY_ROUTE && request.method === "GET") {
           send(response, 200, await history.commits());
+          return true;
+        }
+
+        if (path === RESTORE_ROUTE && request.method === "POST") {
+          // A write, so it is a POST — and it goes through git rather than
+          // through a file write from the browser, which is the same rule the
+          // editing routes keep by handing every change to `slidx_edit`.
+          send(response, 200, await history.restore((await read(request)).rev ?? ""));
           return true;
         }
 

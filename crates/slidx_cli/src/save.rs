@@ -36,12 +36,9 @@
 //! of slidx. `--message` overrules it entirely, and `--dry-run` prints what
 //! would be written without writing anything.
 
-pub mod message;
-pub mod summary;
-
 use std::path::{Path, PathBuf};
 
-use slidx_core::{parse_deck, Deck, DeckParseOptions};
+use slidx_core::{parse_deck, Deck, DeckParseOptions, Summary};
 
 use crate::args::Matches;
 use crate::git::{self, Repo};
@@ -50,7 +47,6 @@ use crate::lint::source::{self, DeckSource};
 use crate::prompt::{self, Asked};
 use crate::style::{Ink, Style};
 use crate::{Outcome, OK};
-use summary::Summary;
 
 pub fn run(matches: &Matches, style: &Style) -> Outcome {
     let separator =

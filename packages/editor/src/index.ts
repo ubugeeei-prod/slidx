@@ -89,7 +89,10 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
     inspector,
     diagnostics,
     createTimeline({ run }),
-    createRevisions(),
+    createRevisions(
+      { reload: () => void session.open() },
+      { deckBase: options.deckBase ?? "slides" },
+    ),
   ];
   const frame = element(
     "div",

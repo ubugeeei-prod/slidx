@@ -21,7 +21,7 @@
 import type { Plugin, ViteDevServer } from "vite";
 
 import { readAssetSizes } from "./assets";
-import { readDeck } from "./deck";
+import { readDeck, type DeckSource } from "./deck";
 import { exportPdf, rasteriseCards, reportOverflow } from "./artifacts";
 import { emitCrawlerFiles } from "./crawler";
 import { frameRequested, renderSlideDocuments, renderStopImages } from "./frames";
@@ -137,7 +137,34 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
         if (asked === null) return next();
 
         try {
-          const built = await renderDeck(root, options, asked.presenter, asked.print ?? false);
+          // A `?rev=` asks for the deck as a commit had it. Only the *source*
+          // changes: the same render, the same shell, the same theme, the same
+          // WebAssembly module, so the page for an old commit is the real page
+          // rather than a picture of one. A second rendering path here would
+          // be a second answer about layout.
+          const rev = revisionAsked(url);
+          // `null` only ever comes from a revision that was asked for and not
+          // found, so the narrowing is the guard: no revision is `undefined`,
+          // which reads the working copy.
+          const past = rev ? await session.deckAt(rev) : undefined;
+
+          if (past === null) {
+            response.statusCode = 404;
+            response.setHeader("content-type", "text/plain; charset=utf-8");
+            // Never a quiet fall back to the working copy: a page that looked
+            // like history and was not would be the worst possible answer.
+            response.end("No such revision in this repository.");
+            return;
+          }
+
+          const built = await renderDeck(
+            root,
+            options,
+            asked.presenter,
+            asked.print ?? false,
+            false,
+            past,
+          );
           const slide = built.slides[asked.index];
           const html = asked.print
             ? built.printHtml
@@ -152,7 +179,10 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
             return;
           }
 
-          report(server, built.diagnostics, built.slides);
+          // Findings are about the deck the author is working on. Reporting
+          // them for a version they are only looking at would fill a terminal
+          // with complaints about a slide they already fixed.
+          if (!past) report(server, built.diagnostics, built.slides);
 
           response.setHeader("content-type", "text/html; charset=utf-8");
           // A deck is edited constantly; a cached slide is a slide that does
@@ -314,13 +344,17 @@ async function renderDeck(
   presenter: boolean,
   print = false,
   og = false,
+  /**
+   * The deck as some commit had it, when a preview asked for one.
+   *
+   * The only thing a revision changes. Everything below this line is the path
+   * a build and the working copy already take, which is what makes the page
+   * for an old commit the page that commit would have produced.
+   */
+  past?: DeckSource,
 ) {
-  const { files, source } = await readDeck(
-    root,
-    options.srcDir,
-    options.extensions,
-    options.separator,
-  );
+  const { files, source } =
+    past ?? (await readDeck(root, options.srcDir, options.extensions, options.separator));
 
   // Read here because the rules cannot: they run inside WebAssembly, which
   // has no filesystem. Cheap — the head of each image, and nothing at all for
@@ -353,6 +387,20 @@ async function renderDeck(
   });
 
   return { ...built, source, fileCount: files.length };
+}
+
+/**
+ * The commit a slide URL asks to be shown as of, if any.
+ *
+ * `rev` rather than `at`, because the editor's canvas already puts a timestamp
+ * in `at` to defeat caching — and a cache-buster read as a revision would send
+ * a clock reading to git.
+ */
+function revisionAsked(url: string): string | undefined {
+  const query = url.indexOf("?");
+  if (query === -1) return undefined;
+
+  return new URLSearchParams(url.slice(query + 1)).get("rev") ?? undefined;
 }
 
 /**
