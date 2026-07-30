@@ -14,6 +14,8 @@
 
 import { describe, expect, it } from "vite-plus/test";
 
+import type { EditOp } from "@slidx/editor";
+
 import { createSharedDeck, spliceBetween } from "../src/collab";
 import { createRoster, PRESENCE_TIMEOUT_MS } from "../src/collab/presence";
 import { createRoom } from "../src/collab/room";
@@ -22,6 +24,21 @@ import { applyOperation, revertOperation, type DeckFile } from "../src/edit";
 import { Grant } from "../src/share";
 
 const SEPARATOR = "---";
+const SECOND_BODY =
+  "## What we will cover\n\n*  Why the parser matters\n*  What the linter catches\n";
+const THIRD_BODY = "## Numbers\n\nLatency 🎉 dropped to [120ms]{#result .accent}.\n";
+
+/** A half-open byte span for words in a slide body, including non-ASCII text before them. */
+function spanOf(body: string, words: string) {
+  const start = body.indexOf(words);
+  if (start < 0) throw new Error(`${JSON.stringify(words)} is not in the fixture body`);
+  const bytes = new TextEncoder();
+
+  return {
+    start: bytes.encode(body.slice(0, start)).byteLength,
+    end: bytes.encode(body.slice(0, start + words.length)).byteLength,
+  };
+}
 
 /** A deck written the way a person writes one, spacing quirks included. */
 function deck(): DeckFile[] {
@@ -34,12 +51,19 @@ function deck(): DeckFile[] {
     {
       path: "/slides/0002.md",
       label: "slides/0002.md",
-      source: "## What we will cover\n\n*  Why the parser matters\n*  What the linter catches\n",
+      source:
+        '---\nlayout: split\nsteps:\n  - reveal: ".parser"\n  - hide: ".lint"\n---\n\n' +
+        SECOND_BODY,
     },
     {
       path: "/slides/0003.md",
       label: "slides/0003.md",
-      source: "---\nlayout: split\n---\n\n## Numbers\n\nLatency dropped to 120ms 🎉.\n",
+      source: THIRD_BODY,
+    },
+    {
+      path: "/slides/0004.md",
+      label: "slides/0004.md",
+      source: "---\nautoSteps: list\n---\n\n## Generated\n\n- one\n- two\n",
     },
   ];
 }
@@ -50,22 +74,54 @@ function alone() {
 }
 
 /** Every operation the editor can send, in the shapes it sends them. */
-const OPERATIONS: Record<string, Record<string, unknown>> = {
+const OPERATIONS = {
   setHeading: { op: "setHeading", slide: 1, text: "What we will cover today" },
   setBody: { op: "setBody", slide: 2, body: "## Numbers\n\nLatency dropped to 38ms.\n" },
+  setText: { op: "setText", slide: 2, range: spanOf(THIRD_BODY, "120ms"), text: "38ms" },
   setField: { op: "setField", slide: 1, key: "budget", value: "90s" },
+  setStyle: { op: "setStyle", slide: 1, property: "layout", value: "aside" },
   setNotes: { op: "setNotes", slide: 0, notes: "Open with the outcome." },
   insertSlide: { op: "insertSlide", at: 1, body: "## Inserted\n" },
+  duplicateSlide: { op: "duplicateSlide", slide: 1 },
   removeSlide: { op: "removeSlide", slide: 1 },
   moveSlide: { op: "moveSlide", slide: 2, to: 0 },
   addMark: {
     op: "addMark",
-    slide: 2,
-    range: { start: 24, end: 29 },
-    attributes: { classes: ["accent"] },
+    slide: 1,
+    range: spanOf(SECOND_BODY, "Why the parser matters"),
+    attributes: { key: "parser", classes: ["accent"] },
   },
-  addStep: { op: "addStep", slide: 1, action: { reveal: { target: "#a", options: {} } } },
-};
+  setMark: {
+    op: "setMark",
+    slide: 2,
+    mark: "result",
+    attributes: { key: "result", classes: ["hero"], properties: { color: "brand" } },
+  },
+  removeMark: { op: "removeMark", slide: 2, mark: "result" },
+  setBlockAttributes: {
+    op: "setBlockAttributes",
+    slide: 1,
+    block: 1,
+    attributes: { key: "agenda", classes: ["accent"], properties: { align: "center" } },
+  },
+  setBlockWidth: { op: "setBlockWidth", slide: 1, block: 1, width: "half" },
+  moveBlock: { op: "moveBlock", slide: 1, block: 1, to: 0, region: "right" },
+  addStep: {
+    op: "addStep",
+    slide: 1,
+    at: 1,
+    action: { emphasize: { target: ".parser", options: { duration: 500 } } },
+  },
+  removeStep: { op: "removeStep", slide: 1, index: 0 },
+  moveStep: { op: "moveStep", slide: 1, from: 0, to: 1 },
+  setStep: {
+    op: "setStep",
+    slide: 1,
+    index: 0,
+    action: { emphasize: { target: ".parser", options: { preset: "pulse" } } },
+  },
+  adoptSteps: { op: "adoptSteps", slide: 3 },
+} satisfies Record<EditOp["op"], EditOp>;
 
 describe("a shared document under the splice", () => {
   for (const [name, op] of Object.entries(OPERATIONS)) {
@@ -76,39 +132,33 @@ describe("a shared document under the splice", () => {
       const direct = await applyOperation(deck(), SEPARATOR, op);
       const shared = await applyOperation(deck(), SEPARATOR, op, alone().reconciler);
 
+      expect(direct.error).toBeUndefined();
       expect(shared.error).toBeUndefined();
       expect(shared.writes).toEqual(direct.writes);
       expect(shared.source).toBe(direct.source);
     });
   }
 
-  it("hands undo back unchanged when nothing else merged in", async () => {
-    // An operation that went through the shared document alone is as undoable
-    // as one that did not. Anything less would make collaboration cost the
-    // author their undo stack.
-    const direct = await applyOperation(deck(), SEPARATOR, OPERATIONS["setHeading"]!);
-    const shared = await applyOperation(
-      deck(),
-      SEPARATOR,
-      OPERATIONS["setHeading"]!,
-      alone().reconciler,
-    );
+  for (const [name, op] of Object.entries(OPERATIONS)) {
+    it(`keeps ${name} undoable and restores every file byte through the shared document`, async () => {
+      // Every canvas gesture must remain one undoable gesture with collaboration
+      // enabled, including operations that delete or rewrite more than one file.
+      const before = deck();
+      const room = alone();
+      const direct = await applyOperation(before, SEPARATOR, op);
+      const shared = await applyOperation(before, SEPARATOR, op, room.reconciler);
 
-    expect(shared.undo).toEqual(direct.undo);
-    expect(shared.undo.length).toBeGreaterThan(0);
-  });
+      expect(shared.error).toBeUndefined();
+      expect(shared.undo).toEqual(direct.undo);
+      expect(shared.undo.length).toBeGreaterThan(0);
 
-  it("takes an edit off the undo stack back through the same document", async () => {
-    const room = alone();
-    const forward = await applyOperation(deck(), SEPARATOR, OPERATIONS["setHeading"]!);
-    const changed = deck().map((file) =>
-      file.path === "/slides/0002.md" ? { ...file, source: forward.writes[0]!.source! } : file,
-    );
+      const changed = applied(before, shared.writes);
+      const back = await revertOperation(changed, SEPARATOR, shared.undo, room.reconciler);
 
-    const back = await revertOperation(changed, SEPARATOR, forward.undo, room.reconciler);
-
-    expect(back.writes[0]!.source).toBe(deck()[1]!.source);
-  });
+      expect(back.error).toBeUndefined();
+      expect(applied(changed, back.writes)).toEqual(before);
+    });
+  }
 
   it("refuses an operation naming a slide the deck does not have, and writes nothing", async () => {
     const result = await applyOperation(
@@ -122,6 +172,24 @@ describe("a shared document under the splice", () => {
     expect(result.writes).toEqual([]);
   });
 });
+
+/**
+ * The file set with a write plan applied, preserving deleted files as the
+ * empty positions an undo can put back.
+ */
+function applied(
+  files: DeckFile[],
+  writes: { label: string; source: string | null }[],
+): DeckFile[] {
+  const next = files.map((file) => ({ ...file }));
+
+  for (const write of writes) {
+    const found = next.find((file) => file.label === write.label);
+    if (found) found.source = write.source ?? "";
+  }
+
+  return next;
+}
 
 describe("what the shared document is for", () => {
   it("keeps a slide the author saved while an operation was being planned", async () => {
