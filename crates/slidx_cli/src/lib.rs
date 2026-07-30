@@ -56,6 +56,7 @@ pub mod command;
 pub mod completions;
 pub mod doctor;
 pub mod find;
+pub mod fmt;
 pub mod grep;
 pub mod help;
 pub mod home;
@@ -125,6 +126,7 @@ pub fn run(argv: &[String], style: &Style) -> Outcome {
         // different parents may share one, and `list` alone says nothing.
         Invocation::Run(route, matches) => match route.key() {
             (None, "doctor") => doctor::run(&matches, style),
+            (None, "fmt") => fmt::run(&matches, style),
             (None, "lint") => lint::run(&matches, style),
             (None, "open") => find::run(&matches, style),
             (None, "list") => list::run(&matches, style),

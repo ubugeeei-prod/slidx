@@ -112,7 +112,7 @@ export default defineConfig({
       // steps in a workflow file — a check that exists here cannot go missing
       // from CI, because CI has no steps of its own to forget.
       "ci:conventions": group(["check:conventions", "check:version", "check:dead-config"]),
-      "ci:rust": group(["fmt:rust-check", "lint:rust", "test:rust"]),
+      "ci:rust": group(["fmt:rust-check", "lint:rust", "test:rust", "check:deck-fmt"]),
       "ci:ts": group(["fmt:ts-check", "check:ts", "check:types", "test:ts"]),
       "ci:build": group(["build:rust", "build:packages"]),
 
@@ -123,6 +123,7 @@ export default defineConfig({
         "fmt:rust-check",
         "fmt:ts-check",
         "lint:rust",
+        "check:deck-fmt",
         "check:ts",
         "check:types",
       ]),
@@ -152,6 +153,22 @@ export default defineConfig({
       "fmt:rust": task("cargo fmt --all"),
       "fmt:rust-check": task("cargo fmt --all -- --check"),
       "test:rust": uncached("cargo test --workspace"),
+
+      // slidx's own example deck, held to slidx's own formatter.
+      //
+      // The deck in `examples/deck` is what the README screenshots come from and
+      // the only deck in the repository a reader will copy, so a dialect it
+      // spells three different ways is a worked example of the wrong thing.
+      // `--check` writes nothing, so a failure here is fixed by running
+      // `slidx fmt examples/deck/slides` and reading the diff.
+      //
+      // Grouped with the Rust tasks rather than with the convention checks
+      // because it runs the binary: it takes cargo's lock on `target/`, and a
+      // task that blocks on a lock belongs beside the ones holding it.
+      "check:deck-fmt": uncached(
+        "cargo run -q -p slidx_cli --bin slidx -- fmt examples/deck/slides --check",
+        { dependsOn: ["check:rust"] },
+      ),
       "test:rust-verbose": uncached("cargo test --workspace -- --nocapture"),
       "build:rust": uncached("cargo build --workspace --release"),
       "doc:rust": uncached("cargo doc --workspace --no-deps"),

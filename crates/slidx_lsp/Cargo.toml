@@ -19,5 +19,6 @@ path = "src/main.rs"
 serde = { workspace = true }
 serde_json = { workspace = true }
 slidx_core = { workspace = true }
+slidx_fmt = { workspace = true }
 slidx_lint = { workspace = true }
 slidx_theme = { workspace = true }
