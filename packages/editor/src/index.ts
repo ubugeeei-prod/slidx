@@ -44,6 +44,7 @@ export type {
   SlideSummary,
 } from "./client";
 export type { SlideGeometry, RegionBox, BlockBox, Rect } from "./geometry";
+export { readGeometry, BLOCK_ATTRIBUTE, REGION_ATTRIBUTE } from "./geometry";
 export { landing, nudge, guides, arrival } from "./placement";
 export type { EditorState, Selection, Session } from "./session";
 export { createClient } from "./client";

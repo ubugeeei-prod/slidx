@@ -121,6 +121,7 @@ export function createArrange(handlers: ArrangeHandlers, options: ArrangeOptions
 
   function paint(): void {
     if (geometry === undefined) {
+      hide(safe);
       fill(areas, []);
       fill(grips, []);
       return;
@@ -332,6 +333,11 @@ export function createArrange(handlers: ArrangeHandlers, options: ArrangeOptions
           frame = found;
           found.addEventListener("load", refresh);
           root.ownerDocument.defaultView?.addEventListener("resize", refresh);
+          // Switching between the slide and its Markdown is not a change to the
+          // deck, so nothing else here would hear about it.
+          root.ownerDocument
+            .querySelector(".slidx-canvas-toggle")
+            ?.addEventListener("click", refresh);
         }
       }
 

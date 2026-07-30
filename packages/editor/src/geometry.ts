@@ -29,9 +29,16 @@
  * problem, it is being wrong often enough that somebody switches it off.
  */
 
-/** The renderer's own attributes. Defined in `slidx_render::region`. */
-const BLOCK_ATTRIBUTE = "data-slidx-block";
-const REGION_ATTRIBUTE = "data-slidx-region";
+/**
+ * The renderer's own attributes, defined in `slidx_render::region`.
+ *
+ * Exported so the pair can be checked against a page the pipeline really
+ * emitted rather than trusted. A name spelled differently on this side would
+ * report every slide as empty and draw no handles at all — which looks exactly
+ * like a canvas that has not finished loading.
+ */
+export const BLOCK_ATTRIBUTE = "data-slidx-block";
+export const REGION_ATTRIBUTE = "data-slidx-region";
 
 /** A box in the editor's own coordinates. */
 export interface Rect {
@@ -82,11 +89,16 @@ export interface SlideGeometry {
  * Reads the slide in the canvas frame.
  *
  * `undefined` while there is nothing to measure — before the frame has loaded,
- * and on a route that is not a slide. A caller cannot tell an empty slide from
- * an unloaded one any other way, and drawing an overlay over the second would
- * put handles on a page that is not there.
+ * on a route that is not a slide, and while the author has the Markdown view up
+ * instead. A caller cannot tell an empty slide from an absent one any other
+ * way, and an overlay over the second would put handles on text somebody is
+ * typing.
  */
 export function readGeometry(frame: HTMLIFrameElement): SlideGeometry | undefined {
+  // The canvas hides the frame rather than unloading it, so its content is
+  // still there to measure and none of it is on screen.
+  if (frame.closest("[data-editing]")?.getAttribute("data-editing") === "true") return undefined;
+
   const page = frame.contentDocument;
   const slide = page?.querySelector(".slidx-slide");
   const body = page?.querySelector(".slidx-slide-body");

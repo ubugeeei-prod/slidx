@@ -16,6 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
+import { BLOCK_ATTRIBUTE, REGION_ATTRIBUTE } from "@slidx/editor";
 import { createServer, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
@@ -283,6 +284,18 @@ describe("the editor in the dev server", () => {
 
   afterAll(async () => {
     await session?.server.close();
+  });
+
+  it("serves a slide the editor's overlay can find its blocks in", async () => {
+    // The two attributes the renderer writes and the overlay reads are declared
+    // in Rust and again in TypeScript, and a name spelled differently on one
+    // side would report every slide as empty and draw no handles at all — which
+    // looks exactly like a canvas that has not finished loading.
+    const page = await (await fetch(`${session.url}slides/4/`)).text();
+
+    expect(page).toContain(`${REGION_ATTRIBUTE}="left"`);
+    expect(page).toContain(`${REGION_ATTRIBUTE}="right"`);
+    expect(page).toContain(`${BLOCK_ATTRIBUTE}="0"`);
   });
 
   it("writes one line when a block is dragged into a region", async () => {
