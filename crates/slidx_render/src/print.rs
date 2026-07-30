@@ -65,7 +65,7 @@ pub fn render_print(deck: &Deck, options: &PrintOptions) -> String {
                 // the slide inside leaves the rule resolving to `auto` and the
                 // page collapses to the height of its text.
                 r#"  <section class="slidx-page" data-slidx-slide="{index}" data-slidx-stops="{stops}" style="--slidx-slide-width: {width}; --slidx-slide-height: {height}">
-    <article class="slidx-slide" data-slidx-layout="{layout}">
+    <article class="slidx-slide" data-slidx-layout="{layout}"{slide_style}>
       <div class="slidx-slide-body">
 {body}      </div>
       <footer class="slidx-slide-footer">
@@ -77,6 +77,7 @@ pub fn render_print(deck: &Deck, options: &PrintOptions) -> String {
                 index = slide.index,
                 stops = slide.timeline.len(),
                 layout = slide_layout.id,
+                slide_style = crate::slide_style::attribute(slide),
                 width = width,
                 height = height,
                 body = region::body(
@@ -289,6 +290,45 @@ mod tests {
         let page = &html[html.find("slidx-page").unwrap()..];
 
         assert!(page[..300].contains("--slidx-slide-width"));
+    }
+
+    #[test]
+    fn markdown_styles_stay_scoped_to_their_own_printed_slide() {
+        let html = print(concat!(
+            "<style data-slidx>\n",
+            ":root {\n",
+            "  --slidx-color-surface: red;\n",
+            "  --slidx-layout: aside;\n",
+            "}\n",
+            "</style>\n",
+            "\n",
+            "# One\n",
+            "\n",
+            "---\n",
+            "\n",
+            "<style data-slidx>\n",
+            ":root {\n",
+            "  --slidx-color-surface: blue;\n",
+            "  --slidx-layout: split;\n",
+            "}\n",
+            "</style>\n",
+            "\n",
+            "# Two\n",
+        ));
+        let slides: Vec<_> = html
+            .split("<article class=\"slidx-slide\"")
+            .skip(1)
+            .map(|rest| rest.split_once('>').expect("a closed slide element").0)
+            .collect();
+
+        assert_eq!(slides.len(), 2);
+        assert!(slides[0].contains("data-slidx-layout=\"aside\""), "got: {}", slides[0]);
+        assert!(slides[0].contains("--slidx-color-surface: red;"), "got: {}", slides[0]);
+        assert!(!slides[0].contains("blue"), "second style leaked: {}", slides[0]);
+        assert!(slides[1].contains("data-slidx-layout=\"split\""), "got: {}", slides[1]);
+        assert!(slides[1].contains("--slidx-color-surface: blue;"), "got: {}", slides[1]);
+        assert!(!slides[1].contains("red"), "first style leaked: {}", slides[1]);
+        assert!(!html.contains("<style data-slidx>"), "managed source reached the page");
     }
 
     #[test]

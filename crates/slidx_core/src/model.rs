@@ -175,6 +175,13 @@ pub struct Slide {
     pub notes: Vec<String>,
     pub layout: Option<String>,
     pub transition: Option<String>,
+    /// Slide-local CSS custom properties from `<style data-slidx>`.
+    ///
+    /// Stored without the `--slidx-` prefix. The renderer puts them on this
+    /// slide's own element, so two slides with different values stay different
+    /// in the one-document print shell.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub style: std::collections::BTreeMap<String, String>,
     /// Seconds this slide is budgeted, checked against the deck duration.
     pub budget_seconds: Option<u32>,
     /// Safe to skip when running behind. Presenter view marks these.

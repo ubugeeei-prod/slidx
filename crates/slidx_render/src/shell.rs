@@ -82,7 +82,7 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
 </head>
 <body>
 <main class="slidx-deck">
-  <article class="slidx-slide" data-slidx-layout="{slide_layout}" style="--slidx-slide-width: {width}; --slidx-slide-height: {height}">
+  <article class="slidx-slide" data-slidx-layout="{slide_layout}" style="--slidx-slide-width: {width}; --slidx-slide-height: {height};{slide_style}">
     <div class="slidx-slide-body">
 {body}{camera}    </div>
     <footer class="slidx-slide-footer">
@@ -107,6 +107,7 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
         slide_layout = slide_layout.id,
         width = width,
         height = height,
+        slide_style = crate::slide_style::declarations(slide),
         body = body,
         camera = camera_markup(slide, &slide_layout),
         brand = escape(
@@ -652,6 +653,32 @@ mod tests {
         let html = render_slide(&deck, &deck.slides[0], &ShellOptions::default());
 
         assert!(html.contains("data-slidx-layout=\"split\""));
+    }
+
+    #[test]
+    fn markdown_slide_styles_reach_the_slide_element_and_not_the_body() {
+        let html = shell(concat!(
+            "<style data-slidx>\n",
+            ":root {\n",
+            "  --slidx-color-surface: oklch(20% 0.02 260);\n",
+            "  --slidx-layout: aside;\n",
+            "}\n",
+            "</style>\n",
+            "\n",
+            "# One\n",
+        ));
+        let slide = html
+            .split_once("<article class=\"slidx-slide\"")
+            .expect("a slide element")
+            .1
+            .split_once('>')
+            .expect("a closed slide element")
+            .0;
+
+        assert!(slide.contains("data-slidx-layout=\"aside\""), "got: {slide}");
+        assert!(slide.contains("--slidx-color-surface: oklch(20% 0.02 260);"), "got: {slide}");
+        assert!(slide.contains("--slidx-layout: aside;"), "got: {slide}");
+        assert!(!html.contains("<style data-slidx>"), "managed source reached the page");
     }
 
     #[test]
