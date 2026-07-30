@@ -114,6 +114,16 @@ impl Mark {
             return escape_text(&self.text);
         }
 
+        format!("[{}]{{{}}}", escape_text(&self.text), self.attributes_source())
+    }
+
+    /// Canonical attribute list, without the braces around it.
+    ///
+    /// Split out from [`Mark::to_source`] for the formatter, which rewrites
+    /// the attribute group in place and must not touch the marked text: the
+    /// text is prose, and re-emitting it would escape brackets the author
+    /// typed. Both callers therefore agree on the order by construction.
+    pub fn attributes_source(&self) -> String {
         let mut attributes = Vec::new();
 
         if let Some(key) = &self.key {
@@ -126,7 +136,7 @@ impl Mark {
             attributes.push(format!("{name}={}", quote(value)));
         }
 
-        format!("[{}]{{{}}}", escape_text(&self.text), attributes.join(" "))
+        attributes.join(" ")
     }
 }
 

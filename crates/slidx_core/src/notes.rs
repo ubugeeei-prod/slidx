@@ -87,7 +87,7 @@ pub fn find_notes(content: &str) -> Vec<FoundNote> {
         };
 
         let inner = &content[inner_at..close_at];
-        if let Some(keyword) = note_keyword_len(inner.trim()) {
+        if let Some(keyword) = keyword_len(inner.trim()) {
             let leading = inner.len() - inner.trim_start().len();
             let text_at = inner_at + leading + keyword;
             let text = &content[text_at..inner_at + leading + inner.trim().len()];
@@ -110,7 +110,7 @@ pub fn find_notes(content: &str) -> Vec<FoundNote> {
 /// Returns the note text if the comment is a notes comment.
 fn note_body(inner: &str) -> Option<String> {
     let trimmed = inner.trim();
-    let remainder = &trimmed[note_keyword_len(trimmed)?..];
+    let remainder = &trimmed[keyword_len(trimmed)?..];
 
     // Dedent before trimming: trimming first would strip the first line's
     // indentation and make the block look ragged.
@@ -119,10 +119,14 @@ fn note_body(inner: &str) -> Option<String> {
 
 /// Length of the notes keyword opening a comment, or `None` if it has none.
 ///
-/// The one definition of what makes a comment a note; both the reader and the
-/// editor's locator go through it, so they cannot disagree about which
-/// comments belong to the audience and which belong to the speaker.
-fn note_keyword_len(trimmed: &str) -> Option<usize> {
+/// The one definition of what makes a comment a note. The reader, the editor's
+/// locator and the formatter all go through it, so they cannot disagree about
+/// which comments belong to the audience and which belong to the speaker — a
+/// formatter that recognised one the reader does not would rewrite an ordinary
+/// aside into a note.
+///
+/// Takes text with its leading whitespace already removed.
+pub fn keyword_len(trimmed: &str) -> Option<usize> {
     let lowered = trimmed.to_ascii_lowercase();
 
     NOTE_PREFIXES.into_iter().find_map(|prefix| {
