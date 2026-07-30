@@ -14,15 +14,19 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: docs
-  # A half-deployed site is worse than a stale one, and Pages has no rollback.
-  cancel-in-progress: false
+  group: docs-${{ github.ref }}
+  # A newer main commit owns production. It must not be overtaken by an older
+  # build that happened to finish later.
+  cancel-in-progress: true
 
 permissions:
   contents: read
+  # `vpx void deploy` exchanges GitHub's short-lived OIDC identity for a
+  # project-scoped deployment credential. There is no stored deploy token.
+  id-token: write
 
 jobs:
-  # The site is built and checked in one job for the reason the release
+  # The site is checked, built and deployed in one job for the reason the release
   # workflow re-runs CI before publishing: nothing about a push to `main`
   # proves the tree is good, and a documentation site that publishes a dead
   # link is a site nobody trusts twice.
@@ -31,39 +35,26 @@ jobs:
   # every one of them, and fails on a link to a page that does not exist, a
   # page in a section that does not exist, or a placeholder asking for a
   # generated table that nothing generates.
-  build:
-    name: build
+  deploy:
+    name: deploy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
+      - uses: actions/checkout@v6
+      - uses: voidzero-dev/setup-vp@v1
         with:
-          rust: "true"
+          node-version: "24"
+          cache: true
+      - run: vp install --frozen-lockfile
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
 
       - name: Check the pages
         run: cargo test -p slidx_docs
 
       - name: Build the site
-        run: pnpm exec vp run docs:build
+        run: vp run docs:build
 
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs/dist
-
-  deploy:
-    name: deploy
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    permissions:
-      # Mints the OIDC token Pages exchanges for a short-lived deployment
-      # credential, the same arrangement crates.io and npm publishing use in
-      # `release.yml`. No deploy key and no token is stored in this repository.
-      id-token: write
-      pages: write
-    steps:
-      - uses: actions/deploy-pages@v4
-        id: deployment
+      - name: Deploy
+        env:
+          VOID_PROJECT: ${{ vars.VOID_PROJECT }}
+        run: vpx void@0.10.11 deploy --dir docs/dist --project "$VOID_PROJECT"
