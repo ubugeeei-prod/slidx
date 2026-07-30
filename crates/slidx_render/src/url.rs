@@ -93,6 +93,9 @@ mod tests {
 
     #[test]
     fn a_bare_host_is_a_directory_rather_than_a_file_named_after_its_tld() {
-        assert_eq!(resolve("https://example.com", "sitemap.xml"), "https://example.com/sitemap.xml");
+        assert_eq!(
+            resolve("https://example.com", "sitemap.xml"),
+            "https://example.com/sitemap.xml"
+        );
     }
 }

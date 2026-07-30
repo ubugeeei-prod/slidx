@@ -280,7 +280,8 @@ mod tests {
     fn the_speaker_notes_are_preferred_to_the_words_on_the_slide() {
         // The notes are prose about the slide; the slide is often three words
         // and a picture.
-        let source = "# Results\n\n3.2x\n\n<!-- notes:\nThe rewrite paid for itself in a fortnight.\n-->\n";
+        let source =
+            "# Results\n\n3.2x\n\n<!-- notes:\nThe rewrite paid for itself in a fortnight.\n-->\n";
 
         assert_eq!(
             described(source).as_deref(),
@@ -299,10 +300,7 @@ mod tests {
     fn a_slide_with_no_notes_falls_back_to_its_own_first_paragraph() {
         let source = "# Making Decks Fast\n\nA framework for the whole life of a talk.\n";
 
-        assert_eq!(
-            described(source).as_deref(),
-            Some("A framework for the whole life of a talk.")
-        );
+        assert_eq!(described(source).as_deref(), Some("A framework for the whole life of a talk."));
     }
 
     #[test]
@@ -342,7 +340,8 @@ mod tests {
     fn code_is_never_read_as_prose_however_much_of_it_looks_like_english() {
         // A fence full of comments is still code, and the tracker is the one
         // place that knows where the fence ends.
-        let source = "# One\n\n```rust\n// this reads like a sentence\nlet x = 1;\n```\n\nThe real prose.\n";
+        let source =
+            "# One\n\n```rust\n// this reads like a sentence\nlet x = 1;\n```\n\nThe real prose.\n";
 
         assert_eq!(described(source).as_deref(), Some("The real prose."));
     }

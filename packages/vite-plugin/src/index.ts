@@ -23,6 +23,7 @@ import type { Plugin, ViteDevServer } from "vite";
 import { readAssetSizes } from "./assets";
 import { readDeck } from "./deck";
 import { exportPdf, rasteriseCards, reportOverflow } from "./artifacts";
+import { emitCrawlerFiles } from "./crawler";
 import { frameRequested, renderSlideDocuments, renderStopImages } from "./frames";
 import {
   ogFileBase,
@@ -30,8 +31,6 @@ import {
   printFileName,
   resolveOptions,
   runtimeFileName,
-  ROBOTS_FILE_NAME,
-  sitemapFileName,
   slideFileName,
   slideRoute,
   snippetFileName,
@@ -271,30 +270,9 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
         });
       }
 
-      // The list of pages, written by the thing that emitted them. Absent for a
-      // deck nobody has given an address, because a `<loc>` is a full URL and a
-      // relative one makes the file invalid rather than lenient.
-      if (built.sitemap) {
-        this.emitFile({
-          type: "asset",
-          fileName: sitemapFileName(options),
-          source: built.sitemap,
-        });
-      }
-
-      // `robots.txt` is the one file a deck writes outside its own base, and
-      // therefore the one that can belong to somebody else. A project that
-      // already has one keeps it: it is the whole site's file, this plugin owns
-      // a directory of it, and silently replacing it could open a site up as
-      // easily as close it down. The `noindex` on every page is what still
-      // holds in that case, which is why a draft deck says it both ways.
-      if (built.robots && !(await hasOwnRobots(publicDir))) {
-        this.emitFile({
-          type: "asset",
-          fileName: ROBOTS_FILE_NAME,
-          source: built.robots,
-        });
-      }
+      // The sitemap and the robots file, which are the deck describing itself
+      // to something that is not a person.
+      await emitCrawlerFiles(this, built, options, publicDir);
     },
 
     /**
@@ -378,19 +356,6 @@ async function renderDeck(
  */
 function runtimeSrcFor(options: ReturnType<typeof resolveOptions>): string {
   return `/${runtimeFileName(options)}`;
-}
-
-/** Whether the project already ships a `robots.txt` of its own. */
-async function hasOwnRobots(publicDir: string | false): Promise<boolean> {
-  if (publicDir === false) return false;
-
-  const { access } = await import("node:fs/promises");
-  const { join } = await import("node:path");
-
-  return access(join(publicDir, ROBOTS_FILE_NAME)).then(
-    () => true,
-    () => false,
-  );
 }
 
 /** The built runtime, read once. */

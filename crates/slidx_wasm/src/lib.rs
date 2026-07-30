@@ -594,7 +594,8 @@ mod tests {
         // Composed here and written by the caller, like the snippet pages. The
         // one thing that cannot be checked on this side is whether anybody
         // writes them, which the plugin's own build test asserts.
-        let source = "---\ndraft: false\nurl: https://example.com/talk/\n---\n\n# One\n\n---\n\n# Two\n";
+        let source =
+            "---\ndraft: false\nurl: https://example.com/talk/\n---\n\n# One\n\n---\n\n# Two\n";
         let result = build(source, &BuildOptions::default());
 
         let sitemap = result.sitemap.expect("a sitemap");

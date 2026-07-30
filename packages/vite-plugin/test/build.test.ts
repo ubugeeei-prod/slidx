@@ -93,8 +93,8 @@ describe("building a deck with no configuration", () => {
     // a block of JSON in the container the JSON-LD specification chose for it.
     // No browser executes it; `browser.test.ts` checks that in three of them.
     const slide = await readFile(join(result.root, "dist/slides/index.html"), "utf8");
-    expect(slide).not.toContain("<script type=\"module\"");
-    expect(slide.match(/<script/g)).toEqual(['<script']);
+    expect(slide).not.toContain('<script type="module"');
+    expect(slide.match(/<script/g)).toEqual(["<script"]);
     expect(slide).toContain('<script type="application/ld+json">');
   });
 
@@ -166,7 +166,7 @@ describe("building a deck with no configuration", () => {
     // carry are `prev` and `next`, which name the neighbouring slides and are
     // not fetched by anything.
     expect(html).not.toContain('<link rel="stylesheet"');
-    expect(html).not.toContain("<link rel=\"preload\"");
+    expect(html).not.toContain('<link rel="preload"');
   });
 
   it("puts the deck title on every page", async () => {

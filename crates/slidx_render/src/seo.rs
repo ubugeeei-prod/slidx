@@ -195,11 +195,7 @@ pub fn render_robots(deck: &Deck, options: &SeoOptions) -> String {
 /// `<title>`: a preview shows the deck's name separately, and a headline
 /// carrying it twice wastes the only line anybody reads.
 fn page_name(deck: &Deck, slide: &Slide) -> String {
-    slide
-        .title
-        .clone()
-        .or_else(|| deck.meta.title.clone())
-        .unwrap_or_else(|| slide.display_title())
+    slide.title.clone().or_else(|| deck.meta.title.clone()).unwrap_or_else(|| slide.display_title())
 }
 
 /// Where this slide's page lives, absolutely.
@@ -247,7 +243,8 @@ mod tests {
     use super::*;
     use slidx_core::{parse_deck, DeckParseOptions};
 
-    const PUBLISHED: &str = "---\ntitle: Fast Decks\ndraft: false\nurl: https://example.com/talk/\n---\n\n";
+    const PUBLISHED: &str =
+        "---\ntitle: Fast Decks\ndraft: false\nurl: https://example.com/talk/\n---\n\n";
 
     fn published(source: &str) -> SeoOptions {
         let deck = parse_deck(source, &DeckParseOptions::default());
@@ -280,7 +277,8 @@ mod tests {
         // A guessed origin is not a worse version of the right answer. It is a
         // statement that this page belongs somewhere it does not.
         let deck = parse_deck("# One\n", &DeckParseOptions::default());
-        let html = head(&deck, &deck.slides[0], &SeoOptions { cards: true, ..SeoOptions::default() });
+        let html =
+            head(&deck, &deck.slides[0], &SeoOptions { cards: true, ..SeoOptions::default() });
 
         assert!(!html.contains("canonical"), "{html}");
         assert!(!html.contains("og:url"), "{html}");
@@ -402,7 +400,8 @@ mod tests {
         // JSON-LD block is copied into indexes and feeds, where there is no
         // page left to resolve against.
         let deck = parse_deck("# One\n", &DeckParseOptions::default());
-        let html = head(&deck, &deck.slides[0], &SeoOptions { cards: true, ..SeoOptions::default() });
+        let html =
+            head(&deck, &deck.slides[0], &SeoOptions { cards: true, ..SeoOptions::default() });
 
         assert!(html.contains("content=\"og-1.png\""), "the page still points at it:\n{html}");
         assert!(!html.contains("thumbnailUrl"), "{html}");

@@ -224,7 +224,8 @@ mod tests {
         // Frontmatter is optional in this project, so every field here has to
         // be, and the result still has to parse.
         let deck = parse_deck("# One\n", &DeckParseOptions::default());
-        let node = parse(&document(&deck, &deck.slides[0], &Facts { title: "One", ..Facts::default() }));
+        let node =
+            parse(&document(&deck, &deck.slides[0], &Facts { title: "One", ..Facts::default() }));
 
         assert_eq!(node["name"], json!("One"));
         assert!(node.get("url").is_none());
@@ -247,7 +248,8 @@ mod tests {
 
     #[test]
     fn the_speaker_and_the_card_are_carried_when_the_deck_has_them() {
-        let deck = parse_deck("---\nauthor: ubugeeei\n---\n\n# One\n", &DeckParseOptions::default());
+        let deck =
+            parse_deck("---\nauthor: ubugeeei\n---\n\n# One\n", &DeckParseOptions::default());
         let facts = Facts {
             title: "One",
             card: Some("https://example.com/talk/og-1.png"),

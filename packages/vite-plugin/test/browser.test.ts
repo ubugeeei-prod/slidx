@@ -222,7 +222,8 @@ async function measure(engine: Engine, width: number, height: number) {
         // `application/ld+json` is a container for a block of JSON — an unknown
         // type is never executed, and `document.scripts` counts it anyway.
         const executable = [...document.scripts].filter(
-          (script) => script.type === "" || script.type === "module" || /javascript/i.test(script.type),
+          (script) =>
+            script.type === "" || script.type === "module" || /javascript/i.test(script.type),
         );
 
         return {
@@ -409,7 +410,8 @@ describe.each(ENGINES)("%s, on a slide with steps", (engine) => {
         // element holding JSON that nothing runs, and `document.scripts`
         // counts it regardless of type.
         const running = await tab.evaluate(
-          () => [...document.scripts].filter((script) => script.type !== "application/ld+json").length,
+          () =>
+            [...document.scripts].filter((script) => script.type !== "application/ld+json").length,
         );
 
         expect(running).toBe(0);

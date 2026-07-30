@@ -419,7 +419,9 @@ mod tests {
         let deck = parse_deck(STAGED, &DeckParseOptions::default());
         let options = ShellOptions { include_runtime: false, ..ShellOptions::default() };
 
-        assert!(!render_slide(&deck, &deck.slides[0], &options).contains("<script type=\"module\">"));
+        assert!(
+            !render_slide(&deck, &deck.slides[0], &options).contains("<script type=\"module\">")
+        );
     }
 
     #[test]
@@ -435,7 +437,8 @@ mod tests {
         // real browser makes on a real emitted page.
         let html = shell("# Hello\n\n- one\n");
 
-        for marker in ["<link rel=\"stylesheet\"", "src=\"http", "//cdn", "@import url(", "url(http"]
+        for marker in
+            ["<link rel=\"stylesheet\"", "src=\"http", "//cdn", "@import url(", "url(http"]
         {
             assert!(!html.contains(marker), "shell reaches for {marker}:\n{html}");
         }
