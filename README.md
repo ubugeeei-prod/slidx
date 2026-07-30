@@ -92,6 +92,15 @@ frontmatter keys and step presets derived from the Rust enums rather than a
 second list, the deck outline as document symbols, and hover that says what a
 preset costs.
 
+**A formatter that only touches what slidx owns.** Frontmatter key order and
+indentation, the separator's spelling, step marker spelling, the order inside
+`{#key .class}` — and never your prose, your line wrapping, your bullet markers,
+or anything inside a fence. That boundary is structural rather than
+well-intentioned: the formatter emits the same byte-range splice every other
+write does, so the bytes it does not name are never read and never rewritten. A
+formatter that reflowed a paragraph would produce, deliberately and on every
+save, exactly the diff the rest of this pipeline exists to avoid.
+
 **A linter that checks the room, not the monitor.** Contrast through a model of
 projector washout. Font size by the angular size a glyph subtends from the back
 row. Content overflow measured in a real browser. Images blown up past their own
@@ -202,10 +211,10 @@ one line months later and exactly one line of the record changes.
 | Code sharing with QR                                      | **shipped**                                               |
 | Real-time audience channel                                | **shipped**                                               |
 | Timing and rehearsal                                      | **shipped**                                               |
-| CLI — doctor, lint, publish, preview, open, version, tui  | **shipped**                                               |
-| Managed multi-deck index — list, grep, cd                 | **shipped**                                               |
+| CLI — doctor, lint, fmt, dev, publish, preview, version   | **shipped**                                               |
+| Managed multi-deck index — list, grep, cd, open           | **shipped**                                               |
 | Deploy assistance for slide platforms                     | **shipped** (payloads; uploads stay yours)                |
-| Formatter and dialect type check                          | not started — #82                                         |
+| Formatter for the parts slidx owns                        | **shipped**; dialect type check to do — #82               |
 | Custom themes distributable on npm                        | not started — #3                                          |
 | SEO artefacts beyond OG and one URL per slide             | not started — #83                                         |
 | Automatic translation                                     | not started — #84                                         |
@@ -350,15 +359,21 @@ because you would have stopped checking.
 
 ## The `slidx` command
 
-Two jobs, and neither of them is building a deck. One is **the room** — what is
-about to happen to your talk that no editor can see. The other is **the decks
-you already have**, because a speaker who gives four talks a year has four
-repositories and remembers where none of them are.
+Three jobs, and none of them is building a deck. **Writing** one, when you would
+rather not leave the terminal. **The room** — what is about to happen to your
+talk that no editor can see. And **the decks you already have**, because a
+speaker who gives four talks a year has four repositories and remembers where
+none of them are.
+
+```bash
+slidx dev         # write the deck, with the editor open
+slidx fmt         # normalise the parts slidx owns, and nothing else
+slidx tui         # step through a deck's structure in the terminal
+```
 
 ```bash
 slidx doctor      # check the machine you are about to speak from
 slidx lint        # every rule the build runs, exiting non-zero on anything blocking
-slidx tui         # step through a deck's structure in the terminal
 slidx preview     # open the built PDF, or --web to serve the deck on loopback
 slidx publish     # plan, and perform the half that needs no account
 ```
@@ -420,8 +435,18 @@ Prebuilt for macOS on Apple silicon and Intel, Linux on x86-64 and ARM64
 (statically linked, so Alpine works), and Windows on x86-64. Anywhere else,
 `cargo install slidx_cli` builds it.
 
+`dev` and `preview` are easy to confuse and answer different questions. `dev`
+serves your slide files live with the editor at `/__slidx/` and can write to
+them; `preview` serves what the build already produced and never writes
+anything. One shows you the deck you are writing, the other shows you what the
+projector will show.
+
 **There is deliberately no `slidx build`.** That is `@slidx/vite-plugin`'s job,
-and one pipeline is the whole point.
+and one pipeline is the whole point. `slidx dev` is not the exception it looks
+like: it implements no server. It finds your Vite config by walking up from the
+deck, works out which package manager filled `node_modules` by reading the
+lockfile, hands the terminal to `vite dev` with the plugin, and gets out of the
+way. Every byte of HTML still comes from one place.
 
 ## Development
 
