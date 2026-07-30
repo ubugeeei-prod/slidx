@@ -30,7 +30,7 @@
 use std::cmp::Reverse;
 
 /// Where a needle matched, and how well.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Match {
     /// Higher is better. Only comparable between candidates for one needle.
     pub score: i32,
