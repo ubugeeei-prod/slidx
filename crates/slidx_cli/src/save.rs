@@ -36,8 +36,6 @@
 //! of slidx. `--message` overrules it entirely, and `--dry-run` prints what
 //! would be written without writing anything.
 
-pub mod message;
-
 use std::path::{Path, PathBuf};
 
 use slidx_core::{parse_deck, Deck, DeckParseOptions, Summary};
