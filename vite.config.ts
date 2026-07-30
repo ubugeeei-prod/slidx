@@ -338,8 +338,21 @@ export default defineConfig({
 
       // The README images are output of the pipeline, not artwork. Kept as a
       // task so regenerating them is one command and never a manual crop.
-      "preview:deck": uncached("vp exec --filter slidx-example-deck -- vite build"),
+      //
+      // Depends on the plugin, which the example deck imports through its
+      // `exports`. Without that edge, regenerating the images on a clean
+      // checkout fails inside esbuild with "Failed to resolve entry for package
+      // @slidx/vite-plugin" — a message about a bundler, for a missing build.
+      "preview:deck": uncached("vp exec --filter slidx-example-deck -- vite build", {
+        dependsOn: ["build:plugin"],
+      }),
       screenshots: uncached("node scripts/screenshot.mjs", { dependsOn: ["preview:deck"] }),
+
+      // Every picture and recording the documentation site uses, from real
+      // runs: `slidx` under a pty so its own colour survives, and the built
+      // deck driven by the arrow key a remote sends. Needs the built deck for
+      // the same reason the screenshots do.
+      media: uncached("node scripts/record.mjs", { dependsOn: ["preview:deck"] }),
 
       // Benchmarks measure wall-clock time, so a cached result is a wrong one.
       "bench:rust": uncached("cargo bench --workspace"),
