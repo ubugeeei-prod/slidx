@@ -316,6 +316,28 @@ mod tests {
     }
 
     #[test]
+    fn a_blocking_lint_finding_counts_as_blocking() {
+        // It was read off the parse diagnostics alone, before the linter ran,
+        // so a deck that breaks the zero-network guarantee reported that
+        // nothing blocked it. Nothing consumed the field, which is the only
+        // reason it never cost anyone a build that should have failed.
+        let result =
+            build("# One\n\n![a logo](https://example.com/logo.png)\n", &BuildOptions::default());
+
+        assert!(
+            result.diagnostics.iter().any(|finding| finding.severity == "error"),
+            "expected the remote asset to be reported: {:?}",
+            result.diagnostics
+        );
+        assert!(result.has_blocking);
+    }
+
+    #[test]
+    fn a_deck_with_nothing_wrong_blocks_nothing() {
+        assert!(!build("# One\n\n- one\n- two\n", &BuildOptions::default()).has_blocking);
+    }
+
+    #[test]
     fn the_print_shell_carries_its_own_runtime() {
         // A module import fails over `file://` whatever the path says — it is
         // a cross-origin request from a null origin — and the page then never
