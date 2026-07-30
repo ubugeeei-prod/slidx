@@ -267,10 +267,7 @@ fn extension_constant(file: &str, name: &str) -> String {
         .unwrap_or_else(|error| panic!("{file}: {error}"));
     let needle = format!("export const {name} = \"");
 
-    let after = source
-        .split_once(&needle)
-        .unwrap_or_else(|| panic!("{file} declares no {name}"))
-        .1;
+    let after = source.split_once(&needle).unwrap_or_else(|| panic!("{file} declares no {name}")).1;
 
     after.split_once('"').expect("a closing quote").0.to_string()
 }
@@ -281,8 +278,7 @@ fn extension_list(file: &str, name: &str) -> Vec<String> {
         .unwrap_or_else(|error| panic!("{file}: {error}"));
     let needle = format!("export const {name} = [");
 
-    let after =
-        source.split_once(&needle).unwrap_or_else(|| panic!("{file} declares no {name}")).1;
+    let after = source.split_once(&needle).unwrap_or_else(|| panic!("{file} declares no {name}")).1;
     let inside = after.split_once(']').expect("a closing bracket").0;
 
     inside
@@ -311,6 +307,21 @@ fn the_extension_spawns_the_subcommand_this_binary_actually_has() {
 }
 
 #[test]
+fn all_three_editors_start_the_same_one_binary_the_same_one_way() {
+    // Three clients, one command line. Neither the Zed extension nor the
+    // Neovim configuration can be run from here — one needs Zed and the other
+    // needs Neovim — so what is checked is the only thing that could silently
+    // go wrong: the words they spawn.
+    let zed = fs::read_to_string(repository().join("editors/zed/src/lib.rs")).expect("the Zed one");
+    let nvim = fs::read_to_string(repository().join("editors/nvim/lsp/slidx.lua"))
+        .expect("the Neovim one");
+
+    assert!(zed.contains("const BINARY: &str = \"slidx\";"), "Zed spawns something else");
+    assert!(zed.contains("const SERVER: &str = \"lsp\";"), "Zed asks for something else");
+    assert!(nvim.contains(r#"cmd = { "slidx", "lsp" }"#), "Neovim spawns something else");
+}
+
+#[test]
 fn the_glob_the_extension_filters_on_is_the_rule_the_server_enforces() {
     // Two statements of one rule, in two languages. The client's saves the
     // traffic; the server's is what decides — and a client filtering more
@@ -326,7 +337,10 @@ fn the_extension_looks_for_slidx_where_the_installer_puts_it() {
     // differently would run a different binary from the one the author's own
     // terminal runs, which is the failure `slidx version current` exists to
     // report and the one nobody thinks to check.
-    assert_eq!(extension_list("binary.ts", "HOME_VARIABLES"), ["SLIDX_HOME", "XDG_DATA_HOME", "HOME"]);
+    assert_eq!(
+        extension_list("binary.ts", "HOME_VARIABLES"),
+        ["SLIDX_HOME", "XDG_DATA_HOME", "HOME"]
+    );
     assert_eq!(
         extension_list("binary.ts", "WINDOWS_HOME_VARIABLES"),
         ["SLIDX_HOME", "LOCALAPPDATA", "USERPROFILE"]

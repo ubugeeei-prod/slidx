@@ -94,6 +94,22 @@ jobs:
       - run: pnpm exec vp run build:packages
       - run: pnpm exec vp test run packages/vite-plugin/test/browser.test.ts
 
+  # The Zed extension compiles to a target nothing else here uses, in a Cargo
+  # workspace of its own. One runner settles it: it is glue, Zed builds it the
+  # same way on every platform, and asking three runners to install
+  # wasm32-wasip2 would buy nothing. Without this job, a change to it would be
+  # found by whoever next tried to install the extension.
+  zed:
+    name: zed extension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          rust: "true"
+      - run: rustup target add wasm32-wasip2
+      - run: pnpm exec vp run build:zed
+
   # One artifact serves every runtime, and each one instantiates it itself.
   # That path is where they differ, so all three build the same deck and the
   # digests are compared.
@@ -117,7 +133,7 @@ jobs:
   ci:
     name: ci
     if: always()
-    needs: [conventions, rust, typescript, build, browsers, runtimes]
+    needs: [conventions, rust, typescript, build, zed, browsers, runtimes]
     runs-on: ubuntu-latest
     steps:
       - name: Report

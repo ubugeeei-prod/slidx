@@ -76,9 +76,9 @@ fn by_hand(style: &Style) -> String {
          This is the language server. It speaks the language server protocol on stdin\n\
          and stdout and is started by an editor, not by hand — run it here and it would\n\
          wait for a frame your terminal is never going to send.\n\n\
-         The editors that know how to start it are listed in docs/editors.md. What it\n\
-         serves — diagnostics, completion, the deck outline, hover, and formatting — is\n\
-         also what `slidx lint` and `slidx fmt` report from the command line:\n\n\
+         The editors that know how to start it are in docs/content/editors.md. What\n\
+         it serves — diagnostics, completion, the deck outline, hover, and formatting\n\
+         — is also what `slidx lint` and `slidx fmt` report from the command line:\n\n\
          \x20 slidx lint\n\
          \x20 slidx fmt\n",
         style.paint(Ink::Strong, "slidx lsp")
@@ -127,7 +127,7 @@ mod tests {
         let message = by_hand(&Style::plain());
 
         assert!(message.contains("started by an editor"), "{message}");
-        assert!(message.contains("docs/editors.md"), "{message}");
+        assert!(message.contains("docs/content/editors.md"), "{message}");
         assert!(message.contains("slidx lint"), "{message}");
     }
 }

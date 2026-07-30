@@ -201,6 +201,19 @@ export default defineConfig({
         "cargo run -q -p slidx_cli --bin slidx -- lint examples/deck/slides",
         { dependsOn: ["check:rust"] },
       ),
+      // The Zed extension, which is a workspace of its own and a target no
+      // other task uses. Compiling it is the whole check there is: Zed builds
+      // it the same way, and nothing else in this repository links it, so
+      // without this a change to its forty lines of glue would be found by
+      // whoever next tried to install it.
+      //
+      // Not in `ci:rust` — that job runs on three platforms and this needs
+      // `wasm32-wasip2` on each of them to prove something that is true once.
+      // CI gives it a runner of its own; see `.github/workflows/ci.yml`.
+      "build:zed": uncached(
+        "cargo build --release --locked --target wasm32-wasip2 --manifest-path editors/zed/Cargo.toml",
+      ),
+
       "test:rust-verbose": uncached("cargo test --workspace -- --nocapture"),
       "build:rust": uncached("cargo build --workspace --release"),
       "doc:rust": uncached("cargo doc --workspace --no-deps"),

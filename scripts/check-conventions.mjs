@@ -24,7 +24,7 @@ import { implementation } from "./rust-source.mjs";
 const SOFT_LINE_LIMIT = 400;
 
 /** Directories that hold source we wrote. */
-const SOURCE_ROOTS = ["crates", "packages", "scripts"];
+const SOURCE_ROOTS = ["crates", "editors", "packages", "scripts"];
 
 const failures = [];
 const warnings = [];

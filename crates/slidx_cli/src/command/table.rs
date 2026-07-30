@@ -120,8 +120,8 @@ on.
 
 An EDITOR runs this, not a person. It takes no arguments and reads no
 configuration — an editor starts it and everything else is protocol — and typed
-at a prompt it says so rather than waiting for a frame that is not coming.
-docs/editors.md has the configuration for VS Code, Zed and Neovim.
+at a prompt it says so rather than waiting for a frame that is not coming. The
+configuration for VS Code, Zed and Neovim is in docs/content/editors.md.
 
 It serves Markdown under a slides directory and nothing else. A deck is
 Markdown and most Markdown is not a deck, so a language server that claimed
