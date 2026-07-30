@@ -16,7 +16,7 @@
 //! back with `id:` in that slide's frontmatter — which means no noise at all
 //! when nothing moved, and a pin exactly where one is needed.
 
-use slidx_core::{parse_deck, DeckParseOptions};
+use slidx_core::{find_marks, parse_deck, DeckParseOptions};
 use slidx_edit::{Edit, EditBuilder, EditOp, SlideRef};
 
 use crate::catalogue::Catalogue;
@@ -30,8 +30,17 @@ pub enum Problem {
     /// A translation left out a placeholder, so the markup it stood for would
     /// have been dropped with it.
     DroppedPlaceholder { context: String, placeholder: usize, stood_for: String },
+    /// A translation kept every placeholder and still stopped a mark being one.
+    ///
+    /// `[3.2x faster]%1` becomes a mark again only while the bracket and the
+    /// braces stay next to each other. A translation that put a word between
+    /// them leaves the key visible in the file and invisible to the parser,
+    /// which is the same silent failure by another route.
+    LostMark { context: String, key: String },
     /// A catalogue entry the deck has no segment for any more.
     Stale { context: String },
+    /// The deck's ids could not be pinned, so a translated heading moves a slide.
+    CouldNotPin,
 }
 
 impl std::fmt::Display for Problem {
@@ -42,9 +51,20 @@ impl std::fmt::Display for Problem {
                 "{context}: the translation left out %{placeholder}, which stands for \
                  `{stood_for}`. Put it back — slidx will not write this string without it."
             ),
-            Self::Stale { context } => {
-                write!(out, "{context}: the deck no longer has this string. Re-run `slidx i18n extract`.")
-            }
+            Self::LostMark { context, key } => write!(
+                out,
+                "{context}: the translation separated `[…]` from the placeholder after it, so \
+                 `#{key}` stops being a mark. Keep the placeholder against the closing bracket."
+            ),
+            Self::Stale { context } => write!(
+                out,
+                "{context}: the deck no longer has this string. Re-run `slidx i18n extract`."
+            ),
+            Self::CouldNotPin => write!(
+                out,
+                "the translated deck's slide ids could not be pinned, so a link into it may not \
+                 resolve. Give the slides an `id:` of their own before translating."
+            ),
         }
     }
 }
@@ -134,11 +154,8 @@ pub fn plan(source: &str, options: &DeckParseOptions, catalogue: &Catalogue) -> 
             continue;
         }
 
-        match restore(&entry.target, &segment.protected) {
-            Ok(text) => {
-                builder.replace(segment.span, written(segment, &text));
-                translated += 1;
-            }
+        let text = match restore(&entry.target, &segment.protected) {
+            Ok(text) => text,
             Err(placeholder) => {
                 problems.push(Problem::DroppedPlaceholder {
                     context: segment.context.clone(),
@@ -146,8 +163,18 @@ pub fn plan(source: &str, options: &DeckParseOptions, catalogue: &Catalogue) -> 
                     stood_for: segment.protected[placeholder - 1].clone(),
                 });
                 untranslated += 1;
+                continue;
             }
+        };
+
+        if let Some(key) = mark_lost(segment.span.slice(source), &text) {
+            problems.push(Problem::LostMark { context: segment.context.clone(), key });
+            untranslated += 1;
+            continue;
         }
+
+        builder.replace(segment.span, written(segment, &text));
+        translated += 1;
     }
 
     for entry in &catalogue.entries {
@@ -157,16 +184,65 @@ pub fn plan(source: &str, options: &DeckParseOptions, catalogue: &Catalogue) -> 
     }
 
     let edit = builder.build();
-    let fields = fields_for(source, &edit.apply(source), options, catalogue);
+    let translated_text = edit.apply(source);
+    let wanted = ids(source, options);
 
-    Plan {
-        edit,
-        fields,
-        options: options.clone(),
-        problems,
-        translated,
-        untranslated,
+    // Frontmatter written into a deck that had none moves where the parser
+    // thinks the first slide begins, on a source whose body opens with a
+    // separator. These fields exist only to keep the deck's addresses, so a set
+    // of them that moves one is not written: the deck-level keys go first,
+    // because they are the ones that can create a block at byte zero, and if
+    // that is still not enough the author is told rather than shipped a deck at
+    // addresses nobody published.
+    let full = fields_for(source, &translated_text, options, catalogue);
+    let pins: Vec<EditOp> = full.iter().filter(|op| is_pin(op)).cloned().collect();
+
+    let (fields, pinned) = [full, pins, Vec::new()]
+        .into_iter()
+        .find_map(|candidate| {
+            let out = replay(&translated_text, options, &candidate);
+            (ids(&out, options) == wanted).then_some((candidate, true))
+        })
+        .unwrap_or_else(|| (Vec::new(), false));
+
+    if !pinned {
+        problems.push(Problem::CouldNotPin);
     }
+
+    Plan { edit, fields, options: options.clone(), problems, translated, untranslated }
+}
+
+/// Every slide id, in order.
+fn ids(source: &str, options: &DeckParseOptions) -> Vec<String> {
+    parse_deck(source, options).slides.into_iter().map(|slide| slide.id).collect()
+}
+
+fn is_pin(op: &EditOp) -> bool {
+    matches!(op, EditOp::SetField { key, .. } if key == "id")
+}
+
+/// The text with a run of field operations applied, exactly as [`Plan::apply`]
+/// will apply them.
+fn replay(source: &str, options: &DeckParseOptions, fields: &[EditOp]) -> String {
+    fields.iter().fold(source.to_string(), |text, op| {
+        slidx_edit::apply(&text, options, op).unwrap_or(text)
+    })
+}
+
+/// A mark key the source declares and the translation no longer does.
+///
+/// Restoring the placeholders puts the exact bytes of `{#latency}` back, and
+/// that is still not enough: a mark is `[text]{…}` with nothing between them, so
+/// a translation that wrote a word after the closing bracket leaves a key that
+/// is in the file and not in the deck. Checked against the parser rather than
+/// against a rule of thumb, because the parser is what decides.
+fn mark_lost(source: &str, translated: &str) -> Option<String> {
+    let keys = |text: &str| -> Vec<String> {
+        find_marks(text).into_iter().filter_map(|found| found.mark.key).collect()
+    };
+
+    let after = keys(translated);
+    keys(source).into_iter().find(|key| !after.contains(key))
 }
 
 /// Moves every mark to where an edit puts it.
@@ -388,6 +464,49 @@ mod tests {
 
         assert!(message.contains("{#latency}"), "{message}");
         assert!(message.contains("%1"), "{message}");
+    }
+
+    #[test]
+    fn a_translation_that_kept_the_key_and_still_stopped_it_being_a_mark_is_refused() {
+        // The second way to lose an animation, and it passes the placeholder
+        // check: `[3.2x faster]%1` is a mark only while the bracket and the
+        // braces stay next to each other. A word between them leaves `#result`
+        // in the file and out of the deck.
+        let source = "The result was [3.2x faster]{#result}.\n";
+        let cat = catalogue(&[(
+            "slide-1/body/1",
+            "The result was [3.2x faster]%1.",
+            "結果は [3.2倍速く] という %1 でした。",
+        )]);
+        let planned = plan(source, &options(), &cat);
+
+        assert_eq!(planned.apply(source), source, "the source is left alone");
+        assert!(matches!(planned.problems.first(), Some(Problem::LostMark { .. })));
+    }
+
+    #[test]
+    fn a_lost_mark_is_reported_by_the_key_that_would_have_gone_missing() {
+        let source = "The result was [3.2x faster]{#result}.\n";
+        let cat = catalogue(&[(
+            "slide-1/body/1",
+            "The result was [3.2x faster]%1.",
+            "結果は [3.2倍速く] の %1 です。",
+        )]);
+
+        assert!(plan(source, &options(), &cat).problems[0].to_string().contains("#result"));
+    }
+
+    #[test]
+    fn a_pin_that_would_change_the_deck_is_withheld_and_reported() {
+        // A deck with no frontmatter whose body opens on a separator cannot be
+        // given a block without moving where its first slide starts. Writing the
+        // pin anyway would trade one broken address for a broken deck.
+        let source = "\n---\n# 見出し\n";
+        let cat = catalogue(&[("見出し/heading", "見出し", "Heading")]);
+        let planned = plan(source, &options(), &cat);
+
+        assert!(planned.problems.contains(&Problem::CouldNotPin));
+        assert!(!planned.apply(source).contains("id:"));
     }
 
     #[test]

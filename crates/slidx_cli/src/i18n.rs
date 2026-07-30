@@ -28,7 +28,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use slidx_core::DeckParseOptions;
-use slidx_i18n::{Catalogue, Plan, Problem};
+use slidx_i18n::{Catalogue, Plan};
 
 use crate::args::Matches;
 use crate::lint::source::{self, DeckSource};

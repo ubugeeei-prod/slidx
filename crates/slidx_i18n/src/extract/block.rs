@@ -99,11 +99,17 @@ fn classify(line: &str) -> (std::ops::Range<usize>, Join) {
     let trimmed = line.trim_start();
     let indent = line.len() - trimmed.len();
 
-    // A table row is one block, pipes included. Per cell would give a translator
-    // one word with no sentence around it, and a missing pipe is visible in the
-    // rendered table — unlike a missing mark key.
+    // A table row is one block, and the pipes that open and close it are
+    // structure in the same way a bullet's `- ` is. Leaving them in would let a
+    // translation move the leading one, after which the line is no longer a
+    // table row — and the next pass would fold it into the paragraph above.
+    // The interior pipes stay, because they separate cells a translator has to
+    // keep apart.
     if trimmed.starts_with('|') {
-        return (indent..end, Join::Open);
+        let inner = trimmed[1..].trim_end();
+        let close = usize::from(inner.ends_with('|'));
+
+        return (indent + 1..end - close, Join::Open);
     }
 
     if let Some(marker) = trimmed.strip_prefix('>') {
@@ -216,13 +222,19 @@ mod tests {
     }
 
     #[test]
-    fn a_table_row_is_one_block_including_its_pipes() {
+    fn a_table_row_is_one_block_without_the_pipes_that_open_and_close_it() {
         // Per cell would hand a translator one word with no sentence around it.
-        // The row of rules is a block too, and is dropped later for having no
-        // words in it once its markup is masked.
+        // The outer pipes are structure, and a translation that moved the first
+        // one would stop the line being a table row at all. The row of rules is
+        // a block too, and is dropped later for having no words in it.
         let body = "| Rule | Catches |\n| ---- | ------- |\n| `a`  | b       |";
 
-        assert_eq!(texts(body), ["| Rule | Catches |", "| ---- | ------- |", "| `a`  | b       |"]);
+        assert_eq!(texts(body), [" Rule | Catches ", " ---- | ------- ", " `a`  | b       "]);
+    }
+
+    #[test]
+    fn a_table_row_missing_its_closing_pipe_is_still_a_row() {
+        assert_eq!(texts("| Rule | Catches"), [" Rule | Catches"]);
     }
 
     #[test]

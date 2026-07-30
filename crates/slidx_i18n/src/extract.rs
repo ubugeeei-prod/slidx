@@ -17,6 +17,7 @@ mod block;
 
 use slidx_core::notes::find_notes;
 use slidx_core::parser::split;
+use slidx_core::scanner::FenceTracker;
 use slidx_core::{parse_deck, ByteSpan, DeckParseOptions};
 
 use crate::protect::mask;
@@ -76,7 +77,8 @@ fn meta_segments(source: &str, block: ByteSpan) -> Vec<Segment> {
 /// One slide's headings, prose, and notes.
 fn slide_segments(source: &str, body: ByteSpan, slide: &str, first_line: u32) -> Vec<Segment> {
     let text = body.slice(source);
-    let notes = find_notes(text);
+    let notes: Vec<_> =
+        find_notes(text).into_iter().filter(|note| !inside_a_fence(text, note.span.start)).collect();
     let note_spans: Vec<ByteSpan> = notes.iter().map(|note| note.span).collect();
 
     let mut found = Vec::new();
@@ -149,6 +151,27 @@ pub(crate) fn plain_scalar(value: &str) -> Option<String> {
             None => Some(trimmed.to_string()),
         },
     }
+}
+
+/// True when `offset` sits inside a fenced code block.
+///
+/// `find_notes` is not fence-aware, and a talk about slidx shows a notes comment
+/// inside a fence on purpose. Translating that one would rewrite the sample the
+/// slide is teaching from.
+fn inside_a_fence(body: &str, offset: usize) -> bool {
+    let mut fences = FenceTracker::new();
+    let mut cursor = 0usize;
+
+    for line in body.split_inclusive('\n') {
+        let prose = fences.feed(line.trim_end_matches(['\n', '\r']));
+        cursor += line.len();
+
+        if offset < cursor {
+            return !prose;
+        }
+    }
+
+    false
 }
 
 /// The one-based line `offset` falls on.
