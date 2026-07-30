@@ -78,6 +78,29 @@ in CI. `path` is a deck file or a directory of slide files, and defaults to
         ],
     ),
     leaf(
+        "fmt",
+        "normalise the parts of a deck slidx owns",
+        "fmt [path] [options]",
+        "\
+Rewrites frontmatter key order and indentation, the slide separator's
+spelling, step marker spelling, the attribute order inside a mark's braces,
+and the shape of a notes comment. `path` is a deck file or a directory of
+slide files, and defaults to ./slides.
+
+It is NOT a Markdown formatter and will not become one. Your prose, your line
+wrapping, your bullet markers, your table alignment and everything inside a
+fenced code block come out byte for byte, because slidx does not own them and
+a diff nobody asked for is how a tool loses the right to touch a file.
+
+--check writes nothing and exits non-zero when a file is not already
+formatted, which is the form for CI. Each file is formatted on its own, so a
+deck kept as one file per slide stays that way.",
+        &[
+            Flag::switch("check", "Write nothing; exit non-zero if a file would change"),
+            Flag::taking("separator", "<text>", "Slide separator in a single-file deck"),
+        ],
+    ),
+    leaf(
         "open",
         "find a deck this machine has seen",
         "open [query] [options]",

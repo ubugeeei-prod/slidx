@@ -84,21 +84,39 @@ pub fn extract_step_markers(content: &str, next_id: &mut u32) -> StagedContent {
     StagedContent { content: body, actions }
 }
 
-fn parse_marker(inner: &str) -> Option<Option<EffectPreset>> {
+/// The preset a step marker names, as the author wrote it.
+///
+/// `Some("")` for a bare `<!-- step -->`, `None` when the comment is not a
+/// marker at all. Takes the text between `<!--` and `-->`.
+///
+/// Public because the formatter canonicalises a marker's spelling and must
+/// recognise exactly the markers this does — one that saw a marker the parser
+/// does not would rewrite an ordinary HTML comment into one, and one that
+/// missed a marker would leave two spellings in the file.
+pub fn marker_body(inner: &str) -> Option<&str> {
     let trimmed = inner.trim();
     let remainder = trimmed.strip_prefix("step")?;
-    let remainder = remainder.trim_start_matches(':').trim();
+
+    // Whitespace before the colon is stripped first, so `step : fly-in` names
+    // the preset it plainly means rather than one called `: fly-in`.
+    let remainder = remainder.trim_start().trim_start_matches(':').trim();
 
     if remainder.is_empty() {
-        return Some(None);
+        return Some("");
     }
 
     // `<!-- stepper -->` must not match; only a separator may follow `step`.
-    if !trimmed[4..].starts_with([':', ' ', '\t']) {
-        return None;
+    trimmed[4..].starts_with([':', ' ', '\t']).then_some(remainder)
+}
+
+fn parse_marker(inner: &str) -> Option<Option<EffectPreset>> {
+    let body = marker_body(inner)?;
+
+    if body.is_empty() {
+        return Some(None);
     }
 
-    Some(serde_json::from_value(serde_json::Value::String(remainder.to_string())).ok())
+    Some(serde_json::from_value(serde_json::Value::String(body.to_string())).ok())
 }
 
 fn reveal_anchor(id: u32, preset: Option<EffectPreset>) -> StepAction {
@@ -249,6 +267,28 @@ mod tests {
         let result = stage("- one <!-- step: sparkle -->");
         assert_eq!(result.actions.len(), 1, "the step still happens");
         assert_eq!(result.actions[0].options().preset, None);
+    }
+
+    #[test]
+    fn whitespace_around_the_colon_does_not_cost_an_author_their_preset() {
+        // `step : fly-in` plainly names `fly-in`. Reading it as a preset called
+        // `: fly-in` loses the animation and reports nothing.
+        for spelling in ["step: fly-in", "step:fly-in", "step : fly-in", "step  :  fly-in"] {
+            let result = stage(&format!("- one <!-- {spelling} -->"));
+            assert_eq!(result.actions[0].options().preset, Some(EffectPreset::FlyIn), "{spelling}");
+        }
+    }
+
+    #[test]
+    fn the_body_of_a_marker_is_the_text_the_author_wrote() {
+        // What the formatter canonicalises from. A preset slidx does not know
+        // has to survive as the name it was written with, or a typo is deleted
+        // rather than reported.
+        assert_eq!(marker_body(" step "), Some(""));
+        assert_eq!(marker_body("step:fly-in"), Some("fly-in"));
+        assert_eq!(marker_body(" step: sparkle "), Some("sparkle"));
+        assert_eq!(marker_body(" stepper "), None);
+        assert_eq!(marker_body(" notes: hi "), None);
     }
 
     #[test]

@@ -75,14 +75,13 @@ mod slide;
 mod source;
 mod step;
 
-pub use edit::{Edit, Splice};
+pub use edit::{Edit, EditBuilder, Splice};
 pub use op::{EditError, EditOp, MarkAttributes, MarkRef, SlideRef};
 
 use serde::{Deserialize, Serialize};
 
 use slidx_core::{ByteSpan, DeckParseOptions};
 
-use edit::EditBuilder;
 use source::DeckSource;
 
 /// Works out which bytes an operation changes, without changing them.

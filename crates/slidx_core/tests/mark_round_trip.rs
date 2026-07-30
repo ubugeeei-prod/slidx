@@ -184,6 +184,34 @@ fn ranges_point_at_the_exact_source_the_mark_occupies() {
 }
 
 #[test]
+fn the_attribute_group_is_located_apart_from_the_text_it_annotates() {
+    // What lets a formatter reorder attributes without re-emitting the marked
+    // text. The text is prose: serialising it would escape brackets the author
+    // typed on purpose, which is the diff the whole round-trip law exists to
+    // prevent.
+    let source = "A [a [nested] b]{color=danger #k .accent} here.";
+    let found = &find_marks(source)[0];
+
+    assert_eq!(&source[found.attributes_start..found.end], "{color=danger #k .accent}");
+    assert_eq!(found.mark.attributes_source(), "#k .accent color=danger");
+}
+
+#[test]
+fn the_attribute_list_is_the_part_of_a_canonical_mark_inside_the_braces() {
+    // Two callers, one order. A formatter that built its own list could sort
+    // properties differently from the editor, and the two would then fight over
+    // the same line every time they took turns.
+    let mut rng = Rng(0x5115_D000_0000_0003);
+
+    for case in 0..500 {
+        let mark = generate(&mut rng);
+        let group = format!("{{{}}}", mark.attributes_source());
+
+        assert!(mark.to_source().ends_with(&group), "case {case}: {group} is not how it ends");
+    }
+}
+
+#[test]
 fn nested_brackets_inside_the_text_are_balanced() {
     let found = find_marks("[a [nested] b]{#k}");
 

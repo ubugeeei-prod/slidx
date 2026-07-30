@@ -578,6 +578,27 @@ mod tests {
     }
 
     #[test]
+    fn every_documented_key_has_a_place_in_the_formatter_s_canonical_order() {
+        // Two tables, and only one of them decides what order a frontmatter
+        // block comes out in. A key documented here and missing there would
+        // silently sort to the bottom of every block it appears in, which is a
+        // drift nobody would report — it looks like a formatting preference.
+        //
+        // A subsequence rather than an equality: `slidx_fmt` also ranks keys
+        // read by the linter and by `slidx publish`, which are not offered as
+        // completions because nothing in this crate documents them yet.
+        let mut order = slidx_fmt::frontmatter::ORDER.iter();
+
+        for key in KEYS {
+            assert!(
+                order.any(|ranked| *ranked == key.name),
+                "`{}` is documented but the formatter does not rank it in order",
+                key.name
+            );
+        }
+    }
+
+    #[test]
     fn every_key_says_what_it_expects() {
         for key in KEYS {
             assert!(!key.summary.is_empty(), "{} says nothing", key.name);

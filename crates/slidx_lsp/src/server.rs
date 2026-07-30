@@ -25,6 +25,7 @@ use serde_json::{json, Value};
 use crate::completion::complete;
 use crate::diagnostics::publish;
 use crate::document::{ContentChange, DocumentStore};
+use crate::formatting::format;
 use crate::hover::hover;
 use crate::position::{Position, PositionEncoding};
 use crate::protocol::{error_code, Message, RequestId};
@@ -147,6 +148,15 @@ impl Server {
                         .map_or(Value::Null, |hovered| json!(hovered)),
                 )
             }),
+            // Reads no analysis: the formatter works from the source, and a
+            // document with a half-typed fence in it is exactly the one an
+            // author is most likely to save.
+            "textDocument/formatting" => self.feature(id, params, |server, _, uri| {
+                let encoding = server.encoding;
+                let document = server.store.get(uri)?;
+
+                Some(json!(format(document.text(), document.index(), encoding)))
+            }),
             "textDocument/documentSymbol" => self.feature(id, params, |server, _, uri| {
                 let encoding = server.encoding;
                 let document = server.store.get_mut(uri)?;
@@ -241,6 +251,10 @@ impl Server {
                 "completionProvider": { "triggerCharacters": [":", "{", ".", "#"] },
                 "documentSymbolProvider": true,
                 "hoverProvider": true,
+                // Whole-document only. A range format would have to decide what
+                // a partly-selected construct means, and there is no honest
+                // answer for half a frontmatter block.
+                "documentFormattingProvider": true,
             },
             "serverInfo": { "name": SERVER_NAME, "version": env!("CARGO_PKG_VERSION") },
         })
@@ -334,8 +348,38 @@ mod tests {
         assert_eq!(capabilities["textDocumentSync"]["change"], 2, "incremental");
         assert_eq!(capabilities["documentSymbolProvider"], true);
         assert_eq!(capabilities["hoverProvider"], true);
+        assert_eq!(capabilities["documentFormattingProvider"], true);
         assert!(capabilities["completionProvider"].is_object());
         assert_eq!(result["serverInfo"]["name"], SERVER_NAME);
+    }
+
+    #[test]
+    fn formatting_answers_with_the_edits_the_document_needs() {
+        let mut server = session("---\ntheme: minimal\ntitle: T\n---\n\n- a <!--step-->\n");
+        let edits = ask(&mut server, "textDocument/formatting", at(0, 0));
+
+        assert_eq!(edits.as_array().unwrap().len(), 2, "{edits}");
+        assert!(edits.as_array().unwrap().iter().any(|edit| edit["newText"] == "<!-- step -->"));
+    }
+
+    #[test]
+    fn formatting_a_document_that_is_already_formatted_answers_with_nothing_to_do() {
+        // An empty list, not a whole-file replacement. A client handed one of
+        // those on every save moves the cursor and collapses the undo stack.
+        let mut server = session("---\ntitle: T\n---\n\n# One\n");
+
+        assert_eq!(ask(&mut server, "textDocument/formatting", at(0, 0)), json!([]));
+    }
+
+    #[test]
+    fn formatting_reads_the_edits_a_burst_of_typing_left_behind() {
+        // Formatting must not depend on `flush` having run: an editor formats on
+        // save, which is one keystroke after the last change.
+        let mut server = session("# One\n");
+        server.handle(change(2, "# One\n\n- a <!--step-->\n"));
+
+        let edits = ask(&mut server, "textDocument/formatting", at(0, 0));
+        assert_eq!(edits[0]["newText"], "<!-- step -->");
     }
 
     #[test]

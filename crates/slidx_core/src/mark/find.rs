@@ -16,6 +16,13 @@ pub struct FoundMark {
     pub mark: Mark,
     pub start: usize,
     pub end: usize,
+    /// Byte offset of the `{` that opens the attribute group.
+    ///
+    /// `attributes_start..end` is the only part of a mark a formatter is
+    /// allowed to rewrite. Everything between the brackets is the author's
+    /// prose, and re-emitting it would re-escape brackets they typed
+    /// themselves.
+    pub attributes_start: usize,
 }
 
 /// Finds every mark in a string, in source order.
@@ -65,7 +72,12 @@ pub fn find_marks(source: &str) -> Vec<FoundMark> {
             continue;
         };
 
-        marks.push(FoundMark { mark, start: index, end: attributes_end + 1 });
+        marks.push(FoundMark {
+            mark,
+            start: index,
+            end: attributes_end + 1,
+            attributes_start: text_end + 1,
+        });
         index = attributes_end + 1;
     }
 

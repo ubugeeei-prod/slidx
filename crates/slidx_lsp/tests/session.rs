@@ -150,6 +150,39 @@ fn an_edit_expressed_in_utf16_columns_lands_where_the_editor_meant_it() {
 }
 
 #[test]
+fn formatting_a_japanese_deck_returns_edits_the_editor_can_apply() {
+    // The whole point of doing this over the wire: a splice is a byte range and
+    // a `TextEdit` is a pair of UTF-16 columns. Applying the reply has to give
+    // back what the formatter would have written to the file, or `slidx fmt` in
+    // CI and the editor on save fight over the same line.
+    let mut server = opened();
+    exchange(
+        &mut server,
+        Message::notification(
+            "textDocument/didChange",
+            json!({
+                "textDocument": { "uri": URI, "version": 2 },
+                "contentChanges": [{
+                    "text": "---\ntheme: terminal\ntitle: 高速なデッキ\n---\n\n\
+                             # 導入\n\n- 速い <!--step-->\n\n結果は [3.2倍速く]{color=danger #結果}\n",
+                }],
+            }),
+        ),
+    );
+
+    let replies = exchange(&mut server, request(3, "textDocument/formatting", at(0, 0)));
+    let edits = result(&replies);
+
+    assert_eq!(edits.as_array().unwrap().len(), 3, "{edits}");
+
+    // The mark's attribute group, on a line whose kanji are three bytes each.
+    let mark = &edits[2];
+    assert_eq!(mark["range"]["start"]["line"], 9);
+    assert_eq!(mark["range"]["start"]["character"], 12);
+    assert_eq!(mark["newText"], "{#結果 color=danger}");
+}
+
+#[test]
 fn a_deck_with_a_problem_publishes_it_once_the_typing_stops() {
     let mut server = Server::new();
     exchange(&mut server, request(1, "initialize", json!({})));

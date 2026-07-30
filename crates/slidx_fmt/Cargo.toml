@@ -1,0 +1,13 @@
+[package]
+name = "slidx_fmt"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Normalises the parts of a deck slidx owns, and leaves the author's prose alone"
+
+[dependencies]
+slidx_core = { workspace = true }
+slidx_edit = { workspace = true }
+serde_yaml = { workspace = true }

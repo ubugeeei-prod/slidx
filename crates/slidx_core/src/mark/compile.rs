@@ -20,7 +20,7 @@ pub fn compile_marks(source: &str, next_key: &mut u32) -> String {
     let mut out = String::with_capacity(source.len() + found.len() * 48);
     let mut cursor = 0usize;
 
-    for FoundMark { mark, start, end } in found {
+    for FoundMark { mark, start, end, .. } in found {
         out.push_str(&source[cursor..start]);
         out.push_str(&compile(&mark, next_key));
         cursor = end;
@@ -75,7 +75,7 @@ pub fn strip_marks(source: &str) -> String {
     let mut out = String::with_capacity(source.len());
     let mut cursor = 0usize;
 
-    for FoundMark { mark, start, end } in found {
+    for FoundMark { mark, start, end, .. } in found {
         out.push_str(&source[cursor..start]);
         out.push_str(&mark.text);
         cursor = end;

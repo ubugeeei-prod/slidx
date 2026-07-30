@@ -95,18 +95,22 @@ impl Edit {
 /// Holding the source is what lets the builder drop a replacement that changes
 /// nothing, which is how every operation gets to be idempotent without each
 /// planner remembering to check.
+///
+/// Public because `slidx_fmt` is an operation planner too: a formatter that
+/// built its own splices would be a second answer to what a byte-range change
+/// is, and would have to re-derive idempotence for itself.
 #[derive(Debug)]
-pub(crate) struct EditBuilder<'a> {
+pub struct EditBuilder<'a> {
     source: &'a str,
     splices: Vec<Splice>,
 }
 
 impl<'a> EditBuilder<'a> {
-    pub(crate) fn new(source: &'a str) -> Self {
+    pub fn new(source: &'a str) -> Self {
         Self { source, splices: Vec::new() }
     }
 
-    pub(crate) fn replace(&mut self, span: ByteSpan, text: impl Into<String>) {
+    pub fn replace(&mut self, span: ByteSpan, text: impl Into<String>) {
         let text = text.into();
         if span.slice(self.source) == text {
             return;
@@ -115,15 +119,15 @@ impl<'a> EditBuilder<'a> {
         self.splices.push(Splice { span, text });
     }
 
-    pub(crate) fn insert(&mut self, at: usize, text: impl Into<String>) {
+    pub fn insert(&mut self, at: usize, text: impl Into<String>) {
         self.replace(ByteSpan::empty(at), text);
     }
 
-    pub(crate) fn delete(&mut self, span: ByteSpan) {
+    pub fn delete(&mut self, span: ByteSpan) {
         self.replace(span, "");
     }
 
-    pub(crate) fn build(mut self) -> Edit {
+    pub fn build(mut self) -> Edit {
         self.splices.sort_by_key(|splice| splice.span.start);
         debug_assert!(
             self.splices.windows(2).all(|pair| pair[0].span.end <= pair[1].span.start),
