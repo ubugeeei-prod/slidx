@@ -86,6 +86,26 @@ configuration is `plugins: [slidx()]`. `node scripts/screenshot.mjs` regenerates
 it, so an image that stopped being true fails to reproduce rather than quietly
 misleading.
 
+## The editor
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/media/editor-arrange-dark.png">
+  <img alt="A paragraph dragged from the left column of a slide into the right one, while the Markdown file beside it gains the line {.right}" src="./docs/media/editor-arrange-light.png">
+</picture>
+
+`vp dev` serves it at `/__slidx/`, over the deck it is already serving. The
+canvas is the deck's own page rather than a preview of it, and the file beside
+it is the file on disk — so one drag is one operation, one press of undo, and
+one line in the diff.
+
+Text is edited where it sits, and a block's width is a share of its region
+rather than a length, so a resize still means something at 4:3. Nothing reloads:
+the slide is swapped in place, and your caret stays where it was.
+
+`node scripts/record-editor.mjs` regenerates that recording by performing the
+drag again — so a gesture that stopped working fails to reproduce rather than
+showing something that no longer happens.
+
 ## The CLI
 
 Separate from the plugin, and optional. Twenty-one commands; these are the ones
