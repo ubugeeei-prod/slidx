@@ -95,9 +95,9 @@ The failures that are invisible on a laptop and fatal on a projector.
 - [x] Animation cost: effects that will not stay on the compositor — #7
 - [x] Time budget: per-slide budgets summed against the slot length — #7
 - [x] `slidx doctor` — power, disk, clock, fonts, capture, network — #8
-- [ ] Image resolution reachable from `vite build` — the rule reads files and
-      the WebAssembly boundary has no filesystem, so today it runs from the CLI
-      and not from a build — #7
+- [x] Image resolution reachable from `vite build` — the plugin reads the
+      headers and hands over the sizes, because the WebAssembly boundary has no
+      filesystem to read them itself — #7
 - [ ] Doctor: display resolution, DND state, audio levels — no portable reading
       exists, and a guess about whether Do Not Disturb is on is worse than
       silence — #8
@@ -162,8 +162,8 @@ Everything between walking up and sitting down.
 - [x] **Demo fallback** as a declared construct: live target plus recorded video — #14
 - [x] Audience channel — moderated Q&A and reactions on a Worker — #16
 - [x] Live code sharing: a highlighted snippet page, and its QR on the slide — #15
-- [ ] Snippet pages emitted by the build — they are composed, and nothing writes
-      them yet — #15
+- [x] Snippet pages written by the build, so a scanned QR reaches a page
+      rather than a 404 — #15
 
 **Done when** a speaker can run the whole talk from slidx and recover from a
 dead demo, a dead network, and a forced-mirroring projector.
