@@ -28,7 +28,7 @@
  * report and exit.
  */
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 
 /**
  * Runs one command under a pty and returns what it wrote.
@@ -39,12 +39,7 @@ import { execFileSync } from "node:child_process";
  * because the capture we want is the one on stdout.
  */
 export function capture(command, args, options = {}) {
-  const shell = [command, ...args].map(quote).join(" ");
-
-  const [program, argv] =
-    process.platform === "darwin"
-      ? ["script", ["-q", "/dev/null", command, ...args]]
-      : ["script", ["-qec", shell, "/dev/null"]];
+  const [program, argv] = pty(command, args);
 
   let output;
   try {
@@ -64,6 +59,68 @@ export function capture(command, args, options = {}) {
 }
 
 /**
+ * Captures a command that stays alive once it is ready, then stops its process
+ * group cleanly. Used for the dev server in the CLI tour: its startup is real,
+ * but a recording task cannot leave the server behind.
+ */
+export function captureUntil(command, args, options) {
+  const [program, argv] = pty(command, args);
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(program, argv, {
+      cwd: options.cwd,
+      detached: process.platform !== "win32",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let output = "";
+    let ready = false;
+    let failure;
+
+    const stop = () => {
+      try {
+        if (process.platform === "win32") child.kill("SIGINT");
+        else process.kill(-child.pid, "SIGINT");
+      } catch {
+        child.kill("SIGINT");
+      }
+    };
+
+    const timeout = setTimeout(() => {
+      failure = new Error(`the command did not print ${options.until} before the timeout`);
+      stop();
+    }, options.timeout ?? 20_000);
+
+    const read = (chunk) => {
+      output += chunk.toString("utf8");
+      if (ready || !options.until.test(output)) return;
+      ready = true;
+      stop();
+    };
+    child.stdout.on("data", read);
+    child.stderr.on("data", read);
+
+    child.on("error", (error) => {
+      failure = error;
+      clearTimeout(timeout);
+      reject(error);
+    });
+    child.on("close", () => {
+      clearTimeout(timeout);
+      if (failure) reject(failure);
+      else if (!ready) reject(new Error("the command ended before it was ready"));
+      else resolve(cleanLive(output));
+    });
+  });
+}
+
+function pty(command, args) {
+  const shell = [command, ...args].map(quote).join(" ");
+  return process.platform === "darwin"
+    ? ["script", ["-q", "/dev/null", command, ...args]]
+    : ["script", ["-qec", shell, "/dev/null"]];
+}
+
+/**
  * Removes what the pty added and the command did not write.
  *
  * BSD `script` echoes the end-of-file character before the first line, and a
@@ -74,6 +131,21 @@ function clean(text) {
     .replace(/^\^D\x08\x08/, "")
     .replaceAll("\r\n", "\n")
     .replace(/\n+$/, "\n");
+}
+
+/**
+ * A full-screen dev tool clears and redraws its startup report. Keep the final
+ * bytes and remove only cursor-addressing instructions; colour remains SGR and
+ * is converted by the same renderer as every other terminal capture.
+ */
+function cleanLive(text) {
+  const escape = String.fromCharCode(27);
+  const cursor = new RegExp(`${escape}\\[[0-9;?]*[A-HJKSTf]`, "g");
+
+  return clean(text)
+    .replaceAll(cursor, "")
+    .replaceAll(/\n{3,}/g, "\n\n")
+    .trimStart();
 }
 
 function quote(argument) {

@@ -420,6 +420,9 @@ export default defineConfig({
       "record:editor": uncached("node scripts/record-editor.mjs", {
         dependsOn: ["build:plugin", "build:editor"],
       }),
+      "record:tour": uncached("node scripts/record-editor-tour.mjs", {
+        dependsOn: ["build:plugin", "build:editor"],
+      }),
 
       // Benchmarks measure wall-clock time, so a cached result is a wrong one.
       "bench:rust": uncached("cargo bench --workspace"),

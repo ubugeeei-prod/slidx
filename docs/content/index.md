@@ -92,6 +92,13 @@ have open in your own editor; edits are byte-range splices into the file you
 saved, so your blank lines and your `*` bullets survive being edited from a
 canvas.
 
+<video src="../media/editor-tour.webm" controls loop muted playsinline preload="metadata" width="960"></video>
+
+This is one uncut editor session: inline text and addressed styles; a layout
+written back to a Markdown `<style>` tag; transition, slide creation, duplicate
+and reorder shortcuts; undo and redo; and a second editor receiving and sending
+the same operations. `vp run record:tour` performs the whole session again.
+
 ## 3. Write a slide
 
 The example deck's slides live in `examples/deck/slides`, one file per slide.
