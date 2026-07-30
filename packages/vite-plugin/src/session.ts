@@ -168,7 +168,9 @@ export function createEditSession(root: string, options: ResolvedOptions): EditS
           // A write, so it is a POST — and it goes through git rather than
           // through a file write from the browser, which is the same rule the
           // editing routes keep by handing every change to `slidx_edit`.
-          send(response, 200, await history.restore((await read(request)).rev ?? ""));
+          const { rev } = await read<EditRequest>(request);
+
+          send(response, 200, await history.restore(rev ?? ""));
           return true;
         }
 
