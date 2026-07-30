@@ -230,7 +230,10 @@ the visual editor writes through, so a title with a colon in it is quoted the
 way YAML needs rather than the way a template guessed.
 
 It installs nothing and runs no package manager. That is the author's to choose,
-and it is the one step that needs the network.",
+and it is the one step that needs the network.
+
+    slidx create ./vueconf-2026
+    slidx create ./talk --title \"Reactivity from scratch\" --duration 40m",
         &[
             Flag::taking("title", "<text>", "The deck's title. Default: the directory name"),
             Flag::taking("event", "<name>", "The event this talk is for"),
@@ -274,7 +277,10 @@ A deck kept as one file per slide gets one new file, and the files after the new
 slide move along a number so the deck stays in order. `path` is a deck file or a
 directory of slide files, and defaults to ./slides.
 
-`--at` counts from one, the way a speaker counts slides.",
+`--at` counts from one, the way a speaker counts slides.
+
+    slidx add --title \"The demo\"
+    slidx add ./slides --title Recap --at 3",
         &[
             Flag::taking("title", "<text>", "The slide's heading"),
             Flag::taking("at", "<number>", "Where it goes, counting from one. Default: the end"),
@@ -296,7 +302,10 @@ the editor uses. A rename that leaves the title slide saying the old name is
 half a rename, and the half left over is the one an audience sees.
 
 Nothing is overwritten: a destination that already exists is a refusal, not a
-merge.",
+merge.
+
+    slidx mv vueconf vueconf-2026
+    slidx mv vueconf ../talks/vueconf --title \"Reactivity from scratch\"",
         &[Flag::taking("title", "<text>", "Retitle the deck's frontmatter as well")],
     ),
     leaf(
@@ -346,7 +355,11 @@ one command sweeping up half-finished work is how a tool loses the right to be
 typed without thinking. --all widens it to the whole project.
 
 With no repository it offers to start one rather than failing, which is the
-state a deck written this morning is in.",
+state a deck written this morning is in.
+
+    slidx save
+    slidx save --dry-run
+    slidx save --all -m \"Retime the demo\"",
         &[
             Flag::taking("message", "<text>", "Use this message instead of the written one")
                 .short('m'),
@@ -571,7 +584,10 @@ open it, the same boundary `slidx publish` holds.
 
 `path` is a deck file or a directory of slide files and defaults to ./slides.
 The file lands in the current directory, named for the deck, unless --out says
-otherwise.",
+otherwise.
+
+    slidx export --target pdf
+    slidx export --target png ./slides --out ./handout",
         &[
             Flag::taking("target", "<name>", "Required. browser, pdf, pdf-zip, png, pptx"),
             Flag::taking("out", "<path>", "Directory the exported file goes in. Default: ."),
