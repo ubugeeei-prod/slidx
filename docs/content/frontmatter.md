@@ -35,9 +35,12 @@ say which is which.
 
 ## What the closed sets contain
 
-Four keys accept one of a fixed set of values. Each list below is derived from
-the enum the compiler already checks against, so a value here is a value slidx
-accepts.
+Several keys accept one of a fixed set of values. Each list below is derived
+from the definition the compiler already checks against, so a value here is a
+value slidx accepts.
+
+`layout:` is one of them, and it has [a page of its own](layout.md) because the
+value is only half of it — the other half is which region each block chooses.
 
 ### `theme:`
 

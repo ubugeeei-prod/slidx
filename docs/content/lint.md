@@ -2,7 +2,7 @@
 title: Lint rules
 summary: What the linter checks, how severe each finding is, and how to suppress one.
 section: reference
-order: 3
+order: 4
 ---
 
 # Lint rules
@@ -25,11 +25,11 @@ presentation-day concerns.
 
 ## How severe a finding is
 
-| Severity  | What it means                                                       |
-| --------- | ------------------------------------------------------------------- |
-| `error`   | Blocking. Stops `vite build`, and exits `slidx lint` non-zero.      |
-| `warning` | The deck renders, but not the way you probably meant.               |
-| `info`    | Worth knowing, safe to ignore.                                      |
+| Severity  | What it means                                                  |
+| --------- | -------------------------------------------------------------- |
+| `error`   | Blocking. Stops `vite build`, and exits `slidx lint` non-zero. |
+| `warning` | The deck renders, but not the way you probably meant.          |
+| `info`    | Worth knowing, safe to ignore.                                 |
 
 Only `error` blocks. `--strict` adds the advisory findings to a `slidx lint`
 run, and `failOnDiagnostics: false` in the plugin's options lets a build finish

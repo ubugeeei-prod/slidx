@@ -39,6 +39,16 @@ pub fn themes() -> String {
     terms(&["Theme", "Name", "What it is for"], vocabulary::themes())
 }
 
+/// The built-in layouts, annotated with the regions each one offers.
+///
+/// The annotation is the point. `layout:` used to complete as free text, which
+/// is how a name nobody implemented came to look exactly like one that worked —
+/// and picking a layout and then guessing at a region name is the same mistake
+/// one step further in.
+pub fn layouts() -> String {
+    terms(&["Layout", "Regions", "What it is for"], vocabulary::layouts())
+}
+
 pub fn transitions() -> String {
     terms(&["Transition", "Motion", "What it does"], vocabulary::transitions())
 }
@@ -110,6 +120,21 @@ mod tests {
         for theme in slidx_theme::builtin::all() {
             assert!(html.contains(&theme.id), "{} is undocumented", theme.id);
             assert!(html.contains(&theme.description), "{} describes itself nowhere", theme.id);
+        }
+    }
+
+    #[test]
+    fn every_layout_names_the_regions_a_block_can_choose() {
+        // A reader who picks `aside` and then guesses `.sidebar` has made the
+        // mistake this column exists to prevent, so the region names have to be
+        // on the page and not only in the language server.
+        let html = layouts();
+
+        for layout in slidx_theme::layout::all() {
+            assert!(html.contains(&layout.id), "{} is undocumented", layout.id);
+            for region in layout.region_names() {
+                assert!(html.contains(region), "{}'s {region} region is unnamed", layout.id);
+            }
         }
     }
 
