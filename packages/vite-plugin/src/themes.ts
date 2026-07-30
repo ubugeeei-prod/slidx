@@ -43,7 +43,7 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import type { ThemePackage } from "@slidx/wasm";
 
-/** The manifest key a package names its theme document under. */
+/** The manifest section slidx owns, holding `theme` and nothing else yet. */
 const MANIFEST_KEY = "slidx";
 
 /**

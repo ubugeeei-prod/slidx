@@ -72,6 +72,14 @@ const MIN_PADDING_PX: f64 = 32.0;
 /// A fifth of the canvas per edge already spends two fifths of the height.
 const MAX_PADDING_PX: f64 = 216.0;
 
+/// The smallest body size a theme may quote.
+///
+/// Deliberately far below anything legible: this is not the legibility floor,
+/// which is [`crate::audit`]'s and depends on the room. All that is being
+/// prevented here is a zero or negative length, which is not a very small theme
+/// but an invalid declaration the browser drops.
+const MIN_BASE_PX: f64 = 1.0;
+
 /// The largest body size a theme may quote.
 ///
 /// A heading is `base × ratio³`, so at the widest ratio the guard allows this
@@ -151,7 +159,13 @@ pub fn hold(theme: Theme, fallback: &Theme) -> Held {
         light: palette(theme.light),
         dark: palette(theme.dark),
         scale: crate::TypeScale {
-            base_px: bounded("scale.basePx", theme.scale.base_px, 1.0, MAX_BASE_PX, &mut repairs),
+            base_px: bounded(
+                "scale.basePx",
+                theme.scale.base_px,
+                MIN_BASE_PX,
+                MAX_BASE_PX,
+                &mut repairs,
+            ),
             ratio: bounded("scale.ratio", theme.scale.ratio, MIN_RATIO, MAX_RATIO, &mut repairs),
             code_factor: bounded(
                 "scale.codeFactor",
