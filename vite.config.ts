@@ -407,6 +407,20 @@ export default defineConfig({
       // the same reason the screenshots do.
       media: uncached("node scripts/record.mjs", { dependsOn: ["preview:deck"] }),
 
+      // The editor's gestures, recorded by performing them against a real dev
+      // server. Everything the README and the documentation site claim about
+      // direct manipulation is a picture from this task.
+      //
+      // Two edges, and neither is the built deck: this starts a dev server
+      // rather than reading `dist/`. The plugin is what the script imports, and
+      // the editor is the module that server hands to the browser — read off
+      // disk through `exports`, so an editor nothing built is a page that mounts
+      // nothing and a recording of an empty frame. `preview:deck` needed
+      // `build:plugin` for the same class of reason.
+      "record:editor": uncached("node scripts/record-editor.mjs", {
+        dependsOn: ["build:plugin", "build:editor"],
+      }),
+
       // Benchmarks measure wall-clock time, so a cached result is a wrong one.
       "bench:rust": uncached("cargo bench --workspace"),
 
