@@ -89,7 +89,9 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
 {script}</body>
 </html>
 "#,
-        lang = "en",
+        // English only because an unset attribute is worse than a wrong one:
+        // assistive technology can be corrected by a reader, silence cannot.
+        lang = escape(deck.meta.lang.as_deref().unwrap_or("en")),
         aspect = deck.meta.aspect.as_token(),
         title = escape(&title),
         description = deck
@@ -273,6 +275,20 @@ mod tests {
 
     const DEMO: &str =
         "---\ndemo:\n  live: https://app.example.com\n  fallback: ./checkout.mp4\n---\n\n# Live\n";
+
+    #[test]
+    fn a_deck_is_served_in_the_language_it_declares() {
+        // A translated deck served as `lang="en"` gets an English voice from
+        // every screen reader and the wrong hyphenation from every browser.
+        assert!(shell("---\nlang: ja\n---\n\n# はじめに\n").contains("<html lang=\"ja\""));
+    }
+
+    #[test]
+    fn a_deck_that_declares_no_language_is_still_served_with_one() {
+        // An empty `lang` is worse than a wrong one: it tells assistive
+        // technology nothing at all rather than something it can correct for.
+        assert!(shell("# One\n").contains("<html lang=\"en\""));
+    }
 
     #[test]
     fn a_declared_demo_puts_both_sides_in_the_document() {

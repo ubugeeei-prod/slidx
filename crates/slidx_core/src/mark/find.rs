@@ -21,8 +21,17 @@ pub struct FoundMark {
     /// `attributes_start..end` is the only part of a mark a formatter is
     /// allowed to rewrite. Everything between the brackets is the author's
     /// prose, and re-emitting it would re-escape brackets they typed
-    /// themselves.
+    /// themselves. A translation splits the same way and in the same place, for
+    /// the opposite reason: the prose is the whole point and the attributes are
+    /// addresses a `steps:` entry points at.
     pub attributes_start: usize,
+}
+
+impl FoundMark {
+    /// The bytes `{…}` occupies, attribute group and braces included.
+    pub fn attributes_span(&self) -> std::ops::Range<usize> {
+        self.attributes_start..self.end
+    }
 }
 
 /// Finds every mark in a string, in source order.

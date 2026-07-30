@@ -221,6 +221,8 @@ pub fn deck_meta(value: &JsonValue, diagnostics: &mut Diagnostics) -> DeckMeta {
         theme: string(value, "theme"),
         transition: transition(value, diagnostics),
         aspect,
+        lang: string(value, "lang"),
+        translation_of: string(value, "translationOf"),
         duration_seconds: duration_seconds(value, "duration"),
         talk: TalkMeta {
             event: string(value, "event"),

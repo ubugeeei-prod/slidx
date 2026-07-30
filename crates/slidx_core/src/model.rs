@@ -102,6 +102,19 @@ pub struct DeckMeta {
     /// Default slide-to-slide transition.
     pub transition: Option<String>,
     pub aspect: AspectRatio,
+    /// BCP 47 tag for the language the slides are written in.
+    ///
+    /// The same talk given twice in two languages is two decks, and each has to
+    /// say which one it is: the `<html lang>` a screen reader picks a voice from
+    /// is wrong by default for every deck that is not in English.
+    pub lang: Option<String>,
+    /// The deck this one is a translation of, as a path or a URL.
+    ///
+    /// What makes two decks knowably the same talk rather than two talks. A
+    /// follow-up needs it to cross-link the published pages; `slidx i18n`
+    /// writes it so that relationship is in the source rather than in somebody's
+    /// memory of which directory came first.
+    pub translation_of: Option<String>,
     /// Length of the speaking slot, in seconds.
     ///
     /// Drives the presenter countdown and the build-time budget check that

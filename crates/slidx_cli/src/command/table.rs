@@ -501,6 +501,93 @@ nothing, so it can be read before it is meant and diffed against last time.",
         ],
     ),
     Command {
+        name: "i18n",
+        summary: "give the same talk in another language",
+        usage: "i18n <command> [options]",
+        about: "\
+Pulls a deck's prose out into a catalogue, and puts a translated one back —
+without touching anything slidx addresses.
+
+That second half is the work. A mark key is an address a `steps:` entry points
+at, a fence carries code and a snippet's file name, a link's destination is not
+its words, and a slide's id is a slug of its heading — so a translated heading
+moves the slide and breaks every deep link and every QR code into the deck.
+All of it is replaced by numbered placeholders before a translator ever sees
+the text, and `apply` pins any id the translation would have moved.
+
+slidx does not translate. Producing the translation is yours to do, with
+whichever tool or person you choose; the catalogue is an ordinary Gettext PO
+file, so every translation tool already opens it. Nothing here makes a network
+call, and no build ever runs any of this.",
+        flags: &[],
+        default_subcommand: None,
+        takes_the_caller_with_it: false,
+        subcommands: &[
+            leaf(
+                "extract",
+                "write the catalogue a translator works in",
+                "i18n extract [path] --lang <tag> [options]",
+                "\
+Writes one entry per translatable string: the deck's title and description,
+every heading, paragraph, bullet, quote and table row, and every speaker note —
+because a translated slide with untranslated notes is worse than neither.
+
+Everything else is left out on purpose. Fenced code and inline code, URLs and
+image paths, mark keys and classes, step markers, HTML tags, and every
+frontmatter key that is vocabulary rather than prose. Where one of those sits
+inside a sentence it becomes %1, %2 … — so it cannot be retyped wrongly, and can
+still be moved when the grammar needs it.
+
+Run over an existing catalogue, it keeps every translation whose string has not
+changed, so re-extracting after fixing a typo does not throw away a week of
+somebody's work.",
+                &[
+                    Flag::taking("lang", "<tag>", "BCP 47 tag being translated into. Required"),
+                    Flag::taking("out", "<path>", "Where to write it. Default: standard output"),
+                    Flag::taking("separator", "<text>", "Slide separator in a single-file deck"),
+                ],
+            ),
+            leaf(
+                "apply",
+                "write the translated deck beside the original",
+                "i18n apply [path] --catalogue <file> --out <dir>",
+                "\
+Splices every translation into the deck as a byte-range change, so the author's
+blank lines, their bullet markers and their hand-wrapped paragraphs come through
+untouched and the diff is one a reviewer can read. A string nobody has
+translated yet is left in the original language rather than blanked, so a
+half-finished catalogue is safe to apply.
+
+Then it pins the ids. A slide's id is a slug of its heading, so translating
+headings moves slides — including ones nobody translated, when two slides shared
+a title. Every id the translation would have moved is written back as `id:` in
+that slide's frontmatter, so the translated deck answers at the URLs the
+original one published.
+
+A translation that dropped a placeholder is refused rather than written, and
+named. Dropping %1 silently drops the mark key it stood for, and a deck whose
+`steps:` entry addresses nothing still renders — it just does not animate.
+
+`--out` writes a sibling deck, which is the layout that keeps a translation
+change legible: `slides.ja/0001.md` diffs against `slides/0001.md` line for
+line. Two things do not come across and are reported instead: per-slide
+budgets, because speaking rate is not language independent, and the linter's
+overflow verdict, because a slide that fitted in one language may not in
+another.",
+                &[
+                    Flag::taking("catalogue", "<path>", "The translated PO file. Required"),
+                    Flag::taking(
+                        "out",
+                        "<path>",
+                        "Directory the translated deck goes in. Required",
+                    ),
+                    Flag::taking("separator", "<text>", "Slide separator in a single-file deck"),
+                    Flag::switch("plan", "Say what would change and write nothing"),
+                ],
+            ),
+        ],
+    },
+    Command {
         name: "version",
         summary: "install and switch between slidx versions",
         usage: "version [<command>] [options]",

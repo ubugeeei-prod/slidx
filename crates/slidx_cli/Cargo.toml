@@ -24,6 +24,7 @@ slidx_edit = { workspace = true }
 slidx_export = { workspace = true }
 slidx_fmt = { workspace = true }
 slidx_highlight = { workspace = true }
+slidx_i18n = { workspace = true }
 slidx_lint = { workspace = true }
 slidx_publish = { workspace = true }
 slidx_theme = { workspace = true }

@@ -9,6 +9,11 @@
 //!
 //! The deck's frontmatter is the first slide's. That is what the parser
 //! already believes, so setting `title` on slide 0 is how a deck gets a title.
+//!
+//! [`value_span`] and [`scalar`] are public because `slidx_i18n` asks the same
+//! two questions of a block — where is this key's value written, and how does a
+//! translated string spell itself in YAML — and a second answer to either would
+//! be a translated `title:` that reads back as a boolean.
 
 use serde_json::Value as JsonValue;
 
@@ -52,6 +57,14 @@ pub(crate) fn write_key(
         None if text.trim().is_empty() => builder.replace(block, format!("{key}:{value}")),
         None => builder.insert(block.end, format!("{}{key}:{value}", deck.newline())),
     }
+}
+
+/// Where a top-level key's value is written inside a block, if it is written.
+///
+/// The narrow half of [`entry`], because it is the only half anything outside
+/// this crate needs: a translation replaces a value and never a key.
+pub fn value_span(text: &str, key: &str) -> Option<ByteSpan> {
+    entry(text, key).map(|found| found.value)
 }
 
 /// Where a top-level key and its value are written inside a block.
@@ -163,7 +176,7 @@ fn separator_end(text: &str, separator: &str) -> Option<usize> {
 /// Quoting is decided by whether the plain form would read back as something
 /// else. A title of `true` has to survive being a title, and a duration of
 /// `20m` must not gain quotes it did not ask for.
-fn scalar(value: &JsonValue) -> String {
+pub fn scalar(value: &JsonValue) -> String {
     match value {
         JsonValue::String(text) => {
             if needs_quotes(text) {

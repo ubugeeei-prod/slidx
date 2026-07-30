@@ -123,7 +123,7 @@ fn retitle(project: &Path, title: &str) -> Result<PathBuf, String> {
 
     // A deck kept as one file per slide has its own frontmatter in the first
     // file, which is where the title is. That is the only file this can change.
-    let target = read.files.first().cloned().unwrap_or_else(|| deck.clone());
+    let target = read.files.first().map(|file| file.path.clone()).unwrap_or_else(|| deck.clone());
     let source = fs::read_to_string(&target).map_err(|error| error.to_string())?;
 
     let edited = apply(
