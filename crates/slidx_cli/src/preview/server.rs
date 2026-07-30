@@ -32,6 +32,12 @@ use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, TcpStream};
 use std::path::{Component, Path, PathBuf};
+use std::time::Duration;
+
+/// Enough for ordinary browser headers without letting a local client make the
+/// preview process retain an unbounded line.
+const MAX_REQUEST_HEADER_BYTES: usize = 64 * 1024;
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// What to serve, from where.
 #[derive(Debug, Clone)]
@@ -173,9 +179,15 @@ pub fn serve(listener: &TcpListener, site: &Site) {
 }
 
 fn answer(stream: &mut TcpStream, site: &Site) -> std::io::Result<()> {
-    let mut line = String::new();
-    BufReader::new(stream.try_clone()?).read_line(&mut line)?;
+    // A browser always finishes its headers immediately. The timeout keeps a
+    // half-written local request from holding the single-threaded preview
+    // server forever.
+    stream.set_read_timeout(Some(REQUEST_TIMEOUT))?;
+    let mut reader = BufReader::new(stream.try_clone()?);
 
+    let Some(line) = read_request_line(&mut reader)? else {
+        return reply(stream, 400, "text/plain; charset=utf-8", b"bad request");
+    };
     let Some(target) = request_target(&line) else {
         return reply(stream, 400, "text/plain; charset=utf-8", b"bad request");
     };
@@ -186,6 +198,34 @@ fn answer(stream: &mut TcpStream, site: &Site) -> std::io::Result<()> {
             reply(stream, 200, content_type(&path), &body)
         }
         None => reply(stream, 404, "text/plain; charset=utf-8", b"not found"),
+    }
+}
+
+/// Reads the request line and consumes the remaining headers.
+///
+/// Leaving `Host` and the other header bytes unread when the server closes the
+/// socket makes Windows send a reset instead of a graceful end-of-stream. A
+/// browser then receives a complete response and an error at once. Consuming
+/// through the empty line is both the HTTP boundary and what lets every
+/// platform close the same way.
+fn read_request_line(reader: &mut impl BufRead) -> std::io::Result<Option<String>> {
+    let mut line = String::new();
+    let mut read = reader.read_line(&mut line)?;
+    if read == 0 || read > MAX_REQUEST_HEADER_BYTES {
+        return Ok(None);
+    }
+
+    loop {
+        let mut header = String::new();
+        let bytes = reader.read_line(&mut header)?;
+        read = read.saturating_add(bytes);
+
+        if read > MAX_REQUEST_HEADER_BYTES {
+            return Ok(None);
+        }
+        if bytes == 0 || header == "\r\n" || header == "\n" {
+            return Ok(Some(line));
+        }
     }
 }
 
@@ -366,6 +406,38 @@ mod tests {
     fn a_request_line_yields_its_target() {
         assert_eq!(request_target("GET /slides/2/ HTTP/1.1"), Some("/slides/2/"));
         assert_eq!(request_target("HEAD /runtime.js HTTP/1.1"), Some("/runtime.js"));
+    }
+
+    #[test]
+    fn a_request_is_consumed_through_the_empty_line_after_its_headers() {
+        use std::io::Cursor;
+
+        let source =
+            b"GET /slides/2/ HTTP/1.1\r\nHost: localhost\r\nAccept: text/html\r\n\r\nafter";
+        let boundary = source.windows(4).position(|bytes| bytes == b"\r\n\r\n").unwrap() + 4;
+        let mut request = Cursor::new(source);
+
+        assert_eq!(
+            read_request_line(&mut request).unwrap().as_deref(),
+            Some("GET /slides/2/ HTTP/1.1\r\n")
+        );
+        assert_eq!(
+            request.position() as usize,
+            boundary,
+            "the response reader reached into the body"
+        );
+    }
+
+    #[test]
+    fn an_unbounded_header_is_refused_before_a_response_is_written() {
+        use std::io::Cursor;
+
+        let request = format!(
+            "GET / HTTP/1.1\r\nX-Too-Large: {}\r\n\r\n",
+            "x".repeat(MAX_REQUEST_HEADER_BYTES)
+        );
+
+        assert!(read_request_line(&mut Cursor::new(request)).unwrap().is_none());
     }
 
     #[test]
