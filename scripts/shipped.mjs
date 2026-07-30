@@ -24,18 +24,29 @@ const SOURCE_ROOTS = ["crates", "packages", "scripts", "assets", "docs"];
 const SCANNABLE = /\.(rs|ts|tsx|mjs|js|css|svg|html|json)$/;
 
 /**
- * The files allowed to contain what the rules reject.
+ * Tests, which are not shipped.
  *
- * A checker and its test cannot be held to the rule they implement. Naming them
- * rather than loosening a pattern is the same trade `og.rs` makes when it exempts
- * `xmlns` by name: the next real violation is still caught.
+ * Both rules are about what reaches a user, and a test file reaches nobody. It
+ * is also where a claim gets proved, and proving these two claims requires
+ * writing the rejected thing down — the editor's stylesheet test asserts the
+ * chrome declares no `box-shadow` by naming one, and the checkers' own tests are
+ * made of fixtures. `check-conventions.mjs` skips test directories for the same
+ * reason from the other direction.
+ *
+ * `borrowed.mjs` makes the matching cut inside a Rust file at `#[cfg(test)]`,
+ * where the tests are not in a directory of their own.
  */
-export const EXEMPT = [
-  "scripts/flat.mjs",
-  "scripts/test/flat.test.mjs",
-  "scripts/borrowed.mjs",
-  "scripts/test/borrowed.test.mjs",
-];
+const TESTS = /(^|\/)tests?\/|\.(test|spec)\.[cm]?[jt]sx?$/;
+
+/**
+ * The two files allowed to contain what the rules reject.
+ *
+ * A checker cannot be held to the rule it implements: the patterns it matches
+ * are written out in it. Naming them rather than loosening a pattern is the same
+ * trade `og.rs` makes when it exempts `xmlns` by name — the next real violation
+ * is still caught.
+ */
+export const EXEMPT = ["scripts/flat.mjs", "scripts/borrowed.mjs"];
 
 /** Files git knows about, so build output and dependencies are excluded for free. */
 export function shippedFiles() {
@@ -44,5 +55,6 @@ export function shippedFiles() {
   return output
     .split("\0")
     .filter((file) => SCANNABLE.test(file))
+    .filter((file) => !TESTS.test(file))
     .filter((file) => !EXEMPT.includes(file));
 }
