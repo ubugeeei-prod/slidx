@@ -129,14 +129,18 @@ jobs:
   npm:
     name: npm
     needs: [verify, binaries]
-    runs-on: blacksmith-32vcpu-ubuntu-2404
+    # npm accepts trusted-publishing tokens only from GitHub-hosted runners.
+    # Compilation and every native binary stay on the largest Blacksmith
+    # runners; this job only assembles their artifacts and publishes them.
+    runs-on: ubuntu-latest
     permissions:
       id-token: write
     steps:
-      - uses: useblacksmith/checkout@v1
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup
         with:
           wasm: "true"
+          sticky: "false"
 
       - name: Check the tag matches the workspace
         run: node scripts/check-version.mjs "${{ github.ref_name }}"

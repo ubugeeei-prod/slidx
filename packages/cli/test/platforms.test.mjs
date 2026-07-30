@@ -26,6 +26,7 @@ import {
 
 const ROOT = join(import.meta.dirname, "../../..");
 const WORKFLOW = readFileSync(join(ROOT, ".github/workflows/release.yml"), "utf8");
+const SETUP = readFileSync(join(ROOT, ".github/actions/setup/action.yml"), "utf8");
 const INSTALLER = readFileSync(join(ROOT, "install.sh"), "utf8");
 const WRAPPER = JSON.parse(readFileSync(join(ROOT, "packages/cli/package.json"), "utf8"));
 
@@ -129,6 +130,23 @@ describe("the table and its copies", () => {
       expect(assetName(platform)).toBe(`slidx-${platform.target}.tar.gz`);
     }
     expect(WORKFLOW).toContain("slidx-${{ matrix.target }}");
+  });
+
+  it("publishes through npm's supported OIDC runner without disabling Blacksmith caches", () => {
+    const npmJob = WORKFLOW.slice(
+      WORKFLOW.indexOf("\n  npm:"),
+      WORKFLOW.indexOf("\n  github-release:"),
+    );
+
+    expect(npmJob).toContain("runs-on: ubuntu-latest");
+    expect(npmJob).toContain("id-token: write");
+    expect(npmJob).toContain("uses: actions/checkout@v6");
+    expect(npmJob).toContain('sticky: "false"');
+    expect(npmJob).not.toContain("useblacksmith/");
+
+    expect(SETUP).toContain("sticky:");
+    expect(SETUP).toContain('default: "true"');
+    expect(SETUP).toContain("uses: useblacksmith/stickydisk@v1");
   });
 });
 

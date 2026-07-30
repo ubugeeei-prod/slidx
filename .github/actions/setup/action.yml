@@ -13,16 +13,25 @@ inputs:
       Space-separated Playwright browsers to download, or empty for none.
       `chromium` is what the PDF export drives; the full matrix job asks for all three.
     default: ""
+  sticky:
+    description: Mount Blacksmith Sticky Disks. Disable only on a runner that cannot use them.
+    default: "true"
 
 runs:
   using: composite
   steps:
     - uses: pnpm/action-setup@v6
 
-    - if: runner.os == 'Linux'
+    - if: runner.os == 'Linux' && inputs.sticky == 'true'
       uses: actions/setup-node@v7
       with:
         node-version: 24
+
+    - if: runner.os == 'Linux' && inputs.sticky != 'true'
+      uses: actions/setup-node@v7
+      with:
+        node-version: 24
+        cache: pnpm
 
     - if: runner.os != 'Linux'
       uses: actions/setup-node@v7
@@ -33,7 +42,7 @@ runs:
     # A Blacksmith checkout keeps the Git mirror on its own sticky disk. These
     # five mounts use the full per-job dependency allowance for everything
     # expensive that the package managers and browser tests leave on disk.
-    - if: runner.os == 'Linux'
+    - if: runner.os == 'Linux' && inputs.sticky == 'true'
       name: Mount pnpm store
       uses: useblacksmith/stickydisk@v1
       with:
@@ -41,7 +50,7 @@ runs:
         path: ~/.local/share/pnpm/store
         commit: on-change
 
-    - if: runner.os == 'Linux'
+    - if: runner.os == 'Linux' && inputs.sticky == 'true'
       name: Mount node_modules
       uses: useblacksmith/stickydisk@v1
       with:
@@ -49,7 +58,7 @@ runs:
         path: ./node_modules
         commit: on-change
 
-    - if: runner.os == 'Linux'
+    - if: runner.os == 'Linux' && inputs.sticky == 'true'
       name: Mount Cargo home
       uses: useblacksmith/stickydisk@v1
       with:
@@ -57,7 +66,7 @@ runs:
         path: ~/.cargo
         commit: on-change
 
-    - if: runner.os == 'Linux'
+    - if: runner.os == 'Linux' && inputs.sticky == 'true'
       name: Mount Cargo target
       uses: useblacksmith/stickydisk@v1
       with:
@@ -65,7 +74,7 @@ runs:
         path: ./target
         commit: on-change
 
-    - if: runner.os == 'Linux'
+    - if: runner.os == 'Linux' && inputs.sticky == 'true'
       name: Mount Playwright browsers
       uses: useblacksmith/stickydisk@v1
       with:
