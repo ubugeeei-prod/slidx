@@ -274,7 +274,24 @@ export default defineConfig({
         dependsOn: ["build:wasm"],
       }),
 
-      "build:packages": group(["build:wasm", "build:runtime", "build:editor", "build:plugin"]),
+      // The VS Code extension. Nothing in this repository imports it, so
+      // `check:packages-built` cannot see it — and an extension nobody builds
+      // is an extension nobody can install, which is the exact shape of the
+      // problem this whole editor item exists to end. So it is built here,
+      // where a failure to compile is a failure of the build rather than a
+      // surprise at packaging time.
+      //
+      // CommonJS because that is what an extension host loads, in a package
+      // that is `"type": "module"` like every other one here.
+      "build:vscode": uncached("vp run --filter slidx-vscode pack:lib"),
+
+      "build:packages": group([
+        "build:wasm",
+        "build:runtime",
+        "build:editor",
+        "build:plugin",
+        "build:vscode",
+      ]),
 
       // Asks the filesystem rather than reading the task graph, because the
       // graph cannot answer it: `build:wasm` runs a script and never names the
