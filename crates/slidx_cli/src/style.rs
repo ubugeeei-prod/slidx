@@ -21,6 +21,14 @@
 //! word as well, so the plain-text report says exactly what the coloured one
 //! does. A report that only makes sense in colour is a report that stops making
 //! sense the moment somebody pastes it into a chat window to ask for help.
+//!
+//! ## Columns are cells, not characters
+//!
+//! Everything that pads or wraps here measures with [`width::of`]. A column
+//! measured in characters is a column that shears on the first Japanese title,
+//! and those are the ordinary case here rather than the awkward one.
+
+pub mod width;
 
 use std::env;
 use std::fmt::Display;
@@ -53,6 +61,11 @@ pub enum Ink {
     Strong,
     /// Present, but not what anyone is looking for.
     Faint,
+    /// The part of a line that answers what was typed — the characters a fuzzy
+    /// query matched. Distinct from [`Ink::Strong`] because the row it appears
+    /// on is often already strong, and a highlight that matched its background
+    /// would highlight nothing.
+    Hit,
 }
 
 impl Ink {
@@ -65,6 +78,7 @@ impl Ink {
             Self::Pass => "32",
             Self::Strong => "1",
             Self::Faint => "2",
+            Self::Hit => "1;36",
         }
     }
 }
@@ -114,39 +128,39 @@ impl Style {
         format!("\u{1b}[{}m{text}\u{1b}[0m", ink.code())
     }
 
-    /// Pads to `width` **after** painting, counting only the visible text.
+    /// Pads to `columns` **after** painting, counting only what is drawn.
     ///
     /// The escape codes are zero-width on screen and several bytes in a string,
     /// so `format!("{:<8}", painted)` lines a column up in a plain terminal and
     /// ragged in a coloured one. Padding here is the only way the two runs
     /// produce the same layout.
-    pub fn pad(self, ink: Ink, text: &str, width: usize) -> String {
-        let padding = width.saturating_sub(text.chars().count());
+    ///
+    /// Cells rather than characters, so a Japanese subject in the column does
+    /// not push everything after it half a column left.
+    pub fn pad(self, ink: Ink, text: &str, columns: usize) -> String {
+        let padding = columns.saturating_sub(width::of(text));
         format!("{}{}", self.paint(ink, text), " ".repeat(padding))
     }
 }
 
-/// Wraps `text` into lines of at most `width` visible characters.
+/// Wraps `text` into lines of at most `columns` cells.
 ///
 /// A word longer than the column is left whole and allowed to overhang. The
 /// only things that get that long are paths, URLs and font names — exactly the
 /// strings somebody is about to copy — and a path broken across two lines
 /// cannot be copied at all.
 ///
-/// Takes unpainted text: measuring a string with escape codes in it would count
-/// them as visible characters and wrap far too early.
-pub fn wrap(text: &str, width: usize) -> Vec<String> {
+/// Measured in cells, so a Japanese sentence wraps where the terminal will draw
+/// the edge rather than at twice that.
+pub fn wrap(text: &str, columns: usize) -> Vec<String> {
     let mut lines = Vec::new();
     let mut line = String::new();
 
     for word in text.split_whitespace() {
-        let would_be = if line.is_empty() {
-            word.chars().count()
-        } else {
-            line.chars().count() + 1 + word.chars().count()
-        };
+        let would_be =
+            if line.is_empty() { width::of(word) } else { width::of(&line) + 1 + width::of(word) };
 
-        if !line.is_empty() && would_be > width {
+        if !line.is_empty() && would_be > columns {
             lines.push(std::mem::take(&mut line));
         }
 
@@ -211,7 +225,8 @@ mod tests {
 
     #[test]
     fn every_ink_has_its_own_sequence_so_two_statuses_never_look_alike() {
-        let inks = [Ink::Fail, Ink::Warn, Ink::Unknown, Ink::Pass, Ink::Strong, Ink::Faint];
+        let inks =
+            [Ink::Fail, Ink::Warn, Ink::Unknown, Ink::Pass, Ink::Strong, Ink::Faint, Ink::Hit];
         let mut codes: Vec<&str> = inks.iter().map(|ink| ink.code()).collect();
         let total = codes.len();
         codes.sort_unstable();
@@ -261,7 +276,29 @@ mod tests {
         let colored = Style::colored().pad(Ink::Fail, "fail", 8);
 
         assert_eq!(plain, "fail    ");
-        assert_eq!(visible_width(&colored), plain.chars().count());
+        assert_eq!(width::of(&colored), width::of(&plain));
+    }
+
+    #[test]
+    fn a_japanese_subject_is_padded_to_the_cells_it_will_occupy() {
+        // Two characters, four cells. Padded by character count the next column
+        // would start two cells early, and every row with a Japanese subject in
+        // it would be out of line with every row without one.
+        assert_eq!(Style::plain().pad(Ink::Strong, "日本", 8), "日本    ");
+        assert_eq!(width::of(&Style::plain().pad(Ink::Strong, "日本", 8)), 8);
+        assert_eq!(
+            width::of(&Style::plain().pad(Ink::Strong, "ab", 8)),
+            width::of(&Style::plain().pad(Ink::Strong, "日本", 8))
+        );
+    }
+
+    #[test]
+    fn wrapping_a_japanese_sentence_breaks_where_the_terminal_draws_the_edge() {
+        // Measured in characters it would wrap at twice the column, which puts
+        // half of every line past the right-hand side of the window.
+        let lines = wrap("日本語の トークを する", 10);
+
+        assert!(lines.iter().all(|line| width::of(line) <= 10), "{lines:?}");
     }
 
     #[test]
@@ -302,21 +339,5 @@ mod tests {
     #[test]
     fn a_text_that_already_fits_comes_back_as_one_line() {
         assert_eq!(wrap("on mains power", 40), ["on mains power"]);
-    }
-
-    fn visible_width(text: &str) -> usize {
-        let mut width = 0;
-        let mut in_escape = false;
-
-        for character in text.chars() {
-            match character {
-                ESCAPE => in_escape = true,
-                'm' if in_escape => in_escape = false,
-                _ if !in_escape => width += 1,
-                _ => {}
-            }
-        }
-
-        width
     }
 }

@@ -140,9 +140,11 @@ pub fn frame(view: &View<'_>, style: &Style) -> String {
 /// wearing whatever colour was half-applied.
 fn render(line: &Line, width: usize, style: &Style) -> String {
     // A hidden mark keeps its width so the slide does not move between stops,
-    // while saying nothing about what it will contain.
+    // while saying nothing about what it will contain. Its width is the cells
+    // the text would have taken, so a Japanese mark does not shrink the slide
+    // by half when it is hidden and grow it again when it is revealed.
     if line.hidden {
-        return style.paint(Ink::Faint, ".".repeat(line.text.chars().count().min(width)));
+        return style.paint(Ink::Faint, ".".repeat(style::width::of(&line.text).min(width)));
     }
 
     let (ink, plain) = match line.kind {
@@ -180,12 +182,13 @@ fn render(line: &Line, width: usize, style: &Style) -> String {
 /// as a line that ends there, and this view is looked at by somebody counting
 /// what is on a slide.
 fn truncate(text: &str, width: usize) -> String {
-    if text.chars().count() <= width {
+    if style::width::of(text) <= width {
         return text.to_string();
     }
 
-    let kept: String = text.chars().take(width.saturating_sub(1)).collect();
-    format!("{kept}>")
+    // Cells, not characters: a slide of Japanese cut by character count runs
+    // through the right-hand border of its own box.
+    format!("{}>", style::width::clip(text, width.saturating_sub(1)))
 }
 
 /// The line under the box: where you are, and what the stop does.
@@ -201,9 +204,9 @@ fn status(view: &View<'_>, slide: &Slide, style: &Style) -> String {
         stops
     );
 
-    let room = style::WIDTH.saturating_sub(position.chars().count() + 4);
-    let short = if title.chars().count() > room {
-        format!("{}...", title.chars().take(room.saturating_sub(3)).collect::<String>())
+    let room = style::WIDTH.saturating_sub(style::width::of(&position) + 4);
+    let short = if style::width::of(&title) > room {
+        format!("{}...", style::width::clip(&title, room.saturating_sub(3)))
     } else {
         title
     };
@@ -245,21 +248,13 @@ fn row(body: &str, width: usize, style: &Style) -> String {
     )
 }
 
-/// Characters a terminal will actually draw, ignoring escape sequences.
+/// Cells a terminal will actually draw.
+///
+/// [`crate::style::width`] is the one answer to this question in the whole
+/// binary. A second implementation here is how the box ends up one column wider
+/// than the report beside it on a Japanese slide.
 fn visible_width(text: &str) -> usize {
-    let mut width = 0;
-    let mut in_escape = false;
-
-    for character in text.chars() {
-        match character {
-            '\u{1b}' => in_escape = true,
-            'm' if in_escape => in_escape = false,
-            _ if !in_escape => width += 1,
-            _ => {}
-        }
-    }
-
-    width
+    style::width::of(text)
 }
 
 #[cfg(test)]

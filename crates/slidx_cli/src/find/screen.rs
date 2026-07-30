@@ -22,10 +22,22 @@
 //! The event and date appear under the selected row and nowhere else. They are
 //! what tells two decks called `slides` apart, and they are only worth the line
 //! for the one somebody is looking at.
+//!
+//! ## What matched is marked
+//!
+//! Each row brackets the characters the query landed on, from the positions
+//! [`super::scoring`] already computed — see [`super::highlight`]. Without it a
+//! row says *that* it matched and never *where*, so a list of eight has to be
+//! re-read rather than scanned.
+//!
+//! The columns are measured in cells and not in characters, which is what keeps
+//! a Japanese title from pushing the path column half a column left on its row
+//! and nowhere else.
 
 use std::path::Path;
 
-use crate::index::Entry;
+use super::highlight;
+use super::Hit;
 use crate::style::{self, Ink, Style};
 
 /// Marks the row that Enter would choose.
@@ -46,7 +58,7 @@ pub const VISIBLE: usize = 8;
 #[derive(Debug, Clone)]
 pub struct Screen<'a> {
     pub query: &'a str,
-    pub matches: &'a [&'a Entry],
+    pub matches: &'a [Hit<'a>],
     pub selected: usize,
     /// The user's home directory, for shortening paths to `~`.
     pub home: Option<&'a Path>,
@@ -65,9 +77,9 @@ impl Screen<'_> {
             return text;
         }
 
-        for (offset, entry) in self.window().iter().enumerate() {
+        for (offset, hit) in self.window().iter().enumerate() {
             let index = self.first_visible() + offset;
-            text.push_str(&self.row(entry, index == self.selected, style));
+            text.push_str(&self.row(hit, index == self.selected, style));
         }
 
         text
@@ -87,29 +99,35 @@ impl Screen<'_> {
             style.paint(Ink::Strong, self.query)
         };
 
-        let width = style::WIDTH.saturating_sub(4 + position.chars().count());
-        let padding = width.saturating_sub(display_width(self.query.max_len(width)));
+        let room = style::WIDTH.saturating_sub(4 + display_width(&position));
+        let padding = room.saturating_sub(display_width(style::width::clip(self.query, room)));
 
         format!("{query}{}{}", " ".repeat(padding.max(1)), style.paint(Ink::Faint, position))
     }
 
-    fn row(&self, entry: &Entry, selected: bool, style: &Style) -> String {
+    fn row(&self, hit: &Hit<'_>, selected: bool, style: &Style) -> String {
+        let entry = hit.entry;
         let marker = if selected { CURSOR } else { " " };
         let label = entry.label();
         let path = shorten(&entry.path, self.home);
 
+        let ink = if selected { Ink::Strong } else { Ink::Faint };
+        let marked_label = highlight::marked(&label, &matched_in_label(hit), ink, style);
+        let marked_path = highlight::marked(&path, &matched_in_path(hit, &path), Ink::Faint, style);
+
         // The label column is sized so the paths line up and can be scanned as
         // a column of their own; a label longer than it pushes its path right
         // rather than being cut, because the label is the thing being read.
-        let gap = 30usize.saturating_sub(display_width(&label)).max(2);
-        let ink = if selected { Ink::Strong } else { Ink::Faint };
+        // Measured on what is drawn, so the brackets a highlight adds are part
+        // of the column rather than something that shifts it.
+        let gap = 30usize.saturating_sub(display_width(&marked_label)).max(2);
 
         let mut text = format!(
             "{} {}{}{}\n",
             style.paint(ink, marker),
-            style.paint(if selected { Ink::Strong } else { Ink::Faint }, &label),
+            marked_label,
             " ".repeat(gap),
-            style.paint(Ink::Faint, &path)
+            marked_path
         );
 
         // Only under the cursor: this is what tells two decks called `slides`
@@ -124,7 +142,7 @@ impl Screen<'_> {
     }
 
     /// The rows on screen, scrolled to keep the selection in view.
-    fn window(&self) -> &[&Entry] {
+    fn window(&self) -> &[Hit<'_>] {
         let first = self.first_visible();
         let last = (first + VISIBLE).min(self.matches.len());
 
@@ -151,17 +169,46 @@ impl Screen<'_> {
     }
 }
 
-/// Trims a query for the header without panicking on a multi-byte boundary.
-trait MaxLen {
-    fn max_len(&self, width: usize) -> &str;
+/// Where the query landed inside the label.
+///
+/// A haystack is the path, then the title, then the event. The label is the
+/// title when there is one and the last segment of the path when there is not,
+/// so the positions are rebased onto whichever of those the label came from.
+/// Anything outside it belongs to the path's column or to the event, and is that
+/// column's to show or to leave.
+fn matched_in_label(hit: &Hit<'_>) -> Vec<usize> {
+    let entry = hit.entry;
+    let path = entry.path.display().to_string();
+
+    let span = match entry.title.as_deref().filter(|title| !title.trim().is_empty()) {
+        // `Entry::haystack` joins the path and the title with one space.
+        Some(title) => path.len() + 1..path.len() + 1 + title.len(),
+        None => {
+            let label = entry.label();
+            match path.len().checked_sub(label.len()) {
+                Some(start) if path.ends_with(&label) => start..path.len(),
+                _ => return Vec::new(),
+            }
+        }
+    };
+
+    highlight::rebased(&hit.found.positions, span)
 }
 
-impl MaxLen for str {
-    fn max_len(&self, width: usize) -> &str {
-        match self.char_indices().nth(width) {
-            Some((at, _)) => &self[..at],
-            None => self,
-        }
+/// Where the query landed inside the path, as offsets into the shortened form
+/// the row actually shows.
+fn matched_in_path(hit: &Hit<'_>, drawn: &str) -> Vec<usize> {
+    let full = hit.entry.path.display().to_string();
+    let inside = highlight::rebased(&hit.found.positions, 0..full.len());
+
+    // `~/talks/x` for `/home/somebody/talks/x`: the home directory and the
+    // separator after it became `~/`, so what is still on screen starts one
+    // character in, and a match inside the home directory is not on screen at
+    // all. The boundary is the length of the prefix that was replaced, which is
+    // the difference in length plus the one character it was replaced with.
+    match full.len().checked_sub(drawn.len()) {
+        Some(0) | None => inside,
+        Some(shorter) => highlight::after_prefix(&inside, shorter + 1, 1),
     }
 }
 
@@ -177,8 +224,13 @@ pub fn shorten(path: &Path, home: Option<&Path>) -> String {
     }
 }
 
+/// Cells, not characters.
+///
+/// [`crate::style::width`] is the one answer to this in the binary. Counting
+/// characters here is what put the path column half a column left on any row
+/// with a Japanese title in it, and only on those rows.
 fn display_width(text: &str) -> usize {
-    text.chars().count()
+    style::width::of(text)
 }
 
 #[cfg(test)]
@@ -186,13 +238,15 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
+    use crate::index::Entry;
+
     fn entry(path: &str, title: Option<&str>) -> Entry {
         let mut entry = Entry::new(path);
         entry.title = title.map(str::to_string);
         entry
     }
 
-    fn screen<'a>(matches: &'a [&'a Entry], selected: usize, query: &'a str) -> Screen<'a> {
+    fn screen<'a>(matches: &'a [Hit<'a>], selected: usize, query: &'a str) -> Screen<'a> {
         Screen { query, matches, selected, home: Some(Path::new("/home/somebody")) }
     }
 
@@ -200,8 +254,23 @@ mod tests {
         (0..count).map(|n| entry(&format!("/home/somebody/talks/{n}"), None)).collect()
     }
 
-    fn refs(entries: &[Entry]) -> Vec<&Entry> {
-        entries.iter().collect()
+    /// Entries with nothing highlighted, for the tests about layout.
+    fn refs(entries: &[Entry]) -> Vec<Hit<'_>> {
+        entries
+            .iter()
+            .map(|entry| Hit { entry, found: super::super::scoring::Match::default() })
+            .collect()
+    }
+
+    /// Entries scored against a real query, for the tests about the highlight.
+    fn hits<'a>(entries: &'a [Entry], query: &str) -> Vec<Hit<'a>> {
+        entries
+            .iter()
+            .filter_map(|entry| {
+                super::super::scoring::score(query, &entry.haystack())
+                    .map(|found| Hit { entry, found })
+            })
+            .collect()
     }
 
     #[test]
@@ -415,5 +484,117 @@ mod tests {
             .draw(&Style::plain());
 
         assert!(!text.is_empty());
+    }
+
+    #[test]
+    fn a_row_shows_which_characters_of_the_path_the_query_matched() {
+        // The whole point: eight rows that all match are a list you re-read.
+        // Eight rows that say where they matched are a list you scan.
+        let entries = vec![entry("/home/somebody/talks/vueconf", None)];
+        let found = hits(&entries, "vue");
+        let text = screen(&found, 0, "vue").draw(&Style::plain());
+
+        assert!(text.contains("[vue]conf"), "{text}");
+    }
+
+    #[test]
+    fn a_row_shows_which_characters_of_the_title_the_query_matched() {
+        // `fast` cannot match anywhere in this path, so all of it lands in the
+        // title — which is what makes the expectation here exact.
+        let entries = vec![entry("/home/somebody/a", Some("Making decks fast"))];
+        let found = hits(&entries, "fast");
+        let text = screen(&found, 0, "fast").draw(&Style::plain());
+
+        assert!(text.contains("[fast]"), "{text}");
+    }
+
+    #[test]
+    fn a_query_that_spans_the_path_and_the_title_is_marked_in_both() {
+        // The haystack is one string and the row is two columns. A highlight
+        // that gave up when a match crossed the join would go missing on
+        // exactly the queries people type, which are prefixes of both.
+        let entries = vec![entry("/home/somebody/talks/vueconf", Some("Making decks fast"))];
+        let found = hits(&entries, "vuefast");
+        let text = screen(&found, 0, "vuefast").draw(&Style::plain());
+
+        let row = text.lines().find(|line| line.contains("~/")).expect("a row");
+        let (label, path) = row.split_at(row.find("~/").expect("a path"));
+
+        assert!(label.contains('['), "nothing marked in the title: {row}");
+        assert!(path.contains('['), "nothing marked in the path: {row}");
+    }
+
+    #[test]
+    fn a_match_inside_the_home_directory_is_not_marked_because_it_is_not_shown() {
+        // The path is drawn as `~/…`, so a match on `somebody` is off screen.
+        // Marking it anyway would put brackets around the tilde.
+        let entries = vec![entry("/home/somebody/talks/x", None)];
+        let found = hits(&entries, "somebody");
+        let text = screen(&found, 0, "somebody").draw(&Style::plain());
+
+        assert!(text.contains("~/talks/x"), "{text}");
+        assert!(!text.contains('['), "{text}");
+    }
+
+    #[test]
+    fn a_highlight_in_a_japanese_title_leaves_the_path_column_where_it_was() {
+        // Two things at once, and both were broken before: the mark falls on
+        // whole characters, and the column beside it is measured in cells.
+        let plain = vec![entry("/home/somebody/a", Some("Making decks fast"))];
+        let japanese = vec![entry("/home/somebody/b", Some("日本語のトーク"))];
+
+        let unmarked = screen(&refs(&plain), 0, "").draw(&Style::plain());
+        let marked = screen(&hits(&japanese, "トーク"), 0, "トーク").draw(&Style::plain());
+
+        assert!(marked.contains("[トーク]"), "{marked}");
+        assert_eq!(
+            marked.lines().next().map(|_| ()),
+            unmarked.lines().next().map(|_| ()),
+            "both drew a header"
+        );
+
+        // The path starts in the same column on both rows, which is the thing a
+        // character count got wrong.
+        let column = |text: &str| {
+            text.lines()
+                .find(|line| line.contains("~/"))
+                .map(|line| style::width::of(&line[..line.find("~/").expect("a path")]))
+        };
+        assert_eq!(column(&marked), column(&unmarked), "{marked}{unmarked}");
+    }
+
+    #[test]
+    fn the_highlight_survives_a_terminal_with_no_colour_at_all() {
+        // NO_COLOR, a pipe, a dumb terminal. Colour is never the only carrier.
+        let entries = vec![entry("/home/somebody/talks/vueconf", None)];
+        let found = hits(&entries, "vue");
+
+        let plain = screen(&found, 0, "vue").draw(&Style::plain());
+        let colored = screen(&found, 0, "vue").draw(&Style::colored());
+
+        assert!(plain.contains("[vue]"), "{plain}");
+        assert!(!plain.contains('\u{1b}'));
+        assert!(colored.contains("[vue]"), "{colored}");
+    }
+
+    #[test]
+    fn colour_does_not_move_a_column_the_highlight_is_on() {
+        // The picker erases what it drew. A frame whose width depended on colour
+        // would leave half-erased rows behind on every keystroke.
+        let entries = vec![entry("/home/somebody/talks/vueconf", Some("日本語のトーク"))];
+        let found = hits(&entries, "vue");
+
+        let plain = screen(&found, 0, "vue").draw(&Style::plain());
+        let colored = screen(&found, 0, "vue").draw(&Style::colored());
+
+        let widths = |text: &str| text.lines().map(style::width::of).collect::<Vec<_>>();
+        assert_eq!(widths(&plain), widths(&colored));
+    }
+
+    #[test]
+    fn an_empty_query_marks_nothing_rather_than_every_row() {
+        let entries = many(3);
+
+        assert!(!screen(&refs(&entries), 0, "").draw(&Style::plain()).contains('['));
     }
 }
