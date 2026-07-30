@@ -198,6 +198,31 @@ pub fn transition(value: &JsonValue, diagnostics: &mut Diagnostics) -> Option<St
     }
 }
 
+/// Reads `draft:`, which decides whether a crawler is welcome.
+///
+/// Absent stays absent rather than becoming `false` here. Whether an
+/// undeclared deck is treated as a draft is a policy with a consequence, and it
+/// belongs on [`DeckMeta::is_draft`] where the consequence is written down —
+/// filling it in at parse time would put the same decision in two places.
+///
+/// A value that is not a boolean is reported rather than ignored. `draft: no`
+/// is a string in YAML 1.2, and an author who meant "publish this" would
+/// otherwise get a deck nothing indexes and no reason why.
+pub fn draft(value: &JsonValue, diagnostics: &mut Diagnostics) -> Option<bool> {
+    let field = lookup(value, "draft")?;
+
+    match field.as_bool() {
+        Some(flag) => Some(flag),
+        None => {
+            diagnostics.push(
+                Diagnostic::warning("frontmatter/invalid-draft", "`draft` must be true or false")
+                    .with_help("write `draft: false` to say the deck is finished and public"),
+            );
+            None
+        }
+    }
+}
+
 /// Builds deck metadata from the first frontmatter block.
 pub fn deck_meta(value: &JsonValue, diagnostics: &mut Diagnostics) -> DeckMeta {
     let aspect = match string(value, "aspect").or_else(|| string(value, "aspectRatio")) {
@@ -218,6 +243,7 @@ pub fn deck_meta(value: &JsonValue, diagnostics: &mut Diagnostics) -> DeckMeta {
         title: string(value, "title"),
         description: string(value, "description"),
         author: string(value, "author"),
+        draft: draft(value, diagnostics),
         theme: string(value, "theme"),
         transition: transition(value, diagnostics),
         aspect,
@@ -363,6 +389,40 @@ mod tests {
         assert_eq!(meta.aspect, AspectRatio::Classic);
         assert_eq!(meta.talk.hashtag.as_deref(), Some("slidxconf"), "the # is stripped once");
         assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn a_deck_says_it_is_publishable_by_writing_draft_false() {
+        let mut diagnostics = Diagnostics::default();
+        let meta = deck_meta(&json!({ "draft": false }), &mut diagnostics);
+
+        assert_eq!(meta.draft, Some(false));
+        assert!(!meta.is_draft());
+        assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn a_deck_that_never_mentions_draft_is_left_undeclared_rather_than_assumed_public() {
+        let mut diagnostics = Diagnostics::default();
+        let meta = deck_meta(&json!({ "title": "T" }), &mut diagnostics);
+
+        assert_eq!(meta.draft, None);
+        assert!(meta.is_draft());
+    }
+
+    #[test]
+    fn a_draft_field_that_is_not_a_boolean_is_reported_and_stays_a_draft() {
+        // `draft: no` is a YAML string in this parser, and an author who meant
+        // "publish it" would otherwise get silence and no explanation for why
+        // their deck never appeared.
+        for value in [json!({ "draft": "no" }), json!({ "draft": 0 })] {
+            let mut diagnostics = Diagnostics::default();
+            let meta = deck_meta(&value, &mut diagnostics);
+
+            assert_eq!(meta.draft, None);
+            assert_eq!(diagnostics.as_slice()[0].code, "frontmatter/invalid-draft");
+            assert!(!diagnostics.has_blocking(), "the deck still renders");
+        }
     }
 
     #[test]

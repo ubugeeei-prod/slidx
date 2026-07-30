@@ -97,6 +97,12 @@ pub struct DeckMeta {
     pub title: Option<String>,
     pub description: Option<String>,
     pub author: Option<String>,
+    /// Whether the author has said this deck is finished and public.
+    ///
+    /// Three states, not two. `None` is an author who has not thought about it
+    /// yet, which is a different situation from one who wrote `draft: false` —
+    /// see [`DeckMeta::is_draft`] for what the difference buys.
+    pub draft: Option<bool>,
     /// Theme package name or built-in theme id.
     pub theme: Option<String>,
     /// Default slide-to-slide transition.
@@ -131,6 +137,23 @@ impl DeckMeta {
     /// Title to show when the author has not written one.
     pub fn display_title(&self) -> &str {
         self.title.as_deref().unwrap_or("Untitled deck")
+    }
+
+    /// Whether this deck should be kept out of search results.
+    ///
+    /// **A deck that has said nothing is a draft.** That default is the
+    /// inconvenient one and the right one, because the two mistakes it chooses
+    /// between are not the same size. A deck sits in a repository for weeks
+    /// before the conference announces the talk, and a search engine that has
+    /// already crawled an embargoed deck cannot be told to forget it on the
+    /// speaker's schedule — the leak is done, and nothing the author does
+    /// afterwards undoes it. The opposite mistake is a finished deck indexed a
+    /// day late because nobody wrote `draft: false`, which costs a day.
+    ///
+    /// So publishing is something an author states, and the statement is one
+    /// line in the frontmatter they are already writing.
+    pub fn is_draft(&self) -> bool {
+        self.draft.unwrap_or(true)
     }
 }
 
@@ -321,6 +344,15 @@ mod tests {
 
         deck.slides.push(Slide::default());
         assert_eq!(deck.budgeted_seconds(), None, "a partial total would mislead");
+    }
+
+    #[test]
+    fn a_deck_that_has_said_nothing_about_being_published_is_a_draft() {
+        // The direction that matters. A deck exists on disk for weeks before a
+        // conference announces it, so silence has to mean "not yet".
+        assert!(DeckMeta::default().is_draft());
+        assert!(DeckMeta { draft: Some(true), ..DeckMeta::default() }.is_draft());
+        assert!(!DeckMeta { draft: Some(false), ..DeckMeta::default() }.is_draft());
     }
 
     #[test]
