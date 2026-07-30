@@ -272,11 +272,13 @@ async function select(page, editor, scene, root) {
 
 /** The deck's slides, in the order the outline lists them. */
 function slidesIn(root) {
-  return readdirSync(join(root, "slides"))
-    .filter((name) => name.endsWith(".md"))
-    // Explicit collation, so the slide a scene names is the same one on every
-    // machine.
-    .sort((one, other) => one.localeCompare(other, "en"));
+  return (
+    readdirSync(join(root, "slides"))
+      .filter((name) => name.endsWith(".md"))
+      // Explicit collation, so the slide a scene names is the same one on every
+      // machine.
+      .sort((one, other) => one.localeCompare(other, "en"))
+  );
 }
 
 /**

@@ -40,7 +40,7 @@ export function decodePng(file) {
   let header;
   const parts = [];
 
-  for (let at = 8; at + 8 <= file.length; ) {
+  for (let at = 8; at + 8 <= file.length;) {
     const length = file.readUInt32BE(at);
     const type = file.toString("ascii", at + 4, at + 8);
     const data = file.subarray(at + 8, at + 8 + length);

@@ -53,7 +53,7 @@ function dotted(pixels, width, x, y) {
 function chunks(file) {
   const found = [];
 
-  for (let at = 8; at + 8 <= file.length; ) {
+  for (let at = 8; at + 8 <= file.length;) {
     const length = file.readUInt32BE(at);
     const type = file.toString("ascii", at + 4, at + 8);
     found.push({ type, data: file.subarray(at + 8, at + 8 + length) });
