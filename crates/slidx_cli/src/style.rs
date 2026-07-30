@@ -70,6 +70,17 @@ pub enum Ink {
 
 impl Ink {
     /// SGR parameters, bold-first so the colour survives a washed-out screen.
+    ///
+    /// The original eight colours and the bold and faint attributes, and
+    /// nothing else. That is not a limitation being tolerated — it is what
+    /// makes one palette correct on a 24-bit terminal, on an 8-colour console,
+    /// over ssh into a machine with a minimal `TERM`, and inside tmux. A
+    /// 24-bit sequence would look better on the author's laptop and print as
+    /// literal text on the venue's, and there is no reading of "better" that
+    /// covers that trade.
+    ///
+    /// It also means the colours are the *user's* colours: every terminal
+    /// theme maps these eight, so slidx's red is the red they chose.
     fn code(self) -> &'static str {
         match self {
             Self::Fail => "1;31",
@@ -233,6 +244,33 @@ mod tests {
         codes.dedup();
 
         assert_eq!(codes.len(), total, "two inks render identically");
+    }
+
+    #[test]
+    fn every_colour_is_one_an_eight_colour_terminal_has() {
+        // The same palette has to be right on a 24-bit terminal and on the
+        // console a venue laptop boots into. A 256-colour or 24-bit sequence —
+        // `38;5;n` or `38;2;r;g;b` — is drawn as literal text where it is not
+        // understood, which puts `[38;2;255;0;0m` in front of the one line
+        // that says what to do.
+        for ink in
+            [Ink::Fail, Ink::Warn, Ink::Unknown, Ink::Pass, Ink::Strong, Ink::Faint, Ink::Hit]
+        {
+            let code = ink.code();
+
+            assert!(!code.contains("38;"), "{code} is an extended colour");
+            assert!(!code.contains("48;"), "{code} is an extended colour");
+
+            for parameter in code.split(';').filter_map(|part| part.parse::<u8>().ok()) {
+                // 0-9 are the attributes, 30-37 the foreground colours, 40-47
+                // the background ones. Everything else needs a terminal that
+                // may not be there.
+                assert!(
+                    parameter < 10 || (30..=47).contains(&parameter),
+                    "{code} uses SGR {parameter}, which the original eight do not have"
+                );
+            }
+        }
     }
 
     #[test]

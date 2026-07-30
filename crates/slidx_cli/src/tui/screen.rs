@@ -214,11 +214,15 @@ fn status(view: &View<'_>, slide: &Slide, style: &Style) -> String {
     format!("  {}  {}\n", style.paint(Ink::Strong, &position), style.paint(Ink::Faint, &short))
 }
 
-/// The one sentence that has to be on screen every time.
+/// The one sentence that has to be on screen every time, and the way out.
 ///
 /// Not in the help behind a key — on the frame. Somebody who checks a deck
 /// here, sees it fit, and finds out on stage that it does not is a failure this
 /// tool caused, and a disclaimer nobody opened does not prevent it.
+///
+/// The two bindings named here are the two somebody needs before they have read
+/// anything: how to see the rest, and how to leave. A view whose exit has to be
+/// guessed at is one people leave by closing the window.
 pub fn footer(style: &Style) -> String {
     format!(
         "  {}\n",
