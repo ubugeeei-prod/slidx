@@ -123,7 +123,7 @@ export function createDeckHistory(root: string, options: ResolvedOptions): DeckH
   }
 
   /**
-   * True when the deck on disk is byte for byte what a commit had.
+   * True when the deck on disk is what a commit had, as git counts it.
    *
    * Compared file by file rather than through the joined source, because the
    * joined source is trimmed at every file's edges — and a guard about not
@@ -140,7 +140,7 @@ export function createDeckHistory(root: string, options: ResolvedOptions): DeckH
 
     return disk.files.every((file, index) => {
       const committed = tree.files[index];
-      return committed?.label === basename(file.label) && committed.source === file.source;
+      return committed?.label === basename(file.label) && sameLines(committed.source, file.source);
     });
   }
 
@@ -238,4 +238,20 @@ export function createDeckHistory(root: string, options: ResolvedOptions): DeckH
       return { restored: rev, previous };
     },
   };
+}
+
+/**
+ * The same slide, whichever line ending is on disk.
+ *
+ * A commit holds what git stored, while the working copy holds what git
+ * *wrote* — and on a machine with `core.autocrlf` on, which is how git for
+ * Windows installs itself, those differ by a carriage return per line for the
+ * very same blob. Comparing raw bytes there calls a file git itself reports as
+ * unmodified a change, so the undo this guards would be refused on Windows and
+ * nowhere else. Normalising both sides is what git does before it compares
+ * them; the guard is about not losing an author's work, and a carriage return
+ * git put there is not their work.
+ */
+function sameLines(committed: string, disk: string): boolean {
+  return committed.replace(/\r\n/g, "\n") === disk.replace(/\r\n/g, "\n");
 }

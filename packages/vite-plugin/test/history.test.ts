@@ -55,8 +55,11 @@ async function get(session: Session, path: string): Promise<Record<string, unkno
  * this repository's own example. A deck whose project is the repository root
  * is the easy case and hides a real one — git resolves `<rev>:<path>` from the
  * top of the repository and prints tree paths from the directory it ran in.
+ *
+ * `configure` runs on the fresh repository before anything is committed, for
+ * the settings that change what git writes into a working copy.
  */
-async function withHistory(): Promise<Session> {
+async function withHistory(configure?: (repo: string) => Promise<void>): Promise<Session> {
   const repo = await mkdtemp(join(tmpdir(), "slidx-history-"));
   const root = join(repo, "talks", "making-decks-fast");
   await mkdir(join(root, "slides"), { recursive: true });
@@ -74,6 +77,7 @@ async function withHistory(): Promise<Session> {
   await git(repo, "init", "--quiet");
   await git(repo, "config", "user.email", "author@example.com");
   await git(repo, "config", "user.name", "The Author");
+  await configure?.(repo);
   await git(repo, "add", "-A");
   await git(repo, "commit", "--quiet", "-m", "the deck as the author wrote it");
 
@@ -339,6 +343,51 @@ describe("putting the deck back", () => {
 
     expect(answer.restored).toBeUndefined();
     expect(answer.refused).toBeTruthy();
+  });
+});
+
+describe("putting the deck back where git writes the line endings", () => {
+  let session: Session;
+
+  beforeAll(async () => {
+    // `core.autocrlf` is on by default wherever git for Windows installed
+    // itself, so a restore writes CRLF for a commit that holds LF. Set here
+    // rather than left to the platform, because a guard that only breaks on
+    // one operating system is a guard nobody else's test run would notice.
+    session = await withHistory(async (repo) => {
+      await git(repo, "config", "core.autocrlf", "true");
+    });
+  }, 60_000);
+
+  afterAll(async () => {
+    await session?.server.close();
+  });
+
+  it("undoes a restore, because git decides what counts as uncommitted", async () => {
+    // The undo depends on recognising the deck this session put on disk. If
+    // that comparison is bytes rather than what git compares, a carriage
+    // return git itself wrote reads as the author's unsaved work, and going
+    // back is refused for a change nobody made.
+    const restore = async (rev: string) => {
+      const response = await fetch(`${session.url}__slidx/history/restore`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ rev }),
+      });
+
+      return (await response.json()) as { restored?: string; previous?: string; refused?: string };
+    };
+
+    const { commits } = (await get(session, "__slidx/history")) as { commits: { rev: string }[] };
+    const back = await restore(commits[1]!.rev);
+    expect(back.restored).toBe(commits[1]!.rev);
+
+    const undone = await restore(back.previous!);
+    expect(undone.refused).toBeUndefined();
+    expect(undone.restored).toBe(back.previous);
+    expect(await readFile(join(session.root, "slides", "0002.md"), "utf8")).toContain(
+      "What actually goes wrong",
+    );
   });
 });
 
