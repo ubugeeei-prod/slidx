@@ -28,6 +28,12 @@ import { openRepository, isRevision } from "../src/git";
 
 const run = promisify(execFile);
 
+// These are integration tests over real git processes, and every fixture makes
+// two commits. Five seconds is enough on Unix but has failed on two different
+// cases on hosted Windows runners; the assertion remains bounded without
+// confusing process startup time with a product hang.
+const GIT_TEST_TIMEOUT = 15_000;
+
 interface Fixture {
   /** The repository. */
   root: string;
@@ -71,7 +77,7 @@ async function repository(options: Options = {}): Promise<Fixture> {
   return { root, project };
 }
 
-describe("reading a deck's history", () => {
+describe("reading a deck's history", { timeout: GIT_TEST_TIMEOUT }, () => {
   it("says a directory is not a repository rather than failing to load", async () => {
     // A deck in a directory nobody ran `git init` in is an ordinary situation.
     // The editor still has to open.
@@ -178,7 +184,7 @@ describe("reading a deck's history", () => {
   });
 });
 
-describe("putting the deck back to a commit", () => {
+describe("putting the deck back to a commit", { timeout: GIT_TEST_TIMEOUT }, () => {
   it("says nothing has changed under a deck nobody has touched", async () => {
     const { project } = await repository();
     const repo = await openRepository(project);
@@ -254,7 +260,7 @@ describe("putting the deck back to a commit", () => {
   });
 });
 
-describe("what cannot become an argument", () => {
+describe("what cannot become an argument", { timeout: GIT_TEST_TIMEOUT }, () => {
   it("refuses a revision that is a git option rather than an object name", () => {
     // The panel only ever names a commit it was given, so the rule can be as
     // narrow as an object name. `--upload-pack` runs a program of the caller's
