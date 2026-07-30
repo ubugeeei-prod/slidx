@@ -41,27 +41,47 @@ pub fn parse_deck(source: &str, options: &DeckParseOptions) -> Deck {
     let mut diagnostics = Diagnostics::default();
     let segments = split(source, &options.separator);
 
-    let mut meta = DeckMeta::default();
-    let mut slides = Vec::with_capacity(segments.len());
+    // Frontmatter is read for the whole deck before any slide is built, because
+    // pinned ids have to be reserved before the first slug is allocated. A slide
+    // pins the id a published deck already addresses it by, and a slug that
+    // collided with one has to be the thing that moves.
+    let matters: Vec<JsonValue> =
+        segments.iter().map(|segment| read_frontmatter(segment, &mut diagnostics)).collect();
+
+    let meta = match matters.first() {
+        Some(matter) => frontmatter::deck_meta(matter, &mut diagnostics),
+        None => DeckMeta::default(),
+    };
+
     let mut slugs = SlugAllocator::new();
+    for (index, matter) in matters.iter().enumerate() {
+        let Some(id) = pinned_id(matter) else { continue };
 
-    for (index, segment) in segments.iter().enumerate() {
-        let matter = read_frontmatter(segment, &mut diagnostics);
-
-        if index == 0 {
-            meta = frontmatter::deck_meta(&matter, &mut diagnostics);
+        if !slugs.reserve(&id) {
+            diagnostics.push(
+                Diagnostic::warning("deck/duplicate-id", format!("`id: {id}` is pinned twice"))
+                    .at(SourceSpan::default().on_slide(index as u32))
+                    .with_help("one id addresses one slide; give this one an id of its own"),
+            );
         }
-
-        slides.push(build_slide(
-            segment,
-            matter,
-            index as u32,
-            options,
-            &meta,
-            &mut slugs,
-            &mut diagnostics,
-        ));
     }
+
+    let slides = segments
+        .iter()
+        .zip(matters)
+        .enumerate()
+        .map(|(index, (segment, matter))| {
+            build_slide(
+                segment,
+                matter,
+                index as u32,
+                options,
+                &meta,
+                &mut slugs,
+                &mut diagnostics,
+            )
+        })
+        .collect();
 
     Deck { meta, slides, diagnostics }
 }
@@ -99,7 +119,7 @@ fn build_slide(
     let blocked = extract_blocks(&compile_marks(&steps.content, &mut next_key));
 
     Slide {
-        id: allocate_id(slugs, title.as_deref(), index),
+        id: allocate_id(slugs, &matter, title.as_deref(), index),
         index,
         title,
         content: blocked.content,
@@ -249,7 +269,28 @@ fn first_heading(body: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-fn allocate_id(slugs: &mut SlugAllocator, title: Option<&str>, index: u32) -> String {
+/// The id a slide declares for itself, if it declares one.
+///
+/// A slide id is a slug of its heading, which means translating the heading
+/// moves the slide: every deep link into the deck and every QR code printed on
+/// a handout addresses the old one. `id:` is how a deck keeps an address it has
+/// already published while its words change underneath.
+fn pinned_id(matter: &JsonValue) -> Option<String> {
+    frontmatter::string(matter, "id").map(|id| id.trim().to_string()).filter(|id| !id.is_empty())
+}
+
+fn allocate_id(
+    slugs: &mut SlugAllocator,
+    matter: &JsonValue,
+    title: Option<&str>,
+    index: u32,
+) -> String {
+    // Returned rather than allocated: the pin was reserved before any slug was,
+    // so passing it through the allocator now would suffix it against itself.
+    if let Some(pinned) = pinned_id(matter) {
+        return pinned;
+    }
+
     let base = title.map(slugify).filter(|slug| !slug.is_empty());
     slugs.allocate(&base.unwrap_or_else(|| format!("slide-{}", index + 1)))
 }
@@ -266,6 +307,41 @@ mod tests {
     fn a_heading_inside_a_fence_does_not_title_the_slide() {
         let deck = parse("```md\n# Not the title\n```\n\n# Real Title\n");
         assert_eq!(deck.slides[0].title.as_deref(), Some("Real Title"));
+    }
+
+    #[test]
+    fn a_slide_can_pin_the_id_its_heading_would_otherwise_derive() {
+        // What makes a translated deck reachable at the URLs the original one
+        // published. Without this, translating a heading moves the slide.
+        let deck = parse("---\nid: getting-started\n---\n\n## はじめに\n");
+
+        assert_eq!(deck.slides[0].id, "getting-started");
+    }
+
+    #[test]
+    fn a_pinned_id_wins_a_collision_against_a_heading_that_now_slugs_to_it() {
+        // Pins are the addresses a deck already published, so a heading that
+        // happens to slug onto one has to move rather than the pin. The other
+        // way round is a broken deep link nothing reports.
+        let deck = parse("# Overview\n\n---\nid: overview\n---\n\n# Something Else\n");
+
+        assert_eq!(deck.slides[1].id, "overview");
+        assert_eq!(deck.slides[0].id, "overview-2");
+    }
+
+    #[test]
+    fn two_slides_pinning_one_id_is_reported_rather_than_silently_merged() {
+        let deck = parse("---\nid: intro\n---\n\n# One\n\n---\nid: intro\n---\n\n# Two\n");
+
+        assert!(deck.diagnostics.iter().any(|d| d.code == "deck/duplicate-id"));
+    }
+
+    #[test]
+    fn a_deck_says_which_language_it_is_in_and_what_it_is_a_translation_of() {
+        let deck = parse("---\nlang: ja\ntranslationOf: ../slides\n---\n\n# はじめに\n");
+
+        assert_eq!(deck.meta.lang.as_deref(), Some("ja"));
+        assert_eq!(deck.meta.translation_of.as_deref(), Some("../slides"));
     }
 
     #[test]

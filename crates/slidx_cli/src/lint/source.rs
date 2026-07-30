@@ -35,6 +35,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use slidx_core::ByteSpan;
+
 /// What the vite plugin calls `extensions`, at its default.
 pub const SLIDE_EXTENSION: &str = ".md";
 
@@ -45,13 +47,30 @@ pub const SLIDE_EXTENSION: &str = ".md";
 /// people who already know the layout.
 pub const DEFAULT_DIR: &str = "slides";
 
+/// One slide file, and where its bytes ended up in the joined source.
+///
+/// Joining trims each file, so the two coordinate systems differ by exactly that
+/// trim. Recording it is what lets `slidx i18n apply` rewrite the file a byte
+/// came from rather than the joined text nobody has on disk — and it is why a
+/// translation that changes nothing writes files back byte for byte instead of
+/// quietly normalising everybody's trailing newline.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SlideFile {
+    pub path: PathBuf,
+    /// The file's contribution to the joined source.
+    pub joined: ByteSpan,
+    /// Where that contribution starts in the file itself, past the leading
+    /// whitespace the join removed.
+    pub offset: usize,
+}
+
 /// A deck, assembled.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeckSource {
     /// What to call this deck in a message. A path as the user typed it.
     pub label: String,
     /// The files it came from, in deck order. Empty for a single-file deck.
-    pub files: Vec<PathBuf>,
+    pub files: Vec<SlideFile>,
     /// The joined source, as the parser will see it.
     pub source: String,
 }
@@ -60,6 +79,21 @@ impl DeckSource {
     /// How many files were read. One, for a single-file deck.
     pub fn file_count(&self) -> usize {
         self.files.len().max(1)
+    }
+
+    /// The file an offset in the joined source belongs to, and the offset within
+    /// it.
+    ///
+    /// `None` for a single-file deck, whose source is its file untouched, and for
+    /// an offset that fell in a separator this module inserted rather than in any
+    /// file's own bytes.
+    pub fn locate(&self, offset: usize) -> Option<(&SlideFile, usize)> {
+        let file = self
+            .files
+            .iter()
+            .find(|file| file.joined.start <= offset && offset <= file.joined.end)?;
+
+        Some((file, offset - file.joined.start + file.offset))
     }
 }
 
@@ -95,7 +129,19 @@ pub fn read(path: &Path, separator: &str) -> Result<DeckSource, String> {
         sources.push(source);
     }
 
-    Ok(DeckSource { label, files, source: join(&sources, separator) })
+    let (source, spans) = join_tracking(&sources, separator);
+    let parts = files
+        .into_iter()
+        .zip(&sources)
+        .zip(spans)
+        .map(|((path, text), joined)| SlideFile {
+            path,
+            joined,
+            offset: text.len() - text.trim_start().len(),
+        })
+        .collect();
+
+    Ok(DeckSource { label, files: parts, source })
 }
 
 /// Joins slide sources into one deck, as rules 2 and 3 above state it.
@@ -110,9 +156,26 @@ pub fn read(path: &Path, separator: &str) -> Result<DeckSource, String> {
 /// opens what the parser reads as a frontmatter block, and a file that already
 /// starts with a separator does not need one in front of it.
 pub fn join(sources: &[String], separator: &str) -> String {
-    let mut joined = String::new();
+    join_tracking(sources, separator).0
+}
 
-    for source in sources.iter().map(|source| source.trim()).filter(|source| !source.is_empty()) {
+/// The same, saying where each source's bytes landed.
+///
+/// One span per input, empty for a source that contributed nothing. `slidx i18n
+/// apply` writes a translated deck back one file at a time and has to know which
+/// file each byte came from — and the seams are exactly what [`join`] decides,
+/// so a caller computing them again would be a second answer to a rule that has
+/// already been wrong here once.
+pub fn join_tracking(sources: &[String], separator: &str) -> (String, Vec<ByteSpan>) {
+    let mut joined = String::new();
+    let mut spans = Vec::with_capacity(sources.len());
+
+    for source in sources.iter().map(|source| source.trim()) {
+        if source.is_empty() {
+            spans.push(ByteSpan::empty(joined.len()));
+            continue;
+        }
+
         if !joined.is_empty() {
             joined.push_str(&if opens_with_separator(source, separator) {
                 "\n\n".to_string()
@@ -121,10 +184,11 @@ pub fn join(sources: &[String], separator: &str) -> String {
             });
         }
 
+        spans.push(ByteSpan::new(joined.len(), joined.len() + source.len()));
         joined.push_str(source);
     }
 
-    joined
+    (joined, spans)
 }
 
 /// True when a file's first line is the deck separator and nothing else.
@@ -330,6 +394,33 @@ mod tests {
         assert_eq!(deck.source, "# One\n\n---\n\n# Two\n");
         assert!(deck.files.is_empty());
         assert_eq!(deck.file_count(), 1);
+    }
+
+    #[test]
+    fn every_byte_of_the_joined_source_maps_back_to_the_file_it_came_from() {
+        // What `slidx i18n apply` writes through. A mapping that was off by the
+        // whitespace the join trimmed would translate the wrong bytes of a file.
+        let scratch = Scratch::new("locate");
+        scratch.write("0001.md", "\n\n# One\n\n");
+        scratch.write("0002.md", "# Two\n\nBody.\n");
+
+        let deck = read(scratch.path(), "---").expect("a deck");
+
+        for (index, file) in deck.files.iter().enumerate() {
+            let text = fs::read_to_string(&file.path).expect("read back");
+            let (found, at) = deck.locate(file.joined.start).expect("a file");
+
+            assert_eq!(found.path, file.path, "file {index}");
+            assert_eq!(&text[at..at + file.joined.len()], file.joined.slice(&deck.source));
+        }
+    }
+
+    #[test]
+    fn a_single_file_deck_maps_to_no_slide_file_because_it_needs_no_mapping() {
+        let scratch = Scratch::new("locate-single");
+        let file = scratch.write("talk.md", "# One\n");
+
+        assert!(read(&file, "---").expect("a deck").locate(0).is_none());
     }
 
     #[test]

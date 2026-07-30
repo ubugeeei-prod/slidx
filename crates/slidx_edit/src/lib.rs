@@ -67,7 +67,7 @@
 #![warn(clippy::all)]
 
 mod edit;
-mod frontmatter;
+pub mod frontmatter;
 mod inline;
 mod notes;
 mod op;
