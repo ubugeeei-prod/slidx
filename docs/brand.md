@@ -152,42 +152,93 @@ rules and nothing needs one yet.
 
 ## Colour
 
-Five roles, and naming them by job rather than by hue is what stops a fourth
-blue arriving next year.
+### One pigment
+
+slidx is about **ink on paper that has to survive being light on a wall.** A
+deck is written as a document and then thrown at a screen by a machine that
+cannot emit black, and everything the linter models is about that second half.
+
+So the brand is one pigment: a **blue-black ink**, the colour a document gets
+written in. There is no second hue anywhere in the palette.
+
+- **signal** is that ink at full strength — the only colour allowed to _mean_
+  something. A link, an accent rule, the pages in the mark. Nothing decorative
+  may use it, because a colour used for decoration cannot also be used for
+  emphasis.
+- **paper**, **ink**, **muted** and **line** are the _same pigment as a wash_:
+  identical hue, a tenth of the chroma, at four lightnesses.
+
+That is the answer to "why this neutral and not a warmer one". The neutral is
+not a choice standing beside the signal — it **is** the signal, diluted. A warm
+grey would mean two pigments and the palette would stop being one idea. Look for
+it and you can see it: paper is very faintly cool, and ink is a blue-black rather
+than a neutral black.
+
+### Nothing here is a hex literal
+
+Four numbers go in — a hue of **258°**, a signal chroma of **0.154**, a wash of
+**one tenth**, and one lightness per role — and the hexes come out through
+`slidx_brand::ink`, which mixes in OKLCh and converts to sRGB.
 
 | role       | light     | dark      | job                                         |
 | ---------- | --------- | --------- | ------------------------------------------- |
-| **paper**  | `#fbfbfc` | `#0b0b0d` | what the brand is drawn _on_                |
-| **ink**    | `#101014` | `#f2f2f5` | what words are set _in_                     |
-| **signal** | `#1b3bc9` | `#b8ccff` | the only colour allowed to _mean_ something |
-| muted      | `#4b4b55` | `#a6a6b2` | secondary text                              |
-| line       | `#d8d8de` | `#2b2b33` | a hairline                                  |
+| **paper**  | `#f7faff` | `#13171e` | what the brand is drawn _on_                |
+| **ink**    | `#161b22` | `#eff6ff` | what words are set _in_                     |
+| **signal** | `#01489f` | `#a5c9ff` | the only colour allowed to _mean_ something |
+| muted      | `#5f656e` | `#979da7` | secondary text                              |
+| line       | `#d3dae4` | `#2a2f37` | a hairline                                  |
 
-**Signal carries meaning and nothing else** — a link, an accent rule, the pages
-in the mark. Nothing decorative may use it, because a colour used for
-decoration cannot also be used for emphasis.
+Those are **outputs**, and the distinction is the point rather than pedantry. A
+palette written as ten hex literals is a palette nobody can argue with, because
+there is no argument in it — only ten results. It is also precisely the shape a
+borrowed framework scale arrives in, which is how one gets in unnoticed.
 
-**Neither scheme reaches full black on full white.** At full separation the
-edges of a glyph halate, which makes text harder to read rather than easier.
-The high-contrast deck theme stops short of it for the same reason and says so
-in its own source.
+Why OKLCh and not HSL: the palette needs a lightness _ladder_, and lightness has
+to mean the same thing at both ends of it. In HSL it does not —
+`hsl(258 60% 50%)` and `hsl(60 60% 50%)` are nowhere near equally light — so an
+HSL ladder is even by arithmetic and uneven to the eye.
 
-**A dark scheme is not an inversion.** `#1b3bc9` on near-black measures 1.9:1,
-so the signal has to move to the other side of the paper it now sits on.
+Why 258°: it is a blue-black ink. Unmistakably blue, a shade cooler than the
+sRGB blue primary at 264, and nowhere near the 300s where blue becomes violet.
+Chosen for the referent, not for the number, and written down once so the next
+person changes a pigment instead of ten hexes.
 
-### The signal is a stop deeper than it looks like it should be
+### The dark scheme is not a reflection, and that is a finding
 
-This is the part worth reading. The obvious signal for this palette was the
-default theme's accent, `#1d4ed8`. On brand paper in a bright room it measures
-**4.46:1** — a fail, by four hundredths, on the exact check slidx exists to
-run. Nobody would have caught that by looking.
+The light ladder is five lightnesses, one per job. The obvious way to get the
+dark one is to reflect it — and the reflection _nearly_ works, which is worse
+than not working, because it looks finished.
 
-So the palette goes through `slidx_lint` itself: the same `lint()` function,
-the same 4.5:1 floor, the same projector-washout model, both schemes, every
-lighting condition from a direct panel to a bright room, plus a hall with the
-lights up. `slidx_brand::audit` is where that happens, and
-`the_audit_is_not_vacuous` re-runs the near-miss blue to prove the audit is
-still measuring something.
+It fails on the projector model. A projector cannot emit black: the darkest
+pixel is whatever light the room is already putting on the screen. That ambient
+floor is added to both colours, and adding a constant to two small luminances
+destroys their ratio far faster than adding it to two large ones. **A dark scheme
+in a bright room loses much more contrast than its light twin does**, so it needs
+to be more separated than the reflection, not equally.
+
+Rather than nudge two numbers until they looked right, the reflection is the
+starting point and `slidx_lint` decides where each stop lands: every dark role
+that carries words moves away from the paper, half a percent of lightness at a
+time, until it clears its own floor in a bright room with a five percent margin.
+The audit decides, not a constant — the arrangement `TypeScale::code_factor`
+documents on its own side. `the_dark_ladder_ends_up_more_separated_than_the_reflection`
+fails if a plain reflection ever becomes sufficient, so the solver cannot quietly
+become dead weight.
+
+### The near-miss that started all of this
+
+The obvious signal for this palette was the default deck theme's accent,
+`#1d4ed8`. On brand paper in a bright room it measures **4.46:1** — a fail, by
+four hundredths, on the exact check slidx exists to run. Nobody would have caught
+that by looking. It is also `blue-700` from a well-known CSS framework, which is
+the other half of the problem.
+
+So the palette goes through `slidx_lint` itself: the same `lint()` function, the
+same 4.5:1 floor, the same projector-washout model, both schemes, every lighting
+condition from a direct panel to a bright room, plus a hall with the lights up.
+`slidx_brand::audit` is where that happens, and `the_audit_is_not_vacuous` keeps
+the near-miss blue as a fixture, so the audit cannot start passing because it
+stopped measuring.
 
 One honest adjustment: the _legibility_ rule is given a reading distance rather
 than a back row. It holds text to the angular size it subtends from the
@@ -208,6 +259,15 @@ one system rather than two.
   reach for here either.
 - The spacing is `slidx_theme::Spacing`, every value a multiple of one **8px
   step**: block 3 steps, padding 4 steps, radius 0, hairline 1px.
+
+**Why type is geometric and spacing is linear**, since that looks like an
+inconsistency and is not. Type sizes are compared _optically_ — a heading is
+judged against the body text beside it, and equal-looking steps need a constant
+ratio, which is what a modular scale gives. Spacing is compared _by counting_ —
+the eye reads one gap as twice another, not as 1.25 times another — so multiples
+of a single step are what read as deliberate. The mark's module is the same idea
+in two dimensions: one unit, and every edge a whole number of them.
+
 - The font stacks are read off `slidx_theme::default_theme()` rather than
   repeated, so they cannot drift and a CJK fallback added there arrives here.
 

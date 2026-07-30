@@ -2,11 +2,11 @@
   <!-- The mark inset by the brand's clear space, which is the width of the
        document bar. Everything drawn therefore sits inside 80% of the tile,
        inside every maskable safe zone a platform applies. -->
-  <rect width="42" height="42" fill="#0b0b0d"/>
+  <rect width="42" height="42" fill="#13171e"/>
   <g transform="translate(9 9)">
-    <rect x="0" y="0" width="9" height="24" fill="#f2f2f5"/>
-    <rect x="12" y="0" width="12" height="6" fill="#b8ccff"/>
-    <rect x="12" y="9" width="12" height="6" fill="#b8ccff"/>
-    <rect x="12" y="18" width="12" height="6" fill="#b8ccff"/>
+    <rect x="0" y="0" width="9" height="24" fill="#eff6ff"/>
+    <rect x="12" y="0" width="12" height="6" fill="#a5c9ff"/>
+    <rect x="12" y="9" width="12" height="6" fill="#a5c9ff"/>
+    <rect x="12" y="18" width="12" height="6" fill="#a5c9ff"/>
   </g>
 </svg>

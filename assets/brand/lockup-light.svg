@@ -10,10 +10,10 @@
     knowable here and a rule that claimed one would be wrong nearly everywhere.
   -->
   <g transform="translate(9 9)">
-    <rect x="0" y="0" width="9" height="24" fill="#101014"/>
-    <rect x="12" y="0" width="12" height="6" fill="#1b3bc9"/>
-    <rect x="12" y="9" width="12" height="6" fill="#1b3bc9"/>
-    <rect x="12" y="18" width="12" height="6" fill="#1b3bc9"/>
+    <rect x="0" y="0" width="9" height="24" fill="#161b22"/>
+    <rect x="12" y="0" width="12" height="6" fill="#01489f"/>
+    <rect x="12" y="9" width="12" height="6" fill="#01489f"/>
+    <rect x="12" y="18" width="12" height="6" fill="#01489f"/>
   </g>
-  <text x="39" y="21" fill="#101014" font-family="system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif" font-size="24" font-weight="650" letter-spacing="-0.02em" dominant-baseline="central">slidx</text>
+  <text x="39" y="21" fill="#161b22" font-family="system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif" font-size="24" font-weight="650" letter-spacing="-0.02em" dominant-baseline="central">slidx</text>
 </svg>

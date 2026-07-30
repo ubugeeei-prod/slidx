@@ -48,6 +48,7 @@
 pub mod assets;
 pub mod audit;
 pub mod css;
+pub mod ink;
 pub mod mark;
 pub mod palette;
 pub mod tokens;
