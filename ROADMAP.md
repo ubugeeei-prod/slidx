@@ -147,7 +147,7 @@ Editor-first authoring that still writes reviewable Markdown.
 **Done when** an author can build a staged, animated slide without typing YAML,
 and the diff is still reviewable.
 
-A mark is a claim that a named person is working on a named paragraph, so the
+A mark is a claim that a named person is working on a named block, so the
 interesting half of that feature is what it refuses to draw. A viewer with no
 block selected gets nothing, and so does one whose block is not on this slide —
 their position and the deck it is a position in arrive on the same stream but
