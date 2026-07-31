@@ -122,9 +122,12 @@ body {
 }
 
 .slidx-editor {
+  --slidx-e-outline-width: 232px;
+  --slidx-e-inspector-width: 296px;
   display: grid;
+  position: relative;
   height: 100vh;
-  grid-template-columns: 232px minmax(0, 1fr) 296px;
+  grid-template-columns: var(--slidx-e-outline-width) minmax(0, 1fr) var(--slidx-e-inspector-width);
   grid-template-rows: minmax(0, 1fr) auto;
   grid-template-areas: "outline canvas inspector" "findings findings findings";
 }
@@ -133,6 +136,65 @@ body {
 .slidx-canvas { grid-area: canvas; }
 .slidx-inspector { grid-area: inspector; border-left: var(--slidx-e-hairline) solid var(--slidx-e-line); }
 .slidx-diagnostics { grid-area: findings; border-top: var(--slidx-e-hairline) solid var(--slidx-e-line); }
+
+/*
+ * Side-panel separators.
+ *
+ * The eight-pixel target straddles a one-pixel rule. It overlays the existing
+ * three-column grid rather than becoming two more columns, because the timeline
+ * owns the editor's grid areas and both surfaces must keep one definition.
+ */
+.slidx-panel-resizers {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.slidx-panel-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--slidx-e-snug);
+  touch-action: none;
+  cursor: col-resize;
+  pointer-events: auto;
+}
+
+.slidx-panel-resizer[data-panel="outline"] {
+  left: calc(var(--slidx-e-outline-width) - var(--slidx-e-tight));
+}
+
+.slidx-panel-resizer[data-panel="inspector"] {
+  right: calc(var(--slidx-e-inspector-width) - var(--slidx-e-tight));
+}
+
+.slidx-panel-resizer::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: calc(50% - var(--slidx-e-hairline));
+  width: var(--slidx-e-hairline);
+  background: transparent;
+}
+
+.slidx-panel-resizer:hover::before,
+.slidx-panel-resizer:focus-visible::before,
+.slidx-panel-resizer[data-dragging="true"]::before {
+  background: var(--slidx-e-accent);
+}
+
+/*
+ * The shared focus ring sets position: relative on anything focusable, which
+ * would drop a separator into the flow of its overlay and away from the panel
+ * edge at the moment keyboard resizing begins.
+ */
+.slidx-panel-resizer[data-panel]:focus-visible {
+  position: absolute;
+}
 
 .slidx-outline, .slidx-canvas, .slidx-inspector {
   display: flex;

@@ -32,6 +32,7 @@ import { createFreeform } from "./freeform";
 import { createInspector } from "./inspector";
 import { createMediaDrop } from "./media-drop";
 import { createOutline, type Surface } from "./outline";
+import { createPanelResize } from "./panel-resize";
 import { createResize } from "./resize";
 import { createRevisions } from "./revisions";
 import { occurrenceInRendered, locateSelection } from "./selection";
@@ -113,6 +114,7 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
   const client = options.client ?? createClient();
   const session = createSession(client);
   const bodyOf = (slide: number) => session.bodyOf(slide);
+  const storage = safeStorage(root.ownerDocument);
 
   const run = (op: Parameters<Session["run"]>[0]) => void session.run(op);
   const select = (slide: number) =>
@@ -144,7 +146,7 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
       deckBase: options.deckBase ?? "slides",
       bodyOf,
       blocksOf: (slide) => session.blocksOf(slide),
-      storage: safeStorage(root.ownerDocument),
+      storage,
     },
   );
   const inspector = createInspector(
@@ -191,6 +193,7 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
       run: (op) => session.run(op),
     }),
     storyboard,
+    createPanelResize({ storage }),
     createBeacons(),
     createPresence({
       reload: () => void session.open(),

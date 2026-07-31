@@ -191,6 +191,20 @@ describe("visual editor shortcuts", () => {
 
     expect(fixture.server.ops).toEqual([]);
   });
+
+  it("does not repeat a key a focused control already handled", async () => {
+    const fixture = await open();
+    const event = new KeyboardEvent("keydown", {
+      key: "ArrowRight",
+      bubbles: true,
+      cancelable: true,
+    });
+    event.preventDefault();
+
+    fixture.shortcuts.keydown(event);
+
+    expect(fixture.session.state().selection.slide).toBe(0);
+  });
 });
 
 describe("arrows, which mean one of two things", () => {
