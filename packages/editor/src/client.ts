@@ -9,6 +9,7 @@
  */
 
 import type { Edit, EditOp, EditRefusal } from "./operations";
+import { CREDENTIAL_HEADER, readCredential } from "./collab";
 
 /** One thing a slide's steps can name, which is one row of the timeline. */
 export interface StepRow {
@@ -210,16 +211,20 @@ export interface ClientOptions {
   /** Where the editing routes live. */
   base?: string;
   fetch?: typeof globalThis.fetch;
+  /** Where a shared session's fragment credential is read from. */
+  href?: string;
 }
 
 export function createClient(options: ClientOptions = {}): EditorClient {
   const base = options.base ?? EDITOR_BASE;
   const send = options.fetch ?? globalThis.fetch.bind(globalThis);
+  const credential = readCredential(options.href ?? globalThis.location.href);
+  const access = credential ? { [CREDENTIAL_HEADER]: credential } : {};
 
   async function post(body: unknown): Promise<EditAnswer> {
     const response = await send(`${base}edit`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { ...access, "content-type": "application/json" },
       body: JSON.stringify(body),
     });
 
@@ -234,7 +239,7 @@ export function createClient(options: ClientOptions = {}): EditorClient {
 
   return {
     async deck() {
-      const response = await send(`${base}deck`);
+      const response = await send(`${base}deck`, { headers: access });
       return (await response.json()) as DeckState;
     },
     apply: (op) => post({ op }),
@@ -243,7 +248,7 @@ export function createClient(options: ClientOptions = {}): EditorClient {
     async measured(measured) {
       const response = await send(`${base}measured`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { ...access, "content-type": "application/json" },
         body: JSON.stringify({ measured }),
       });
 
