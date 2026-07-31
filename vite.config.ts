@@ -123,6 +123,7 @@ export default defineConfig({
         "check:borrowed",
         "check:dead-config",
         "check:flat",
+        "check:licensed",
       ]),
       "ci:rust": group([
         "fmt:rust-check",
@@ -139,6 +140,7 @@ export default defineConfig({
         "check:borrowed",
         "check:dead-config",
         "check:flat",
+        "check:licensed",
         "check:version",
         "fmt:rust-check",
         "fmt:ts-check",
@@ -373,6 +375,13 @@ export default defineConfig({
       // warning: the size guideline is a judgement call about how much a file is
       // holding, and this one is not.
       "check:flat": task("node scripts/check-flat.mjs"),
+
+      // The MIT notice beside every manifest that becomes a tarball. Neither
+      // cargo nor npm looks outside a package directory for one, so the copy at
+      // the root of this workspace reaches none of the 28 things it licenses —
+      // which a publish dry run found, and which is much easier to fix before
+      // a version exists than after.
+      "check:licensed": task("node scripts/check-licensed.mjs"),
 
       // No palette pasted from a framework, and no palette written as hex
       // literals at all. slidx shipped one popular framework's `zinc` ramp for
