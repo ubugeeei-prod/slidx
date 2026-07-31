@@ -72,6 +72,12 @@ function recorder() {
   };
 }
 
+function taskTab(root: ParentNode, name: "Selection" | "Slide" | "Deck"): HTMLButtonElement {
+  return [...root.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(
+    (tab) => tab.textContent === name,
+  )!;
+}
+
 describe("the outline", () => {
   it("lists the deck and marks the slide being edited", () => {
     const log = recorder();
@@ -352,6 +358,135 @@ describe("the canvas", () => {
 describe("the inspector", () => {
   const options = { bodyOf: () => "## Two\n\nThe result was 3.2x faster." };
 
+  it("presents Selection, Slide, and Deck as one accessible task at a time", () => {
+    const inspector = createInspector(recorder(), options);
+    inspector.render(stateOf());
+
+    const tablist = inspector.root.querySelector('[role="tablist"]')!;
+    const tabs = [...tablist.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+    const panels = [...inspector.root.querySelectorAll<HTMLElement>('[role="tabpanel"]')];
+
+    expect(tablist.getAttribute("aria-label")).toBe("Inspector sections");
+    expect(tablist.getAttribute("aria-orientation")).toBe("horizontal");
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["Selection", "Slide", "Deck"]);
+    expect(tabs.map((tab) => tab.getAttribute("aria-selected"))).toEqual([
+      "false",
+      "true",
+      "false",
+    ]);
+    expect(tabs.map((tab) => tab.getAttribute("tabindex"))).toEqual(["-1", "0", "-1"]);
+    expect(panels.map((panel) => panel.dataset.group)).toEqual(["selection", "slide", "deck"]);
+    expect(panels.map((panel) => panel.hidden)).toEqual([true, false, true]);
+
+    for (let index = 0; index < tabs.length; index += 1) {
+      expect(tabs[index]!.getAttribute("aria-controls")).toBe(panels[index]!.id);
+      expect(panels[index]!.getAttribute("aria-labelledby")).toBe(tabs[index]!.id);
+    }
+  });
+
+  it("keeps an explicitly chosen task across ordinary renders", () => {
+    const inspector = createInspector(recorder(), options);
+    const state = stateOf();
+    inspector.render(state);
+    taskTab(inspector.root, "Deck").click();
+
+    inspector.render({
+      ...state,
+      viewers: [{ id: "seat-2", label: "guest", slide: 0, local: false, canEdit: true }],
+    });
+
+    expect(taskTab(inspector.root, "Deck").getAttribute("aria-selected")).toBe("true");
+    expect(inspector.root.querySelector<HTMLElement>('[data-group="deck"]')!.hidden).toBe(false);
+  });
+
+  it("brings a new text selection forward and safely returns to the slide", () => {
+    const inspector = createInspector(recorder(), options);
+    const state = stateOf();
+    inspector.render(state);
+
+    const selected = {
+      ...state,
+      selection: { slide: 1, text: "3.2x faster", range: { start: 23, end: 34 } },
+    };
+    inspector.render(selected);
+    expect(taskTab(inspector.root, "Selection").getAttribute("aria-selected")).toBe("true");
+
+    taskTab(inspector.root, "Slide").click();
+    inspector.render(selected);
+    expect(taskTab(inspector.root, "Slide").getAttribute("aria-selected")).toBe("true");
+
+    inspector.render({
+      ...selected,
+      selection: { slide: 1, text: "result", range: { start: 12, end: 18 } },
+    });
+    expect(taskTab(inspector.root, "Selection").getAttribute("aria-selected")).toBe("true");
+
+    inspector.render(state);
+    expect(taskTab(inspector.root, "Slide").getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("moves and activates task tabs with arrow, Home, and End keys", () => {
+    const inspector = createInspector(recorder(), options);
+    inspector.render(stateOf());
+    document.body.append(inspector.root);
+
+    const slide = taskTab(inspector.root, "Slide");
+    slide.focus();
+    slide.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    expect(document.activeElement).toBe(taskTab(inspector.root, "Deck"));
+
+    taskTab(inspector.root, "Deck").dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+    );
+    expect(document.activeElement).toBe(taskTab(inspector.root, "Selection"));
+
+    taskTab(inspector.root, "Selection").dispatchEvent(
+      new KeyboardEvent("keydown", { key: "End", bubbles: true }),
+    );
+    expect(document.activeElement).toBe(taskTab(inspector.root, "Deck"));
+
+    taskTab(inspector.root, "Deck").dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Home", bubbles: true }),
+    );
+    expect(document.activeElement).toBe(taskTab(inspector.root, "Selection"));
+    expect(taskTab(inspector.root, "Selection").getAttribute("aria-selected")).toBe("true");
+
+    inspector.root.remove();
+  });
+
+  it("does not commit controls from an inactive task", () => {
+    const log = recorder();
+    const inspector = createInspector(log, options);
+    inspector.render(stateOf());
+
+    const title = inspector.root.querySelector<HTMLInputElement>(
+      '[data-group="deck"] [data-key="title"]',
+    )!;
+    title.value = "unfinished";
+    title.dispatchEvent(new Event("blur"));
+
+    taskTab(inspector.root, "Deck").click();
+    const budget = inspector.root.querySelector<HTMLInputElement>(
+      '[data-group="slide"] [data-key="budget"]',
+    )!;
+    const notes = inspector.root.querySelector<HTMLTextAreaElement>(
+      '[data-group="slide"] [aria-label="Speaker notes"]',
+    )!;
+    budget.value = "unfinished";
+    notes.value = "unfinished";
+    budget.dispatchEvent(new Event("blur"));
+    notes.dispatchEvent(new Event("blur"));
+
+    document.body.append(inspector.root);
+    title.focus();
+    inspector.render(
+      stateOf({ selection: { slide: 1, text: "3.2x faster", range: { start: 23, end: 34 } } }),
+    );
+
+    expect(log.ops).toEqual([]);
+    inspector.root.remove();
+  });
+
   it("writes one frontmatter key at a time", () => {
     const log = recorder();
     const inspector = createInspector(log, options);
@@ -438,6 +573,7 @@ describe("the inspector", () => {
     const log = recorder();
     const inspector = createInspector(log, options);
     inspector.render(stateOf());
+    taskTab(inspector.root, "Deck").click();
 
     const title = inspector.root.querySelector<HTMLInputElement>(
       '[data-group="deck"] [data-key="title"]',

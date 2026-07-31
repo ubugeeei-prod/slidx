@@ -34,24 +34,129 @@ export interface InspectorOptions {
 /** The keys worth offering by name. Anything else the author wrote still shows. */
 const DECK_KEYS = ["title", "event", "duration", "theme", "aspect"];
 const SLIDE_KEYS = ["transition", "budget", "optional"];
+const TASKS = ["selection", "slide", "deck"] as const;
+
+type InspectorTask = (typeof TASKS)[number];
+
+let inspectorCount = 0;
 
 export function createInspector(handlers: InspectorHandlers, options: InspectorOptions): Surface {
+  const id = `slidx-inspector-${++inspectorCount}`;
+  let active: InspectorTask = "slide";
+  let selectedText: string | undefined;
+  let rendered = new Map<InspectorTask, HTMLElement>();
+
+  const tabs = new Map(
+    TASKS.map((task) => {
+      const label = task[0]!.toUpperCase() + task.slice(1);
+      const tab = element("button", {
+        type: "button",
+        class: "slidx-inspector-tab",
+        role: "tab",
+        id: `${id}-tab-${task}`,
+        "aria-controls": `${id}-panel-${task}`,
+      });
+      tab.textContent = label;
+      return [task, tab] as const;
+    }),
+  );
+  const tablist = element(
+    "div",
+    {
+      class: "slidx-inspector-tabs",
+      role: "tablist",
+      "aria-label": "Inspector sections",
+      "aria-orientation": "horizontal",
+    },
+    [...tabs.values()],
+  );
   const panels = element("div", { class: "slidx-inspector-panels" });
   const root = element("section", { class: "slidx-inspector", "aria-label": "Inspector" }, [
     element("header", { class: "slidx-panel-head" }, [element("h2", {}, ["Inspector"])]),
+    tablist,
     panels,
   ]);
+
+  const activate = (task: InspectorTask, focus = false): void => {
+    active = task;
+    for (const name of TASKS) {
+      const current = name === task;
+      const tab = tabs.get(name)!;
+      tab.setAttribute("aria-selected", String(current));
+      tab.setAttribute("tabindex", current ? "0" : "-1");
+      rendered.get(name)?.toggleAttribute("hidden", !current);
+    }
+    if (focus) tabs.get(task)!.focus();
+  };
+
+  for (const [task, tab] of tabs) {
+    tab.addEventListener("click", () => activate(task));
+    tab.addEventListener("keydown", (event) => {
+      const at = TASKS.indexOf(task);
+      const next =
+        event.key === "ArrowRight"
+          ? TASKS[(at + 1) % TASKS.length]
+          : event.key === "ArrowLeft"
+            ? TASKS[(at - 1 + TASKS.length) % TASKS.length]
+            : event.key === "Home"
+              ? TASKS[0]
+              : event.key === "End"
+                ? TASKS[TASKS.length - 1]
+                : undefined;
+      if (next === undefined) return;
+      event.preventDefault();
+      activate(next, true);
+    });
+  }
+
+  activate(active);
 
   return {
     root,
     render(state) {
-      fill(panels, [
-        selectionPanel(state, handlers, options),
-        slidePanel(state, handlers),
-        deckPanel(state, handlers),
+      const nextSelection = selectionKey(state);
+      if (nextSelection !== selectedText) {
+        if (nextSelection !== undefined) active = "selection";
+        else if (selectedText !== undefined && active === "selection") active = "slide";
+      }
+      selectedText = nextSelection;
+
+      // A render can be triggered by a selection elsewhere while an inspector
+      // input still owns focus. Hide the old panel before detaching it so any
+      // browser-generated blur is recognisably non-user intent and cannot
+      // commit half-typed metadata.
+      for (const panel of rendered.values()) panel.hidden = true;
+
+      rendered = new Map([
+        ["selection", tabPanel(id, "selection", selectionPanel(state, handlers, options))],
+        ["slide", tabPanel(id, "slide", slidePanel(state, handlers))],
+        ["deck", tabPanel(id, "deck", deckPanel(state, handlers))],
       ]);
+      fill(panels, [...rendered.values()]);
+      activate(active);
     },
   };
+}
+
+function selectionKey(state: EditorState): string | undefined {
+  const text = state.selection.text;
+  if (text === undefined || text.length === 0) return undefined;
+
+  return JSON.stringify([
+    state.selection.slide,
+    state.selection.range?.start,
+    state.selection.range?.end,
+    text,
+  ]);
+}
+
+function tabPanel(id: string, task: InspectorTask, panel: HTMLElement): HTMLElement {
+  panel.classList.add("slidx-inspector-panel");
+  panel.setAttribute("role", "tabpanel");
+  panel.setAttribute("id", `${id}-panel-${task}`);
+  panel.setAttribute("aria-labelledby", `${id}-tab-${task}`);
+  panel.setAttribute("tabindex", "0");
+  return panel;
 }
 
 function selectionPanel(
@@ -200,9 +305,10 @@ function slidePanel(state: EditorState, handlers: InspectorHandlers): HTMLElemen
 
   const notes = element("textarea", { rows: 4, "aria-label": "Speaker notes" });
   notes.value = slide.notes.join("\n\n");
-  notes.addEventListener("blur", () =>
-    handlers.run({ op: "setNotes", slide: index, notes: notes.value }),
-  );
+  notes.addEventListener("blur", () => {
+    if (concealed(notes)) return;
+    handlers.run({ op: "setNotes", slide: index, notes: notes.value });
+  });
 
   // The first slide's block is the deck's, so showing everything written in it
   // here would repeat the whole Deck panel one heading higher up.
@@ -210,7 +316,7 @@ function slidePanel(state: EditorState, handlers: InspectorHandlers): HTMLElemen
   const ordinary = without(written, "layout");
 
   return group("Slide", [
-    layoutField(state, slide, index, handlers.run),
+    layoutField(state, slide, index, (op) => handlers.run(op)),
     ...keyFields(SLIDE_KEYS, ordinary, (key, value) =>
       handlers.run({ op: "setField", slide: index, key, value }),
     ),
@@ -271,6 +377,7 @@ function keyFields(
     }
 
     input.addEventListener("blur", () => {
+      if (concealed(input)) return;
       const value = input.value.trim();
       if (value === shown(current)) return;
       commit(key, coerce(value));
@@ -278,6 +385,11 @@ function keyFields(
 
     return field(key, input);
   });
+}
+
+/** A control in an inactive task must never produce an editing operation. */
+function concealed(control: HTMLElement): boolean {
+  return control.closest("[hidden]") !== null;
 }
 
 /** True when the value is a list or a mapping rather than one scalar. */
