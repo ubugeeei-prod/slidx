@@ -717,10 +717,14 @@ mod tests {
 
     #[test]
     fn marks_survive_into_the_page() {
-        let html = shell("The answer is [42]{#count .accent}.\n");
+        let html =
+            shell("The answer is [42]{#count .accent color=accent font=mono size=heading-2}.\n");
 
         assert!(html.contains("data-slidx-mark=\"count\""));
         assert!(html.contains("slidx-accent"));
+        assert!(html.contains("data-slidx-color=\"accent\""));
+        assert!(html.contains("data-slidx-font=\"mono\""));
+        assert!(html.contains("data-slidx-size=\"heading-2\""));
     }
 
     #[test]

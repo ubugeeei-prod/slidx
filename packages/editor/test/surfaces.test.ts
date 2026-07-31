@@ -424,6 +424,79 @@ describe("the inspector", () => {
     ]);
   });
 
+  it("offers theme-aware font, size, and colour choices without losing custom properties", () => {
+    const log = recorder();
+    const inspector = createInspector(log, options);
+    inspector.render(stateOf({ selection: { slide: 1, text: "3.2x faster" } }));
+
+    const selection = inspector.root.querySelector<HTMLElement>('[data-group="selection"]')!;
+    const properties = selection.querySelector<HTMLTextAreaElement>(
+      '[aria-label="Style properties"]',
+    )!;
+    properties.value = "tracking=tight";
+
+    selection
+      .querySelector<HTMLButtonElement>('[data-property="font"][data-value="mono"]')!
+      .click();
+    selection
+      .querySelector<HTMLButtonElement>('[data-property="size"][data-value="heading-2"]')!
+      .click();
+    selection
+      .querySelector<HTMLButtonElement>('[data-property="color"][data-value="accent"]')!
+      .click();
+
+    expect(properties.value).toBe("tracking=tight\nfont=mono\nsize=heading-2\ncolor=accent");
+    expect(
+      selection
+        .querySelector('[data-property="font"][data-value="mono"]')!
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+
+    selection.querySelector<HTMLElement>(".slidx-add")!.click();
+    expect(log.ops.at(-1)).toMatchObject({
+      op: "addMark",
+      attributes: {
+        properties: { tracking: "tight", font: "mono", size: "heading-2", color: "accent" },
+      },
+    });
+  });
+
+  it("can return a visual property to its inherited value", () => {
+    const log = recorder();
+    const inspector = createInspector(log, {
+      bodyOf: () => "A [styled phrase]{font=mono color=muted}.",
+      blocksOf: () => [
+        {
+          span: { start: 0, end: 43 },
+          marks: [
+            {
+              span: { start: 2, end: 42 },
+              words: { start: 3, end: 16 },
+              properties: { font: "mono", color: "muted" },
+            },
+          ],
+        },
+      ],
+    });
+    inspector.render(
+      stateOf({ selection: { slide: 1, text: "styled phrase", range: { start: 3, end: 16 } } }),
+    );
+
+    const selection = inspector.root.querySelector<HTMLElement>('[data-group="selection"]')!;
+    expect(
+      selection
+        .querySelector('[data-property="font"][data-value="mono"]')!
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    selection.querySelector<HTMLButtonElement>('[data-property="font"][data-value=""]')!.click();
+    selection.querySelector<HTMLElement>(".slidx-add")!.click();
+
+    expect(log.ops.at(-1)).toMatchObject({
+      op: "setMark",
+      attributes: { properties: { color: "muted" } },
+    });
+  });
+
   it("updates and removes the style already wrapped around the selected phrase", () => {
     const log = recorder();
     const body = "## Two\n\nThe result was [3.2x faster]{#result .accent color=danger}.";

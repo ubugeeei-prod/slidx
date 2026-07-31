@@ -20,6 +20,7 @@ import type { BlockSpans } from "./client";
 import type { ByteSpan, EditOp, MarkAttributes } from "./operations";
 import type { Surface } from "./outline";
 import type { EditorState } from "./session";
+import { createTextControls } from "./text-controls";
 
 export interface InspectorHandlers {
   run(op: EditOp): void;
@@ -108,6 +109,15 @@ function selectionPanel(
     "aria-label": "Style properties",
   });
   properties.value = showProperties(mark?.properties);
+  const textControls = createTextControls({
+    properties: mark?.properties ?? {},
+    change(name, value) {
+      const next = parseProperties(properties.value);
+      if (value === undefined) delete next[name];
+      else next[name] = value;
+      properties.value = showProperties(next);
+    },
+  });
 
   const apply = element("button", { type: "button", class: "slidx-add" }, [
     mark ? "Update style" : "Add style",
@@ -133,6 +143,7 @@ function selectionPanel(
     element("p", { class: "slidx-selected" }, [selected.trim()]),
     field("Classes", classes),
     field("Name", key),
+    textControls,
     field("Properties", properties),
     apply,
     ...(remove ? [remove] : []),
