@@ -1,9 +1,13 @@
 //! The offline guarantee.
 //!
-//! slidx promises that a built deck makes zero network requests. The promise is
-//! not about purity — it is about the room. The venue Wi-Fi is down, the laptop
-//! is someone else's, the deck opens, and the fonts were on a CDN. Every asset a
-//! slide fetches at presentation time is a way for the deck to arrive blank.
+//! slidx promises that a built deck fetches nothing from anywhere but itself.
+//! Not that it fetches nothing at all — a slide with three images asks for three
+//! images, and always will. What it never does is ask somebody else for them.
+//!
+//! The promise is not about purity, it is about the room. The venue Wi-Fi is
+//! down, the laptop is someone else's, the deck opens, and the fonts were on a
+//! CDN. Every asset a slide fetches from another origin at presentation time is
+//! a way for the deck to arrive blank.
 //!
 //! Nothing else can enforce this. The bundler inlines what it can see, so the
 //! guarantee holds by construction right up to the moment an author pastes a

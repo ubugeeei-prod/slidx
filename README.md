@@ -42,7 +42,7 @@ That is the whole configuration.
 
 ```bash
 vp dev     # the deck, plus the visual editor at /__slidx/
-vp build   # one HTML document per slide, and zero network requests
+vp build   # one HTML document per slide, asking nothing of any other origin
 ```
 
 ## A deck
@@ -149,15 +149,15 @@ slidx cd vueconf           # with `slidx shell` loaded, takes you there
 
 ## What is actually different
 
-|                                                                                           |
-| ----------------------------------------------------------------------------------------- |
-| **Zero network requests.** Asserted in three browser engines, not written down as advice. |
-| **No framework in the output.** Vue, React, Svelte, Solid and Angular opt in per deck.    |
-| **MDX is opt-in.** `.md` stays plain; `.mdx` components keep a static Markdown fallback.  |
-| **An edit is a byte-range splice.** Your blank lines and `*` bullets survive untouched.   |
-| **The linter checks the room.** Projector washout; angular size from the back row.        |
-| **One model, one execution.** Editor, projector, PDF and card share one parser.           |
-| **Native speed.** 500 slides in 133 ms — `node scripts/bench-build.mjs` reproduces it.    |
+|                                                                                                 |
+| ----------------------------------------------------------------------------------------------- |
+| **Nothing from another origin.** Measured in three browser engines, not written down as advice. |
+| **No framework in the output.** Vue, React, Svelte, Solid and Angular opt in per deck.          |
+| **MDX is opt-in.** `.md` stays plain; `.mdx` components keep a static Markdown fallback.        |
+| **An edit is a byte-range splice.** Your blank lines and `*` bullets survive untouched.         |
+| **The linter checks the room.** Projector washout; angular size from the back row.              |
+| **One model, one execution.** Editor, projector, PDF and card share one parser.                 |
+| **Native speed.** 500 slides in 133 ms — `node scripts/bench-build.mjs` reproduces it.          |
 
 ## More
 

@@ -111,9 +111,9 @@ Runs every slidx rule over a deck on disk and returns what a conference room \
 will do to it: contrast through a model of projector washout, rendered font size \
 by the angular size a glyph subtends from the back row, images blown up past \
 their own pixels, heading order, bullet load, animation cost, and per-slide time \
-budgets summed against the declared slot. An asset fetched over the network is \
-an error rather than advice, because a built deck making zero network requests \
-is the guarantee slidx makes out loud.
+budgets summed against the declared slot. An asset fetched from another origin \
+is an error rather than advice, because a built deck asking nothing of anywhere \
+but itself is the guarantee slidx makes out loud.
 
 Reach for this before telling an author a slide is fine. None of what it checks \
 is visible in the Markdown, and the rules that need a laid-out page — whether \
