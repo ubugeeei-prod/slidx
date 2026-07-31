@@ -34,11 +34,12 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 
-import { createRoom, type Room } from "./collab/room";
+import { createRoom } from "./collab/room";
 import { readDeck, type DeckSource } from "./deck";
 import { EDITOR_MODULE, EDITOR_PAGE, editorPage, readEditor } from "./editor";
 import { joinDeck } from "./files";
 import { createDeckHistory } from "./history";
+import { MEDIA_UPLOAD_ROUTE, MediaUploadError, uploadMedia } from "./media-upload";
 import { createSharing, isLoopback, CREDENTIAL_HEADER, Grant, type Sharing } from "./share";
 import {
   applyOperation,
@@ -64,7 +65,7 @@ const MEASURED_ROUTE = `${EDITOR_ROUTE_PREFIX}measured`;
 const HISTORY_ROUTE = `${EDITOR_ROUTE_PREFIX}history`;
 const CHANGE_ROUTE = `${EDITOR_ROUTE_PREFIX}history/change`;
 const RESTORE_ROUTE = `${EDITOR_ROUTE_PREFIX}history/restore`;
-
+const WRITE_ROUTES = new Set([EDIT_ROUTE, MEDIA_UPLOAD_ROUTE, RESTORE_ROUTE]);
 /** What the editor posts: one operation, or one edit off its undo stack. */
 interface EditRequest {
   op?: EditOp;
@@ -77,7 +78,6 @@ interface EditRequest {
 interface MeasuredRequest {
   measured?: Measurement[];
 }
-
 /** Reads and writes one project's deck for as long as the dev server runs. */
 export interface EditSession {
   /** True when the request was ours and has been answered. */
@@ -182,7 +182,7 @@ export function createEditSession(
       // A shared deck answers only what the presented secret allows. Editing is
       // a second secret rather than a flag on the first, so a viewer cannot
       // reach this branch with the link they were given.
-      if (grant === Grant.None || (grant === Grant.Read && path === EDIT_ROUTE)) {
+      if (grant === Grant.None || (grant === Grant.Read && WRITE_ROUTES.has(path))) {
         send(response, 403, { message: refused(grant) });
         return true;
       }
@@ -212,6 +212,11 @@ export function createEditSession(
 
         if (path === EDIT_ROUTE && request.method === "POST") {
           send(response, 200, await edit(await read<EditRequest>(request)));
+          return true;
+        }
+
+        if (path === MEDIA_UPLOAD_ROUTE && request.method === "POST") {
+          send(response, 201, await uploadMedia(request, root, options.srcDir, options.base));
           return true;
         }
 
@@ -257,7 +262,9 @@ export function createEditSession(
       } catch (error) {
         // A deck whose files cannot be written to is the one failure worth
         // stopping for: writing half of it would be worse than writing none.
-        send(response, 409, { message: error instanceof Error ? error.message : String(error) });
+        send(response, error instanceof MediaUploadError ? error.status : 409, {
+          message: error instanceof Error ? error.message : String(error),
+        });
       }
 
       return true;
