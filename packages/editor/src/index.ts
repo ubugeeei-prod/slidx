@@ -29,6 +29,7 @@ import { createDiagnostics } from "./diagnostics";
 import { element } from "./dom";
 import { createFreeform } from "./freeform";
 import { createInspector } from "./inspector";
+import { createMediaDrop } from "./media-drop";
 import { createOutline, type Surface } from "./outline";
 import { createResize } from "./resize";
 import { createRevisions } from "./revisions";
@@ -57,12 +58,14 @@ export type {
   MarkSpans,
   Measurement,
   SlideSummary,
+  UploadedMedia,
 } from "./client";
 export type { Change, TextPlan, TextRun } from "./text";
 export { changeBetween, editableIn, planBlock, rangeOf, runsIn } from "./text";
 export type { SlideGeometry, RegionBox, BlockBox, Rect } from "./geometry";
 export { readGeometry, BLOCK_ATTRIBUTE, REGION_ATTRIBUTE, WIDTH_ATTRIBUTE } from "./geometry";
-export { landing, nudge, guides, arrival } from "./placement";
+export type { Insertion } from "./placement";
+export { landing, nudge, guides, arrival, insertion } from "./placement";
 export type { BlockWidth, Step } from "./widths";
 export { WIDTHS, boxAt, narrowing, shareAt, shareOf, stepped, widthOf } from "./widths";
 export type { EditorState, Selection, Session } from "./session";
@@ -159,6 +162,10 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
     createFreeform({
       run,
       select: (block) => session.select({ block, range: undefined, text: undefined }),
+    }),
+    createMediaDrop({
+      upload: (file) => client.upload(file),
+      run: (op) => session.run(op),
     }),
     storyboard,
     createPresence({ reload: () => void session.open() }),
