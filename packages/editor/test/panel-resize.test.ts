@@ -68,6 +68,17 @@ describe("side panel resizing", () => {
     expect(opened.writes.at(-1)).toEqual(["slidx.editor.inspector-width", "350"]);
   });
 
+  it("resets a panel to its initial width on double click", () => {
+    const opened = mounted();
+    opened.outline.dispatchEvent(pointer("pointerdown", 354));
+    opened.outline.dispatchEvent(pointer("pointerup", 354));
+
+    opened.outline.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+
+    expect(opened.editor.style.getPropertyValue("--slidx-e-outline-width")).toBe("232px");
+    expect(opened.writes.at(-1)).toEqual(["slidx.editor.outline-width", "232"]);
+  });
+
   it("keeps a usable canvas between the two panels", () => {
     const opened = mounted();
 
@@ -84,6 +95,7 @@ describe("side panel resizing", () => {
     );
     // End asks for 520, and the canvas floor answers with 360.
     expect(right).toBe(360);
+    expect(opened.inspector.getAttribute("aria-valuenow")).toBe("360");
     expect(left + right + 360).toBeLessThanOrEqual(1200);
   });
 
@@ -104,6 +116,18 @@ describe("side panel resizing", () => {
     expect(opened.outline.getAttribute("aria-valuenow")).toBe("176");
   });
 
+  it("ends a drag when the browser releases pointer capture", () => {
+    const opened = mounted();
+    opened.outline.dispatchEvent(pointer("pointerdown", 310));
+    opened.outline.dispatchEvent(new Event("lostpointercapture", { bubbles: true }));
+    const settled = opened.editor.style.getPropertyValue("--slidx-e-outline-width");
+
+    opened.outline.dispatchEvent(pointer("pointermove", 500));
+
+    expect(opened.outline.getAttribute("data-dragging")).toBe("false");
+    expect(opened.editor.style.getPropertyValue("--slidx-e-outline-width")).toBe(settled);
+  });
+
   it("notifies canvas overlays after a panel changes size", () => {
     const opened = mounted();
     let layouts = 0;
@@ -114,5 +138,18 @@ describe("side panel resizing", () => {
     );
 
     expect(layouts).toBe(1);
+  });
+
+  it("does not remeasure overlays when clamping keeps the same width", () => {
+    const opened = mounted();
+    opened.outline.dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true }));
+    let layouts = 0;
+    const measured = () => (layouts += 1);
+    window.addEventListener("resize", measured);
+
+    opened.outline.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    window.removeEventListener("resize", measured);
+
+    expect(layouts).toBe(0);
   });
 });

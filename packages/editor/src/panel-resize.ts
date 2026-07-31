@@ -83,13 +83,10 @@ export function createPanelResize(options: PanelResizeOptions = {}): Surface {
 
     const spec = PANELS[panel];
     const width = clamp(panel, wanted);
-    const declared = `${width}px`;
-    // A pointer dragged past a bound keeps reporting new positions that clamp
-    // to the width already in effect. Persisting and re-measuring on each of
-    // those would cost every canvas overlay a layout for no visible change.
-    if (editor.style.getPropertyValue(spec.property) === declared) return;
+    const current = Number.parseFloat(editor.style.getPropertyValue(spec.property));
+    if (Number.isFinite(current) && current === width) return;
 
-    editor.style.setProperty(spec.property, declared);
+    editor.style.setProperty(spec.property, `${width}px`);
 
     const control = separators.find((candidate) => candidate.dataset.panel === panel)!;
     control.setAttribute("aria-valuenow", String(width));
@@ -129,14 +126,13 @@ export function createPanelResize(options: PanelResizeOptions = {}): Surface {
       point(panel, event);
     });
     control.addEventListener("pointermove", (event) => point(panel, event));
-    control.addEventListener("pointerup", () => {
+    const release = () => {
       dragging = undefined;
       control.setAttribute("data-dragging", "false");
-    });
-    control.addEventListener("pointercancel", () => {
-      dragging = undefined;
-      control.setAttribute("data-dragging", "false");
-    });
+    };
+    control.addEventListener("pointerup", release);
+    control.addEventListener("pointercancel", release);
+    control.addEventListener("lostpointercapture", release);
     control.addEventListener("dblclick", () => set(panel, PANELS[panel].initial));
     control.addEventListener("keydown", (event) => {
       const direction = panel === "outline" ? 1 : -1;

@@ -76,6 +76,10 @@ describe("the keyboard is a first-class way to drive this", () => {
   it("lifts a focused control above a neighbouring row's background", () => {
     expect(rule("[tabindex]:focus-visible")).toContain("z-index: 1");
   });
+
+  it("keeps a focused panel separator on the panel edge", () => {
+    expect(rule(".slidx-panel-resizer[data-panel]:focus-visible")).toContain("position: absolute");
+  });
 });
 
 describe("a target is bigger than its ink", () => {
