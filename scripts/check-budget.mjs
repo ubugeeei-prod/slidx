@@ -51,7 +51,19 @@ for (const [name, body] of Object.entries(FIXTURE)) {
 await build({
   root,
   logLevel: "silent",
-  plugins: [slidx()],
+  // The two steps that launch a browser, and only those. A default build starts
+  // one for the PDF and for the overflow measurement, so this check failed on
+  // every machine without Playwright browsers installed — both CI runners that
+  // are not Linux, and every contributor who has not run `playwright install`.
+  // A size budget that needs a browser to measure a byte is one most people
+  // cannot run.
+  //
+  // Every figure is unchanged by turning them off: the print shell is outside
+  // all five by name, and the overflow pass emits nothing. That was checked
+  // rather than assumed — switching off `presenter` and `og` as well *did* move
+  // two of them, because the step runtime stops being emitted, and the
+  // "nothing measured this" guard is what said so.
+  plugins: [slidx({ print: false, overflow: false })],
   build: { outDir: out },
 });
 
