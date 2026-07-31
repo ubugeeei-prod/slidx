@@ -176,6 +176,7 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
     createPresence({
       reload: () => void session.open(),
       saw: (viewers) => session.saw(viewers),
+      follow: (seat) => session.follow(seat),
     }),
     shortcuts,
   ];

@@ -485,8 +485,31 @@ textarea { resize: vertical; font-size: 12px; }
 .slidx-presence[data-empty="true"] { display: none; }
 .slidx-presence-label { color: var(--slidx-e-muted); }
 .slidx-presence-list { display: flex; gap: 8px; margin: 0; padding: 0; list-style: none; overflow-x: auto; }
-.slidx-presence-who { display: flex; gap: 4px; align-items: baseline; white-space: nowrap; }
-.slidx-presence-who[data-local="true"] .slidx-presence-name { color: var(--slidx-e-accent); }
+.slidx-presence-who { display: flex; white-space: nowrap; }
+
+/*
+ * Every seat is the same row whether or not it can be pressed, so the panel
+ * does not change shape when the author is the only one in it.
+ */
+.slidx-presence-seat {
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
+  margin: 0;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+button.slidx-presence-seat { cursor: pointer; }
+button.slidx-presence-seat:hover { background: var(--slidx-e-line); }
+.slidx-presence-seat[aria-pressed="true"] { background: var(--slidx-e-accent); color: var(--slidx-e-canvas); }
+.slidx-presence-seat[aria-pressed="true"] .slidx-presence-where,
+.slidx-presence-seat[aria-pressed="true"] .slidx-presence-role { color: inherit; }
+.slidx-presence-seat[data-local="true"] .slidx-presence-name { color: var(--slidx-e-accent); }
 .slidx-presence-where { color: var(--slidx-e-muted); }
 .slidx-presence-role { color: var(--slidx-e-muted); font-size: 11px; }
 

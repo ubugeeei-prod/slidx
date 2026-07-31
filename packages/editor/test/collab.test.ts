@@ -15,6 +15,7 @@ import {
   readCredential,
   readFrames,
   CREDENTIAL_HEADER,
+  type PresenceOptions,
   type Viewer,
 } from "../src/collab";
 import type { EditorState } from "../src/session";
@@ -49,7 +50,7 @@ function sent(event: string, data: unknown): string {
  * so a position posted without one is a position nobody can attribute — which
  * means every test about what gets reported has to get past that first.
  */
-async function seated(frames: string[] = []) {
+async function seated(frames: string[] = [], extra: Partial<PresenceOptions> = {}) {
   const calls: { url: string; init: RequestInit | undefined; body: unknown }[] = [];
   const rosters: Viewer[][] = [];
   const encoder = new TextEncoder();
@@ -85,6 +86,7 @@ async function seated(frames: string[] = []) {
     fetch: send,
     href: "http://localhost:5173/__slidx/",
     retry: 10_000,
+    ...extra,
   });
 
   // The frames are read from a promise chain, so the loop needs turns of the
@@ -322,5 +324,81 @@ describe("handing the roster on", () => {
     const { surface } = presence();
 
     expect(surface.root.getAttribute("data-empty")).toBe("true");
+  });
+});
+
+describe("going and standing where somebody else is", () => {
+  const ROSTER = {
+    viewers: [
+      { id: "seat-1", label: "you", local: true, canEdit: true, slide: 0 },
+      { id: "seat-2", label: "guest 2", local: false, canEdit: true, slide: 3, block: 1 },
+      { id: "seat-3", label: "guest 3", local: false, canEdit: false, slide: 1 },
+    ],
+  };
+
+  /** A seated surface that has been told who is here. */
+  async function withRoster(options: { follow?: boolean } = {}) {
+    const asked: (string | undefined)[] = [];
+    const seat = await seated([sent("presence", ROSTER)], {
+      ...(options.follow === false ? {} : { follow: (id?: string) => void asked.push(id) }),
+    });
+
+    return {
+      ...seat,
+      asked,
+      seats: () => [...seat.surface.root.querySelectorAll(".slidx-presence-seat")],
+    };
+  }
+
+  it("makes every guest a control and the author's own row plain text", async () => {
+    // Following yourself is not a thing anybody means, and a control that does
+    // nothing is worse than no control.
+    const { seats } = await withRoster();
+
+    expect(seats().map((node) => node.tagName)).toEqual(["SPAN", "BUTTON", "BUTTON"]);
+  });
+
+  it("asks to follow the seat that was pressed", async () => {
+    const { seats, asked } = await withRoster();
+    (seats()[1] as HTMLButtonElement).click();
+
+    expect(asked).toEqual(["seat-2"]);
+  });
+
+  it("marks the seat being followed, and offers to stop", async () => {
+    const { surface, seats } = await withRoster();
+    surface.render({ ...state("# One\n"), following: "seat-2" });
+
+    expect(seats()[1]!.getAttribute("aria-pressed")).toBe("true");
+    expect(seats()[1]!.getAttribute("title")).toBe("Stop following guest 2");
+    expect(seats()[2]!.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("asks to follow nobody when the seat already being followed is pressed", async () => {
+    const { surface, seats, asked } = await withRoster();
+    surface.render({ ...state("# One\n"), following: "seat-2" });
+    (seats()[1] as HTMLButtonElement).click();
+
+    expect(asked).toEqual([undefined]);
+  });
+
+  it("draws no controls at all when nothing can act on them", async () => {
+    const { seats } = await withRoster({ follow: false });
+
+    expect(seats().map((node) => node.tagName)).toEqual(["SPAN", "SPAN", "SPAN"]);
+  });
+
+  it("still says where everybody is", async () => {
+    const { surface } = await withRoster();
+    const where = [...surface.root.querySelectorAll(".slidx-presence-where")];
+
+    expect(where.map((node) => node.textContent)).toEqual(["slide 1", "slide 4", "slide 2"]);
+  });
+
+  it("still says who is only reading", async () => {
+    const { surface } = await withRoster();
+    const roles = [...surface.root.querySelectorAll(".slidx-presence-role")];
+
+    expect(roles.map((node) => node.textContent)).toEqual(["reading"]);
   });
 });

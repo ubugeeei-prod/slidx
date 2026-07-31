@@ -37,6 +37,55 @@ function open(server = fakeServer()) {
 /** Lets the session's first read land. */
 const settled = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+/**
+ * Mounts with a stream that says one guest is here, on slide three.
+ *
+ * The stream is stubbed at `fetch` rather than injected, because the seam
+ * between presence and the rest of the editor is one line inside `mount` and
+ * a test that reached past it would be a test of the two halves again.
+ */
+async function withRoster(check: (root: HTMLElement) => Promise<void>): Promise<void> {
+  const real = globalThis.fetch;
+  const encoder = new TextEncoder();
+  const queue = [
+    'event: hello\ndata: {"id":"seat-1"}\n\n',
+    `event: presence\ndata: ${JSON.stringify({
+      viewers: [
+        { id: "seat-1", label: "you", local: true, canEdit: true, slide: 0 },
+        { id: "seat-2", label: "guest 2", local: false, canEdit: true, slide: 2, block: 1 },
+      ],
+    })}\n\n`,
+  ];
+
+  globalThis.fetch = ((url: string) => {
+    if (!String(url).endsWith("live")) return Promise.resolve({ body: undefined });
+
+    let at = 0;
+    return Promise.resolve({
+      body: {
+        getReader: () => ({
+          read: () =>
+            Promise.resolve(
+              at < queue.length
+                ? { value: encoder.encode(queue[at++]!), done: false }
+                : { value: undefined, done: true },
+            ),
+        }),
+      },
+    });
+  }) as unknown as typeof globalThis.fetch;
+
+  try {
+    const { root } = open();
+    await settled();
+    for (let turn = 0; turn < queue.length + 6; turn += 1) await Promise.resolve();
+
+    await check(root);
+  } finally {
+    globalThis.fetch = real;
+  }
+}
+
 describe("the mounted editor", () => {
   it("is four surfaces and a strip, and no framework under any of them", async () => {
     const { root } = open();
@@ -244,48 +293,38 @@ describe("the mounted editor", () => {
     // only thing in the editor that reads a stream, and the marks on the canvas
     // are drawn from state — so if this one call is missing, both surfaces work
     // in isolation and nobody ever sees anyone.
-    const real = globalThis.fetch;
-    const encoder = new TextEncoder();
-    const queue = [
-      'event: hello\ndata: {"id":"seat-1"}\n\n',
-      `event: presence\ndata: ${JSON.stringify({
-        viewers: [
-          { id: "seat-1", label: "you", local: true, canEdit: true, slide: 0 },
-          { id: "seat-2", label: "guest 2", local: false, canEdit: true, slide: 0, block: 1 },
-        ],
-      })}\n\n`,
-    ];
-
-    globalThis.fetch = ((url: string) => {
-      if (!String(url).endsWith("live")) return Promise.resolve({ body: undefined });
-
-      let at = 0;
-      return Promise.resolve({
-        body: {
-          getReader: () => ({
-            read: () =>
-              Promise.resolve(
-                at < queue.length
-                  ? { value: encoder.encode(queue[at++]!), done: false }
-                  : { value: undefined, done: true },
-              ),
-          }),
-        },
-      });
-    }) as unknown as typeof globalThis.fetch;
-
-    try {
-      open();
-      await settled();
-      for (let turn = 0; turn < queue.length + 6; turn += 1) await Promise.resolve();
-
+    await withRoster(async () => {
       expect(mounted!.session.state().viewers.map((viewer) => viewer.label)).toEqual([
         "you",
         "guest 2",
       ]);
-    } finally {
-      globalThis.fetch = real;
-    }
+    });
+  });
+
+  it("goes to the slide a guest is on when their row is pressed", async () => {
+    // The whole path, from a frame on the stream to the address the canvas is
+    // pointed at: the roster is drawn, the row is a control, pressing it
+    // follows that seat, and following one moves this editor to their slide.
+    await withRoster(async (root) => {
+      const rows = root.querySelectorAll<HTMLButtonElement>("button.slidx-presence-seat");
+      expect(rows).toHaveLength(1);
+
+      rows[0]!.click();
+
+      expect(mounted!.session.state().following).toBe("seat-2");
+      expect(mounted!.session.state().selection.slide).toBe(2);
+      expect(root.querySelector("iframe")!.getAttribute("src")).toMatch(/^\/slides\/3\//);
+    });
+  });
+
+  it("stops following the moment the author picks a slide themselves", async () => {
+    await withRoster(async (root) => {
+      root.querySelector<HTMLButtonElement>("button.slidx-presence-seat")!.click();
+      root.querySelectorAll<HTMLElement>(".slidx-outline-open")[0]!.click();
+
+      expect(mounted!.session.state().following).toBeUndefined();
+      expect(mounted!.session.state().selection.slide).toBe(0);
+    });
   });
 
   it("puts the arrange overlay over the canvas rather than inside it", async () => {
