@@ -113,6 +113,15 @@ const OPERATIONS = {
   },
   setBlockWidth: { op: "setBlockWidth", slide: 1, block: 1, width: "half" },
   moveBlock: { op: "moveBlock", slide: 1, block: 1, to: 0, region: "right" },
+  insertMedia: {
+    op: "insertMedia",
+    slide: 1,
+    at: 2,
+    kind: "image",
+    src: "assets/chart.png",
+    alt: "Performance chart",
+    region: "right",
+  },
   addStep: {
     op: "addStep",
     slide: 1,

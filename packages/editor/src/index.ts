@@ -39,7 +39,14 @@ import { createStoryboard } from "./storyboard";
 import { applyStyles } from "./styles";
 import { createTimeline } from "./timeline";
 
-export type { EditOp, Edit, MarkAttributes, BlockAttributes, ByteSpan } from "./operations";
+export type {
+  EditOp,
+  Edit,
+  MarkAttributes,
+  BlockAttributes,
+  ByteSpan,
+  MediaKind,
+} from "./operations";
 export type {
   BlockSpans,
   EditorClient,
