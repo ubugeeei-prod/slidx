@@ -73,12 +73,17 @@ describe("side panel resizing", () => {
 
     opened.outline.dispatchEvent(pointer("pointerdown", 1200));
     opened.outline.dispatchEvent(pointer("pointerup", 1200));
+    opened.inspector.dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true }));
+    expect(opened.inspector.getAttribute("aria-valuenow")).toBe("240");
+
     opened.inspector.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
 
     const left = Number.parseFloat(opened.editor.style.getPropertyValue("--slidx-e-outline-width"));
     const right = Number.parseFloat(
       opened.editor.style.getPropertyValue("--slidx-e-inspector-width"),
     );
+    // End asks for 520, and the canvas floor answers with 360.
+    expect(right).toBe(360);
     expect(left + right + 360).toBeLessThanOrEqual(1200);
   });
 

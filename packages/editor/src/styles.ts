@@ -187,6 +187,15 @@ body {
   background: var(--slidx-e-accent);
 }
 
+/*
+ * The shared focus ring sets position: relative on anything focusable, which
+ * would drop a separator into the flow of its overlay and away from the panel
+ * edge at the moment keyboard resizing begins.
+ */
+.slidx-panel-resizer[data-panel]:focus-visible {
+  position: absolute;
+}
+
 .slidx-outline, .slidx-canvas, .slidx-inspector {
   display: flex;
   flex-direction: column;

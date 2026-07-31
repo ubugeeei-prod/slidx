@@ -83,7 +83,13 @@ export function createPanelResize(options: PanelResizeOptions = {}): Surface {
 
     const spec = PANELS[panel];
     const width = clamp(panel, wanted);
-    editor.style.setProperty(spec.property, `${width}px`);
+    const declared = `${width}px`;
+    // A pointer dragged past a bound keeps reporting new positions that clamp
+    // to the width already in effect. Persisting and re-measuring on each of
+    // those would cost every canvas overlay a layout for no visible change.
+    if (editor.style.getPropertyValue(spec.property) === declared) return;
+
+    editor.style.setProperty(spec.property, declared);
 
     const control = separators.find((candidate) => candidate.dataset.panel === panel)!;
     control.setAttribute("aria-valuenow", String(width));
