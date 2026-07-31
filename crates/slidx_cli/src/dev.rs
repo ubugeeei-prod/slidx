@@ -3,7 +3,7 @@
 //! ## What it is, and what it is not
 //!
 //! This command starts **the project's own dev server** and nothing else. The
-//! server is Vite with `@ubugeeei/slidx-vite-plugin`, which is what renders a slide,
+//! server is Vite with `@slidxjs/vite-plugin`, which is what renders a slide,
 //! watches the slide directory, and serves the visual editor at
 //! [`EDITOR_ROUTE`]. slidx contains no second copy of any of that, and adding
 //! one would be the same mistake `slidx build` does not exist in order to
@@ -248,7 +248,7 @@ pub fn ready(project: &Project, runner: Runner, shared: Option<&Shared>, style: 
         // than saying which half of this is a guess.
         text.push_str(&report::flowed(
             &format!(
-                "{EDITOR_ROUTE} may not exist: nothing in this project names @ubugeeei/slidx-vite-plugin"
+                "{EDITOR_ROUTE} may not exist: nothing in this project names @slidxjs/vite-plugin"
             ),
             VALUE_INDENT,
             Ink::Warn,
@@ -333,10 +333,10 @@ fn no_project(deck: &Path) -> String {
     format!(
         "There is no Vite project at {} or above it.\n\n\
          `slidx dev` starts the project's own dev server; it is not one itself. A deck\n\
-         needs @ubugeeei/slidx-vite-plugin, which is what serves the slides and the editor:\n\n\
-         \x20 npm i -D @ubugeeei/slidx-vite-plugin\n\n\
+         needs @slidxjs/vite-plugin, which is what serves the slides and the editor:\n\n\
+         \x20 npm i -D @slidxjs/vite-plugin\n\n\
          \x20 // vite.config.ts\n\
-         \x20 import {{ slidx }} from \"@ubugeeei/slidx-vite-plugin\";\n\
+         \x20 import {{ slidx }} from \"@slidxjs/vite-plugin\";\n\
          \x20 export default {{ plugins: [slidx()] }};\n\n\
          To look at a deck that is already built instead:\n\n\
          \x20 slidx preview --web\n",
@@ -598,7 +598,7 @@ mod tests {
         // wanted to look at a build needs the other command.
         let message = no_project(Path::new("."));
 
-        assert!(message.contains("@ubugeeei/slidx-vite-plugin"), "{message}");
+        assert!(message.contains("@slidxjs/vite-plugin"), "{message}");
         assert!(message.contains("vite.config.ts"), "{message}");
         assert!(message.contains("slidx preview"), "{message}");
     }

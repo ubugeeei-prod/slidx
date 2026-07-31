@@ -25,7 +25,7 @@
 //! The static pages are what every build writes. The PDF is off by default, and
 //! per-slide documents and per-stop images are not written at all, because each
 //! costs a browser launch nobody asked for. So the build is told what this
-//! export needs through [`FRAME_VARIABLE`], which `@ubugeeei/slidx-vite-plugin` reads —
+//! export needs through [`FRAME_VARIABLE`], which `@slidxjs/vite-plugin` reads —
 //! see `packages/vite-plugin/src/frames.ts`. It is an environment variable
 //! rather than an option because it is this command talking to that build, not
 //! a setting an author maintains in a config file.
@@ -110,7 +110,7 @@ fn no_vite(root: &Path) -> String {
          `slidx export` runs the deck's own build and packages what it wrote — it\n\
          does not render anything itself, and it will not install anything either.\n\
          In the deck's project:\n\n\
-         \x20 vp add -D vite @ubugeeei/slidx-vite-plugin\n\n\
+         \x20 vp add -D vite @slidxjs/vite-plugin\n\n\
          Or, if the build already ran somewhere else:\n\n\
          \x20 slidx export --target browser --no-build\n",
         root.display()
@@ -200,7 +200,7 @@ mod tests {
     fn a_project_with_no_vite_names_what_to_install_and_the_way_round_it() {
         let message = no_vite(Path::new("/talks/vueconf"));
 
-        assert!(message.contains("@ubugeeei/slidx-vite-plugin"), "{message}");
+        assert!(message.contains("@slidxjs/vite-plugin"), "{message}");
         assert!(message.contains("--no-build"), "{message}");
         assert!(message.contains("does not render anything itself"), "{message}");
     }

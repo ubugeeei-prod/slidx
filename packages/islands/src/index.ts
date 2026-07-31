@@ -7,7 +7,7 @@
  * slide alone. This package is the contract for that and the loader that
  * honours it — not six frameworks in a trench coat.
  *
- * The adapters are separate entry points (`@ubugeeei/slidx-islands/vue`,
+ * The adapters are separate entry points (`@slidxjs/islands/vue`,
  * `/react`, `/svelte`, `/solid`, `/three`, `/angular`) so importing one does
  * not pull the others, and every framework is an *optional* peer dependency:
  * React must not be in the install path of a deck that never mentions React.
@@ -17,7 +17,7 @@
  * adds Angular's compiler to its own Vite config, and it runs zoneless because
  * zone.js is a page-wide patch rather than an island-sized one. Neither is true
  * of the other five. The cost stops at the deck that opted in — nothing in
- * `@ubugeeei/slidx-*` knows Angular exists — and `adapters/angular.ts` states it in
+ * `@slidxjs/*` knows Angular exists — and `adapters/angular.ts` states it in
  * full.
  */
 

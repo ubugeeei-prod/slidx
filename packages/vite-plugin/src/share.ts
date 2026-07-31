@@ -16,7 +16,7 @@
  * **A link is a capability, and the secret travels in the fragment.** A
  * fragment is not sent with the request, so it reaches no access log, no
  * referrer header and no proxy record. The shape is
- * [`readPairing`](@ubugeeei/slidx-runtime)'s, and the reader *is* `readPairing` — one
+ * [`readPairing`](@slidxjs/runtime)'s, and the reader *is* `readPairing` — one
  * answer in this repository rather than two, and a URL that arrived with its
  * secret in the query is refused rather than honoured.
  *
@@ -32,7 +32,7 @@
 
 import { timingSafeEqual } from "node:crypto";
 
-import { readPairing, type Pairing } from "@ubugeeei/slidx-runtime";
+import { readPairing, type Pairing } from "@slidxjs/runtime";
 
 /** What a request is allowed to do. */
 export enum Grant {

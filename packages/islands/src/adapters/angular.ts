@@ -28,7 +28,7 @@
  * templates, so it holds a whole TypeScript program instead. The cost is
  * confined to decks that opt in — no slidx package knows Angular exists, and
  * the plugin belongs to the deck author's config rather than to
- * `@ubugeeei/slidx-vite-plugin` — but within such a deck it is not a small addition, and
+ * `@slidxjs/vite-plugin` — but within such a deck it is not a small addition, and
  * an author who wants an island for free should reach for one of the others.
  *
  * ## Change detection

@@ -53,7 +53,7 @@ const require = createRequire(import.meta.url);
  * table here could only ever disagree with the one in package.json.
  */
 export function platformPackage(platform = process.platform, arch = process.arch) {
-  return `@ubugeeei/slidx-cli-${platform}-${arch}`;
+  return `@slidxjs/cli-${platform}-${arch}`;
 }
 
 /**
@@ -104,7 +104,7 @@ export function missingBinaryMessage(name = platformPackage(), published = publi
     return (
       `${head}\n` +
       `slidx publishes prebuilt binaries for:\n\n` +
-      published.map((entry) => `  ${entry.replace("@ubugeeei/slidx-cli-", "")}`).join("\n") +
+      published.map((entry) => `  ${entry.replace("@slidxjs/cli-", "")}`).join("\n") +
       `\n\nOn anything else, build it from source:\n\n` +
       `  cargo install slidx_cli\n`
     );

@@ -19,7 +19,7 @@ import init, {
   type BuildResult,
   type DeckSummary,
   type Finding,
-} from "@ubugeeei/slidx-wasm";
+} from "@slidxjs/wasm";
 
 import type { Measurement } from "./overflow";
 
@@ -28,14 +28,14 @@ let ready: Promise<void> | undefined;
 /**
  * Instantiates the pipeline, at most once.
  *
- * The wasm bytes are read from disk rather than fetched. `@ubugeeei/slidx-wasm` is
+ * The wasm bytes are read from disk rather than fetched. `@slidxjs/wasm` is
  * built for the web target so one artifact serves Node, bundlers, and the
  * browser; in Node that means handing over the bytes ourselves.
  */
 export function ensureReady(): Promise<void> {
   ready ??= (async () => {
     const require = createRequire(import.meta.url);
-    const path = require.resolve("@ubugeeei/slidx-wasm/slidx_bg.wasm");
+    const path = require.resolve("@slidxjs/wasm/slidx_bg.wasm");
     await init({ module_or_path: await readFile(path) });
   })();
 

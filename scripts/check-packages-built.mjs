@@ -10,7 +10,7 @@
  * - On a machine that built it once, a **stale** `dist/` answers instead. A
  *   check runs, passes, and reports on code from whenever that build happened.
  *
- * `@ubugeeei/slidx-vite-plugin` sat in the second state. Nothing in `build:packages`
+ * `@slidxjs/vite-plugin` sat in the second state. Nothing in `build:packages`
  * built it, two agents lost time to it, and a capability check on a shared dev
  * server was verified against a plugin build old enough not to contain the
  * capability — it looked unenforced when it was not.
@@ -23,8 +23,8 @@
  * The list is derived, and the rule is about **publishing** rather than about
  * this repository. It was "a package TypeScript outside its own directory
  * imports", which is the invariant that keeps a check honest and the wrong one
- * for a registry: `@ubugeeei/slidx-audience`, `@ubugeeei/slidx-islands`, `@ubugeeei/slidx-rehearsal` and
- * `@ubugeeei/slidx-publish` are imported by nobody here, were built by nothing, and a
+ * for a registry: `@slidxjs/audience`, `@slidxjs/islands`, `@slidxjs/rehearsal` and
+ * `@slidxjs/publish` are imported by nobody here, were built by nothing, and a
  * publish dry run found all four would ship a tarball holding one
  * `package.json` — a permanently broken version, fixable only by publishing
  * another.

@@ -24,7 +24,7 @@
 
 import { writeFile, rm } from "node:fs/promises";
 
-import { applyEdit, revertEdit, slideSpans } from "@ubugeeei/slidx-wasm";
+import { applyEdit, revertEdit, slideSpans } from "@slidxjs/wasm";
 
 import type { Reconciler } from "./collab/room";
 import {

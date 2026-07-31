@@ -22,7 +22,7 @@ import { open, readFile, readdir, realpath, stat } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { extname, join, posix, relative, sep } from "node:path";
 
-import type { AssetSize } from "@ubugeeei/slidx-wasm";
+import type { AssetSize } from "@slidxjs/wasm";
 
 import { probeImageHeader } from "./pipeline";
 

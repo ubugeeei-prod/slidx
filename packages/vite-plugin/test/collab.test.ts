@@ -14,7 +14,7 @@
 
 import { describe, expect, it } from "vite-plus/test";
 
-import type { EditOp } from "@ubugeeei/slidx-editor";
+import type { EditOp } from "@slidxjs/editor";
 
 import { createSharedDeck, spliceBetween } from "../src/collab";
 import { createRoster, PRESENCE_TIMEOUT_MS } from "../src/collab/presence";

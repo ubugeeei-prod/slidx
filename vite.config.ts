@@ -243,7 +243,7 @@ export default defineConfig({
         "SLIDX_WRITE_DECK_TYPES=1 cargo test -p slidx_wasm --lib the_committed_",
       ),
 
-      // The token document `@ubugeeei/slidx-theme-workshop` publishes. Committed for the
+      // The token document `@slidxjs/theme-workshop` publishes. Committed for the
       // reason every generated file here is: the package ships to npm and its
       // consumers cannot call Rust. `test:rust` fails when the committed copy
       // stops describing `slidx_theme::published`, and this task is how you fix
@@ -263,7 +263,7 @@ export default defineConfig({
       // no user ever loads, so it is built before anything reads it. This is
       // the edge CI caught and a local tree hides: `dist/` is gitignored and
       // is already there on a machine that has run a build once.
-      "build:runtime": uncached("vp run --filter @ubugeeei/slidx-runtime pack:lib"),
+      "build:runtime": uncached("vp run --filter @slidxjs/runtime pack:lib"),
 
       // The editor is read off disk by the dev server the same way, and for
       // the same reason: it is served as a module, not imported as one.
@@ -274,12 +274,12 @@ export default defineConfig({
       // and that import resolves through `exports` — which points at `dist/`,
       // so the runtime has to exist before the editor is packed or it silently
       // stays external.
-      "build:editor": uncached("vp run --filter @ubugeeei/slidx-editor pack:lib", {
+      "build:editor": uncached("vp run --filter @slidxjs/editor pack:lib", {
         dependsOn: ["build:runtime"],
       }),
 
       // The plugin is consumed through its `exports` too — `examples/deck`
-      // imports `@ubugeeei/slidx-vite-plugin`, and so does anything running a real
+      // imports `@slidxjs/vite-plugin`, and so does anything running a real
       // build. Nothing built it, and the two ways that failed are worth naming
       // because only one of them looks like a failure.
       //
@@ -291,7 +291,7 @@ export default defineConfig({
       //
       // Only the wasm types are needed to emit the declarations; the runtime
       // and the editor are read off disk at run time, not imported.
-      "build:plugin": uncached("vp run --filter @ubugeeei/slidx-vite-plugin pack:lib", {
+      "build:plugin": uncached("vp run --filter @slidxjs/vite-plugin pack:lib", {
         dependsOn: ["build:wasm"],
       }),
 
@@ -310,10 +310,10 @@ export default defineConfig({
       // same, and each declares `files: ["dist"]`, so leaving them unbuilt does
       // not fail anything here — it publishes a tarball holding one
       // `package.json` and calls it a package.
-      "build:audience": uncached("vp run --filter @ubugeeei/slidx-audience pack:lib"),
-      "build:islands": uncached("vp run --filter @ubugeeei/slidx-islands pack:lib"),
-      "build:rehearsal": uncached("vp run --filter @ubugeeei/slidx-rehearsal pack:lib"),
-      "build:publish": uncached("vp run --filter @ubugeeei/slidx-publish pack:lib", {
+      "build:audience": uncached("vp run --filter @slidxjs/audience pack:lib"),
+      "build:islands": uncached("vp run --filter @slidxjs/islands pack:lib"),
+      "build:rehearsal": uncached("vp run --filter @slidxjs/rehearsal pack:lib"),
+      "build:publish": uncached("vp run --filter @slidxjs/publish pack:lib", {
         dependsOn: ["build:wasm"],
       }),
 
@@ -347,7 +347,7 @@ export default defineConfig({
       // `noUncheckedIndexedAccess` switched on and a tree that did not pass
       // either — including a reference to a name that was never imported.
       //
-      // Depends on the built packages: `@ubugeeei/slidx-wasm` is where the deck type
+      // Depends on the built packages: `@slidxjs/wasm` is where the deck type
       // lives, and it is generated rather than committed to a source folder.
       "check:types": task("tsc --noEmit -p tsconfig.json", { dependsOn: ["build:packages"] }),
       "fmt:ts": task(builtin("vp fmt")),
@@ -395,7 +395,7 @@ export default defineConfig({
       // Depends on the plugin, which the example deck imports through its
       // `exports`. Without that edge, regenerating the images on a clean
       // checkout fails inside esbuild with "Failed to resolve entry for package
-      // @ubugeeei/slidx-vite-plugin" — a message about a bundler, for a missing build.
+      // @slidxjs/vite-plugin" — a message about a bundler, for a missing build.
       "preview:deck": uncached("vp exec --filter slidx-example-deck -- vite build", {
         // A production deck resolves these through their published `exports`.
         // A warm checkout hides a missing edge with old `dist/` directories;

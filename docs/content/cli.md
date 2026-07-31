@@ -53,7 +53,7 @@ says what to type instead, and why.
 
 <!-- slidx-docs: declined -->
 
-There is deliberately no `slidx build`. That is `@ubugeeei/slidx-vite-plugin`'s job, and
+There is deliberately no `slidx build`. That is `@slidxjs/vite-plugin`'s job, and
 one pipeline is the whole point: the deck you check is the deck you hand over,
 because nothing else can render one.
 

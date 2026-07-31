@@ -24,7 +24,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { slidx } from "@ubugeeei/slidx-vite-plugin";
+import { slidx } from "@slidxjs/vite-plugin";
 import { chromium } from "playwright";
 import { createServer } from "vite";
 

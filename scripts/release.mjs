@@ -129,10 +129,7 @@ function writePackages(from, to) {
   const listed = execFileSync("git", ["ls-files", "-z", "packages"], { encoding: "utf8" })
     .split("\0")
     .filter((path) => path.endsWith("package.json"));
-  const version = new RegExp(
-    `("(?:@ubugeeei/slidx-[^"]+|slidx)"\\s*:\\s*)"${escapeRegExp(from)}"`,
-    "g",
-  );
+  const version = new RegExp(`("(?:@slidxjs/[^"]+|slidx)"\\s*:\\s*)"${escapeRegExp(from)}"`, "g");
 
   for (const path of listed) {
     const source = readFileSync(path, "utf8");

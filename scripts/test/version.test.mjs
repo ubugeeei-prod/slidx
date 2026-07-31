@@ -21,7 +21,7 @@ describe("the release version check", () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
-      "requires @ubugeeei/slidx-cli-linux-x64 at 0.1.0, but the package release is 0.2.0",
+      "requires @slidxjs/cli-linux-x64 at 0.1.0, but the package release is 0.2.0",
     );
   });
 
@@ -38,7 +38,7 @@ describe("the release version check", () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
-      "packages/plugin/package.json: package name must be @ubugeeei/slidx-plugin",
+      "packages/plugin/package.json: package name must be @slidxjs/plugin",
     );
   });
 
@@ -52,7 +52,7 @@ describe("the release version check", () => {
   });
 });
 
-async function fixture(platformVersion, pluginName = "@ubugeeei/slidx-plugin") {
+async function fixture(platformVersion, pluginName = "@slidxjs/plugin") {
   const root = await mkdtemp(join(tmpdir(), "slidx-version-"));
   await mkdir(join(root, "packages", "cli"), { recursive: true });
   await mkdir(join(root, "packages", "plugin"), { recursive: true });
@@ -70,7 +70,7 @@ async function fixture(platformVersion, pluginName = "@ubugeeei/slidx-plugin") {
     JSON.stringify({
       name: "slidx",
       version: "0.2.0",
-      optionalDependencies: { "@ubugeeei/slidx-cli-linux-x64": platformVersion },
+      optionalDependencies: { "@slidxjs/cli-linux-x64": platformVersion },
     }),
   );
   await writeFile(
@@ -78,7 +78,7 @@ async function fixture(platformVersion, pluginName = "@ubugeeei/slidx-plugin") {
     JSON.stringify({
       name: pluginName,
       version: "0.2.0",
-      dependencies: { "@ubugeeei/slidx-runtime": "workspace:*" },
+      dependencies: { "@slidxjs/runtime": "workspace:*" },
     }),
   );
   execFileSync("git", ["init", "-q", "--initial-branch=main"], { cwd: root });

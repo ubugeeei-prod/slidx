@@ -1,5 +1,5 @@
 {
-  "name": "@ubugeeei/slidx-audience",
+  "name": "@slidxjs/audience",
   "version": "0.2.0",
   "description": "Opt-in audience channel for slidx decks: moderated Q&A and reactions over a Cloudflare Worker",
   "license": "MIT",

@@ -52,7 +52,7 @@ for (const { name, version } of readLockedWorkspaceMembers(internalRequirements)
 
 for (const { path, name, version } of packages) {
   const directory = path.split("/").at(-2);
-  const expectedName = directory === "cli" ? "slidx" : `@ubugeeei/slidx-${directory}`;
+  const expectedName = directory === "cli" ? "slidx" : `@slidxjs/${directory}`;
 
   if (name !== expectedName) {
     problems.push(`${path}: package name must be ${expectedName}, but found ${name}`);
@@ -162,7 +162,7 @@ function readInternalPackageRequirements(packages) {
   return packages.flatMap(({ path, manifest }) =>
     fields.flatMap((field) =>
       Object.entries(manifest[field] ?? {})
-        .filter(([name]) => name === "slidx" || name.startsWith("@ubugeeei/slidx-"))
+        .filter(([name]) => name === "slidx" || name.startsWith("@slidxjs/"))
         .map(([name, requirement]) => ({ path, name, requirement })),
     ),
   );

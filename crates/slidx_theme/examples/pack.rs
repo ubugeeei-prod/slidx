@@ -1,4 +1,4 @@
-//! Writes the theme document `@ubugeeei/slidx-theme-workshop` ships.
+//! Writes the theme document `@slidxjs/theme-workshop` ships.
 //!
 //! ```sh
 //! vp run generate:theme
