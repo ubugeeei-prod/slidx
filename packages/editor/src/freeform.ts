@@ -32,9 +32,9 @@ export interface FreeformOptions {
   geometry?(): SlideGeometry | undefined;
 }
 
-const HIT = 24;
+const HIT = 28;
 /** Keeps the frame and handles clear of the selected block's content. */
-const FRAME_GAP = 6;
+const FRAME_GAP = 8;
 const HANDLES: Exclude<FrameHandle, "move">[] = ["n", "ne", "e", "se", "s", "sw", "w", "nw"];
 
 interface Drag {
