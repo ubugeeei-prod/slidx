@@ -111,6 +111,22 @@ human**, because trusted publishing is configured per package and there is
 nothing to configure until the package exists. After that, no human touches a
 registry again.
 
+Before any of it, one thing has to exist that no command here creates: **an npm
+organisation named `slidxjs`**. A scope is either your username or an
+organisation, and the username publishing this is `ubugeeei` — so `@slidxjs/*`
+has nowhere to go until the organisation does. It is free for public packages,
+and it is created at `https://www.npmjs.com/org/create`. `npm publish` fails
+with a 404 on the scope rather than saying so, which is a confusing place to
+learn this.
+
+The artifacts to publish can all be built by CI rather than by hand: run the
+**Registry bootstrap artifacts** workflow on `main` and download its bundle. It
+cross-compiles every platform binary on a native runner and packs every npm
+tarball in publish order, with `publish-order.txt` beside them. It has
+`contents: read` and publishes nothing — the commands below are then `npm
+publish <tarball>` against files that already exist, rather than a build per
+platform on a laptop.
+
 ### crates.io
 
 ```bash
