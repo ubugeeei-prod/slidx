@@ -20,7 +20,7 @@
 
 import type { Plugin, ViteDevServer } from "vite";
 
-import { readAssetSizes } from "./assets";
+import { readAssetSizes, readDeckAssets, serveDeckAsset } from "./assets";
 import { readDeck, type DeckSource } from "./deck";
 import { exportPdf, rasteriseCards, reportOverflow } from "./artifacts";
 import { emitCrawlerFiles } from "./crawler";
@@ -154,6 +154,8 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
 
       server.middlewares.use(async (request, response, next) => {
         const url = request.url ?? "/";
+
+        if (await serveDeckAsset(request, response, root, options.srcDir, options.base)) return;
 
         if (url.split("?")[0] === ISLAND_CLIENT_PATH && options.islands) {
           try {
@@ -293,6 +295,10 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
       // `report.test.ts` pins that the two still agree.
       if (built.hasBlocking && options.failOnDiagnostics) {
         this.error(blockingSummary(blocking.length));
+      }
+
+      for (const asset of await readDeckAssets(root, options.srcDir, options.base)) {
+        this.emitFile({ type: "asset", fileName: asset.fileName, source: asset.source });
       }
 
       for (const [index, slide] of built.slides.entries()) {
