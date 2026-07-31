@@ -282,6 +282,7 @@ export function createResize(handlers: ResizeHandlers, options: ResizeOptions = 
     render(state) {
       applyResizeStyles(root.ownerDocument);
       slide = state.selection.slide;
+      root.setAttribute("data-freeform-selection", String(state.selection.block !== undefined));
 
       if (frame === undefined) {
         const found = root.ownerDocument.querySelector<HTMLIFrameElement>(".slidx-canvas-frame");

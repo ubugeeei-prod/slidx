@@ -19,6 +19,10 @@ export const RESIZE_STYLESHEET = `
   z-index: 3;
 }
 
+.slidx-resize[data-freeform-selection="true"] .slidx-resize-grips {
+  display: none;
+}
+
 /*
  * The handle is the only thing here a pointer can reach.
  *

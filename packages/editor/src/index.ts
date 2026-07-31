@@ -27,6 +27,7 @@ import { createClient, type EditorClient } from "./client";
 import { createPresence } from "./collab";
 import { createDiagnostics } from "./diagnostics";
 import { element } from "./dom";
+import { createFreeform } from "./freeform";
 import { createInspector } from "./inspector";
 import { createOutline, type Surface } from "./outline";
 import { createResize } from "./resize";
@@ -148,6 +149,10 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
       { run, foresee: (findings) => session.foresee(findings) },
       { measure: (measured) => client.measured(measured) },
     ),
+    createFreeform({
+      run,
+      select: (block) => session.select({ block, range: undefined, text: undefined }),
+    }),
     storyboard,
     createPresence({ reload: () => void session.open() }),
     shortcuts,
