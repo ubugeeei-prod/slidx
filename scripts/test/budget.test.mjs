@@ -13,6 +13,11 @@
  * fails a build nobody broke, and the other passes one nobody is watching.
  */
 
+import { spawnSync } from "node:child_process";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vite-plus/test";
 
 import {
@@ -174,4 +179,32 @@ describe("which figure a page belongs to", () => {
     expect(page).toBeDefined();
     expect(page.limit).toBeLessThan(5_000);
   });
+});
+
+describe("running the check where the figures are taken", () => {
+  it("measures without a browser, which is every runner that is not Linux", () => {
+    // The failure this exists for broke `main` three times in a row and was
+    // invisible on every pull request, because a pull request is checked on
+    // Linux alone and the browsers are installed there. An empty
+    // `PLAYWRIGHT_BROWSERS_PATH` is a machine with none, so the condition that
+    // only happened on macOS and Windows now happens here.
+    //
+    // It runs a real build, which is the point: the thing that went wrong was
+    // a plugin step launching a browser, and nothing short of running it knows
+    // which steps do.
+    const result = spawnSync(
+      process.execPath,
+      [join(import.meta.dirname, "..", "check-budget.mjs")],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PLAYWRIGHT_BROWSERS_PATH: mkdtempSync(join(tmpdir(), "slidx-no-browsers-")),
+        },
+      },
+    );
+
+    expect(result.status, `${result.stdout}${result.stderr}`).toBe(0);
+    expect(result.stdout).toContain("every one inside");
+  }, 180_000);
 });
