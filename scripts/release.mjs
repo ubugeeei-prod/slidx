@@ -1,5 +1,5 @@
 /**
- * Cut a release: write the version everywhere, tag it, push the tag.
+ * Cut a release, in the two halves the branch rules make it.
  *
  * `check-version.mjs` already knows every place a version lives — the Cargo
  * workspace, the version each crate is required at by its siblings, the
@@ -11,10 +11,31 @@
  * the check, which is the same authority the release workflow runs before it
  * publishes anything. If the two ever disagree, the check wins and this refuses.
  *
- * Pushing the tag is the last thing it does, and it is what starts a publish
- * that cannot be taken back. Everything that could fail is made to fail before
- * that point — a dirty tree, the wrong branch, a tag that already exists, a
- * version the check rejects.
+ * # Why it is two commands
+ *
+ * It used to be one, and it ended with `git push origin main`. `main` requires
+ * a pull request and a passing `ci`, so that push was refused every time — the
+ * script could not complete on any version, and nobody found out until the
+ * first release, because its tests read the files it writes and never the push
+ * it ends with.
+ *
+ * It failed in the worst available place, too: after committing and tagging
+ * locally. Every attempt left a half-applied release behind and a tag that made
+ * the next attempt refuse.
+ *
+ * So the version bump is an ordinary pull request like every other change, and
+ * a release is a **tag on a commit that is already on main**:
+ *
+ *     vp run release minor    # writes the bump, opens the pull request
+ *     vp run release --tag    # once it has merged, tags origin/main
+ *
+ * The second half reads the version out of `origin/main` rather than out of the
+ * working tree, so it tags what was reviewed rather than what is lying around.
+ *
+ * Pushing the tag is what starts a publish that cannot be taken back, and it is
+ * the only thing the second command does. Everything that could fail is made to
+ * fail before it — a dirty tree, the wrong branch, a tag that exists here or on
+ * the remote, a version the check rejects, a `main` that does not carry it.
  */
 
 import { execFileSync } from "node:child_process";
@@ -24,13 +45,16 @@ const LEVELS = ["major", "minor", "patch"];
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
+const tagOnly = args.includes("--tag");
 const level = args.find((argument) => !argument.startsWith("-"));
 
-if (!LEVELS.includes(level)) {
+if (!tagOnly && !LEVELS.includes(level)) {
   process.stderr.write(
-    `usage: vp run release <${LEVELS.join("|")}> [--dry-run]\n\n` +
-      "Writes the version across the Cargo workspace and every publishable\n" +
-      "package, commits it, and pushes the tag that starts the release.\n",
+    `usage: vp run release <${LEVELS.join("|")}> [--dry-run]\n` +
+      "       vp run release --tag\n\n" +
+      "The first writes the version across the Cargo workspace and every\n" +
+      "publishable package and opens the pull request for it. The second tags\n" +
+      "origin/main once that has merged, which is what starts the release.\n",
   );
   process.exit(2);
 }
@@ -83,19 +107,42 @@ function refuseUnlessReady(tag) {
     problems.push(`on ${branch}, not main — a tag off a branch publishes what was never reviewed`);
   }
 
-  if (git("tag", "--list", tag) !== "") {
-    problems.push(`${tag} already exists — a version is published once`);
-  }
+  problems.push(...tagIsFree(tag));
 
   git("fetch", "--quiet", "origin", "main");
   if (git("rev-parse", "HEAD") !== git("rev-parse", "origin/main")) {
     problems.push("HEAD is not origin/main — pull, or push, before tagging");
   }
 
-  if (problems.length > 0) {
-    for (const problem of problems) process.stderr.write(`error: ${problem}\n`);
-    process.exit(1);
+  refuse(problems);
+}
+
+/**
+ * That the tag exists in neither place.
+ *
+ * Both, because they go wrong differently: one here refuses the next attempt
+ * after a failure, and one on the remote is a version somebody has already
+ * released.
+ */
+function tagIsFree(tag) {
+  const problems = [];
+
+  if (git("tag", "--list", tag) !== "") {
+    problems.push(`${tag} already exists here — \`git tag -d ${tag}\` if it is a leftover`);
   }
+
+  if (git("ls-remote", "--tags", "origin", tag) !== "") {
+    problems.push(`${tag} is already on the remote — a version is released once`);
+  }
+
+  return problems;
+}
+
+function refuse(problems) {
+  if (problems.length === 0) return;
+
+  for (const problem of problems) process.stderr.write(`error: ${problem}\n`);
+  process.exit(1);
 }
 
 /** The Cargo workspace version, and what each crate is required at by its siblings. */
@@ -151,9 +198,54 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * Tags the commit on `origin/main`, which is the whole of a release.
+ *
+ * The version is read from `origin/main` rather than from the working tree,
+ * because those are different questions: one is what was reviewed and merged,
+ * and the other is whatever happens to be checked out. Tagging the second is
+ * how a tag comes to name bytes nobody agreed to publish.
+ *
+ * Nothing is checked out or merged locally either — the tag is placed on
+ * `origin/main` directly, so a stale local `main` cannot move it.
+ */
+function tagMergedVersion() {
+  git("fetch", "--quiet", "--tags", "origin", "main");
+
+  const merged = /^version\s*=\s*"([^"]+)"/m.exec(
+    git("show", "origin/main:Cargo.toml").slice(
+      git("show", "origin/main:Cargo.toml").indexOf("[workspace.package]"),
+    ),
+  );
+
+  if (!merged) {
+    process.stderr.write("error: no version in origin/main's [workspace.package]\n");
+    process.exit(1);
+  }
+
+  const tag = `v${merged[1]}`;
+  refuse(tagIsFree(tag));
+
+  run("git", ["tag", "--annotate", tag, "origin/main", "--message", `slidx ${merged[1]}`]);
+  run("git", ["push", "origin", tag]);
+
+  process.stdout.write(
+    `\n${tag} pushed, on ${git("rev-parse", "--short", "origin/main")}. The release workflow\n` +
+      "verifies the tree again from the same task graph CI uses, then publishes to\n" +
+      "crates.io and npm over OIDC.\n" +
+      `  gh run watch $(gh run list --workflow=Release --limit 1 --json databaseId --jq '.[0].databaseId')\n`,
+  );
+}
+
+if (tagOnly) {
+  tagMergedVersion();
+  process.exit(0);
+}
+
 const from = currentVersion();
 const to = bump(from, level);
 const tag = `v${to}`;
+const branch = `release/${tag}`;
 
 process.stdout.write(`release: ${from} → ${to}\n`);
 
@@ -185,13 +277,32 @@ if (dryRun) {
   process.exit(0);
 }
 
+// On a branch, and nothing is tagged here. `main` takes pull requests only, and
+// a tag written before the merge names a commit the merge will not produce —
+// which is how the old one-command version left a tag behind on every failure
+// and made the next attempt refuse.
+run("git", ["switch", "--create", branch]);
 run("git", ["commit", "--all", "--message", `release: ${to}`]);
-run("git", ["tag", "--annotate", tag, "--message", `slidx ${to}`]);
-run("git", ["push", "origin", "main"]);
-run("git", ["push", "origin", tag]);
+run("git", ["push", "--set-upstream", "origin", branch]);
+
+run("gh", [
+  "pr",
+  "create",
+  "--title",
+  `release: ${to}`,
+  "--body",
+  `The version, written across the Cargo workspace, the lockfile, every publishable package and the brand assets that carry it. \`check-version.mjs\` agrees with \`${tag}\`.\n\nNothing is published by merging this. \`vp run release --tag\` afterwards tags \`origin/main\`, and that is what starts the release.`,
+]);
+run("gh", ["pr", "merge", "--auto", "--squash"]);
+
+// Back where the author started. The branch has served its purpose the moment
+// it is pushed, and leaving somebody standing on it is how the next command
+// runs against the wrong tree.
+run("git", ["switch", "main"]);
 
 process.stdout.write(
-  `\n${tag} pushed. The release workflow verifies the tree again from the same\n` +
-    "task graph CI uses, then publishes to crates.io and npm over OIDC.\n" +
-    `  gh run watch $(gh run list --workflow=Release --limit 1 --json databaseId --jq '.[0].databaseId')\n`,
+  `\n${branch} pushed, and set to merge when CI passes. Then:\n` +
+    "  vp run release --tag\n\n" +
+    "which reads the version off origin/main and tags the commit that merged.\n" +
+    "That tag is what publishes, and it is the last thing that can be taken back.\n",
 );

@@ -8,18 +8,37 @@ repository, and none should ever be added**.
 vp run release minor
 ```
 
-`major`, `minor` or `patch`. It writes the version into every place one lives —
-the Cargo workspace, the version each crate is required at by its siblings, the
-lockfile, every publishable `package.json`, and generated brand assets — commits
-that, and pushes the tag. `--dry-run` writes the tree and stops before the
-commit.
+```bash
+vp run release --tag
+```
 
-It refuses for the four reasons a release goes wrong before it starts: a dirty
-tree, a branch that is not `main`, a tag that already exists, and a `HEAD` that
-is not `origin/main`. Then it runs `check:version` against the tag it is about
-to create — the same check the release workflow runs before it publishes — so a
-version living somewhere this script does not know about stops the release
-here rather than halfway through a registry.
+Two commands, because `main` takes pull requests and requires `ci`. The first
+writes the version into every place one lives — the Cargo workspace, the version
+each crate is required at by its siblings, the lockfile, every publishable
+`package.json`, and generated brand assets — commits it to a `release/vX.Y.Z`
+branch, and opens the pull request with auto-merge armed. `--dry-run` writes the
+tree and stops before the commit.
+
+Merging that publishes nothing. The second command, run afterwards, reads the
+version off `origin/main` and tags the commit that merged — and **that** is what
+starts the release. It reads the merged version rather than the working tree's
+on purpose: those are different questions, and tagging the second is how a tag
+comes to name bytes nobody agreed to publish.
+
+It refuses for the reasons a release goes wrong before it starts: a dirty tree,
+a branch that is not `main`, a `HEAD` that is not `origin/main`, and a tag that
+already exists — here, or on the remote. Then it runs `check:version` against
+the tag it is about to create — the same check the release workflow runs before
+it publishes — so a version living somewhere this script does not know about
+stops the release here rather than halfway through a registry.
+
+It used to be one command, ending in `git push origin main`, and the branch
+rules refused that push on every version. Nobody found out until the first
+release, because its tests read the files it wrote and never the push it ended
+with. It also failed _after_ committing and tagging locally, so each attempt
+left a half-applied release and a tag that made the next attempt refuse — which
+is why nothing is tagged until the version is on `main`, and why the leftover
+tag is now named in the error rather than left to be guessed at.
 
 The tag must match `version` in `[workspace.package]`; that is what
 `check:version` is asserting. A mismatch is otherwise only visible once it is
@@ -134,8 +153,16 @@ cargo login
 ```
 
 ```bash
-for crate in $(node scripts/publish-order.mjs crates); do cargo publish -p "$crate"; done
+for crate in $(node scripts/publish-order.mjs crates); do cargo publish -p "$crate" || break; done
 ```
+
+Every loop here stops on the first failure, and that is not tidiness. Without
+it, one crate that cannot publish becomes a dozen that cannot resolve it, and
+the error you are left reading is the last one — `no matching package named
+slidx_dialect found`, from a crate whose real problem was six crates earlier.
+crates.io rate-limits **new** crate names, so a workspace this size will hit
+that limit partway through and have to continue as it refills; `help@crates.io`
+will raise it if you tell them it is one release of one project.
 
 The order is derived from the manifests rather than written down, because a
 written-down order goes stale silently. It did: `slidx_cli` gained
@@ -173,7 +200,7 @@ node scripts/pack-npm.mjs \
   "$bootstrap_dir" \
   $(node scripts/publish-order.mjs npm) > "$bootstrap_dir/source-tarballs"
 while IFS= read -r tarball; do
-  npm publish "$tarball" --access public
+  npm publish "$tarball" --access public || break
 done < "$bootstrap_dir/source-tarballs"
 ```
 
@@ -209,7 +236,7 @@ node scripts/pack-npm.mjs \
   packages/cli/dist/* \
   packages/cli > "$bootstrap_dir/cli-tarballs"
 while IFS= read -r tarball; do
-  npm publish "$tarball" --access public
+  npm publish "$tarball" --access public || break
 done < "$bootstrap_dir/cli-tarballs"
 ```
 
