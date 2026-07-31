@@ -141,6 +141,19 @@ describe("writing an edit back to the files it came from", () => {
     );
   });
 
+  it("puts a copied slide after a different destination without rewriting its source file", async () => {
+    const { writes, source } = await edited(deck(), {
+      op: "duplicateSlide",
+      slide: 1,
+      after: 2,
+    });
+
+    expect(touched(writes)).toEqual(["0003.md"]);
+    expect(writes[0]!.source).toContain("## Numbers");
+    expect(writes[0]!.source).toContain("## What we will cover");
+    expect(source.indexOf("## Numbers")).toBeLessThan(source.lastIndexOf("## What we will cover"));
+  });
+
   it("writes the right file when the deck is not pure ASCII", async () => {
     // Every span the pipeline reports is a byte offset. An em dash is three
     // bytes and one JavaScript character, so counting characters puts every

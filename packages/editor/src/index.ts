@@ -214,8 +214,13 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
   });
 
   const keys = (event: KeyboardEvent) => shortcuts.keydown(event);
+  const copy = (event: ClipboardEvent) => shortcuts.copy(event);
+  const paste = (event: ClipboardEvent) => shortcuts.paste(event);
   root.ownerDocument.addEventListener("keydown", keys);
+  root.ownerDocument.addEventListener("copy", copy);
+  root.ownerDocument.addEventListener("paste", paste);
   canvas.listen(keys);
+  canvas.listenClipboard(copy, paste);
 
   void session.open();
 
@@ -224,6 +229,8 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
     destroy() {
       unsubscribe();
       root.ownerDocument.removeEventListener("keydown", keys);
+      root.ownerDocument.removeEventListener("copy", copy);
+      root.ownerDocument.removeEventListener("paste", paste);
       // Removing the frame is enough for a surface that is only its own DOM.
       // Presence holds a connection, and a connection survives its element.
       for (const surface of surfaces) surface.destroy?.();

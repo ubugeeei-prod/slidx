@@ -101,7 +101,8 @@ export interface Session {
   subscribe(listener: (state: EditorState) => void): () => void;
   /** Reads the deck as it is on disk. */
   open(): Promise<void>;
-  run(op: EditOp): Promise<void>;
+  /** Applies one operation and, when it succeeds, may land on its result. */
+  run(op: EditOp, selection?: Selection): Promise<void>;
   undo(): Promise<void>;
   redo(): Promise<void>;
   select(selection: Partial<Selection>): void;
@@ -113,6 +114,8 @@ export interface Session {
   follow(seat: string | undefined): void;
   /** The Markdown of one slide's body, as the author wrote it. */
   bodyOf(slide: number): string;
+  /** The slide's complete Markdown, including its own frontmatter and notes. */
+  contentOf(slide: number): string;
   /**
    * Where that body's blocks and marks are, for a gesture that names bytes.
    *
@@ -215,7 +218,7 @@ export function createSession(client: EditorClient, history: History = createHis
       });
     },
 
-    run(op) {
+    run(op, selection) {
       return attempt(async () => {
         const answer = await client.apply(op);
         if (answer.error) {
@@ -224,7 +227,7 @@ export function createSession(client: EditorClient, history: History = createHis
         }
 
         history.applied(answer.undo ?? []);
-        adopt(answer);
+        adopt(answer, selection === undefined ? {} : { selection });
       });
     },
 
@@ -292,6 +295,11 @@ export function createSession(client: EditorClient, history: History = createHis
 
     bodyOf(slide) {
       const span = state.spans[slide]?.body;
+      return span ? sliceBytes(state.source, span.start, span.end) : "";
+    },
+
+    contentOf(slide) {
+      const span = state.spans[slide]?.content;
       return span ? sliceBytes(state.source, span.start, span.end) : "";
     },
 

@@ -264,7 +264,7 @@ describe("the canvas", () => {
     expect(source.value).toBe("## Two\n\n*  a point");
   });
 
-  it("forwards keys from the preview document and lets them go on teardown", () => {
+  it("forwards keys and clipboard events from the preview and lets them go on teardown", () => {
     const log = recorder();
     const canvas = createCanvas(
       { run: log.run, selected: () => {} },
@@ -273,16 +273,32 @@ describe("the canvas", () => {
     document.body.append(canvas.root);
     const frame = canvas.root.querySelector<HTMLIFrameElement>(".slidx-canvas-frame")!;
     let heard = 0;
+    let copied = 0;
+    let pasted = 0;
 
     canvas.listen(() => {
       heard += 1;
     });
+    canvas.listenClipboard(
+      () => {
+        copied += 1;
+      },
+      () => {
+        pasted += 1;
+      },
+    );
     frame.contentDocument!.dispatchEvent(new KeyboardEvent("keydown", { key: "PageDown" }));
+    frame.contentDocument!.dispatchEvent(new ClipboardEvent("copy"));
+    frame.contentDocument!.dispatchEvent(new ClipboardEvent("paste"));
     canvas.destroy?.();
     frame.contentDocument!.dispatchEvent(new KeyboardEvent("keydown", { key: "PageDown" }));
+    frame.contentDocument!.dispatchEvent(new ClipboardEvent("copy"));
+    frame.contentDocument!.dispatchEvent(new ClipboardEvent("paste"));
     canvas.root.remove();
 
     expect(heard).toBe(1);
+    expect(copied).toBe(1);
+    expect(pasted).toBe(1);
   });
 
   it("sends the body as an operation when the author leaves it", () => {

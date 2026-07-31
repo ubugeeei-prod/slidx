@@ -260,6 +260,23 @@ describe("the mounted editor", () => {
     expect(server.reverted).toHaveLength(2);
   });
 
+  it("copies a slide, pastes it elsewhere, and selects the new copy", async () => {
+    const server = fakeServer();
+    const { root } = open(server);
+    await settled();
+    root.querySelectorAll<HTMLElement>(".slidx-outline-open")[1]!.click();
+    const data = new DataTransfer();
+
+    document.dispatchEvent(new ClipboardEvent("copy", { cancelable: true, clipboardData: data }));
+    root.querySelectorAll<HTMLElement>(".slidx-outline-open")[2]!.click();
+    server.answer = deckOf("One", "Two", "Three", "Two copy");
+    document.dispatchEvent(new ClipboardEvent("paste", { cancelable: true, clipboardData: data }));
+    await settled();
+
+    expect(server.ops).toEqual([{ op: "duplicateSlide", slide: 1, after: 2 }]);
+    expect(mounted!.session.state().selection).toEqual({ slide: 3 });
+  });
+
   it("stops listening once it is taken down", async () => {
     const { root, server } = open();
     await settled();

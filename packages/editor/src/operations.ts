@@ -109,7 +109,8 @@ export type EditOp =
    */
   | { op: "setText"; slide: SlideRef; range: ByteSpan; text: string }
   | { op: "insertSlide"; at: number; body: string }
-  | { op: "duplicateSlide"; slide: SlideRef }
+  /** Copies a slide after itself, or after another slide when `after` is present. */
+  | { op: "duplicateSlide"; slide: SlideRef; after?: SlideRef }
   /**
    * A second copy of one block, immediately after it and without its key.
    *

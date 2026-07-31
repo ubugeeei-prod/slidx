@@ -69,8 +69,8 @@ fn operations(source: &str) -> Vec<EditOp> {
         EditOp::InsertSlide { at: 0, body: "# Inserted".into() },
         EditOp::InsertSlide { at: last, body: "# Inserted".into() },
         EditOp::InsertSlide { at: last + 1, body: "# Inserted".into() },
-        EditOp::DuplicateSlide { slide: 0.into() },
-        EditOp::DuplicateSlide { slide: last.into() },
+        EditOp::DuplicateSlide { slide: 0.into(), after: None },
+        EditOp::DuplicateSlide { slide: last.into(), after: None },
         EditOp::RemoveSlide { slide: 0.into() },
         EditOp::RemoveSlide { slide: last.into() },
         EditOp::MoveSlide { slide: 0.into(), to: last },
@@ -400,9 +400,27 @@ fn a_duplicated_slide_lands_after_its_source_and_keeps_its_words() {
         }
 
         for from in [0, before.len() - 1] {
-            let op = EditOp::DuplicateSlide { slide: from.into() };
+            let op = EditOp::DuplicateSlide { slide: from.into(), after: None };
             let mut expected = before.clone();
             expected.insert(from + 1, before[from].clone());
+
+            assert_eq!(written_titles(&edited(source, &op)), expected, "{op:?} on {source:?}");
+        }
+    }
+}
+
+#[test]
+fn a_duplicated_slide_can_land_after_another_slide_and_keeps_its_words() {
+    for source in corpus() {
+        let before = written_titles(source);
+        if before.len() < 2 {
+            continue;
+        }
+
+        for (from, after) in [(0, before.len() - 1), (before.len() - 1, 0)] {
+            let op = EditOp::DuplicateSlide { slide: from.into(), after: Some(after.into()) };
+            let mut expected = before.clone();
+            expected.insert(after + 1, before[from].clone());
 
             assert_eq!(written_titles(&edited(source, &op)), expected, "{op:?} on {source:?}");
         }
@@ -595,7 +613,8 @@ fn an_operation_naming_something_that_is_not_there_is_an_error_not_a_crash() {
         EditOp::SetBody { slide: 99.into(), body: "x".into() },
         EditOp::SetHeading { slide: SlideRef::Id("nope".into()), text: "x".into() },
         EditOp::InsertSlide { at: 99, body: "x".into() },
-        EditOp::DuplicateSlide { slide: 99.into() },
+        EditOp::DuplicateSlide { slide: 99.into(), after: None },
+        EditOp::DuplicateSlide { slide: 0.into(), after: Some(99.into()) },
         EditOp::RemoveSlide { slide: 99.into() },
         EditOp::MoveSlide { slide: 0.into(), to: 99 },
         EditOp::MoveSlide { slide: 99.into(), to: 0 },
