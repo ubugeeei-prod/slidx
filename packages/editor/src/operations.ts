@@ -110,6 +110,15 @@ export type EditOp =
   | { op: "setText"; slide: SlideRef; range: ByteSpan; text: string }
   | { op: "insertSlide"; at: number; body: string }
   | { op: "duplicateSlide"; slide: SlideRef }
+  /**
+   * A second copy of one block, immediately after it and without its key.
+   *
+   * A key is a name, and two blocks on one slide cannot answer to one name — a
+   * step revealing `#result` would address whichever the compiler reached
+   * first. Classes and properties come along, so the copy looks like what was
+   * copied, and naming it is the author's next decision.
+   */
+  | { op: "duplicateBlock"; slide: SlideRef; block: BlockRef }
   | { op: "removeSlide"; slide: SlideRef }
   | { op: "moveSlide"; slide: SlideRef; to: number }
   | { op: "setField"; slide: SlideRef; key: string; value: unknown }

@@ -35,6 +35,10 @@ use crate::edit::EditBuilder;
 use crate::op::{BlockRef, EditError, SlideRef};
 use crate::source::DeckSource;
 
+mod duplicate;
+
+pub(crate) use duplicate::duplicate;
+
 pub(crate) struct StyleKey {
     pub key: String,
     pub assigned: bool,

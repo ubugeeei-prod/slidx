@@ -184,6 +184,17 @@ pub enum EditOp {
     /// block's placement alone; a region that is the layout's default is
     /// written by *removing* the class, because a block that says nothing
     /// already lands there and the class would be noise in the diff.
+    /// Puts a second copy of a block immediately after it, without its key.
+    ///
+    /// A key is a name, and two blocks on one slide cannot answer to one name —
+    /// a step revealing `#result` would address whichever the compiler reached
+    /// first. Classes and properties come along, so the copy looks like what was
+    /// copied; naming it is the author's next decision rather than an
+    /// inheritance.
+    DuplicateBlock {
+        slide: SlideRef,
+        block: BlockRef,
+    },
     MoveBlock {
         slide: SlideRef,
         block: BlockRef,

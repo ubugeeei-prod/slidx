@@ -141,6 +141,9 @@ pub fn plan(source: &str, options: &DeckParseOptions, op: &EditOp) -> Result<Edi
         EditOp::SetBlockWidth { slide, block, width } => {
             block::set_width(&deck, slide, block, *width, &mut builder)?
         }
+        EditOp::DuplicateBlock { slide, block } => {
+            block::duplicate(&deck, slide, block, &mut builder)?
+        }
         EditOp::MoveBlock { slide, block, to, region } => {
             block::move_to(&deck, options, slide, block, *to, region.as_deref(), &mut builder)?
         }

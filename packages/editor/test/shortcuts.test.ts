@@ -85,6 +85,29 @@ describe("visual editor shortcuts", () => {
     expect(fixture.server.ops).toEqual([{ op: "duplicateSlide", slide: 1 }]);
   });
 
+  it("duplicates the selected block instead, when one is selected", async () => {
+    // One binding rather than two: "make another one of this" is one
+    // intention, and the selection already says what "this" is.
+    const fixture = await open();
+    fixture.session.select({ slide: 1, block: 2 });
+
+    key(fixture.shortcuts, "d", { metaKey: true });
+    await settled();
+
+    expect(fixture.server.ops).toEqual([{ op: "duplicateBlock", slide: 1, block: 2 }]);
+  });
+
+  it("duplicates the slide again once the block is deselected", async () => {
+    const fixture = await open();
+    fixture.session.select({ slide: 1, block: 2 });
+    fixture.session.select({ block: undefined });
+
+    key(fixture.shortcuts, "d", { metaKey: true });
+    await settled();
+
+    expect(fixture.server.ops).toEqual([{ op: "duplicateSlide", slide: 1 }]);
+  });
+
   it("adds after the selected slide through the shared edit operation", async () => {
     const fixture = await open();
     fixture.session.select({ slide: 0 });
@@ -136,7 +159,7 @@ describe("visual editor shortcuts", () => {
 
     expect(event.defaultPrevented).toBe(true);
     expect(dialog.hidden).toBe(false);
-    expect(dialog.textContent).toContain("Duplicate slide");
+    expect(dialog.textContent).toContain("Duplicate the selected block, or the slide");
     expect(dialog.textContent).toContain("Edit slide text");
 
     key(fixture.shortcuts, "Escape");

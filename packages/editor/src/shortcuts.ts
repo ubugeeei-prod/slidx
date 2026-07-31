@@ -19,7 +19,7 @@ interface Shortcut {
 const REFERENCE: Shortcut[] = [
   { keys: ["⌘/Ctrl", "Z"], label: "Undo" },
   { keys: ["⇧", "⌘/Ctrl", "Z"], label: "Redo" },
-  { keys: ["⌘/Ctrl", "D"], label: "Duplicate slide" },
+  { keys: ["⌘/Ctrl", "D"], label: "Duplicate the selected block, or the slide" },
   { keys: ["⌘/Ctrl", "M"], label: "Add slide" },
   { keys: ["Page ↑", "Page ↓"], label: "Previous / next slide" },
   { keys: ["↑", "↓"], label: "Navigate the focused outline" },
@@ -91,11 +91,20 @@ export function createShortcuts(
         return;
       }
 
+      // Duplicates what is selected, which is a block when there is one and the
+      // whole slide otherwise. One binding rather than two, because "make
+      // another one of this" is one intention and the selection already says
+      // what "this" is.
       if (primary && key === "d") {
         handled(event, () => {
-          if (session.state().slides.length > 0) {
-            void session.run({ op: "duplicateSlide", slide: session.state().selection.slide });
-          }
+          const { slide, block } = session.state().selection;
+          if (session.state().slides.length === 0) return;
+
+          void session.run(
+            block === undefined
+              ? { op: "duplicateSlide", slide }
+              : { op: "duplicateBlock", slide, block },
+          );
         });
         return;
       }
