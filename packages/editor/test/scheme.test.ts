@@ -14,7 +14,7 @@
 
 import { describe, expect, it } from "vite-plus/test";
 
-import { applyScheme } from "../src/canvas";
+import { applyScheme, startingScheme } from "../src/canvas";
 
 /** A document standing in for the one inside the canvas frame. */
 function page(): Document {
@@ -54,5 +54,25 @@ describe("putting a scheme on the deck's own document", () => {
     // one of those can arrive first.
     expect(() => applyScheme(null, "dark")).not.toThrow();
     expect(() => applyScheme(undefined, "light")).not.toThrow();
+  });
+});
+
+describe("what the canvas shows before anybody chooses", () => {
+  it("starts light, because a slide is a sheet of paper", () => {
+    // A deck follows the room, which is right for a deck and wrong for an
+    // editor: there the "room" is the author's laptop, so an author in dark
+    // mode was authoring against a palette no lecture theatre will project.
+    expect(startingScheme(undefined)).toBe("light");
+  });
+
+  it("remembers a choice over the default", () => {
+    expect(startingScheme({ getItem: () => "dark" })).toBe("dark");
+    expect(startingScheme({ getItem: () => "auto" })).toBe("auto");
+  });
+
+  it("ignores a stored value that is not a scheme", () => {
+    // Storage is shared with everything else on the origin and outlives any
+    // version of this editor.
+    expect(startingScheme({ getItem: () => "chartreuse" })).toBe("light");
   });
 });
