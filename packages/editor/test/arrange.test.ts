@@ -331,8 +331,15 @@ describe("warning before the block lands", () => {
  */
 describe("the overlay as a piece of interface", () => {
   const declarations = () => ARRANGE_STYLESHEET.replaceAll(/\/\*[\s\S]*?\*\//g, "");
+  const rule = (selector: string) => {
+    const source = declarations();
+    const start = source.indexOf(`${selector} {`);
+    if (start === -1) return "";
+    const body = source.indexOf("{", start) + 1;
+    return source.slice(body, source.indexOf("}", body));
+  };
 
-  it("gives a grip the chrome's own hit size, drawn at half of it", () => {
+  it("gives a quiet mark the chrome's full hit size", () => {
     // Two measurements: how big the target is, and how much of the slide the
     // mark covers. Only the second has to be small.
     expect(declarations()).toContain("width: var(--slidx-e-hit)");
@@ -340,6 +347,21 @@ describe("the overlay as a piece of interface", () => {
 
     const [grip] = open().root.querySelectorAll<HTMLElement>(".slidx-arrange-grip");
     expect(grip!.style.width).toBe("28px");
+  });
+
+  it("keeps idle ink faint and promotes every interactive state", () => {
+    expect(rule(".slidx-arrange-grip")).toContain("opacity: 0.14");
+    expect(rule(".slidx-arrange-grip")).toContain("pointer-events: auto");
+    expect(rule(".slidx-arrange-grip > span")).toContain("pointer-events: none");
+    expect(ARRANGE_STYLESHEET).not.toMatch(/\.slidx-arrange-grip[^,{]*::before/);
+
+    expect(rule(".slidx-arrange-grip:hover, .slidx-arrange-grip:focus-visible")).toContain(
+      "opacity: 1",
+    );
+    expect(rule('.slidx-arrange-grip[data-moving="true"]')).toContain("opacity: 1");
+    expect(rule('.slidx-arrange-grip[data-moving="true"]')).toContain(
+      "color: var(--slidx-e-accent)",
+    );
   });
 
   it("puts the grip on the corner rather than over the block's first word", () => {
@@ -380,7 +402,7 @@ describe("the overlay as a piece of interface", () => {
   });
 
   it("spends every distance from the stops the chrome declares", () => {
-    const allowed = new Set(["1px", "2px", "11px", "16px", "28px"]);
+    const allowed = new Set(["1px", "2px", "11px", "28px"]);
 
     for (const [value] of declarations().matchAll(/\b\d+px\b/g)) {
       expect(allowed.has(value), `${value} is off the rhythm`).toBe(true);

@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import type { BlockBox, RegionBox, SlideGeometry } from "../src/geometry";
 import type { EditOp } from "../src/operations";
+import { RESIZE_STYLESHEET } from "../src/resize-styles";
 import { createResize } from "../src/resize";
 import type { EditorState } from "../src/session";
 import { narrowing, shareAt, stepped, WIDTHS } from "../src/widths";
@@ -153,6 +154,39 @@ describe("resizing a block", () => {
     );
 
     expect(root.querySelector(".slidx-resize-grip")).toBeNull();
+  });
+});
+
+describe("the resize handle as a piece of interface", () => {
+  const declarations = () => RESIZE_STYLESHEET.replaceAll(/\/\*[\s\S]*?\*\//g, "");
+  const rule = (selector: string) => {
+    const source = declarations();
+    const start = source.indexOf(`${selector} {`);
+    if (start === -1) return "";
+    const body = source.indexOf("{", start) + 1;
+    return source.slice(body, source.indexOf("}", body));
+  };
+
+  it("keeps a 28px keyboard-accessible target around quiet ink", () => {
+    const { root } = mounted(geometryOf([block()], [region()]));
+    const handle = root.querySelector<HTMLButtonElement>(".slidx-resize-grip")!;
+
+    expect(handle.style.width).toBe("28px");
+    expect(handle.style.height).toBe("28px");
+    expect(handle.getAttribute("tabindex")).toBe("0");
+    expect(handle.getAttribute("aria-label")).toBe("Resize block 1");
+    expect(rule(".slidx-resize-grip")).toContain("pointer-events: auto");
+    expect(rule(".slidx-resize-grip::before")).toContain("width: var(--slidx-e-hairline)");
+    expect(rule(".slidx-resize-grip::before")).toContain("opacity: 0.22");
+  });
+
+  it("promotes hover, keyboard focus, and active resize to the accent", () => {
+    const active = rule(
+      '.slidx-resize-grip:hover::before,\n.slidx-resize-grip:focus-visible::before,\n.slidx-resize-grip[data-moving="true"]::before',
+    );
+
+    expect(active).toContain("background: var(--slidx-e-accent)");
+    expect(active).toContain("opacity: 1");
   });
 });
 

@@ -101,10 +101,10 @@ export const ARRANGE_STYLESHEET = `
  *
  * A button rather than a bare element, so the tab order reaches every block on
  * the slide and the arrow keys can move one without a pointer ever being
- * involved. The target is the chrome's own hit size and the mark inside it is
- * half that, because a handle small enough not to cover a slide is a handle
- * nobody can hit — those are two different measurements and only one of them
- * has to be small.
+ * involved. The target is the chrome's own hit size while the mark inside it
+ * stays small, because a handle quiet enough not to cover a slide still has to
+ * be easy to hit — those are two different measurements and only the visible
+ * one has to recede.
  *
  * It straddles the block's top-left corner rather than sitting inside it: a
  * target laid over the first word of a heading is a target that stops the
@@ -124,21 +124,11 @@ export const ARRANGE_STYLESHEET = `
   font-size: 11px;
   line-height: 1;
   cursor: grab;
-  opacity: 0.45;
+  opacity: 0.14;
   pointer-events: auto;
 }
 
-.slidx-arrange-grip::before {
-  content: "";
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  border: var(--slidx-e-hairline) solid var(--slidx-e-line);
-  border-radius: var(--slidx-e-radius);
-  background: var(--slidx-e-canvas);
-}
-
-.slidx-arrange-grip > span { position: relative; }
+.slidx-arrange-grip > span { pointer-events: none; }
 
 .slidx-arrange-grip:hover, .slidx-arrange-grip:focus-visible { opacity: 1; }
 .slidx-arrange-grip:hover { background: transparent; }
@@ -148,8 +138,6 @@ export const ARRANGE_STYLESHEET = `
   color: var(--slidx-e-accent);
   cursor: grabbing;
 }
-
-.slidx-arrange-grip[data-moving="true"]::before { border-color: var(--slidx-e-accent); }
 
 /* The one state change worth animating: a grip coming forward under a cursor. */
 @media (prefers-reduced-motion: no-preference) {
