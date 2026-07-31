@@ -46,16 +46,29 @@ mount(document.getElementById("slidx-editor"), { deckBase: ${JSON.stringify(deck
 `;
 }
 
-/** The built editor module, read once. */
-let module: Promise<string> | undefined;
+/**
+ * The built editor module, read when it is asked for.
+ *
+ * It used to be read once and held for the life of the process, which is the
+ * right shape for a file that cannot change and the wrong one for this. The
+ * people this route exists for are the people editing slidx itself, and for
+ * them the module changes every time they build — so a dev server started
+ * before the build served the old editor until it was restarted, and no amount
+ * of rebuilding or reloading said otherwise.
+ *
+ * That cost a whole afternoon of "it is still broken" against changes that were
+ * on disk and correct: the fix, the rebuild and the reload were all real, and
+ * the one thing in the middle was answering from memory.
+ *
+ * Reading it per request costs a file read of a couple of hundred kilobytes on
+ * a route a person opens by hand, on a server that is already re-parsing their
+ * deck on every keystroke. `cache-control: no-store` is on the response for the
+ * same reason, so the browser does not undo it either.
+ */
+export function readEditor(read: typeof readFile = readFile): Promise<string> {
+  const require = createRequire(import.meta.url);
 
-export function readEditor(): Promise<string> {
-  module ??= (async () => {
-    const require = createRequire(import.meta.url);
-    return readFile(require.resolve("@slidxjs/editor"), "utf8");
-  })();
-
-  return module;
+  return read(require.resolve("@slidxjs/editor"), "utf8") as Promise<string>;
 }
 
 function escape(text: string): string {
