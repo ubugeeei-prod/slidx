@@ -70,6 +70,15 @@ export interface EditorState {
    * which is also what an author working alone sees.
    */
   viewers: Viewer[];
+  /**
+   * The seat this editor is following, when it is following one.
+   *
+   * A seat id rather than a slide number, because what an author asks for is
+   * "show me what they are looking at" and a number stops being that the
+   * moment the other person moves. Cleared by anything the author selects
+   * themselves, and by the followed person closing their tab.
+   */
+  following?: string | undefined;
   canUndo: boolean;
   canRedo: boolean;
   /** What the last operation was refused for, cleared by the next one. */
@@ -100,6 +109,8 @@ export interface Session {
   foresee(findings: Finding[]): void;
   /** Who is connected, as the dev server last said. */
   saw(viewers: Viewer[]): void;
+  /** Moves with another seat until the author takes the wheel back. */
+  follow(seat: string | undefined): void;
   /** The Markdown of one slide's body, as the author wrote it. */
   bodyOf(slide: number): string;
   /**
@@ -166,6 +177,20 @@ export function createSession(client: EditorClient, history: History = createHis
     });
   }
 
+  /**
+   * The selection that puts this editor where a followed seat is.
+   *
+   * Nothing at all when they are on the slide already, which is the common
+   * case and the one worth being careful about: replacing the selection there
+   * would take away the block the author has selected every time somebody else
+   * clicked something on the same slide.
+   */
+  function alongside(followed: Viewer | undefined): Partial<EditorState> {
+    return followed === undefined || followed.slide === state.selection.slide
+      ? {}
+      : { selection: { slide: followed.slide } };
+  }
+
   async function attempt(work: () => Promise<void>): Promise<void> {
     try {
       await work();
@@ -226,7 +251,10 @@ export function createSession(client: EditorClient, history: History = createHis
     },
 
     select(selection) {
-      set({ selection: { ...state.selection, ...selection } });
+      // Selecting anything is the author taking the wheel back. Following that
+      // survived a deliberate click would drag the author off the slide they
+      // just chose, at whatever moment somebody else happened to move.
+      set({ selection: { ...state.selection, ...selection }, following: undefined });
     },
 
     foresee(findings) {
@@ -238,7 +266,28 @@ export function createSession(client: EditorClient, history: History = createHis
     },
 
     saw(viewers) {
-      set({ viewers });
+      const followed = viewers.find((viewer) => viewer.id === state.following);
+
+      // A seat that is no longer in the roster is a tab that was closed. There
+      // is nothing left to follow, and an editor that kept following it would
+      // simply stop moving with no way to tell why.
+      if (state.following !== undefined && followed === undefined) {
+        set({ viewers, following: undefined });
+        return;
+      }
+
+      set({ viewers, ...alongside(followed) });
+    },
+
+    follow(seat) {
+      const followed = state.viewers.find((viewer) => viewer.id === seat);
+
+      set({
+        following: followed === undefined ? undefined : seat,
+        // Arriving where they are is the whole request, so it happens now
+        // rather than at their next move — which might be minutes away.
+        ...alongside(followed),
+      });
     },
 
     bodyOf(slide) {

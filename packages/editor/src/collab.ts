@@ -49,6 +49,14 @@ export interface PresenceOptions {
    * every surface already looks.
    */
   saw?(viewers: Viewer[]): void;
+  /**
+   * Asked to move with a seat, or with nobody.
+   *
+   * The roster already answers "where is everyone", and the next thing an
+   * author wants from that answer is to be there. Nothing about it is stored
+   * here — the seat being followed is state, like the roster itself.
+   */
+  follow?(seat: string | undefined): void;
   fetch?: typeof globalThis.fetch;
   /** The URL to take the share credential out of. Defaults to this page's. */
   href?: string;
@@ -94,6 +102,9 @@ export function createPresence(options: PresenceOptions): Surface {
   ]);
 
   let seat: string | undefined;
+  /** The roster as the stream last gave it, and the seat being followed. */
+  let shown: Viewer[] = [];
+  let following: string | undefined;
   let source = "";
   /** The last position posted, as one string so a pair can be compared as one. */
   let reported = "";
@@ -112,25 +123,58 @@ export function createPresence(options: PresenceOptions): Surface {
 
   const headers: Record<string, string> = credential ? { [CREDENTIAL_HEADER]: credential } : {};
 
-  function draw(viewers: Viewer[]): void {
-    options.saw?.(viewers);
-
+  function draw(): void {
     // Nobody else connected means no new chrome at all. An author working alone
     // should not have to look at a panel telling them they are alone.
-    root.setAttribute("data-empty", String(viewers.length < 2));
+    root.setAttribute("data-empty", String(shown.length < 2));
 
     fill(
       list,
-      viewers.map((viewer) =>
-        element("li", { class: "slidx-presence-who", "data-local": viewer.local }, [
-          element("span", { class: "slidx-presence-name" }, [viewer.label]),
-          element("span", { class: "slidx-presence-where" }, [`slide ${viewer.slide + 1}`]),
-          ...(viewer.canEdit
-            ? []
-            : [element("span", { class: "slidx-presence-role" }, ["reading"])]),
-        ]),
-      ),
+      shown.map((viewer) => element("li", { class: "slidx-presence-who" }, [row(viewer)])),
     );
+  }
+
+  /**
+   * One person, and the way to go and stand where they are.
+   *
+   * A button for everybody but the author, whose own row is text: following
+   * yourself is not a thing anybody means, and a control that does nothing is
+   * worse than no control.
+   */
+  function row(viewer: Viewer): HTMLElement {
+    const inside = [
+      element("span", { class: "slidx-presence-name" }, [viewer.label]),
+      element("span", { class: "slidx-presence-where" }, [`slide ${viewer.slide + 1}`]),
+      ...(viewer.canEdit ? [] : [element("span", { class: "slidx-presence-role" }, ["reading"])]),
+    ];
+
+    if (viewer.local || options.follow === undefined) {
+      return element("span", { class: "slidx-presence-seat", "data-local": viewer.local }, inside);
+    }
+
+    const button = element(
+      "button",
+      {
+        class: "slidx-presence-seat",
+        type: "button",
+        "data-local": false,
+        // Written out either way. A toggle with no `aria-pressed` when it is
+        // off is not announced as a toggle at all, and this one is the only
+        // way to tell a followed seat from a followable one.
+        "aria-pressed": String(viewer.id === following),
+        title:
+          viewer.id === following ? `Stop following ${viewer.label}` : `Follow ${viewer.label}`,
+      },
+      inside,
+    );
+
+    // Pressing the one already followed is how following stops, so the control
+    // is the same shape going both ways.
+    button.addEventListener("click", () =>
+      options.follow?.(viewer.id === following ? undefined : viewer.id),
+    );
+
+    return button;
   }
 
   function heard(event: string, payload: Record<string, unknown>): void {
@@ -141,7 +185,11 @@ export function createPresence(options: PresenceOptions): Surface {
     }
 
     if (event === "presence") {
-      draw(Array.isArray(payload["viewers"]) ? (payload["viewers"] as Viewer[]) : []);
+      shown = Array.isArray(payload["viewers"]) ? (payload["viewers"] as Viewer[]) : [];
+      // Handed on before drawing, because the seat being followed comes back
+      // through state and is what the rows are drawn with.
+      options.saw?.(shown);
+      draw();
       return;
     }
 
@@ -216,6 +264,13 @@ export function createPresence(options: PresenceOptions): Surface {
 
     render(state: EditorState) {
       source = state.source;
+
+      // Only on a change, because a render happens on every keystroke and the
+      // roster holds the button the author's pointer may be over.
+      if (state.following !== following) {
+        following = state.following;
+        draw();
+      }
 
       const { slide, block } = state.selection;
       const at = `${slide}:${block ?? ""}`;

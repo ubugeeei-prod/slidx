@@ -207,3 +207,104 @@ describe("a change that has not been made yet", () => {
     expect(renders).toBe(1);
   });
 });
+
+describe("moving with somebody else", () => {
+  /** One connected viewer, as the dev server reports them. */
+  const guest = (id: string, slide: number) => ({
+    id,
+    label: id,
+    local: false,
+    canEdit: true,
+    slide,
+  });
+
+  it("follows nobody until it is asked to", async () => {
+    const session = createSession(fakeServer());
+    await session.open();
+    session.saw([guest("b", 2)]);
+
+    expect(session.state().following).toBeUndefined();
+    expect(session.state().selection.slide).toBe(0);
+  });
+
+  it("arrives where they already are rather than waiting for their next move", async () => {
+    // Minutes can pass between somebody moving. An editor that only caught up
+    // on their next step would look broken for all of them.
+    const session = createSession(fakeServer());
+    await session.open();
+    session.saw([guest("b", 2)]);
+    session.follow("b");
+
+    expect(session.state().selection.slide).toBe(2);
+  });
+
+  it("moves when they move", async () => {
+    const session = createSession(fakeServer());
+    await session.open();
+    session.saw([guest("b", 0)]);
+    session.follow("b");
+    session.saw([guest("b", 2)]);
+
+    expect(session.state().selection.slide).toBe(2);
+  });
+
+  it("stops the moment the author selects anything themselves", async () => {
+    // Following that survived a deliberate click would drag the author off the
+    // slide they just chose, at whatever moment somebody else happened to move.
+    const session = createSession(fakeServer());
+    await session.open();
+    session.saw([guest("b", 0)]);
+    session.follow("b");
+    session.select({ slide: 1 });
+    session.saw([guest("b", 2)]);
+
+    expect(session.state().following).toBeUndefined();
+    expect(session.state().selection.slide).toBe(1);
+  });
+
+  it("stops when the person being followed closes their tab", async () => {
+    // Otherwise the editor simply stops moving, with nothing on screen saying
+    // why it ever was.
+    const session = createSession(fakeServer());
+    await session.open();
+    session.saw([guest("b", 1)]);
+    session.follow("b");
+    session.saw([]);
+
+    expect(session.state().following).toBeUndefined();
+    expect(session.state().selection.slide).toBe(1);
+  });
+
+  it("follows nobody when asked for a seat that is not in the roster", async () => {
+    const session = createSession(fakeServer());
+    await session.open();
+    session.follow("nobody");
+
+    expect(session.state().following).toBeUndefined();
+    expect(session.state().selection.slide).toBe(0);
+  });
+
+  it("stops when asked to follow nobody", async () => {
+    const session = createSession(fakeServer());
+    await session.open();
+    session.saw([guest("b", 1)]);
+    session.follow("b");
+    session.follow(undefined);
+    session.saw([guest("b", 2)]);
+
+    expect(session.state().following).toBeUndefined();
+    expect(session.state().selection.slide).toBe(1);
+  });
+
+  it("leaves the selection alone when the roster changes around somebody who has not moved", async () => {
+    const session = createSession(fakeServer());
+    await session.open();
+    session.saw([guest("b", 1)]);
+    session.follow("b");
+    session.select({ block: 2 });
+    session.follow("b");
+    session.saw([guest("b", 1), guest("c", 0)]);
+
+    expect(session.state().selection.block).toBe(2);
+  });
+});
