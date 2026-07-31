@@ -192,3 +192,93 @@ describe("visual editor shortcuts", () => {
     expect(fixture.server.ops).toEqual([]);
   });
 });
+
+describe("arrows, which mean one of two things", () => {
+  /** A fixture whose arrange surface reports what it was asked to move. */
+  async function withNudge(moves: boolean) {
+    const server = fakeServer();
+    const session = createSession(server);
+    await session.open();
+
+    const asked: { block: number; key: string }[] = [];
+    const canvas: CanvasSurface = {
+      root: document.createElement("section"),
+      render() {},
+      showMarkdown() {},
+      showVisual() {},
+      focusText() {},
+      listen() {},
+    };
+
+    const shortcuts = createShortcuts(session, canvas, {
+      present: () => {},
+      nudge: (block, key) => {
+        asked.push({ block, key });
+        return moves;
+      },
+    });
+
+    return { session, shortcuts, asked, server };
+  }
+
+  it("pages the deck when nothing is selected", async () => {
+    const fixture = await withNudge(true);
+    fixture.session.select({ slide: 0, block: undefined });
+
+    const event = key(fixture.shortcuts, "ArrowRight");
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(fixture.session.state().selection.slide).toBe(1);
+    expect(fixture.asked).toEqual([]);
+  });
+
+  it("moves the block when one is selected, rather than paging out from under it", async () => {
+    const fixture = await withNudge(true);
+    fixture.session.select({ slide: 1, block: 2 });
+
+    const event = key(fixture.shortcuts, "ArrowRight");
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(fixture.session.state().selection.slide).toBe(1);
+    expect(fixture.asked).toEqual([{ block: 2, key: "ArrowRight" }]);
+  });
+
+  it("moves it up and down its region too, which paging never did", async () => {
+    const fixture = await withNudge(true);
+    fixture.session.select({ slide: 0, block: 1 });
+
+    key(fixture.shortcuts, "ArrowUp");
+    key(fixture.shortcuts, "ArrowDown");
+
+    expect(fixture.asked.map(({ key: pressed }) => pressed)).toEqual(["ArrowUp", "ArrowDown"]);
+  });
+
+  it("leaves the key alone when there is nothing to measure", async () => {
+    // The Markdown view is up, or the canvas has not loaded. Swallowing the key
+    // there would leave an author pressing a dead arrow with no way to tell why.
+    const fixture = await withNudge(false);
+    fixture.session.select({ slide: 0, block: 1 });
+
+    const event = key(fixture.shortcuts, "ArrowUp");
+
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("never steals an arrow from the outline, which has its own", async () => {
+    const fixture = await withNudge(true);
+    fixture.session.select({ slide: 0, block: 1 });
+
+    key(fixture.shortcuts, "ArrowRight", {}, outlineButton());
+
+    expect(fixture.asked).toEqual([]);
+  });
+
+  it("never steals one from a caret in text", async () => {
+    const fixture = await withNudge(true);
+    fixture.session.select({ slide: 0, block: 1 });
+
+    key(fixture.shortcuts, "ArrowLeft", {}, document.createElement("textarea"));
+
+    expect(fixture.asked).toEqual([]);
+  });
+});

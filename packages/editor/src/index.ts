@@ -138,7 +138,12 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
 
   const storyboard = createStoryboard({ select, run: (op) => session.run(op) });
   const deckBase = options.deckBase ?? "slides";
+  const arrange = createArrange(
+    { run, foresee: (findings) => session.foresee(findings) },
+    { measure: (measured) => client.measured(measured) },
+  );
   const shortcuts = createShortcuts(session, canvas, {
+    nudge: (block, key) => arrange.nudge(block, key),
     present: () => {
       const route = routeFor(deckBase, session.state().selection.slide);
       window.open(`${route}presenter/`, "_blank", "noopener");
@@ -155,10 +160,7 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
       { reload: () => void session.open() },
       { deckBase: options.deckBase ?? "slides" },
     ),
-    createArrange(
-      { run, foresee: (findings) => session.foresee(findings) },
-      { measure: (measured) => client.measured(measured) },
-    ),
+    arrange,
     createResize(
       { run, foresee: (findings) => session.foresee(findings) },
       { measure: (measured) => client.measured(measured) },

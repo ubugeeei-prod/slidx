@@ -77,7 +77,24 @@ const KEYS: Record<string, Nudge> = {
   ArrowRight: "after",
 };
 
-export function createArrange(handlers: ArrangeHandlers, options: ArrangeOptions = {}): Surface {
+/**
+ * The arrange surface, and the one thing outside it that needs its geometry.
+ *
+ * Moving a block is `nudge` over a measured slide, and only this surface has
+ * measured one. The keyboard belongs to the whole editor rather than to a grip
+ * — an author who clicked a block on the canvas has selected it, and expects
+ * the arrow keys to move it without discovering that they must first Tab to a
+ * handle they cannot see.
+ */
+export interface ArrangeSurface extends Surface {
+  /** Moves the block at `index` one step, and says whether anything moved. */
+  nudge(index: number, key: string): boolean;
+}
+
+export function createArrange(
+  handlers: ArrangeHandlers,
+  options: ArrangeOptions = {},
+): ArrangeSurface {
   const safe = element("div", { class: "slidx-arrange-safe" });
   const drop = element("div", { class: "slidx-arrange-drop" });
   const ghost = element("div", { class: "slidx-arrange-ghost" });
@@ -351,6 +368,28 @@ export function createArrange(handlers: ArrangeHandlers, options: ArrangeOptions
 
   return {
     root,
+
+    nudge(index, pressed) {
+      const direction = KEYS[pressed];
+      if (direction === undefined) return false;
+
+      // Measured now rather than trusted: a keypress can arrive long after the
+      // last pointer event, and the slide may have been re-rendered since.
+      geometry = read();
+      if (geometry === undefined) return false;
+
+      const target = nudge(geometry, index, direction);
+      if (target === undefined) {
+        // The edge of the deck's arrangement is still a handled key. Letting it
+        // through would page the deck out from under a block the author is
+        // holding, which is the one thing worse than not moving.
+        return true;
+      }
+
+      commit(index, target);
+      return true;
+    },
+
     render(state) {
       applyArrangeStyles(root.ownerDocument);
       slide = state.selection.slide;

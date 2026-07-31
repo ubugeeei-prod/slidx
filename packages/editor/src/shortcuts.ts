@@ -21,6 +21,8 @@ const REFERENCE: Shortcut[] = [
   { keys: ["⇧", "⌘/Ctrl", "Z"], label: "Redo" },
   { keys: ["⌘/Ctrl", "D"], label: "Duplicate the selected block, or the slide" },
   { keys: ["⌘/Ctrl", "M"], label: "Add slide" },
+  { keys: ["←", "→"], label: "Previous / next slide, or move the selected block" },
+  { keys: ["↑", "↓"], label: "Move the selected block up or down its region" },
   { keys: ["Page ↑", "Page ↓"], label: "Previous / next slide" },
   { keys: ["↑", "↓"], label: "Navigate the focused outline" },
   { keys: ["⌥/Alt", "↑", "↓"], label: "Move the focused slide" },
@@ -39,6 +41,13 @@ export interface ShortcutSurface extends Surface {
 
 export interface ShortcutActions {
   present(): void;
+  /**
+   * Moves the selected block, answering false when nothing could be measured.
+   *
+   * Handed in rather than done here, because moving a block is `nudge` over a
+   * measured slide and only the arrange surface has measured one.
+   */
+  nudge?(index: number, key: string): boolean;
 }
 
 /** Creates the reference UI and the key listener that drives it. */
@@ -151,6 +160,38 @@ export function createShortcuts(
 
       if (key === "pageup" || key === "pagedown") {
         handled(event, () => selectBy(session, key === "pageup" ? -1 : 1));
+        return;
+      }
+
+      // Arrows mean one of two things, and the selection is what decides which.
+      //
+      // With a block selected they move it, because that is what an author who
+      // just clicked one is reaching for — and the move is semantic, so it
+      // lands as a region and a position in the file rather than a coordinate.
+      //
+      // With nothing selected they page the deck, which is what every other
+      // surface that shows slides does with them.
+      //
+      // Neither happens inside the outline: it has its own arrows, and its own
+      // reasons for them.
+      if (!inOutline(event) && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+        const block = session.state().selection.block;
+
+        if (block === undefined) {
+          handled(event, () => selectBy(session, event.key === "ArrowLeft" ? -1 : 1));
+          return;
+        }
+      }
+
+      if (!inOutline(event) && event.key.startsWith("Arrow")) {
+        const block = session.state().selection.block;
+        if (block === undefined || actions.nudge === undefined) return;
+
+        // Only when the surface could act on it. A slide whose geometry cannot
+        // be read — the Markdown view is up, or the canvas has not loaded — has
+        // nothing to move, and swallowing the key there would leave an author
+        // pressing a dead arrow with no way to tell why.
+        if (actions.nudge(block, event.key)) event.preventDefault();
         return;
       }
 
