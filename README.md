@@ -102,6 +102,23 @@ Text is edited where it sits, and a block's width is a share of its region
 rather than a length, so a resize still means something at 4:3. Nothing reloads:
 the slide is swapped in place, and your caret stays where it was.
 
+## Two people, one file
+
+`slidx dev --crdt` prints a link and a QR code for the laptop next to you. It is
+**read only**; `--allow-edit` mints a second link, and only that one can change
+the deck. The dev server holds the one document, so a drag on their canvas and a
+file you saved in your own text editor merge rather than overwrite.
+
+The roster says who is here. The canvas says **where**: a mark on the block each
+person has selected, with their name on it, because knowing somebody is on slide
+four does not stop the two of you rewriting the same paragraph. Press a name to
+move with them until you select something yourself.
+
+No account, no sign-in, and no hosted anything. The share secret travels in the
+URL fragment, which is never sent with a request — so it reaches no access log,
+no referrer header and no proxy, and a link that arrives with it in the query is
+refused rather than honoured.
+
 <a href="./docs/media/editor-tour.webm">
   <img alt="The visual editor editing text and addressed styles, changing a block colour, resizing and freely moving it against alignment guides, dropping an image and video, writing layout into a Markdown style tag, managing slides with keyboard shortcuts, and receiving a collaborator's edit" src="./docs/media/editor-tour.png">
 </a>
