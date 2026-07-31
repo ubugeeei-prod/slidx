@@ -15,6 +15,7 @@
   "devDependencies": {
     "@slidxjs/vite-plugin": "workspace:*",
     "@types/node": "catalog:",
+    "@vitest/browser": "4.1.10",
     "@vitest/browser-playwright": "4.1.10",
     "happy-dom": "catalog:",
     "playwright": "^1.62.0",
