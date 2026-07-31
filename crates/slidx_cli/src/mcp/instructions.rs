@@ -76,7 +76,7 @@ own output, with a QR code on the slide pointing at it.
 
 WHAT IS NOT HERE
 
-The build belongs to @ubugeeei/slidx-vite-plugin. Run `vite build` in the
+The build belongs to @slidxjs/vite-plugin. Run `vite build` in the
 deck's own project for the deck, PDF and social cards.
 
 Formatting is `slidx fmt`, a command a person runs. It normalises only the parts
@@ -220,7 +220,7 @@ mod tests {
         // and it stops an agent tidying Markdown by hand to fill the gap.
         assert!(read_only().contains("slidx fmt"));
         assert!(read_only().contains("Never tidy Markdown by hand"));
-        assert!(read_only().contains("@ubugeeei/slidx-vite-plugin"));
+        assert!(read_only().contains("@slidxjs/vite-plugin"));
     }
 
     #[test]

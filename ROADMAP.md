@@ -59,7 +59,7 @@ The minimum a speaker can stand on stage with.
 
 - [x] `slidx_render`: slide, presenter, and print shells — #3
 - [x] Theme token system; `minimal`, `editorial`, `terminal`, `contrast` built in — #3
-- [x] `@ubugeeei/slidx-vite-plugin`: dev server, live reload, MPA static output — #4
+- [x] `@slidxjs/vite-plugin`: dev server, live reload, MPA static output — #4
 - [x] Client runtime: step resolution and the anchor contract — #4
 - [x] Client runtime: navigation, keyboard, deep links — #4
 - [x] Slide-to-slide transitions — #4
@@ -70,7 +70,7 @@ The minimum a speaker can stand on stage with.
 - [x] OG image per slide and per deck
 - [x] Syntax highlighting, done while the deck is built — #5
 
-**Done when** `npm i -D @ubugeeei/slidx-vite-plugin` → `vite build` produces a deck that
+**Done when** `npm i -D @slidxjs/vite-plugin` → `vite build` produces a deck that
 works with the network cable pulled.
 
 Highlighting happens in Rust at build time, which is what keeps the
@@ -272,7 +272,7 @@ matters least — a laptop the night before, on conference wifi.
 Angular cost more than this roadmap assumed. Its published packages ship
 partially compiled and will not evaluate without its own linker, so a deck using
 an Angular island needs an Angular plugin in its own Vite config. Nothing in
-`@ubugeeei/slidx-*` grew a dependency and the plugin belongs to the deck's author — but
+`@slidxjs/*` grew a dependency and the plugin belongs to the deck's author — but
 it is a configuration step the other four do not have.
 
 The terminal preview renders the deck's _model_, never its HTML, and says so on

@@ -22,7 +22,7 @@ const ISLAND_ATTRIBUTE = "data-slidx-island";
 /** A Vite entry that loads the deck's registry and hydrates only marked elements. */
 export function islandClientModule(root: string, setup: string, dev = false): string {
   const require = createRequire(import.meta.url);
-  const runtime = modulePath(require.resolve("@ubugeeei/slidx-islands"), dev);
+  const runtime = modulePath(require.resolve("@slidxjs/islands"), dev);
   const registry = modulePath(resolve(root, setup), dev);
 
   return [

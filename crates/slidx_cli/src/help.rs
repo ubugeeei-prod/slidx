@@ -88,7 +88,7 @@ pub fn root(style: &Style) -> String {
     // scanning the command list for it finds the answer instead of concluding
     // that slidx cannot build a deck.
     text.push_str(
-        "\nBuilding is @ubugeeei/slidx-vite-plugin's job. `vite build` emits the\n\
+        "\nBuilding is @slidxjs/vite-plugin's job. `vite build` emits the\n\
          deck, PDF and OG images. This binary checks things: the machine you are\n\
          about to speak from, and the deck you are about to show.\n\n\
          `slidx help <command>` describes one command, and so does\n\
@@ -311,7 +311,7 @@ mod tests {
     fn the_root_help_names_the_plugin_rather_than_leaving_building_unexplained() {
         // Somebody scanning the command list for `build` has to find the answer
         // here, or they conclude slidx cannot build a deck and stop looking.
-        assert!(root(&Style::plain()).contains("@ubugeeei/slidx-vite-plugin"));
+        assert!(root(&Style::plain()).contains("@slidxjs/vite-plugin"));
     }
 
     #[test]

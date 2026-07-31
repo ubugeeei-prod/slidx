@@ -88,7 +88,7 @@ the TypeScript half. `vp run` with no argument lists every task.
 Narrow a run with a filter or a path:
 
 ```bash
-vp run --filter @ubugeeei/slidx-runtime test:ts
+vp run --filter @slidxjs/runtime test:ts
 ```
 
 CI runs `vp run workspace:ci` on Linux, macOS, and Windows, plus three jobs

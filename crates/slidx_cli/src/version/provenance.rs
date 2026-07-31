@@ -217,7 +217,7 @@ mod tests {
     #[test]
     fn a_binary_inside_node_modules_belongs_to_npm() {
         assert_eq!(
-            channel_of("/usr/local/lib/node_modules/@ubugeeei/slidx-cli-linux-x64/bin/slidx"),
+            channel_of("/usr/local/lib/node_modules/@slidxjs/cli-linux-x64/bin/slidx"),
             Channel::Npm
         );
     }

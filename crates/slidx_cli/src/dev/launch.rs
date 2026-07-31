@@ -1,7 +1,7 @@
 //! Which program starts the project's own dev server.
 //!
 //! `slidx dev` runs Vite. It does not contain a server, does not proxy one, and
-//! does not know how a slide becomes HTML — that is `@ubugeeei/slidx-vite-plugin`, and a
+//! does not know how a slide becomes HTML — that is `@slidxjs/vite-plugin`, and a
 //! second implementation of it here would be two answers to one question. So
 //! the only decision in this module is *how to reach the Vite the project
 //! already installed*, which is a question about the project's package manager

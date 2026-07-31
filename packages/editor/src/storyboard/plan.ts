@@ -131,7 +131,7 @@ function lengthOf(slide: SlideSummary): Omit<SlideTime, "share"> {
  * so a number read here and a number read in a diagnostic are recognisably the
  * same number. It is deliberately not the presenter clock's `1:30`, which reads
  * as a time of day inside a sentence, and deliberately not imported from
- * `@ubugeeei/slidx-rehearsal`: the editor is served to the browser as one self-contained
+ * `@slidxjs/rehearsal`: the editor is served to the browser as one self-contained
  * module by the dev server, and a bare import in it would not resolve.
  */
 export function formatSeconds(seconds: number): string {

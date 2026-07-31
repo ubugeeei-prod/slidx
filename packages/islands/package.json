@@ -1,5 +1,5 @@
 {
-  "name": "@ubugeeei/slidx-islands",
+  "name": "@slidxjs/islands",
   "version": "0.2.0",
   "description": "Opt-in framework islands for slidx decks: the contract, the loader, and thin adapters",
   "license": "MIT",

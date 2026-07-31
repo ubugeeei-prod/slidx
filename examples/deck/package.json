@@ -8,7 +8,7 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "@ubugeeei/slidx-vite-plugin": "workspace:*",
+    "@slidxjs/vite-plugin": "workspace:*",
     "vite": "catalog:"
   }
 }

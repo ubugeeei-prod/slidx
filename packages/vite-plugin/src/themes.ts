@@ -16,7 +16,7 @@
  *
  * Only the project's *direct* dependencies are looked at. Nothing has to be
  * imported, registered, or named in `vite.config.ts` — `vp add -D
- * @ubugeeei/slidx-theme-workshop` and `theme: workshop` is the whole path.
+ * @slidxjs/theme-workshop` and `theme: workshop` is the whole path.
  *
  * Direct rather than the whole tree, and that is the load-bearing half. A
  * transitive dependency is not something the author chose, and a theme arriving
@@ -41,7 +41,7 @@
 import { readFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
-import type { ThemePackage } from "@ubugeeei/slidx-wasm";
+import type { ThemePackage } from "@slidxjs/wasm";
 
 /** The manifest section slidx owns, holding `theme` and nothing else yet. */
 const MANIFEST_KEY = "slidx";

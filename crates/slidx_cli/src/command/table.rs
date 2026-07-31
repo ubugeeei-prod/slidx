@@ -104,7 +104,7 @@ are reported under `dialect/` and can be switched off on their own with
 
 Exits non-zero when something blocking is found, which is what makes it usable
 in CI. `path` is a deck file or a directory of slide files, and defaults to
-./slides — the same layout @ubugeeei/slidx-vite-plugin builds.
+./slides — the same layout @slidxjs/vite-plugin builds.
 
     slidx lint
     slidx lint ./slides --theme editorial --strict
@@ -289,7 +289,7 @@ and it is the one step that needs the network.
 With no argument, every theme slidx ships and what each one is for. A theme
 package adds a name to that list for the project that installed it, and this
 command cannot see those: resolving a package name means resolving node_modules.
-@ubugeeei/slidx-vite-plugin owns that work so it stays in one place.
+@slidxjs/vite-plugin owns that work so it stays in one place.
 
 With a path to a theme document — the JSON file a package names under
 `slidx.theme` in its own package.json — it reads that file exactly as a build
@@ -546,7 +546,7 @@ With no name it lists every shell it knows and which file the line goes in.",
         "write the deck, with the editor open",
         "dev [path] [options]",
         "\
-Starts the project dev server with @ubugeeei/slidx-vite-plugin and opens
+Starts the project dev server with @slidxjs/vite-plugin and opens
 the visual editor at /__slidx/. `path` is the deck and defaults to ./slides,
 the same as `slidx lint`; the Vite config is found by walking up from it.
 
@@ -594,7 +594,7 @@ module import from a file:// origin. Opened off disk a staged deck sits frozen
 on its first stop.
 
 This does not build. When there is nothing there it says so and names
-@ubugeeei/slidx-vite-plugin, which is the thing that produces a deck.
+@slidxjs/vite-plugin, which is the thing that produces a deck.
 
 Use this to check the RESULT — the same files a static host would serve. While
 you are still writing, `slidx dev` serves the source live and opens the editor.
@@ -617,7 +617,7 @@ one PDF per slide, one image per stop, or an OOXML presentation with speaker
 notes.
 
 It does not render anything. Every page, every PDF and every image comes from
-@ubugeeei/slidx-vite-plugin driving a browser over its print shell. This runs
+@slidxjs/vite-plugin driving a browser over its print shell. This runs
 that build and packages what it wrote. A second renderer here would mean
 the file you hand over could differ from the deck you checked, which is the one
 failure this whole pipeline is shaped to prevent.
@@ -912,18 +912,18 @@ The PDF is an export of a build:
 
     slidx export --target pdf
 
-That runs @ubugeeei/slidx-vite-plugin to render the PDF from its print shell,
+That runs @slidxjs/vite-plugin to render the PDF from its print shell,
 and puts the document where you asked for it. `slidx export --help`
 lists the other things it can package.";
 
 const BUILD_LIVES_IN_THE_PLUGIN: &str = "\
-Deck builds belong to @ubugeeei/slidx-vite-plugin, and slidx will not grow a
+Deck builds belong to @slidxjs/vite-plugin, and slidx will not grow a
 second copy:
 
-    npm i -D @ubugeeei/slidx-vite-plugin
+    npm i -D @slidxjs/vite-plugin
 
     // vite.config.ts
-    import { slidx } from \"@ubugeeei/slidx-vite-plugin\";
+    import { slidx } from \"@slidxjs/vite-plugin\";
     export default { plugins: [slidx()] };
 
 `vite build` emits the static deck, the PDF and the OG images. To serve the deck

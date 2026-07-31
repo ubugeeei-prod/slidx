@@ -6,7 +6,7 @@
  * into `release.yml` by hand, and it was wrong: `slidx_cli` had gained
  * `slidx_highlight` and `slidx_publish` as dependencies and neither was in the
  * list, so a tag push would have published five crates and then failed on the
- * sixth — with the five already permanent on crates.io. `@ubugeeei/slidx-vite-plugin`,
+ * sixth — with the five already permanent on crates.io. `@slidxjs/vite-plugin`,
  * which is the package the README tells people to install, was not in the npm
  * list at all.
  *
@@ -81,7 +81,7 @@ function crates() {
 /**
  * The `slidx` wrapper, which cannot be ordered from a manifest.
  *
- * Its dependencies are the five `@ubugeeei/slidx-cli-*` platform packages, and those do
+ * Its dependencies are the five `@slidxjs/cli-*` platform packages, and those do
  * not exist until `build-platform-packages.mjs` writes them at release time.
  * Read from here it looks like it depends on nothing and would sort first —
  * which is the one position it must never take, because a wrapper published

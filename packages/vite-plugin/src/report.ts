@@ -6,7 +6,7 @@
  * that is worded differently in two places reads as two different problems.
  */
 
-import type { Finding } from "@ubugeeei/slidx-wasm";
+import type { Finding } from "@slidxjs/wasm";
 
 /** Findings grouped the way a person reads them. */
 export interface Report {

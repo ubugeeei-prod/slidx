@@ -1,5 +1,5 @@
 {
-  "name": "@ubugeeei/slidx-editor",
+  "name": "@slidxjs/editor",
   "version": "0.2.0",
   "description": "The slidx visual editor: deck outline, slide canvas, and inspector, writing back to Markdown",
   "license": "MIT",
@@ -28,6 +28,6 @@
     "pack:lib": "vp pack src/index.ts --dts --out-dir dist"
   },
   "devDependencies": {
-    "@ubugeeei/slidx-runtime": "workspace:*"
+    "@slidxjs/runtime": "workspace:*"
   }
 }

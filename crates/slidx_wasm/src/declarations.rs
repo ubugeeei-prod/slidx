@@ -39,7 +39,7 @@
 //! # How it reaches npm
 //!
 //! `wasm-bindgen` appends the file verbatim to the generated `slidx.d.ts`, so
-//! `@ubugeeei/slidx-wasm` ships one self-contained declaration file and a consumer needs
+//! `@slidxjs/wasm` ships one self-contained declaration file and a consumer needs
 //! no second package to describe what `buildDeck` returned.
 
 use ts_rs::{Config, TS};

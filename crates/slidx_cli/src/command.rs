@@ -337,10 +337,7 @@ mod tests {
         // The whole value of the table: the reply has to be actionable, not a
         // refusal. Anyone typing `slidx build` needs the plugin's name.
         for (name, reason) in DECLINED {
-            assert!(
-                reason.contains("@ubugeeei/slidx-vite-plugin"),
-                "{name} refuses without redirecting"
-            );
+            assert!(reason.contains("@slidxjs/vite-plugin"), "{name} refuses without redirecting");
         }
     }
 }

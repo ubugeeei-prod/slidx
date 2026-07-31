@@ -164,7 +164,7 @@ describe("building the platform packages", () => {
     generate(withBinaries(PLATFORMS), out);
 
     for (const platform of PLATFORMS) {
-      const directory = join(out, platform.npm.replace("@ubugeeei/slidx-", ""));
+      const directory = join(out, platform.npm.replace("@slidxjs/", ""));
       expect(existsSync(join(directory, "bin", binaryName(platform)))).toBe(true);
     }
   });
@@ -175,10 +175,7 @@ describe("building the platform packages", () => {
 
     for (const platform of PLATFORMS) {
       const manifest = JSON.parse(
-        readFileSync(
-          join(out, platform.npm.replace("@ubugeeei/slidx-", ""), "package.json"),
-          "utf8",
-        ),
+        readFileSync(join(out, platform.npm.replace("@slidxjs/", ""), "package.json"), "utf8"),
       );
 
       expect(manifest.name).toBe(platform.npm);
@@ -241,10 +238,7 @@ describe("building the platform packages", () => {
 
     for (const platform of PLATFORMS) {
       const manifest = JSON.parse(
-        readFileSync(
-          join(out, platform.npm.replace("@ubugeeei/slidx-", ""), "package.json"),
-          "utf8",
-        ),
+        readFileSync(join(out, platform.npm.replace("@slidxjs/", ""), "package.json"), "utf8"),
       );
       expect(manifest.scripts).toBeUndefined();
     }

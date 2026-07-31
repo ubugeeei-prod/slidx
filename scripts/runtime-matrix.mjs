@@ -65,11 +65,11 @@ fn main() {}
 const require = createRequire(pathToFileURL(join(root, "packages/vite-plugin/package.json")));
 
 const { default: init, buildDeck } = await import(
-  pathToFileURL(require.resolve("@ubugeeei/slidx-wasm")).href
+  pathToFileURL(require.resolve("@slidxjs/wasm")).href
 );
 
 await init({
-  module_or_path: await readFile(require.resolve("@ubugeeei/slidx-wasm/slidx_bg.wasm")),
+  module_or_path: await readFile(require.resolve("@slidxjs/wasm/slidx_bg.wasm")),
 });
 
 const result = buildDeck(DECK, { separator: "\n---\n", presenter: true, print: true });

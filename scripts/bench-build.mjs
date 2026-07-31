@@ -20,7 +20,7 @@ import { build } from "vite";
 
 // The published package, not the source: this measures what a user installs,
 // including whatever the library build does to it.
-import { slidx } from "@ubugeeei/slidx-vite-plugin";
+import { slidx } from "@slidxjs/vite-plugin";
 
 const SLIDES = Number(process.argv[2] ?? 100);
 const RUNS = 5;

@@ -78,7 +78,7 @@ if (built.length !== PLATFORMS.length) {
 }
 
 function writePackage(platform, binary) {
-  const directory = join(outDir, platform.npm.replace("@ubugeeei/slidx-", ""));
+  const directory = join(outDir, platform.npm.replace("@slidxjs/", ""));
   mkdirSync(join(directory, "bin"), { recursive: true });
 
   const destination = join(directory, "bin", binaryName(platform));
@@ -107,7 +107,7 @@ function writePackage(platform, binary) {
  * is executable. It must not be named `slidx`: that name belongs to the
  * wrapper, which resolves this file directly.
  *
- * No `exports` either, so `require.resolve("@ubugeeei/slidx-cli-linux-x64/bin/slidx")`
+ * No `exports` either, so `require.resolve("@slidxjs/cli-linux-x64/bin/slidx")`
  * reaches the file. An `exports` map would have to list it, which is one more
  * place the layout is written down.
  */

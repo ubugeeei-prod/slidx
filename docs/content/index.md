@@ -34,7 +34,7 @@ Two other people read this site. If you are one of them, start there instead:
 
 ## Before you spend twenty minutes
 
-slidx is **not on npm or crates.io yet**. `npm i @ubugeeei/slidx-vite-plugin` installs
+slidx is **not on npm or crates.io yet**. `npm i @slidxjs/vite-plugin` installs
 nothing today. Until the first release the way to run it is from a clone, which
 is what this page does, and the commands here are the ones this repository's own
 CI runs — so they work, and they are not the two-line install that will replace

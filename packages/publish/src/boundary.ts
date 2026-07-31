@@ -20,13 +20,13 @@
  * question until the planner exists.
  */
 
-import initWasm, { publishCall, type PublishCall } from "@ubugeeei/slidx-wasm";
+import initWasm, { publishCall, type PublishCall } from "@slidxjs/wasm";
 
 /**
  * Instantiates the planner.
  *
  * The wasm bytes are read from disk under Node and fetched in a browser.
- * `@ubugeeei/slidx-wasm` is built for the web target so one artifact serves both, which
+ * `@slidxjs/wasm` is built for the web target so one artifact serves both, which
  * under Node means handing over the bytes ourselves rather than depending on
  * how a given version resolves `fetch` against a file path.
  */
@@ -43,7 +43,7 @@ async function load(): Promise<void> {
   const require = createRequire(import.meta.url);
 
   await initWasm({
-    module_or_path: await readFile(require.resolve("@ubugeeei/slidx-wasm/slidx_bg.wasm")),
+    module_or_path: await readFile(require.resolve("@slidxjs/wasm/slidx_bg.wasm")),
   });
 }
 
@@ -100,6 +100,6 @@ export type {
   SpeakerDeckUpload,
   TalkIndex,
   TalkIndexOptions,
-} from "@ubugeeei/slidx-wasm";
+} from "@slidxjs/wasm";
 
-import type { Artifact, DeckMetadata, DeckSlide, DeckSource } from "@ubugeeei/slidx-wasm";
+import type { Artifact, DeckMetadata, DeckSlide, DeckSource } from "@slidxjs/wasm";

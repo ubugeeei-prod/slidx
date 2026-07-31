@@ -50,7 +50,7 @@ over the same file; neither compiles anything and neither needs Node.
 ### `npm i -g slidx`
 
 The wrapper package `slidx` declares one `optionalDependency` per platform —
-`@ubugeeei/slidx-cli-darwin-arm64` and friends — each holding a single binary and
+`@slidxjs/cli-darwin-arm64` and friends — each holding a single binary and
 declaring the `os` and `cpu` it runs on. npm installs the one that matches and
 skips the rest, and `packages/cli/bin/slidx.mjs` execs it.
 
@@ -167,12 +167,12 @@ if one survives. Publishing the workspace directories directly skips that
 rewrite and would put an unusable dependency requirement on the registry.
 
 The order is derived the same way and for the same reason. The list here used to name
-`@ubugeeei/slidx-wasm` and `@ubugeeei/slidx-runtime` only, and `release.yml` agreed with it —
-which left **`@ubugeeei/slidx-vite-plugin`**, the package the README tells people to
+`@slidxjs/wasm` and `@slidxjs/runtime` only, and `release.yml` agreed with it —
+which left **`@slidxjs/vite-plugin`**, the package the README tells people to
 install, unpublished.
 
 The `slidx` wrapper is not in that list. Its dependencies are the five
-`@ubugeeei/slidx-cli-*` packages, which do not exist until the release builds them, so
+`@slidxjs/cli-*` packages, which do not exist until the release builds them, so
 it cannot be ordered from a manifest and the workflow places it last by hand.
 
 The platform packages have to exist before they can be configured too, and they
@@ -198,12 +198,12 @@ done < "$bootstrap_dir/cli-tarballs"
 ```
 
 Then, for **each** package — everything `publish-order.mjs npm` lists, plus
-`slidx` and the five `@ubugeeei/slidx-cli-*` — at
+`slidx` and the five `@slidxjs/cli-*` — at
 `https://www.npmjs.com/package/<name>/access`, add a trusted publisher with the
 same repository and `release.yml`.
 
-`slidx` is an unscoped name and `@ubugeeei` is a scope: publishing `slidx` and
-`@ubugeeei/slidx-runtime` for the first time claims both package names, so do that
+`slidx` is an unscoped name and `@slidxjs` is a scope: publishing `slidx` and
+`@slidxjs/runtime` for the first time claims both package names, so do that
 before anyone else does.
 
 ### Checking it worked
