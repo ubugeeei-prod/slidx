@@ -172,6 +172,11 @@ fn operations(source: &str) -> Vec<EditOp> {
                 to: 0,
                 region: Some("side".into()),
             });
+            ops.push(EditOp::DuplicateBlock { slide: index.into(), block: 0.into() });
+            ops.push(EditOp::DuplicateBlock {
+                slide: index.into(),
+                block: (slide.blocks.len() - 1).into(),
+            });
 
             // Every share, including the default — which is the one written by
             // taking the property away rather than by writing it.

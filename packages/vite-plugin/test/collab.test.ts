@@ -92,6 +92,7 @@ const OPERATIONS = {
   setNotes: { op: "setNotes", slide: 0, notes: "Open with the outcome." },
   insertSlide: { op: "insertSlide", at: 1, body: "## Inserted\n" },
   duplicateSlide: { op: "duplicateSlide", slide: 1 },
+  duplicateBlock: { op: "duplicateBlock", slide: 1, block: 1 },
   removeSlide: { op: "removeSlide", slide: 1 },
   moveSlide: { op: "moveSlide", slide: 2, to: 0 },
   addMark: {
