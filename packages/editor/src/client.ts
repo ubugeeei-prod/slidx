@@ -182,10 +182,18 @@ export interface Measurement {
   region?: string;
 }
 
+/** A file the dev server has safely placed in the deck's asset directory. */
+export interface UploadedMedia {
+  kind: "image" | "video";
+  src: string;
+  alt: string;
+}
+
 export interface EditorClient {
   deck(): Promise<DeckState>;
   apply(op: EditOp): Promise<EditAnswer>;
   revert(edit: Edit): Promise<EditAnswer>;
+  upload(file: File): Promise<UploadedMedia>;
   /**
    * What the linter makes of a measurement the editor took.
    *
@@ -244,6 +252,28 @@ export function createClient(options: ClientOptions = {}): EditorClient {
     },
     apply: (op) => post({ op }),
     revert: (edit) => post({ edit }),
+
+    async upload(file) {
+      const response = await send(`${base}media`, {
+        method: "POST",
+        headers: {
+          ...access,
+          "content-type": file.type || "application/octet-stream",
+          "x-slidx-name": encodeURIComponent(file.name),
+        },
+        body: file,
+      });
+      const payload = (await response.json()) as Partial<UploadedMedia> & { message?: string };
+      if (!response.ok) throw new Error(payload.message ?? "The media file could not be added.");
+      if (
+        (payload.kind !== "image" && payload.kind !== "video") ||
+        typeof payload.src !== "string" ||
+        typeof payload.alt !== "string"
+      )
+        throw new Error("The media upload returned an invalid answer.");
+
+      return { kind: payload.kind, src: payload.src, alt: payload.alt };
+    },
 
     async measured(measured) {
       const response = await send(`${base}measured`, {

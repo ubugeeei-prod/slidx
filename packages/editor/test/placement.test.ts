@@ -14,7 +14,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import type { BlockBox, RegionBox, SlideGeometry } from "../src/geometry";
-import { arrival, guides, landing, nudge } from "../src/placement";
+import { arrival, guides, insertion, landing, nudge } from "../src/placement";
 
 function block(index: number, region: string, top: number, over: Partial<BlockBox> = {}): BlockBox {
   const left = region === "left" ? 100 : 500;
@@ -97,6 +97,32 @@ describe("where a drop lands", () => {
 
     expect(found?.rect.left).toBe(100);
     expect(found?.rect.width).toBe(400);
+  });
+});
+
+describe("where new media is inserted", () => {
+  it("uses the region and source position under the pointer", () => {
+    expect(insertion(split(), 600, 120)).toMatchObject({ region: "right", at: 0, to: 2 });
+    expect(insertion(split(), 200, 260)).toMatchObject({ region: "left", at: 2, to: 2 });
+  });
+
+  it("puts media in an empty region before the next region's first block", () => {
+    const geometry = split({
+      regions: [region("left", 100, []), region("right", 500, [0, 1, 2])],
+      blocks: [block(0, "right", 100), block(1, "right", 200), block(2, "right", 300)],
+    });
+
+    expect(insertion(geometry, 200, 300)).toMatchObject({ region: "left", at: 0, to: 0 });
+  });
+
+  it("appends in an empty final region and refuses outside the slide", () => {
+    const geometry = split({
+      regions: [region("left", 100, [0, 1, 2]), region("right", 500, [])],
+      blocks: [block(0, "left", 100), block(1, "left", 200), block(2, "left", 300)],
+    });
+
+    expect(insertion(geometry, 600, 300)).toMatchObject({ region: "right", at: 0, to: 3 });
+    expect(insertion(geometry, 2_000, 300)).toBeUndefined();
   });
 });
 
