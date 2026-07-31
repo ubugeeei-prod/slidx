@@ -50,6 +50,24 @@ describe("an editing session", () => {
 
     expect(seen).toEqual([0, 3]);
   });
+
+  it("keeps a whole block selected across the operation that styles it", async () => {
+    const deck = deckOf("One");
+    deck.spans[0]!.blocks = [{ span: { start: 0, end: 5 } }];
+    const session = createSession(fakeServer(deck));
+    await session.open();
+    session.select({ block: 0 });
+
+    await session.run({
+      op: "setBlockStyle",
+      slide: 0,
+      block: 0,
+      property: "color",
+      value: "#ff3366",
+    });
+
+    expect(session.state().selection).toEqual({ slide: 0, block: 0 });
+  });
 });
 
 describe("undo", () => {

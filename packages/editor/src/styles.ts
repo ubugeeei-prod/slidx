@@ -53,8 +53,8 @@ export const STYLESHEET = `
    */
   --slidx-e-tight: 4px;
   --slidx-e-snug: 8px;
-  --slidx-e-gap: 12px;
-  --slidx-e-loose: 16px;
+  --slidx-e-gap: 16px;
+  --slidx-e-loose: 24px;
 
   /*
    * The smallest a control may be.
@@ -207,7 +207,7 @@ textarea:focus-visible,
 
 .slidx-outline-list {
   margin: 0;
-  padding: var(--slidx-e-tight);
+  padding: var(--slidx-e-snug);
   list-style: none;
   overflow-y: auto;
 }
@@ -309,7 +309,7 @@ textarea:focus-visible,
   flex: 1;
   min-height: 0;
   display: grid;
-  padding: var(--slidx-e-gap);
+  padding: var(--slidx-e-loose);
 }
 
 .slidx-canvas-stage > * { grid-area: 1 / 1; }
@@ -328,7 +328,7 @@ textarea:focus-visible,
   width: 100%;
   height: 100%;
   resize: none;
-  padding: 12px;
+  padding: var(--slidx-e-loose);
   color: inherit;
   background: var(--slidx-e-surface);
   border: var(--slidx-e-hairline) solid var(--slidx-e-line);
@@ -340,7 +340,7 @@ textarea:focus-visible,
 
 /* Inspector. */
 
-.slidx-inspector-panels { padding: var(--slidx-e-gap); overflow-y: auto; }
+.slidx-inspector-panels { padding: var(--slidx-e-loose); overflow-y: auto; }
 
 .slidx-group + .slidx-group {
   margin-top: var(--slidx-e-loose);
@@ -361,8 +361,8 @@ textarea:focus-visible,
   display: grid;
   grid-template-columns: 80px minmax(0, 1fr);
   align-items: center;
-  gap: var(--slidx-e-snug);
-  margin-bottom: var(--slidx-e-tight);
+  gap: var(--slidx-e-gap);
+  margin-bottom: var(--slidx-e-snug);
 }
 .slidx-field-name { color: var(--slidx-e-muted); }
 
@@ -374,7 +374,7 @@ input, textarea {
   background: var(--slidx-e-canvas);
   border: var(--slidx-e-hairline) solid var(--slidx-e-line);
   border-radius: var(--slidx-e-radius);
-  padding: var(--slidx-e-tight) var(--slidx-e-snug);
+  padding: var(--slidx-e-snug) var(--slidx-e-gap);
 }
 
 /*
@@ -395,7 +395,7 @@ textarea { resize: vertical; font-size: 12px; }
 .slidx-hint { margin: 0; color: var(--slidx-e-muted); }
 .slidx-selected {
   margin: 0 0 var(--slidx-e-snug);
-  padding: var(--slidx-e-snug);
+  padding: var(--slidx-e-gap);
   background: var(--slidx-e-surface);
   border-radius: var(--slidx-e-radius);
   font-family: var(--slidx-e-font-mono);

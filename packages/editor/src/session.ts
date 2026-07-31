@@ -36,6 +36,8 @@ import type { EditOp, EditRefusal } from "./operations";
  */
 export interface Selection {
   slide: number;
+  /** One rendered block, addressed in the source order shared with the pipeline. */
+  block?: number | undefined;
   /** A range of the current slide's source body, when text is selected. */
   range?: { start: number; end: number } | undefined;
   /** The text that range names, for showing back to the author. */
@@ -120,6 +122,12 @@ export function createSession(client: EditorClient, history: History = createHis
   /** The deck part of the answer, with the selection kept in range. */
   function adopt(deck: DeckState, extra: Partial<EditorState> = {}): void {
     const slide = Math.min(state.selection.slide, Math.max(deck.deck.slides.length - 1, 0));
+    const block =
+      slide === state.selection.slide &&
+      state.selection.block !== undefined &&
+      state.selection.block < (deck.spans[slide]?.blocks?.length ?? 0)
+        ? state.selection.block
+        : undefined;
 
     set({
       source: deck.source,
@@ -129,8 +137,10 @@ export function createSession(client: EditorClient, history: History = createHis
       durationSeconds: deck.deck.durationSeconds,
       diagnostics: deck.deck.diagnostics,
       // A selection is a range in a body that has just been rewritten, so it
-      // cannot survive the edit that rewrote it. The slide it was on can.
-      selection: { slide },
+      // cannot survive the edit that rewrote it. A whole block can: operations
+      // address it in this same source order, and keeping it selected is what
+      // lets a drag land without taking its handles away.
+      selection: { slide, ...(block === undefined ? {} : { block }) },
       canUndo: history.canUndo,
       canRedo: history.canRedo,
       refusal: undefined,

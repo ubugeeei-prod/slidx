@@ -123,6 +123,35 @@ describe("the mounted editor", () => {
     expect(frame.getAttribute("src")).toMatch(/^\/slides\/3\/\?/);
   });
 
+  it("selects and quietly outlines a block in the rendered slide", async () => {
+    const deck = deckOf("One");
+    deck.spans[0]!.blocks = [{ span: { start: 0, end: 5 } }];
+    const { root } = open(fakeServer(deck));
+    await settled();
+
+    const frame = root.querySelector<HTMLIFrameElement>(".slidx-canvas-frame")!;
+    frame.removeAttribute("src");
+    document.body.append(root);
+    frame.contentDocument!.body.innerHTML = `
+      <article class="slidx-slide">
+        <div class="slidx-slide-body">
+          <div class="slidx-block" data-slidx-block="0"><h1>One</h1></div>
+        </div>
+      </article>
+    `;
+    frame.dispatchEvent(new Event("load"));
+    frame
+      .contentDocument!.querySelector("h1")!
+      .dispatchEvent(new window.PointerEvent("pointerdown", { bubbles: true }));
+
+    expect(mounted!.session.state().selection).toEqual({ slide: 0, block: 0 });
+    expect(
+      frame
+        .contentDocument!.querySelector(".slidx-block")!
+        .hasAttribute("data-slidx-editor-selected"),
+    ).toBe(true);
+  });
+
   it("undoes on the shortcut every editor on both platforms uses", async () => {
     const { root, server } = open();
     await settled();

@@ -84,12 +84,21 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
   const bodyOf = (slide: number) => session.bodyOf(slide);
 
   const run = (op: Parameters<Session["run"]>[0]) => void session.run(op);
-  const select = (slide: number) => session.select({ slide, range: undefined, text: undefined });
+  const select = (slide: number) =>
+    session.select({
+      slide,
+      block: undefined,
+      range: undefined,
+      text: undefined,
+    });
 
   const outline = createOutline({ select, run });
   const canvas = createCanvas(
     {
       run,
+      selectedBlock(block) {
+        session.select({ block, range: undefined, text: undefined });
+      },
       selected(text, at) {
         // Which appearance was picked is decided in the text a reader sees,
         // and then looked for in the Markdown. The inspector says so when the
