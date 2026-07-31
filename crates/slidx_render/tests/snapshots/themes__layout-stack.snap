@@ -4,7 +4,7 @@ expression: "regions(&slide_for(\"minimal\", &layout.id))"
 ---
 - "<div class=\"slidx-region\" data-slidx-region=\"title\""
 - "<div class=\"slidx-region\" data-slidx-region=\"body\""
-- "<div class=\"slidx-block\" data-slidx-block=\"0\""
+- "<div class=\"slidx-block\" data-slidx-block=\"0\" data-slidx-width=\"full\""
 - "<div class=\"slidx-block\" data-slidx-block=\"1\""
 - "<div class=\"slidx-block\" data-slidx-block=\"2\""
 - "<div class=\"slidx-block\" data-slidx-block=\"3\""

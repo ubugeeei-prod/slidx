@@ -17,7 +17,7 @@ import type { EditOp } from "../src/operations";
 import { RESIZE_STYLESHEET } from "../src/resize-styles";
 import { createResize } from "../src/resize";
 import type { EditorState } from "../src/session";
-import { narrowing, shareAt, stepped, WIDTHS } from "../src/widths";
+import { boxAt, narrowing, shareAt, stepped, widthOf, WIDTHS } from "../src/widths";
 
 function stateOf(slide = 0): EditorState {
   return {
@@ -50,7 +50,7 @@ function block(over: Partial<BlockBox> = {}): BlockBox {
     region: "body",
     rect: { left: 0, top: 0, width: 800, height: 100 },
     needsWidth: 0,
-    width: "full",
+    width: "fit",
     ...over,
   };
 }
@@ -102,9 +102,8 @@ describe("resizing a block", () => {
   });
 
   it("writes `full` when the handle goes back to the region's edge", () => {
-    // Which `slidx_edit` writes by removing the property, so a resize out and
-    // back is byte-identical. That rule is in Rust; what matters here is that
-    // the gesture can still ask for it.
+    // `full` is deliberate rather than the default, so the editor must send the
+    // word and let `slidx_edit` preserve it in the source.
     const { ops, root } = mounted(geometryOf([block({ width: "half" })], [region()]));
 
     drag(root, 0, 800);
@@ -122,6 +121,36 @@ describe("resizing a block", () => {
     handle.dispatchEvent(new window.KeyboardEvent("keydown", { key: "ArrowRight" }));
 
     expect(ops.map((op) => "width" in op && op.width)).toEqual(["third", "two-thirds"]);
+  });
+
+  it("steps outwards and inwards from fit using the measured box", () => {
+    const fitted = block({ rect: { left: 240, top: 0, width: 320, height: 100 } });
+    const { ops, root } = mounted(geometryOf([fitted], [region()]));
+    const handle = root.querySelector(".slidx-resize-grip")!;
+
+    handle.dispatchEvent(new window.KeyboardEvent("keydown", { key: "ArrowRight" }));
+    handle.dispatchEvent(new window.KeyboardEvent("keydown", { key: "ArrowLeft" }));
+
+    expect(ops.map((op) => "width" in op && op.width)).toEqual(["half", "third"]);
+  });
+
+  it("can make a region-capped fit block explicitly full from the keyboard", () => {
+    const { ops, root } = mounted(geometryOf([block()], [region()]));
+
+    root
+      .querySelector(".slidx-resize-grip")!
+      .dispatchEvent(new window.KeyboardEvent("keydown", { key: "ArrowRight" }));
+
+    expect(ops).toEqual([{ op: "setBlockWidth", slide: 0, block: 0, width: "full" }]);
+  });
+
+  it("keeps the intrinsic width as a snap target while a fit block is dragged", () => {
+    const fitted = block({ rect: { left: 200, top: 0, width: 400, height: 100 } });
+    const { ops, root } = mounted(geometryOf([fitted], [region()]));
+
+    drag(root, 0, 600);
+
+    expect(ops).toEqual([{ op: "setBlockWidth", slide: 0, block: 0, width: "fit" }]);
   });
 
   it("has nothing past either end of the scale", () => {
@@ -206,6 +235,18 @@ describe("what a share means", () => {
     expect(WIDTHS.map((width) => width.share)).toEqual([1, 0.75, 2 / 3, 0.5, 1 / 3, 0.25]);
     expect(stepped("full", "wider")).toBeUndefined();
     expect(stepped("quarter", "narrower")).toBeUndefined();
+  });
+
+  it("treats fit as measured geometry rather than inventing a fixed share", () => {
+    const fitted = block({ rect: { left: 240, top: 10, width: 320, height: 80 } });
+
+    expect(widthOf(fitted)).toBe("fit");
+    expect(shareAt(region(), 560, 0.4)).toBe("fit");
+    expect(shareAt(region(), 801, 1)).toBe("full");
+    expect(boxAt(region(), fitted, "fit")).toEqual(fitted.rect);
+    expect(stepped("fit", "wider", 0.4)).toBe("half");
+    expect(stepped("fit", "narrower", 0.4)).toBe("third");
+    expect(stepped("fit", "wider", 1)).toBe("full");
   });
 
   it("tells the linter about a code block that will not fit the box it is heading for", () => {

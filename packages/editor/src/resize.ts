@@ -8,10 +8,10 @@
  *
  * # One gesture, one operation, one press of undo
  *
- * A drag ends in exactly one [`setBlockWidth`](./operations). The default share
- * is written by *removing* the property, so dragging a block narrower and back
- * again is byte-identical — the same property the region class already has, and
- * the reason `slidx_edit` owns the rule rather than this file.
+ * A drag ends in exactly one [`setBlockWidth`](./operations). The content-sized
+ * default is written by *removing* the property; `full` stays explicit. The
+ * editor carries the measured size of `fit` as a temporary snap target so a
+ * pointer-down does not accidentally turn intrinsic width into a fixed share.
  *
  * # Why there is no handle to make a block wider than its region
  *
@@ -83,7 +83,7 @@ export function createResize(handlers: ResizeHandlers, options: ResizeOptions = 
   let slide = 0;
   let frame: HTMLIFrameElement | undefined;
   let geometry: SlideGeometry | undefined;
-  let sizing: { index: number; to: BlockWidth } | undefined;
+  let sizing: { index: number; to: BlockWidth; fitShare: number | undefined } | undefined;
   /** The share the linter was last asked about, so a drag asks once per one. */
   let asked: string | undefined;
 
@@ -163,7 +163,15 @@ export function createResize(handlers: ResizeHandlers, options: ResizeOptions = 
     handle.setPointerCapture?.(event.pointerId);
     handle.setAttribute("data-moving", "true");
 
-    sizing = { index, to: shareOfBlock(index) };
+    const from = shareOfBlock(index);
+    const block = geometry.blocks.find((candidate) => candidate.index === index);
+    const region = regionOf(index);
+    const fitShare =
+      from === "fit" && block && region && region.rect.width > 0
+        ? block.rect.width / region.rect.width
+        : undefined;
+
+    sizing = { index, to: from, fitShare };
     asked = undefined;
     root.setAttribute("data-resizing", "true");
     track(event);
@@ -173,7 +181,7 @@ export function createResize(handlers: ResizeHandlers, options: ResizeOptions = 
     const region = regionOf(sizing?.index);
     if (sizing === undefined || region === undefined) return;
 
-    sizing.to = shareAt(region, event.clientX);
+    sizing.to = shareAt(region, event.clientX, sizing.fitShare);
     show(sizing.index, sizing.to);
     foresee(sizing.index, sizing.to);
   }
@@ -253,7 +261,11 @@ export function createResize(handlers: ResizeHandlers, options: ResizeOptions = 
     if (step === undefined || geometry === undefined) return;
 
     event.preventDefault();
-    const to = stepped(shareOfBlock(index), step);
+    const block = geometry.blocks.find((candidate) => candidate.index === index);
+    const region = regionOf(index);
+    if (block === undefined || region === undefined || region.rect.width <= 0) return;
+
+    const to = stepped(widthOf(block), step, block.rect.width / region.rect.width);
     if (to === undefined) return;
 
     commit(index, to);
@@ -268,7 +280,7 @@ export function createResize(handlers: ResizeHandlers, options: ResizeOptions = 
   function shareOfBlock(index: number): BlockWidth {
     const block = geometry?.blocks.find((candidate) => candidate.index === index);
 
-    return block ? widthOf(block) : "full";
+    return block ? widthOf(block) : "fit";
   }
 
   function regionOf(index: number | undefined) {

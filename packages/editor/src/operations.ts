@@ -152,8 +152,8 @@ export type EditOp =
    *
    * Never a length. The reasoning is in `slidx_theme::layout::width`: a pixel is
    * unreviewable in a diff, means something else at another aspect ratio, and is
-   * opaque to the rule that has to say whether the content still fits. `full` is
-   * written by removing the property, so a resize out and back is byte-identical.
+   * opaque to the rule that has to say whether the content still fits. `fit` is
+   * the default and removes the property; `full` remains an explicit choice.
    */
   | { op: "setBlockWidth"; slide: SlideRef; block: BlockRef; width: string }
   /**

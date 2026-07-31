@@ -32,10 +32,10 @@ const SPLIT = `
   <div class="slidx-slide-body">
     <div class="slidx-region" data-slidx-region="left">
       <div class="slidx-block" data-slidx-block="0"><h1>One</h1></div>
-      <div class="slidx-block" data-slidx-block="1"><p>Second.</p></div>
+      <div class="slidx-block" data-slidx-block="1" data-slidx-width="full"><p>Second.</p></div>
     </div>
     <div class="slidx-region" data-slidx-region="right">
-      <div class="slidx-block" data-slidx-block="2"><pre><code>fn main() {}</code></pre></div>
+      <div class="slidx-block" data-slidx-block="2" data-slidx-width="half"><pre><code>fn main() {}</code></pre></div>
     </div>
   </div>
 </div>`;
@@ -48,7 +48,12 @@ describe("the slide, read out of the canvas", () => {
     // into, and a region that only exists once something is in it is a region
     // nobody can aim at.
     const geometry = readGeometry(
-      canvas(SPLIT.replace('<div class="slidx-block" data-slidx-block="2">', "<div>")),
+      canvas(
+        SPLIT.replace(
+          '<div class="slidx-block" data-slidx-block="2" data-slidx-width="half">',
+          "<div>",
+        ),
+      ),
     );
 
     expect(geometry?.regions.map((region) => region.name)).toEqual(["left", "right"]);
@@ -61,6 +66,12 @@ describe("the slide, read out of the canvas", () => {
     expect(geometry?.blocks.map((block) => block.index)).toEqual([0, 1, 2]);
     expect(geometry?.blocks.map((block) => block.region)).toEqual(["left", "left", "right"]);
     expect(geometry?.regions[0]!.blocks).toEqual([0, 1]);
+  });
+
+  it("reads a missing width as fit and keeps fixed shares explicit", () => {
+    const geometry = readGeometry(canvas(SPLIT));
+
+    expect(geometry?.blocks.map((block) => block.width)).toEqual(["fit", "full", "half"]);
   });
 
   it("says there is nothing to measure on a page that is not a slide", () => {

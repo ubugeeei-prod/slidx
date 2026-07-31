@@ -20,8 +20,9 @@
 //!
 //! # What a size is instead
 //!
-//! A **share of the region**, from a closed set the theme names: `{width=half}`.
-//! Every property those three complaints ask for holds:
+//! Content-sized by default, or a **share of the region** from a closed set the
+//! theme names: `{width=half}`. Every property those three complaints ask for
+//! holds:
 //!
 //! - `half` in a diff says what happened to the slide.
 //! - A half is a half at 16:9 and at 4:3, because the region is already a share
@@ -31,11 +32,11 @@
 //!   rule needs is a number both the linter and the editor can compute — without
 //!   either of them knowing what a projector is.
 //!
-//! `Full` is the default and is written by *removing* the property, the same rule
-//! [`super::place`] holds for the default region: a block that says nothing
-//! already fills its region, so writing `width=full` would be a line in the diff
-//! that changes nothing on the slide. It is also what makes a drag narrower and
-//! back again byte-identical.
+//! `Fit` is the default and is written by *removing* the property, the same rule
+//! [`super::place`] holds for the default region: a block that says nothing only
+//! takes the width its content needs. `Full` is therefore deliberate and stays
+//! visible as `{width=full}` in the file and `data-slidx-width="full"` on the
+//! rendered block.
 //!
 //! # The gesture that is not here
 //!
@@ -63,8 +64,10 @@ pub const WIDTH_ATTRIBUTE: &str = "data-slidx-width";
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum BlockWidth {
-    /// The whole region. The default, and written by saying nothing.
+    /// The content's intrinsic width, capped by the region.
     #[default]
+    Fit,
+    /// The whole region, written explicitly.
     Full,
     ThreeQuarters,
     TwoThirds,
@@ -74,13 +77,25 @@ pub enum BlockWidth {
 }
 
 impl BlockWidth {
-    /// Every share, widest first, which is the order a handle steps through.
-    pub const ALL: &'static [Self] =
+    /// Every width the model accepts, with the canonical default first.
+    pub const ALL: &'static [Self] = &[
+        Self::Fit,
+        Self::Full,
+        Self::ThreeQuarters,
+        Self::TwoThirds,
+        Self::Half,
+        Self::Third,
+        Self::Quarter,
+    ];
+
+    /// The fixed shares, widest first, which is the order a handle steps through.
+    pub const SHARES: &'static [Self] =
         &[Self::Full, Self::ThreeQuarters, Self::TwoThirds, Self::Half, Self::Third, Self::Quarter];
 
     /// The name an author writes and a diff shows.
     pub fn as_token(self) -> &'static str {
         match self {
+            Self::Fit => "fit",
             Self::Full => "full",
             Self::ThreeQuarters => "three-quarters",
             Self::TwoThirds => "two-thirds",
@@ -90,23 +105,24 @@ impl BlockWidth {
         }
     }
 
-    /// How much of the region, as a fraction.
+    /// How much of the region, as a fraction, or nothing for intrinsic width.
     ///
     /// This is the number a rule reasons with, and the only place it is written
     /// down: the CSS below is generated from it, so the box the browser lays out
     /// and the box the linter models cannot disagree.
-    pub fn share(self) -> f64 {
+    pub fn share(self) -> Option<f64> {
         match self {
-            Self::Full => 1.0,
-            Self::ThreeQuarters => 0.75,
-            Self::TwoThirds => 2.0 / 3.0,
-            Self::Half => 0.5,
-            Self::Third => 1.0 / 3.0,
-            Self::Quarter => 0.25,
+            Self::Fit => None,
+            Self::Full => Some(1.0),
+            Self::ThreeQuarters => Some(0.75),
+            Self::TwoThirds => Some(2.0 / 3.0),
+            Self::Half => Some(0.5),
+            Self::Third => Some(1.0 / 3.0),
+            Self::Quarter => Some(0.25),
         }
     }
 
-    /// The share an author's word names, or nothing.
+    /// The width an author's word names, or nothing.
     ///
     /// `None` rather than a silent fallback, for the same reason a layout name
     /// resolves that way: `width=340px` has to be reported, not absorbed into a
@@ -124,11 +140,11 @@ impl BlockWidth {
 /// The share a block asks for, and whether its word meant anything.
 ///
 /// `Err` carries the word as written so a diagnostic can quote it. A block whose
-/// width does not resolve still renders full width, because a slide that lost a
-/// block over a typo is worse than one that shows it too wide.
+/// width does not resolve still renders at the safe default, because a slide
+/// that lost a block over a typo is worse than one that ignores the typo.
 pub fn of(block: &Block) -> Result<BlockWidth, &str> {
     let Some(written) = block.attributes.properties.get(WIDTH_PROPERTY) else {
-        return Ok(BlockWidth::Full);
+        return Ok(BlockWidth::Fit);
     };
 
     BlockWidth::find(written).ok_or(written.as_str())
@@ -145,16 +161,12 @@ pub fn of(block: &Block) -> Result<BlockWidth, &str> {
 pub fn css() -> String {
     let mut css = String::new();
 
-    for width in BlockWidth::ALL {
-        if *width == BlockWidth::Full {
-            continue;
-        }
-
+    for width in BlockWidth::SHARES {
         css.push_str(&format!(
             ".slidx-block[{WIDTH_ATTRIBUTE}=\"{token}\"] \
              {{ width: {percent:.4}%; margin-inline: auto; }}\n",
             token = width.as_token(),
-            percent = width.share() * 100.0,
+            percent = width.share().expect("SHARES only contains fixed shares") * 100.0,
         ));
     }
 
@@ -171,8 +183,9 @@ mod tests {
     }
 
     #[test]
-    fn a_block_that_says_nothing_about_width_fills_its_region() {
-        assert_eq!(of(&block(Attributes::default())), Ok(BlockWidth::Full));
+    fn a_block_that_says_nothing_about_width_fits_its_content() {
+        assert_eq!(BlockWidth::default(), BlockWidth::Fit);
+        assert_eq!(of(&block(Attributes::default())), Ok(BlockWidth::Fit));
     }
 
     #[test]
@@ -190,21 +203,21 @@ mod tests {
     }
 
     #[test]
-    fn every_share_has_a_name_and_every_name_resolves_to_the_share_it_says() {
+    fn every_width_has_a_name_and_every_name_resolves_to_the_width_it_says() {
         for width in BlockWidth::ALL {
             assert_eq!(BlockWidth::find(width.as_token()), Some(*width));
         }
     }
 
     #[test]
-    fn the_names_are_the_ones_the_editor_offers_and_the_diagnostic_lists() {
+    fn the_names_are_the_ones_the_editor_understands_and_the_diagnostic_lists() {
         // Pinned rather than derived, because the editor mirrors this list to
         // draw its snap targets. Drift is safe in both directions — a name only
         // one side knows is a snap target nobody can reach or a value the
         // linter reports — but it should arrive in review as a visible diff.
         assert_eq!(
             BlockWidth::names(),
-            ["full", "three-quarters", "two-thirds", "half", "third", "quarter"]
+            ["fit", "full", "three-quarters", "two-thirds", "half", "third", "quarter"]
         );
     }
 
@@ -212,16 +225,23 @@ mod tests {
     fn the_shares_run_from_widest_to_narrowest() {
         // Which is what makes a handle's step order the order a hand expects,
         // and what lets the editor pick a snap target by nearest share.
-        let shares: Vec<f64> = BlockWidth::ALL.iter().map(|width| width.share()).collect();
+        assert_eq!(BlockWidth::Fit.share(), None);
+        let shares: Vec<f64> =
+            BlockWidth::SHARES.iter().map(|width| width.share().expect("a fixed share")).collect();
 
         assert!(shares.windows(2).all(|pair| pair[0] > pair[1]), "{shares:?}");
     }
 
     #[test]
-    fn the_default_share_writes_no_rule_because_it_writes_no_property() {
-        // `width=full` would be a line in the diff that changes nothing on the
-        // slide, and a rule for it would be a rule nothing matches.
-        assert!(!css().contains("full"));
+    fn the_intrinsic_default_writes_no_attribute_rule() {
+        assert!(!css().contains("fit"));
+    }
+
+    #[test]
+    fn an_explicit_full_width_gets_a_full_region_rule() {
+        assert!(css().contains(
+            ".slidx-block[data-slidx-width=\"full\"] { width: 100.0000%; margin-inline: auto; }"
+        ));
     }
 
     #[test]
@@ -238,10 +258,10 @@ mod tests {
     }
 
     #[test]
-    fn every_share_but_the_default_gets_a_rule() {
+    fn every_fixed_share_gets_a_rule() {
         let css = css();
 
-        for width in BlockWidth::ALL.iter().filter(|width| **width != BlockWidth::Full) {
+        for width in BlockWidth::SHARES {
             assert!(css.contains(width.as_token()), "{} has no rule", width.as_token());
         }
     }
@@ -251,6 +271,11 @@ mod tests {
         // The editor sends one of these, so an unknown word is refused at the
         // boundary rather than written into somebody's deck.
         assert_eq!(serde_json::to_value(BlockWidth::TwoThirds).unwrap(), "two-thirds");
+        assert_eq!(serde_json::to_value(BlockWidth::Fit).unwrap(), "fit");
+        assert_eq!(
+            serde_json::from_value::<BlockWidth>(serde_json::json!("fit")).unwrap(),
+            BlockWidth::Fit
+        );
         assert_eq!(
             serde_json::from_value::<BlockWidth>(serde_json::json!("half")).unwrap(),
             BlockWidth::Half

@@ -79,6 +79,9 @@ html, body {
 
 .slidx-block {
   min-width: 0;
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
   display: flex;
   flex-direction: column;
   gap: calc(var(--slidx-space-block) * 0.5);
@@ -93,6 +96,7 @@ html, body {
   width: var(--slidx-element-width, max-content);
   height: var(--slidx-element-height, auto);
   max-width: 100%;
+  margin-inline: 0;
 }
 
 .slidx-block[data-slidx-freeform-frame] {
@@ -259,6 +263,16 @@ mod tests {
     fn the_slide_is_not_scaled_because_the_page_is_its_size() {
         assert!(!STYLESHEET.contains("transform: scale("));
         assert!(STYLESHEET.contains("container-type: size"));
+    }
+
+    #[test]
+    fn printed_blocks_keep_the_content_sized_screen_contract() {
+        let at = STYLESHEET.find(".slidx-block {").expect("the ordinary block rule");
+        let rule = &STYLESHEET[at..at + STYLESHEET[at..].find('}').expect("a closing brace")];
+
+        assert!(rule.contains("width: fit-content"), "{rule}");
+        assert!(rule.contains("max-width: 100%"), "{rule}");
+        assert!(rule.contains("margin-inline: auto"), "{rule}");
     }
 
     #[test]

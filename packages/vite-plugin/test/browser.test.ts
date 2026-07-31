@@ -172,7 +172,7 @@ beforeAll(async () => {
     // data. None of them may cost the room a request.
     buildDeck("browser", {
       "0001.md":
-        "---\ndraft: false\nurl: https://example.com/talk/\n---\n\n# Making Decks Fast\n\nA framework.\n",
+        "---\ndraft: false\nurl: https://example.com/talk/\n---\n\n# Making Decks Fast\n\nA framework.\n\n{width=full}\nA deliberate full-width block.\n",
     }),
     buildDeck("staged", {
       "0001.md":
@@ -223,7 +223,13 @@ async function measure(engine: Engine, width: number, height: number) {
       ...(await tab.evaluate(() => {
         const slide = document.querySelector(".slidx-slide");
         const heading = document.querySelector("h1");
-        if (slide === null || heading === null) throw new Error("the slide did not render");
+        const region = document.querySelector<HTMLElement>(".slidx-region");
+        const blocks = document.querySelectorAll<HTMLElement>(".slidx-block");
+        const fitted = blocks[1];
+        const full = blocks[2];
+        if (slide === null || heading === null || region === null || !fitted || !full) {
+          throw new Error("the slide did not render");
+        }
 
         const box = slide.getBoundingClientRect();
 
@@ -239,6 +245,11 @@ async function measure(engine: Engine, width: number, height: number) {
           slideWidth: box.width,
           slideHeight: box.height,
           headingPx: Number.parseFloat(getComputedStyle(heading).fontSize),
+          regionWidth: region.getBoundingClientRect().width,
+          fittedWidth: fitted.getBoundingClientRect().width,
+          fullWidth: full.getBoundingClientRect().width,
+          fittedToken: fitted.getAttribute("data-slidx-width"),
+          fullToken: full.getAttribute("data-slidx-width"),
           scripts: executable.length,
           text: heading.textContent ?? "",
         };
@@ -290,6 +301,15 @@ describe.each(ENGINES)("%s", (engine) => {
     },
     120_000,
   );
+
+  runs("fits ordinary blocks to content and keeps explicit full width", async () => {
+    const measured = await measure(engine, 1280, 800);
+
+    expect(measured.fittedToken).toBeNull();
+    expect(measured.fittedWidth).toBeLessThan(measured.regionWidth);
+    expect(measured.fullToken).toBe("full");
+    expect(measured.fullWidth).toBeCloseTo(measured.regionWidth, 1);
+  });
 
   runs(
     "runs no script at all",
