@@ -1,6 +1,6 @@
 {
   "name": "@slidxjs/publish",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Plans and payloads for publishing a finished slidx deck. Performs nothing, needs no credentials",
   "license": "MIT",
   "repository": {
