@@ -15,7 +15,14 @@
 
 import { describe, expect, it } from "vite-plus/test";
 
-import { BUDGETS, executableScripts, overBudget, referencesIn, unmeasured } from "../budget.mjs";
+import {
+  BUDGETS,
+  executableScripts,
+  overBudget,
+  referencesIn,
+  splitPages,
+  unmeasured,
+} from "../budget.mjs";
 
 describe("what counts as JavaScript on a page", () => {
   it("counts a module, which is how a staged slide runs", () => {
@@ -137,5 +144,34 @@ describe("the figures themselves", () => {
     const still = BUDGETS.find((budget) => budget.name.includes("no steps"));
 
     expect(still?.limit).toBe(0);
+  });
+});
+
+describe("which figure a page belongs to", () => {
+  it("keeps a snippet page out of the per-slide average", () => {
+    // It is a fraction of the weight of a slide, so averaging it in makes every
+    // slide look lighter the more code a deck shares — which is backwards.
+    const { slides, snippets } = splitPages([
+      "slides/index.html",
+      "slides/2/index.html",
+      "slides/snippets/retry.html",
+    ]);
+
+    expect(slides).toEqual(["slides/index.html", "slides/2/index.html"]);
+    expect(snippets).toEqual(["slides/snippets/retry.html"]);
+  });
+
+  it("still counts it, because a phone in the room downloads it", () => {
+    const { slides, snippets } = splitPages(["slides/snippets/a.html"]);
+
+    expect(slides).toEqual([]);
+    expect(snippets).toHaveLength(1);
+  });
+
+  it("has a figure for it, which is the tightest one here", () => {
+    const page = BUDGETS.find((budget) => budget.name.includes("snippet"));
+
+    expect(page).toBeDefined();
+    expect(page.limit).toBeLessThan(5_000);
   });
 });

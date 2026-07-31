@@ -66,6 +66,16 @@ export const FIXTURE = {
   "0003.md": ["## A slide with a picture", "", "![A one-pixel square](./square.png)", ""].join(
     "\n",
   ),
+  "0004.md": [
+    "## A slide with code to take away",
+    "",
+    "```rust {#retry .share}",
+    "fn retry(attempts: usize) -> bool {",
+    "    attempts < 3",
+    "}",
+    "```",
+    "",
+  ].join("\n"),
 };
 
 /**
@@ -91,10 +101,17 @@ export const BUDGETS = [
   },
   {
     name: "everything an audience downloads, gzipped",
-    limit: 48_000,
+    limit: 56_000,
     protects:
       "the whole of what a room fetches for this deck — every page, and every stylesheet, " +
       "script and image those pages actually reference",
+  },
+  {
+    name: "a shared snippet page, gzipped",
+    limit: 4_000,
+    protects:
+      "the page a phone reaches from a QR code on a slide, over whatever signal a room has " +
+      "in the ninety seconds before the speaker moves on",
   },
   {
     name: "the step runtime, gzipped",
@@ -161,6 +178,21 @@ export function referencesIn(page) {
   ].map(([, reference]) => reference);
 
   return [...new Set(found.filter((reference) => !/^(?:https?:)?\/\/|^data:/.test(reference)))];
+}
+
+/**
+ * The pages a room loads, split by which figure each belongs to.
+ *
+ * A snippet page is downloaded by the audience and is not a slide. It counts
+ * towards what a room fetches, and it must stay out of the per-slide average —
+ * it is a fraction of the weight of a slide, so averaging it in makes every
+ * slide look lighter the more code a deck shares, which is backwards.
+ */
+export function splitPages(paths) {
+  return {
+    slides: paths.filter((path) => !path.includes("/snippets/")),
+    snippets: paths.filter((path) => path.includes("/snippets/")),
+  };
 }
 
 /** Which measurements are over, with the amount and the reason it matters. */
