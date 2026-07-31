@@ -13,6 +13,8 @@ import { describe, expect, it } from "vite-plus/test";
 const ROOT = join(import.meta.dirname, "../..");
 const DOCS = readFileSync(join(ROOT, "docs/content/index.md"), "utf8");
 const CLI = readFileSync(join(ROOT, "docs/content/cli.md"), "utf8");
+const EDITOR_RECORDER = readFileSync(join(ROOT, "scripts/record-editor-tour.mjs"), "utf8");
+const MEDIA_RECORDER = readFileSync(join(ROOT, "scripts/record.mjs"), "utf8");
 
 describe("the generated product tours", () => {
   for (const [name, page] of [
@@ -30,4 +32,17 @@ describe("the generated product tours", () => {
       expect(page).toContain(`../media/${name}.webm`);
     });
   }
+
+  it("records tours in dark mode with eased, frame-visible gestures", () => {
+    expect(EDITOR_RECORDER).toContain('const TOUR_SCHEME = "dark"');
+    expect(EDITOR_RECORDER).toContain("const POINTER_STEPS = 28");
+    expect(EDITOR_RECORDER).toContain("easeInOut(step / POINTER_STEPS)");
+    expect(EDITOR_RECORDER).not.toContain('colorScheme: "light"');
+
+    expect(MEDIA_RECORDER).toContain('const TOUR_SCHEME = "dark"');
+    expect(MEDIA_RECORDER).toContain("const TYPE_DELAY_MS = 42");
+    expect(MEDIA_RECORDER).toContain("tour-output-in 240ms");
+    expect(MEDIA_RECORDER).toContain("portableTourOutput");
+    expect(MEDIA_RECORDER).toContain('replaceAll(realpathSync(directory), "~/slides")');
+  });
 });

@@ -32,7 +32,15 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { cpSync, mkdirSync, rmSync, writeFileSync, readFileSync, renameSync } from "node:fs";
+import {
+  cpSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -49,6 +57,8 @@ const DECK = "examples/deck/dist/slides";
 const SCALE = 2;
 const TERMINAL = { width: 900, height: 560 };
 const SLIDE = { width: 1280, height: 720 };
+const TOUR_SCHEME = "dark";
+const TYPE_DELAY_MS = 42;
 
 /**
  * A deck with one thing wrong with it, written here rather than committed.
@@ -110,34 +120,45 @@ const captures = [
 const cli = [
   {
     command: "slidx dev --no-open --port 41795",
-    text: await captureUntil(slidx, ["dev", "--no-open", "--port", "41795"], {
-      cwd: resolve("examples/deck"),
-      until: /Editor:\s+http/,
-    }),
+    text: portableTourOutput(
+      await captureUntil(slidx, ["dev", "--no-open", "--port", "41795"], {
+        cwd: resolve("examples/deck"),
+        until: /Editor:\s+http/,
+      }),
+    ),
   },
   {
     command: "slidx fmt --check",
-    text: capture(slidx, ["fmt", "--check"], { cwd: resolve("examples/deck") }),
+    text: portableTourOutput(capture(slidx, ["fmt", "--check"], { cwd: resolve("examples/deck") })),
   },
   {
     command: "slidx lint",
-    text: capture(slidx, ["lint"], { cwd: resolve("examples/deck") }),
+    text: portableTourOutput(capture(slidx, ["lint"], { cwd: resolve("examples/deck") })),
   },
   {
     command: "slidx export --target browser --no-build --out exports",
-    text: capture(slidx, ["export", "--target", "browser", "--no-build", "--out", "exports"], {
-      cwd: exportRoot,
-    }),
+    text: portableTourOutput(
+      capture(slidx, ["export", "--target", "browser", "--no-build", "--out", "exports"], {
+        cwd: exportRoot,
+      }),
+    ),
   },
   {
     command: "slidx doctor --offline",
-    text: excerpt(capture(slidx, ["doctor", "--offline"], { cwd: resolve("examples/deck") }), 18),
+    text: excerpt(
+      portableTourOutput(
+        capture(slidx, ["doctor", "--offline"], { cwd: resolve("examples/deck") }),
+      ),
+      18,
+    ),
   },
   {
     command: "slidx publish --plan --target blog",
-    text: capture(slidx, ["publish", "--plan", "--target", "blog"], {
-      cwd: resolve("examples/deck"),
-    }),
+    text: portableTourOutput(
+      capture(slidx, ["publish", "--plan", "--target", "blog"], {
+        cwd: resolve("examples/deck"),
+      }),
+    ),
   },
 ];
 
@@ -207,7 +228,15 @@ async function cliAnimation(commands) {
     html,
     terminalPage("slidx command tour", "", { tokens: css }).replace(
       "</style>",
-      ".terminal { height: calc(100vh - 48px); }\n</style>",
+      `.terminal { height: calc(100vh - 48px); }
+.tour-output {
+  animation: tour-output-in 240ms cubic-bezier(.22, 1, .36, 1) both;
+}
+@keyframes tour-output-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>`,
     ),
   );
 
@@ -220,20 +249,21 @@ async function cliAnimation(commands) {
       await pre.evaluate((node) => {
         node.textContent = "$ ";
       });
+      await page.waitForTimeout(180);
 
       for (const character of command.command) {
         await pre.evaluate((node, typed) => {
           node.textContent += typed;
         }, character);
-        await page.waitForTimeout(24);
+        await page.waitForTimeout(TYPE_DELAY_MS);
       }
 
-      await page.waitForTimeout(280);
+      await page.waitForTimeout(480);
       await pre.evaluate((node, output) => {
-        node.insertAdjacentHTML("beforeend", `\n${output}`);
+        node.insertAdjacentHTML("beforeend", `\n<span class="tour-output">${output}</span>`);
       }, toHtml(command.text));
-      await page.waitForTimeout(1_450);
-      frames.push({ shot: await page.screenshot(), delay: 1_450 });
+      await page.waitForTimeout(1_800);
+      frames.push({ shot: await page.screenshot(), delay: 1_800 });
     }
   });
 
@@ -276,6 +306,7 @@ async function record(name, size, scene) {
   const directory = join(scratch, "video");
   const context = await browser.newContext({
     viewport: size,
+    colorScheme: TOUR_SCHEME,
     recordVideo: { dir: directory, size },
   });
 
@@ -293,4 +324,22 @@ async function record(name, size, scene) {
 /** The top of a real report, clipped only so the next command fits the frame. */
 function excerpt(text, lines) {
   return `${text.split("\n").slice(0, lines).join("\n")}\n`;
+}
+
+/**
+ * Keep real command output while removing the recording machine from the shot.
+ *
+ * macOS resolves `/tmp` to `/private/tmp`, whereas Node keeps the spelling used
+ * to enter the worktree. Replace both spellings so regenerated documentation is
+ * identical regardless of where its checkout lives.
+ */
+function portableTourOutput(text) {
+  const directories = [resolve("examples/deck"), exportRoot];
+
+  for (const directory of directories) {
+    text = text.replaceAll(directory, "~/slides");
+    text = text.replaceAll(realpathSync(directory), "~/slides");
+  }
+
+  return text;
 }
