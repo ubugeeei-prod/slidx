@@ -44,6 +44,8 @@ const REFERENCE: ShortcutGroup[] = [
   {
     label: "Slides",
     shortcuts: [
+      { keys: ["⌘/Ctrl", "C"], label: "Copy the selected slide" },
+      { keys: ["⌘/Ctrl", "V"], label: "Paste the copied slide" },
       { keys: ["⌘/Ctrl", "M"], label: "Add slide" },
       { keys: ["⌥/Alt", "↑", "↓"], label: "Move the focused slide" },
       { keys: ["⌫/Delete"], label: "Remove the focused slide" },
@@ -64,6 +66,8 @@ const REFERENCE: ShortcutGroup[] = [
 
 export interface ShortcutSurface extends Surface {
   keydown(event: KeyboardEvent): void;
+  copy(event: ClipboardEvent): void;
+  paste(event: ClipboardEvent): void;
 }
 
 export interface ShortcutActions {
@@ -116,6 +120,38 @@ export function createShortcuts(
   return {
     root,
     render() {},
+    copy(event) {
+      const state = session.state();
+      const clipboard = event.clipboardData;
+      if (!clipboard || !canUseSlideClipboard(event, session)) return;
+
+      const selected = state.slides[state.selection.slide];
+      if (!selected) return;
+
+      clipboard.setData(SLIDE_CLIPBOARD_TYPE, JSON.stringify({ version: 1, id: selected.id }));
+      // Text applications still receive useful Markdown. The private type is
+      // only the instruction that makes a paste inside this editor semantic.
+      clipboard.setData("text/plain", session.contentOf(state.selection.slide));
+      event.preventDefault();
+    },
+    paste(event) {
+      const clipboard = event.clipboardData;
+      if (!clipboard || !canUseSlideClipboard(event, session)) return;
+
+      const copied = copiedSlide(clipboard.getData(SLIDE_CLIPBOARD_TYPE));
+      if (!copied) return;
+
+      const state = session.state();
+      const source = state.slides.findIndex((slide) => slide.id === copied.id);
+      const after = state.selection.slide;
+      if (source < 0 || state.slides[after] === undefined) return;
+
+      event.preventDefault();
+      void session.run(
+        { op: "duplicateSlide", slide: source, after },
+        { slide: after + 1, block: undefined, range: undefined, text: undefined },
+      );
+    },
     keydown(event) {
       // A focused control gets the first chance to interpret a key. Panel
       // separators, range inputs and future canvas controls mark a handled key
@@ -309,13 +345,52 @@ function handled(event: KeyboardEvent, action: () => void): void {
   action();
 }
 
-function writingIn(event: KeyboardEvent): boolean {
-  return [event.target, event.view?.document.activeElement].some((candidate) => {
+const SLIDE_CLIPBOARD_TYPE = "application/x-slidx-slide";
+
+function copiedSlide(value: string): { id: string } | undefined {
+  try {
+    const copied: unknown = JSON.parse(value);
+    if (
+      typeof copied !== "object" ||
+      copied === null ||
+      !("version" in copied) ||
+      copied.version !== 1 ||
+      !("id" in copied) ||
+      typeof copied.id !== "string" ||
+      copied.id.length === 0
+    ) {
+      return undefined;
+    }
+
+    return { id: copied.id };
+  } catch {
+    return undefined;
+  }
+}
+
+function canUseSlideClipboard(event: ClipboardEvent, session: Session): boolean {
+  if (writingIn(event)) return false;
+
+  const { block, range, text } = session.state().selection;
+  if (block !== undefined || range !== undefined || text !== undefined) return false;
+
+  const selection = eventDocument(event)?.getSelection();
+  return selection === null || selection === undefined || selection.isCollapsed;
+}
+
+function eventDocument(event: KeyboardEvent | ClipboardEvent): Document | undefined {
+  const target = event.target as Node | null;
+  if (target?.nodeType === Node.DOCUMENT_NODE) return target as Document;
+  return target?.ownerDocument ?? undefined;
+}
+
+function writingIn(event: KeyboardEvent | ClipboardEvent): boolean {
+  return [event.target, eventDocument(event)?.activeElement].some((candidate) => {
     if (!candidate || (candidate as Node).nodeType !== Node.ELEMENT_NODE) return false;
     const element = candidate as Element;
     return (
       element.matches("input, textarea, select") ||
-      element.closest("[contenteditable='true']") !== null
+      element.closest("[contenteditable]:not([contenteditable='false'])") !== null
     );
   });
 }

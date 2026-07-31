@@ -39,6 +39,23 @@ describe("an editing session", () => {
 
     expect(session.bodyOf(0)).toBe("# 日本語のタイトル");
     expect(session.bodyOf(1)).toBe("# Two");
+    expect(session.contentOf(0)).toBe("# 日本語のタイトル");
+    expect(session.contentOf(1)).toBe("# Two");
+  });
+
+  it("lands on an operation's result only after the operation succeeds", async () => {
+    const server = fakeServer();
+    server.answer = deckOf("One", "Two", "Two copy", "Three");
+    const session = createSession(server);
+    await session.open();
+    session.select({ slide: 1, block: 2 });
+
+    await session.run(
+      { op: "duplicateSlide", slide: 1, after: 1 },
+      { slide: 2, block: undefined, range: undefined, text: undefined },
+    );
+
+    expect(session.state().selection).toEqual({ slide: 2 });
   });
 
   it("tells its listeners once per change", async () => {
@@ -149,6 +166,21 @@ describe("an operation the deck refuses", () => {
 
     expect(session.state().refusal).toEqual({ error: "noSuchSlide", slide: 9 });
     expect(session.state().canUndo).toBe(false);
+  });
+
+  it("does not move to a proposed result", async () => {
+    const server = fakeServer();
+    server.answer = { error: { error: "noSuchSlide", slide: 9 } };
+    const session = createSession(server);
+    await session.open();
+    session.select({ slide: 1 });
+
+    await session.run(
+      { op: "duplicateSlide", slide: 9, after: 1 },
+      { slide: 2, block: undefined, range: undefined, text: undefined },
+    );
+
+    expect(session.state().selection).toEqual({ slide: 1 });
   });
 
   it("does not put a refusal on the undo stack", async () => {

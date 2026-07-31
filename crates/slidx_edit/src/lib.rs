@@ -101,7 +101,9 @@ pub fn plan(source: &str, options: &DeckParseOptions, op: &EditOp) -> Result<Edi
             text::set(&deck, slide, *range, text, &mut builder)?
         }
         EditOp::InsertSlide { at, body } => slide::insert(&deck, *at, body, &mut builder)?,
-        EditOp::DuplicateSlide { slide } => slide::duplicate(&deck, slide, &mut builder)?,
+        EditOp::DuplicateSlide { slide, after } => {
+            slide::duplicate(&deck, slide, after.as_ref(), &mut builder)?
+        }
         EditOp::RemoveSlide { slide } => slide::remove(&deck, slide, &mut builder)?,
         EditOp::MoveSlide { slide, to } => slide::move_to(&deck, slide, *to, &mut builder)?,
         EditOp::SetField { slide, key, value } => {

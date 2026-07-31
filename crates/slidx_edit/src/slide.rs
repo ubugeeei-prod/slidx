@@ -90,7 +90,7 @@ pub(crate) fn insert(
     Ok(())
 }
 
-/// Copies one slide immediately after itself, without copying a pinned address.
+/// Copies one slide after another slide, without copying a pinned address.
 ///
 /// The slide source already excludes the deck's own frontmatter, even for the
 /// opening slide, so its title and publish settings cannot leak into the copy.
@@ -101,14 +101,22 @@ pub(crate) fn insert(
 pub(crate) fn duplicate(
     deck: &DeckSource<'_>,
     slide: &SlideRef,
+    after: Option<&SlideRef>,
     builder: &mut EditBuilder<'_>,
 ) -> Result<(), EditError> {
-    let index = deck.resolve(slide)?;
-    let located = deck.at(index);
-    let copied = without_pinned_id(deck, index);
-    let before = if located.owns_frontmatter() { deck.blank() } else { deck.separator_block() };
+    let source = deck.resolve(slide)?;
+    let destination = match after {
+        Some(after) => deck.resolve(after)?,
+        None => source,
+    };
+    let copied = without_pinned_id(deck, source);
+    let before =
+        if deck.at(source).owns_frontmatter() { deck.blank() } else { deck.separator_block() };
 
-    builder.insert(located.content.end, format!("{before}{copied}"));
+    // The gap already below the destination remains the correct boundary
+    // below the copy. It either owns the separator for a plain next slide, or
+    // is blank because that next slide's frontmatter owns its opening one.
+    builder.insert(deck.at(destination).content.end, format!("{before}{copied}"));
     Ok(())
 }
 

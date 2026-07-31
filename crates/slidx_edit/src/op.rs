@@ -70,13 +70,16 @@ pub enum EditOp {
         at: usize,
         body: String,
     },
-    /// Copies one slide immediately after itself.
+    /// Copies one slide after `after`, or immediately after itself when the
+    /// destination is omitted.
     ///
     /// This is its own operation rather than an `InsertSlide` assembled by the
     /// browser: the pipeline knows which frontmatter belongs to the deck, which
     /// separator belongs to the slide, and which pinned id must not be copied.
     DuplicateSlide {
         slide: SlideRef,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        after: Option<SlideRef>,
     },
     RemoveSlide {
         slide: SlideRef,
@@ -643,11 +646,25 @@ mod tests {
 
     #[test]
     fn duplicating_a_slide_crosses_as_one_reference() {
-        let op = EditOp::DuplicateSlide { slide: "intro".into() };
+        let op = EditOp::DuplicateSlide { slide: "intro".into(), after: None };
 
         assert_eq!(
             serde_json::to_value(&op).unwrap(),
             json!({ "op": "duplicateSlide", "slide": "intro" })
+        );
+        assert_eq!(
+            serde_json::from_value::<EditOp>(serde_json::to_value(&op).unwrap()).unwrap(),
+            op
+        );
+    }
+
+    #[test]
+    fn a_duplicate_destination_crosses_only_when_it_is_present() {
+        let op = EditOp::DuplicateSlide { slide: "intro".into(), after: Some(2.into()) };
+
+        assert_eq!(
+            serde_json::to_value(&op).unwrap(),
+            json!({ "op": "duplicateSlide", "slide": "intro", "after": 2 })
         );
         assert_eq!(
             serde_json::from_value::<EditOp>(serde_json::to_value(&op).unwrap()).unwrap(),

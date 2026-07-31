@@ -119,6 +119,11 @@ export interface CanvasSurface extends Surface {
   focusText(): void;
   /** Receives commands even while focus is inside the preview document. */
   listen(listener: (event: KeyboardEvent) => void): void;
+  /** Receives semantic slide copy and paste from the preview document too. */
+  listenClipboard(
+    copy: (event: ClipboardEvent) => void,
+    paste: (event: ClipboardEvent) => void,
+  ): void;
 }
 
 /**
@@ -231,6 +236,8 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
   let shown = "";
   let refresh = 0;
   let keyListener: ((event: KeyboardEvent) => void) | undefined;
+  let copyListener: ((event: ClipboardEvent) => void) | undefined;
+  let pasteListener: ((event: ClipboardEvent) => void) | undefined;
   let listening: Document | undefined;
   let selectedBlock: number | undefined;
   /** Where the author was before the change that is about to land. */
@@ -251,6 +258,22 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
     }
 
     frame.focus();
+  }
+
+  function unbindListeners(page: Document | undefined): void {
+    if (!page) return;
+    if (keyListener) page.removeEventListener("keydown", keyListener);
+    if (copyListener) page.removeEventListener("copy", copyListener);
+    if (pasteListener) page.removeEventListener("paste", pasteListener);
+  }
+
+  function bindListeners(page: Document): void {
+    if (listening === page) return;
+    unbindListeners(listening);
+    if (keyListener) page.addEventListener("keydown", keyListener);
+    if (copyListener) page.addEventListener("copy", copyListener);
+    if (pasteListener) page.addEventListener("paste", pasteListener);
+    listening = page;
   }
 
   toggle.addEventListener("click", () => showSource(!editing));
@@ -275,11 +298,7 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
     const page = frame.contentDocument;
     if (!page) return;
 
-    if (listening !== page && keyListener) {
-      listening?.removeEventListener("keydown", keyListener);
-      page.addEventListener("keydown", keyListener);
-      listening = page;
-    }
+    bindListeners(page);
 
     const lines = attachEditing(page, slide, handlers, {
       body: () => options.bodyOf(slide),
@@ -318,17 +337,26 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
       line?.focus();
     },
     listen(listener) {
-      if (listening && keyListener) listening.removeEventListener("keydown", keyListener);
+      unbindListeners(listening);
       keyListener = listener;
       const page = frame.contentDocument;
-      if (!page) return;
-      page.addEventListener("keydown", listener);
-      listening = page;
+      listening = undefined;
+      if (page) bindListeners(page);
+    },
+    listenClipboard(copy, paste) {
+      unbindListeners(listening);
+      copyListener = copy;
+      pasteListener = paste;
+      const page = frame.contentDocument;
+      listening = undefined;
+      if (page) bindListeners(page);
     },
     destroy() {
-      if (listening && keyListener) listening.removeEventListener("keydown", keyListener);
+      unbindListeners(listening);
       listening = undefined;
       keyListener = undefined;
+      copyListener = undefined;
+      pasteListener = undefined;
     },
     render(state) {
       const moved = state.selection.slide !== slide;

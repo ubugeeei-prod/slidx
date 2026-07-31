@@ -128,7 +128,7 @@ fn inserting_before_a_slide_that_carries_frontmatter_still_writes_a_separator() 
 
 #[test]
 fn duplicating_the_opening_slide_keeps_deck_metadata_single_and_copies_its_whole_body() {
-    let result = edit(DECK, EditOp::DuplicateSlide { slide: 0.into() });
+    let result = edit(DECK, EditOp::DuplicateSlide { slide: 0.into(), after: None });
 
     assert_eq!(slide_titles(&result), ["Introduction", "Introduction", "Deep Dive", "Closing"]);
     assert_eq!(result.matches("title: Fast Decks").count(), 1);
@@ -156,7 +156,7 @@ layout: aside
 
 <!-- notes: keep this -->
 ";
-    let result = edit(source, EditOp::DuplicateSlide { slide: "published".into() });
+    let result = edit(source, EditOp::DuplicateSlide { slide: "published".into(), after: None });
     let parsed = slidx_core::parse_deck(&result, &DeckParseOptions::default());
 
     assert_eq!(result.matches("id: published").count(), 1);
@@ -166,6 +166,44 @@ layout: aside
     assert_ne!(parsed.slides[1].id, parsed.slides[2].id);
     assert_eq!(parsed.slides[1].layout.as_deref(), Some("split"));
     assert_eq!(parsed.slides[2].layout.as_deref(), Some("split"));
+    assert!(!parsed.diagnostics.iter().any(|finding| finding.code == "deck/duplicate-id"));
+}
+
+#[test]
+fn duplicating_a_slide_after_another_destination_keeps_all_visual_state_but_its_id() {
+    let source = "\
+# One
+
+---
+id: published
+layout: aside
+transition: dissolve
+---
+
+<style data-slidx>
+:root {
+  --slidx-layout: split;
+}
+</style>
+
+# Two
+
+<!-- notes: keep this -->
+
+---
+
+# Three
+";
+    let result =
+        edit(source, EditOp::DuplicateSlide { slide: "published".into(), after: Some(2.into()) });
+    let parsed = slidx_core::parse_deck(&result, &DeckParseOptions::default());
+
+    assert_eq!(slide_titles(&result), ["One", "Two", "Three", "Two"]);
+    assert_eq!(result.matches("id: published").count(), 1);
+    assert_eq!(result.matches("transition: dissolve").count(), 2);
+    assert_eq!(result.matches("--slidx-layout: split").count(), 2);
+    assert_eq!(result.matches("<!-- notes: keep this -->").count(), 2);
+    assert_eq!(parsed.slides[3].layout.as_deref(), Some("split"));
     assert!(!parsed.diagnostics.iter().any(|finding| finding.code == "deck/duplicate-id"));
 }
 

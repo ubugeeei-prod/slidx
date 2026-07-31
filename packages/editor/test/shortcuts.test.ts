@@ -11,7 +11,7 @@ import { describe, expect, it } from "vite-plus/test";
 import type { CanvasSurface } from "../src/canvas";
 import { createSession } from "../src/session";
 import { createShortcuts, type ShortcutSurface } from "../src/shortcuts";
-import { fakeServer } from "./support";
+import { deckOf, fakeServer } from "./support";
 
 interface Fixture {
   shortcuts: ShortcutSurface;
@@ -33,6 +33,7 @@ async function open(): Promise<Fixture> {
     showVisual: () => modes.push("visual"),
     focusText: () => modes.push("text"),
     listen() {},
+    listenClipboard() {},
   };
 
   return {
@@ -61,6 +62,22 @@ function key(
   target.addEventListener("keydown", (sent) => shortcuts.keydown(sent as KeyboardEvent), {
     once: true,
   });
+  target.dispatchEvent(event);
+  return event;
+}
+
+function clipboard(
+  shortcuts: ShortcutSurface,
+  type: "copy" | "paste",
+  data: DataTransfer = new DataTransfer(),
+  target: Document | Element = document,
+): ClipboardEvent {
+  const event = new ClipboardEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    clipboardData: data,
+  });
+  target.addEventListener(type, (sent) => shortcuts[type](sent as ClipboardEvent), { once: true });
   target.dispatchEvent(event);
   return event;
 }
@@ -106,6 +123,104 @@ describe("visual editor shortcuts", () => {
     await settled();
 
     expect(fixture.server.ops).toEqual([{ op: "duplicateSlide", slide: 1 }]);
+  });
+
+  it("copies one slide as useful Markdown and pastes it after the selected slide", async () => {
+    const fixture = await open();
+    fixture.session.select({ slide: 1 });
+    const data = new DataTransfer();
+
+    const copied = clipboard(fixture.shortcuts, "copy", data);
+    fixture.session.select({ slide: 2 });
+    fixture.server.answer = deckOf("One", "Two", "Three", "Two copy");
+    const pasted = clipboard(fixture.shortcuts, "paste", data);
+    await settled();
+
+    expect(copied.defaultPrevented).toBe(true);
+    expect(data.getData("text/plain")).toBe("# Two");
+    expect(JSON.parse(data.getData("application/x-slidx-slide"))).toEqual({
+      version: 1,
+      id: "two",
+    });
+    expect(pasted.defaultPrevented).toBe(true);
+    expect(fixture.server.ops).toEqual([{ op: "duplicateSlide", slide: 1, after: 2 }]);
+    expect(fixture.session.state().selection).toEqual({ slide: 3 });
+  });
+
+  it("leaves ordinary clipboard work alone in fields and for selected blocks or text", async () => {
+    const fixture = await open();
+    const source = document.createElement("textarea");
+    const frame = document.createElement("iframe");
+    document.body.append(frame);
+    const editable = frame.contentDocument!.createElement("p");
+    editable.contentEditable = "plaintext-only";
+    frame.contentDocument!.body.append(editable);
+    const slide = new DataTransfer();
+    slide.setData("application/x-slidx-slide", JSON.stringify({ version: 1, id: "two" }));
+
+    const fieldCopy = clipboard(fixture.shortcuts, "copy", new DataTransfer(), source);
+    const fieldPaste = clipboard(fixture.shortcuts, "paste", slide, source);
+    const editableCopy = clipboard(fixture.shortcuts, "copy", new DataTransfer(), editable);
+    const editablePaste = clipboard(fixture.shortcuts, "paste", slide, editable);
+
+    const selected = document.createElement("p");
+    selected.textContent = "ordinary page selection";
+    document.body.append(selected);
+    const range = document.createRange();
+    range.selectNodeContents(selected);
+    document.getSelection()!.addRange(range);
+    const pageCopy = clipboard(fixture.shortcuts, "copy");
+    const pagePaste = clipboard(fixture.shortcuts, "paste", slide);
+    document.getSelection()!.removeAllRanges();
+
+    fixture.session.select({ block: 1 });
+    const blockCopy = clipboard(fixture.shortcuts, "copy");
+    const blockPaste = clipboard(fixture.shortcuts, "paste", slide);
+    fixture.session.select({ block: undefined, range: { start: 0, end: 3 }, text: "Two" });
+    const textCopy = clipboard(fixture.shortcuts, "copy");
+    const textPaste = clipboard(fixture.shortcuts, "paste", slide);
+    await settled();
+    frame.remove();
+    selected.remove();
+
+    expect(
+      [
+        fieldCopy,
+        fieldPaste,
+        editableCopy,
+        editablePaste,
+        pageCopy,
+        pagePaste,
+        blockCopy,
+        blockPaste,
+        textCopy,
+        textPaste,
+      ].map((event) => event.defaultPrevented),
+    ).toEqual([false, false, false, false, false, false, false, false, false, false]);
+    expect(fixture.server.ops).toEqual([]);
+  });
+
+  it("does not claim malformed or unrelated clipboard content", async () => {
+    const fixture = await open();
+    const unrelated = new DataTransfer();
+    unrelated.setData("text/plain", "words from another application");
+    const malformed = new DataTransfer();
+    malformed.setData("application/x-slidx-slide", "not json");
+    const missing = new DataTransfer();
+    missing.setData(
+      "application/x-slidx-slide",
+      JSON.stringify({ version: 1, id: "no-longer-in-this-deck" }),
+    );
+
+    const first = clipboard(fixture.shortcuts, "paste", unrelated);
+    const second = clipboard(fixture.shortcuts, "paste", malformed);
+    const third = clipboard(fixture.shortcuts, "paste", missing);
+    await settled();
+
+    expect(first.defaultPrevented).toBe(false);
+    expect(second.defaultPrevented).toBe(false);
+    expect(third.defaultPrevented).toBe(false);
+    expect(fixture.server.ops).toEqual([]);
   });
 
   it("adds after the selected slide through the shared edit operation", async () => {
@@ -193,6 +308,8 @@ describe("visual editor shortcuts", () => {
         heading.textContent?.trim(),
       ),
     ).toEqual(["Navigation", "Editing", "Slides", "View"]);
+    expect(dialog.textContent).toContain("Copy the selected slide");
+    expect(dialog.textContent).toContain("Paste the copied slide");
     expect(dialog.textContent).toContain("Duplicate the selected block, or the slide");
     expect(dialog.textContent).toContain("First / last slide");
     expect(dialog.textContent).toContain("Edit slide text");
@@ -261,6 +378,7 @@ describe("arrows, which mean one of two things", () => {
       showVisual() {},
       focusText() {},
       listen() {},
+      listenClipboard() {},
     };
 
     const shortcuts = createShortcuts(session, canvas, {
