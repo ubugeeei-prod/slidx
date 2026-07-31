@@ -44,16 +44,19 @@ export const RESIZE_STYLESHEET = `
 
 .slidx-resize-grip::before {
   content: "";
-  width: 2px;
+  width: var(--slidx-e-hairline);
   height: 60%;
   min-height: var(--slidx-e-tight);
   background: var(--slidx-e-line);
   border-radius: var(--slidx-e-radius);
+  opacity: 0.22;
 }
 
 .slidx-resize-grip:hover::before,
+.slidx-resize-grip:focus-visible::before,
 .slidx-resize-grip[data-moving="true"]::before {
   background: var(--slidx-e-accent);
+  opacity: 1;
 }
 
 /*

@@ -197,11 +197,31 @@ describe("freeform canvas controls", () => {
     expect(handle.style.width).toBe("28px");
     expect(handle.style.height).toBe("28px");
     expect(opened.root.getAttribute("data-manipulating")).toBe("false");
-    expect(FREEFORM_STYLESHEET).toContain("width: 7px");
+    expect(FREEFORM_STYLESHEET).toContain("width: 5px");
     expect(FREEFORM_STYLESHEET).toContain("outline: 1px solid");
     expect(FREEFORM_STYLESHEET).toContain(".slidx-freeform-move:focus-visible");
     expect(FREEFORM_STYLESHEET).toContain("outline: 0");
     expect(FREEFORM_STYLESHEET).not.toMatch(/box-shadow|gradient/);
+  });
+
+  it("keeps the idle frame and handles quiet until they are used", () => {
+    const declarations = FREEFORM_STYLESHEET.replaceAll(/\/\*[\s\S]*?\*\//g, "");
+
+    expect(declarations).toMatch(
+      /\.slidx-freeform-frame \{[^}]*color-mix\(in srgb, var\(--slidx-e-accent\) 20%, transparent\)/s,
+    );
+    expect(declarations).toMatch(
+      /\.slidx-freeform-handle::before \{[^}]*width: 5px;[^}]*height: 5px;[^}]*border: 1px solid var\(--slidx-e-line\);[^}]*opacity: 0\.32;/s,
+    );
+    expect(declarations).toMatch(
+      /\.slidx-freeform-handle:hover::before,\s*\.slidx-freeform-handle:focus-visible::before \{[^}]*background: var\(--slidx-e-accent\);[^}]*opacity: 1;/s,
+    );
+    expect(declarations).toMatch(
+      /\.slidx-freeform\[data-manipulating="true"\] \.slidx-freeform-handle::before \{[^}]*border-color: var\(--slidx-e-accent\);[^}]*opacity: 1;/s,
+    );
+    expect(declarations).toContain(
+      ".slidx-freeform:has(.slidx-freeform-move:focus-visible, .slidx-freeform-handle:focus-visible) .slidx-freeform-frame",
+    );
   });
 
   it("hides the controls when no block is selected", () => {

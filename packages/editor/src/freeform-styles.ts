@@ -22,7 +22,7 @@ export const FREEFORM_STYLESHEET = `
 .slidx-freeform-label { pointer-events: none; }
 
 .slidx-freeform-frame {
-  outline: 1px solid color-mix(in srgb, var(--slidx-e-accent) 46%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--slidx-e-accent) 20%, transparent);
   outline-offset: 0;
 }
 
@@ -42,7 +42,9 @@ export const FREEFORM_STYLESHEET = `
   outline: 0;
 }
 
-.slidx-freeform:has(.slidx-freeform-move:focus-visible) .slidx-freeform-frame {
+.slidx-freeform:has(.slidx-freeform-move:hover, .slidx-freeform-handle:hover) .slidx-freeform-frame,
+.slidx-freeform:has(.slidx-freeform-move:focus-visible, .slidx-freeform-handle:focus-visible) .slidx-freeform-frame,
+.slidx-freeform[data-manipulating="true"] .slidx-freeform-frame {
   outline-color: var(--slidx-e-accent);
 }
 
@@ -57,16 +59,24 @@ export const FREEFORM_STYLESHEET = `
 
 .slidx-freeform-handle::before {
   content: "";
-  width: 7px;
-  height: 7px;
-  border: 1px solid var(--slidx-e-accent);
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--slidx-e-line);
   border-radius: 2px;
   background: var(--slidx-e-canvas);
+  opacity: 0.32;
 }
 
+.slidx-freeform-handle:hover::before,
 .slidx-freeform-handle:focus-visible::before {
   border-color: var(--slidx-e-canvas);
   background: var(--slidx-e-accent);
+  opacity: 1;
+}
+
+.slidx-freeform[data-manipulating="true"] .slidx-freeform-handle::before {
+  border-color: var(--slidx-e-accent);
+  opacity: 1;
 }
 
 .slidx-freeform-handle[data-handle="n"],
