@@ -90,7 +90,11 @@ export function createShortcuts(
     root,
     render() {},
     keydown(event) {
-      if (event.isComposing || event.repeat || writingIn(event)) return;
+      // A focused control gets the first chance to interpret a key. Panel
+      // separators, range inputs and future canvas controls mark a handled key
+      // this way; treating it as a global command as well would resize a panel
+      // and page the deck in the same press.
+      if (event.defaultPrevented || event.isComposing || event.repeat || writingIn(event)) return;
 
       const key = event.key.toLowerCase();
       const primary = event.metaKey || event.ctrlKey;
