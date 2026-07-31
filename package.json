@@ -15,11 +15,14 @@
   "devDependencies": {
     "@slidxjs/vite-plugin": "workspace:*",
     "@types/node": "catalog:",
+    "@vitest/browser": "4.1.10",
+    "@vitest/browser-playwright": "4.1.10",
     "happy-dom": "catalog:",
     "playwright": "^1.62.0",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vite-plus": "catalog:"
+    "vite-plus": "catalog:",
+    "vitest": "4.1.10"
   },
   "engines": {
     "node": ">=20.19.0"
