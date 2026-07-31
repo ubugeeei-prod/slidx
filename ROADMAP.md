@@ -134,9 +134,25 @@ Editor-first authoring that still writes reviewable Markdown.
       stops, and the playhead scrubs — #10
 - [x] Storyboard mode: one message per slide, each drawn as wide as its time
       against the slot, with the optional slides shown as the slack they are
+- [x] **Two people in one deck.** The dev server holds the one document, so a
+      change from the canvas and a file the author saved in their own editor
+      merge rather than overwrite. Presence names the block each person has
+      selected, not only the slide, and the canvas draws a mark on it with
+      their name — because knowing somebody is on slide four does not stop two
+      people rewriting the same paragraph
+- [x] Follow another editor: press a name in the roster and move with them
+      until you select something yourself, they close their tab, or you press
+      it again
 
 **Done when** an author can build a staged, animated slide without typing YAML,
 and the diff is still reviewable.
+
+A mark is a claim that a named person is working on a named paragraph, so the
+interesting half of that feature is what it refuses to draw. A viewer with no
+block selected gets nothing, and so does one whose block is not on this slide —
+their position and the deck it is a position in arrive on the same stream but
+not in the same frame, which is a real second of every move somebody makes. A
+rectangle guessed for them would carry a name.
 
 The hard part was never the editor. It is that the file the editor writes has to
 stay a file a human will review: parse to a model, mutate it, serialise back,
@@ -269,6 +285,20 @@ matters least — a laptop the night before, on conference wifi.
 - [x] Documentation site, with the sections built around readers rather than crates
 - [ ] First release to npm and crates.io — needs the maintainer's accounts
 
+Everything either side of that box is done. `vp run release <level>` writes the
+version everywhere it lives, runs the version check against the tag it is about
+to create, and pushes it; the tag starts a workflow that publishes through OIDC
+with no token stored anywhere. A dry run over all 28 publishable directories is
+what found the two things now fixed: every tarball carried `"license": "MIT"`
+and none carried the notice, and 26 of them would have published to a blank
+page.
+
+What cannot be done from here is the part that is not reversible. Claiming
+`slidx` and `@slidxjs/*` needs the maintainer signed in, and trusted publishing
+has to be configured on both registries before a tag can use it —
+`RELEASING.md` is the sequence. Nothing on either registry answers to these
+names yet, which is the only reason there is still time to be careful about it.
+
 Angular cost more than this roadmap assumed. Its published packages ship
 partially compiled and will not evaluate without its own linker, so a deck using
 an Angular island needs an Angular plugin in its own Vite config. Nothing in
@@ -302,8 +332,8 @@ measure of that:
 
 |                                     |                           |
 | ----------------------------------- | ------------------------- |
-| Rust tests                          | 3813                      |
-| TypeScript tests                    | 1707                      |
+| Rust tests                          | 3825                      |
+| TypeScript tests                    | 1846                      |
 | Crates                              | 19                        |
 | Publishable npm packages            | 10                        |
 | Platforms in CI                     | Linux, macOS, Windows     |
