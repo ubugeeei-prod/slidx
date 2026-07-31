@@ -451,7 +451,7 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "slidx_brand"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -462,7 +462,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_cli"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "getrandom",
  "serde",
@@ -486,7 +486,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "insta",
  "serde",
@@ -497,7 +497,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_dialect"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde_json",
  "slidx_core",
@@ -506,7 +506,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_docs"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde_json",
  "slidx_brand",
@@ -520,7 +520,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_doctor"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -528,7 +528,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_edit"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -538,11 +538,11 @@ dependencies = [
 
 [[package]]
 name = "slidx_export"
-version = "0.2.0"
+version = "0.3.0"
 
 [[package]]
 name = "slidx_fmt"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde_yaml",
  "slidx_core",
@@ -551,11 +551,11 @@ dependencies = [
 
 [[package]]
 name = "slidx_highlight"
-version = "0.2.0"
+version = "0.3.0"
 
 [[package]]
 name = "slidx_i18n"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -565,7 +565,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_jsonrpc"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -573,7 +573,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_lint"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -582,7 +582,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_lsp"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -596,7 +596,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_publish"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -605,7 +605,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_qr"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -613,7 +613,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_render"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "markdown",
  "ox_content_allocator",
@@ -630,7 +630,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_theme"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -641,7 +641,7 @@ dependencies = [
 
 [[package]]
 name = "slidx_wasm"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde-wasm-bindgen",
