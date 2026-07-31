@@ -26,6 +26,9 @@ export type MarkRef = number | string;
  */
 export type BlockRef = number | string;
 
+/** A local file the visual editor can place onto a slide. */
+export type MediaKind = "image" | "video";
+
 /** A half-open byte range. Bytes, not characters — a selection has to survive CJK. */
 export interface ByteSpan {
   start: number;
@@ -152,6 +155,21 @@ export type EditOp =
    * `region` absent leaves the block's placement alone.
    */
   | { op: "moveBlock"; slide: SlideRef; block: BlockRef; to: number; region?: string }
+  /**
+   * One uploaded image or video block.
+   *
+   * The editor sends semantic fields; Rust owns the Markdown or HTML syntax,
+   * escaping, blank lines, and optional region attribute.
+   */
+  | {
+      op: "insertMedia";
+      slide: SlideRef;
+      at: number;
+      kind: MediaKind;
+      src: string;
+      alt: string;
+      region?: string;
+    }
   | { op: "addStep"; slide: SlideRef; at?: number; action: StepAction }
   | { op: "removeStep"; slide: SlideRef; index: number }
   | { op: "moveStep"; slide: SlideRef; from: number; to: number }

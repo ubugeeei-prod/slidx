@@ -70,6 +70,7 @@ mod block;
 mod edit;
 pub mod frontmatter;
 mod inline;
+mod media;
 mod notes;
 mod op;
 mod slide;
@@ -80,6 +81,7 @@ mod style;
 mod text;
 
 pub use edit::{Edit, EditBuilder, Splice};
+pub use media::MediaKind;
 pub use op::{BlockRef, EditError, EditOp, MarkAttributes, MarkRef, SlideRef};
 pub use spans::{slide_spans, BlockSpans, MarkSpans, SlideSpans};
 
@@ -142,6 +144,15 @@ pub fn plan(source: &str, options: &DeckParseOptions, op: &EditOp) -> Result<Edi
         EditOp::MoveBlock { slide, block, to, region } => {
             block::move_to(&deck, options, slide, block, *to, region.as_deref(), &mut builder)?
         }
+        EditOp::InsertMedia { slide, at, kind, src, alt, region } => media::insert(
+            &deck,
+            options,
+            slide,
+            *at,
+            media::Media { kind: *kind, src, alt },
+            region.as_deref(),
+            &mut builder,
+        )?,
         EditOp::AddStep { slide, at, action } => {
             step::add(&deck, options, slide, *at, action, &mut builder)?
         }

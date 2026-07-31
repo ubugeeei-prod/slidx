@@ -191,6 +191,20 @@ pub enum EditOp {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         region: Option<String>,
     },
+    /// Inserts an uploaded image or video as one block.
+    ///
+    /// The browser sends the file's path and meaning, not Markdown. The writer
+    /// owns escaping, syntax, spacing, and region placement so a file drop is a
+    /// reviewable splice rather than a second Markdown serializer.
+    InsertMedia {
+        slide: SlideRef,
+        at: usize,
+        kind: crate::media::MediaKind,
+        src: String,
+        alt: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        region: Option<String>,
+    },
     /// Adds an action to the slide's `steps:` list, creating it if needed.
     ///
     /// `at` is the position in the list, which is what a timeline's column
@@ -454,6 +468,35 @@ mod tests {
                 "slide": 0,
                 "block": 2,
                 "attributes": { "classes": ["side"] },
+            })
+        );
+        assert_eq!(
+            serde_json::from_value::<EditOp>(serde_json::to_value(&op).unwrap()).unwrap(),
+            op
+        );
+    }
+
+    #[test]
+    fn dropped_media_crosses_as_semantic_fields_without_markdown() {
+        let op = EditOp::InsertMedia {
+            slide: 1.into(),
+            at: 3,
+            kind: crate::MediaKind::Video,
+            src: "assets/demo.mp4".into(),
+            alt: "Product demo".into(),
+            region: Some("right".into()),
+        };
+
+        assert_eq!(
+            serde_json::to_value(&op).unwrap(),
+            json!({
+                "op": "insertMedia",
+                "slide": 1,
+                "at": 3,
+                "kind": "video",
+                "src": "assets/demo.mp4",
+                "alt": "Product demo",
+                "region": "right",
             })
         );
         assert_eq!(
