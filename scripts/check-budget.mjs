@@ -62,14 +62,14 @@ await build({
   //
   // - `print` and `overflow` cost nothing. The print shell is outside all five
   //   by name and the overflow pass emits nothing at all.
-  // - `og` costs about 58 bytes a slide, because a page with no social card
-  //   writes a slightly different `og:image`. That is under a percent, it is in
-  //   the same direction on every page, and it buys a check that runs on a
-  //   laptop — which is the trade taken here deliberately.
+  // - `og` used to be off here too, and is back on: it was only off because a
+  //   card could not be rasterised without a browser *and threw* instead of
+  //   saying so, which is now fixed. The figures include the real `og:image`
+  //   again.
   // - `presenter` was tried and put back: switching it off stops the step
   //   runtime being emitted at all, and the "nothing measured this" guard is
   //   what said so before the number could quietly become four figures.
-  plugins: [slidx({ print: false, overflow: false, og: false })],
+  plugins: [slidx({ print: false, overflow: false })],
   build: { outDir: out },
 });
 

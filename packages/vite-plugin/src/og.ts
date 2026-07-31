@@ -23,14 +23,22 @@ export const OG_HEIGHT = 630;
  * wildly disproportionate response.
  */
 export async function rasterise(svg: string): Promise<Buffer | null> {
-  let chromium;
+  // Both halves of "there is no browser here", because they fail differently
+  // and only one of them was caught. A missing *package* throws on the import;
+  // a missing *browser binary* throws on the launch, and that is the ordinary
+  // state of a machine where somebody ran `pnpm install` and not `playwright
+  // install` — every non-Linux CI runner in this repository, and every
+  // contributor's first checkout.
+  //
+  // Answering `null` either way is what makes the caller's warn-and-continue
+  // path reachable. It was written and could not be reached.
+  let browser;
   try {
-    ({ chromium } = await import("playwright"));
+    const { chromium } = await import("playwright");
+    browser = await chromium.launch();
   } catch {
     return null;
   }
-
-  const browser = await chromium.launch();
   try {
     const page = await browser.newPage({
       viewport: { width: OG_WIDTH, height: OG_HEIGHT },
