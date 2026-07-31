@@ -195,9 +195,40 @@ async function still(page) {
 
 /** Whether a frame is one the browser is actually drawing. */
 async function onScreen(frame) {
+  // Lazy outline previews exist as an empty document before the browser elects
+  // to load them. An empty document contributes no pixels, and a backgrounded
+  // one receives no animation frame to wait for.
+  if (frame.url() === "about:blank") return false;
+
   const element = await frame.frameElement().catch(() => null);
 
-  return element !== null && (await element.isVisible());
+  if (element === null || !(await element.isVisible())) return false;
+
+  // Playwright considers an iframe below a scrollport "visible" because it has
+  // layout, while the browser correctly withholds animation frames from a
+  // document nobody can see. Waiting on that document would therefore wait
+  // forever.
+  return element.evaluate((node) => {
+    // A lazy preview is passive output. Chromium may keep its document
+    // backgrounded even after laying the iframe out, so it contributes pixels
+    // to screenshot stability but has no animation frame of its own to await.
+    if (node instanceof HTMLIFrameElement && node.loading === "lazy") return false;
+
+    // Active frames can still sit beyond their own document's viewport. Nested
+    // frames are checked in the coordinate space of each parent document.
+    const view = node.ownerDocument.defaultView;
+    if (view === null) return false;
+
+    const box = node.getBoundingClientRect();
+    return (
+      box.width > 0 &&
+      box.height > 0 &&
+      box.right > 0 &&
+      box.bottom > 0 &&
+      box.left < view.innerWidth &&
+      box.top < view.innerHeight
+    );
+  });
 }
 
 /** The middle of a box, in the page's coordinates. */

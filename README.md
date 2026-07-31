@@ -90,7 +90,7 @@ misleading.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./docs/media/editor-arrange-dark.png">
-  <img alt="A paragraph dragged from the left column of a slide into the right one, while the Markdown file beside it gains the line {.right}" src="./docs/media/editor-arrange-light.png">
+  <img alt="A paragraph dragged between slide regions while the Markdown file beside it records the move" src="./docs/media/editor-arrange-light.png">
 </picture>
 
 `vp dev` serves it at `/__slidx/`, over the deck it is already serving. The
@@ -98,9 +98,19 @@ canvas is the deck's own page rather than a preview of it, and the file beside
 it is the file on disk — so one drag is one operation, one press of undo, and
 one line in the diff.
 
-Text is edited where it sits, and a block's width is a share of its region
-rather than a length, so a resize still means something at 4:3. Nothing reloads:
-the slide is swapped in place, and your caret stays where it was.
+The left panel shows every slide as a live visual preview, not only a title.
+Drag either side divider to give those previews or the inspector more room;
+both widths stay in this browser and never become deck content. The inspector
+keeps one focused task visible at a time in **Selection**, **Slide**, and
+**Deck** tabs. Select words and its `Font`, `Size`, and `Color` choices write
+semantic values while the advanced field keeps values supplied by a theme.
+
+Text is edited where it sits. A block fits its content by default, up to the
+edge of its region, instead of stretching across the slide. A deliberate
+resize is stored as a share of that region rather than a length, so it still
+means the same thing at 4:3. Nothing reloads: the slide is swapped in place,
+and your caret stays where it was. Idle movement controls stay quiet until a
+block is selected.
 
 ## Two people, one file
 
@@ -120,13 +130,15 @@ no referrer header and no proxy, and a link that arrives with it in the query is
 refused rather than honoured.
 
 <a href="./docs/media/editor-tour.webm">
-  <img alt="The visual editor editing text and addressed styles, changing a block colour, resizing and freely moving it against alignment guides, dropping an image and video, writing layout into a Markdown style tag, managing slides with keyboard shortcuts, and receiving a collaborator's edit" src="./docs/media/editor-tour.png">
+  <img alt="The visual editor resizing both side panels, choosing a font, size, and color in the tabbed inspector, editing and arranging fit-to-content blocks, dropping media, copying and pasting a slide with keyboard shortcuts, and receiving a collaborator's edit" src="./docs/media/editor-tour.png">
 </a>
 
-The full tour above is one real session: visual and Markdown modes; block colour,
-eight-handle resize, free movement and guides; image and video drop; layout and
-transition; slide creation, duplicate and reorder shortcuts; undo and redo; then
-a second editor changing the same source. Click it for the video.
+The full tour above is one real session: live slide previews and resizable side
+panels; the Selection, Slide, and Deck inspector tabs; visual `Font`, `Size`,
+and `Color` choices; visual and Markdown modes; block color, eight-handle resize,
+free movement and guides; image and video drop; layout and transition; slide
+creation, clipboard copy and paste, and reorder shortcuts; undo and redo; then a
+second editor changing the same source. Click it for the video.
 `vp run record:editor` and `vp run record:tour` regenerate both recordings by
 performing their gestures again, so a gesture that stopped working fails to
 reproduce rather than showing something that no longer happens.
