@@ -17,6 +17,7 @@ import {
   type FrameHandle,
   type ManipulatedFrame,
 } from "./freeform-geometry";
+import { hexColor, visualOf, type BlockVisual } from "./freeform-color";
 import { applyFreeformStyles } from "./freeform-styles";
 import { readGeometry, type Rect, type SlideGeometry } from "./geometry";
 import type { EditOp } from "./operations";
@@ -30,6 +31,8 @@ export interface FreeformHandlers {
 export interface FreeformOptions {
   /** The slide's boxes. Injected so every gesture is testable without layout. */
   geometry?(): SlideGeometry | undefined;
+  /** The selected block's rendered colour. Injected for DOM tests without an iframe. */
+  visual?(): BlockVisual | undefined;
 }
 
 const HIT = 28;
@@ -51,6 +54,25 @@ export function createFreeform(handlers: FreeformHandlers, options: FreeformOpti
   const label = element("div", { class: "slidx-freeform-label" });
   const move = control("move", "Move selected block");
   const handles = HANDLES.map((handle) => control(handle, `Resize selected block ${handle}`));
+  const color = element("input", {
+    class: "slidx-freeform-color-input",
+    type: "color",
+    "aria-label": "Block color",
+  }) as HTMLInputElement;
+  const resetColor = element(
+    "button",
+    {
+      class: "slidx-freeform-color-reset",
+      type: "button",
+      "aria-label": "Use inherited block color",
+    },
+    ["Reset"],
+  ) as HTMLButtonElement;
+  const colorBar = element("div", { class: "slidx-freeform-color", "aria-label": "Block color" }, [
+    element("span", { class: "slidx-freeform-color-name" }, ["Color"]),
+    color,
+    resetColor,
+  ]);
   const status = element("div", {
     class: "slidx-freeform-status",
     role: "status",
@@ -64,7 +86,7 @@ export function createFreeform(handlers: FreeformHandlers, options: FreeformOpti
       "data-manipulating": "false",
       "aria-label": "Freeform block controls",
     },
-    [frameBox, guides, label, move, ...handles, status],
+    [frameBox, guides, label, move, ...handles, colorBar, status],
   );
 
   let slide = 0;
@@ -89,7 +111,10 @@ export function createFreeform(handlers: FreeformHandlers, options: FreeformOpti
   function paintSelection(): void {
     const block = geometry?.blocks.find((candidate) => candidate.index === selected);
     root.setAttribute("data-active", String(block !== undefined));
-    if (block) paint(block.rect, []);
+    if (block) {
+      paint(block.rect, []);
+      paintColor();
+    }
   }
 
   function paint(rect: Rect, shownGuides: FrameGuide[]): void {
@@ -129,6 +154,15 @@ export function createFreeform(handlers: FreeformHandlers, options: FreeformOpti
         height: HIT,
       });
     }
+
+    box(colorBar, {
+      left: chrome.left,
+      top: chrome.top + chrome.height + 12,
+      width: 0,
+      height: 0,
+    });
+    colorBar.style.width = "auto";
+    colorBar.style.height = "auto";
 
     fill(
       guides,
@@ -240,6 +274,33 @@ export function createFreeform(handlers: FreeformHandlers, options: FreeformOpti
     status.textContent = `Block ${index + 1} frame is ${insetOf(rect, safe)}.`;
   }
 
+  function paintColor(): void {
+    const visual =
+      options.visual?.() ??
+      (frame && selected !== undefined ? visualOf(frame, selected) : undefined);
+    if (!visual) return;
+
+    color.value = hexColor(visual.color);
+    colorBar.setAttribute("data-managed", String(visual.managedColor));
+    resetColor.disabled = !visual.managedColor;
+  }
+
+  function commitColor(value?: string): void {
+    if (selected === undefined) return;
+
+    handlers.run(
+      value === undefined
+        ? { op: "setBlockStyle", slide, block: selected, property: "color" }
+        : { op: "setBlockStyle", slide, block: selected, property: "color", value },
+    );
+    colorBar.setAttribute("data-managed", String(value !== undefined));
+    resetColor.disabled = value === undefined;
+    status.textContent =
+      value === undefined
+        ? `Block ${selected + 1} uses its inherited color.`
+        : `Block ${selected + 1} color is ${value}.`;
+  }
+
   for (const control of [move, ...handles]) {
     const handle = control.getAttribute("data-handle") as FrameHandle;
     control.addEventListener("pointerdown", (event) => start(control, handle, event));
@@ -248,6 +309,8 @@ export function createFreeform(handlers: FreeformHandlers, options: FreeformOpti
     control.addEventListener("pointercancel", cancel);
     control.addEventListener("keydown", (event) => key(handle, event));
   }
+  color.addEventListener("change", () => commitColor(color.value));
+  resetColor.addEventListener("click", () => commitColor());
 
   return {
     root,
