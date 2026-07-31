@@ -60,14 +60,22 @@ export async function measureOverflow(
   printHtmlPath: string,
   options: MeasureOptions = {},
 ): Promise<Measurement[] | null> {
-  let chromium;
+  // Both halves of "there is no browser here", because they fail differently
+  // and only one of them was caught. A missing *package* throws on the import;
+  // a missing *browser binary* throws on the launch, and that is the ordinary
+  // state of a machine where somebody ran `pnpm install` and not `playwright
+  // install` — every non-Linux CI runner in this repository, and every
+  // contributor's first checkout.
+  //
+  // Answering `null` either way is what makes the caller's warn-and-continue
+  // path reachable. It was written and could not be reached.
+  let browser;
   try {
-    ({ chromium } = await import("playwright"));
+    const { chromium } = await import("playwright");
+    browser = await chromium.launch();
   } catch {
     return null;
   }
-
-  const browser = await chromium.launch();
   try {
     // A viewport wide enough that the pages lay out at their design size. The
     // shell's `.slidx-page` is `width: 100%` of the document, so a narrow
