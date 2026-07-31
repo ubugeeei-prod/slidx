@@ -184,12 +184,19 @@ describe("dropped media uploads", () => {
               ?.contentDocument?.querySelector("[data-slidx-region]") !== null,
         );
 
-        await page.evaluate(
+        // The drag is offered again on every poll rather than once, because a
+        // region in the canvas document is not the same moment as an editor
+        // listening to that document: the drop surface binds itself on the
+        // frame's `load`, which is after the markup it just measured is there.
+        // A single dispatch into that window lands on nothing and no later
+        // event ever arrives, so the wait would sit out its whole timeout on a
+        // deck that works.
+        await page.waitForFunction(
           (bytes) => {
             const frame = document.querySelector<HTMLIFrameElement>(".slidx-canvas-frame");
             const preview = frame?.contentDocument;
             const region = preview?.querySelector("[data-slidx-region]");
-            if (!preview || !region) throw new Error("the visual slide did not render");
+            if (!preview || !region) return false;
 
             const rect = region.getBoundingClientRect();
             const transfer = new DataTransfer();
@@ -210,12 +217,12 @@ describe("dropped media uploads", () => {
                 __slidxDrop: { preview: Document; init: DragEventInit };
               }
             ).__slidxDrop = { preview, init };
+
+            return (
+              document.querySelector(".slidx-media-drop")?.getAttribute("data-target") === "body"
+            );
           },
           [...ONE_PIXEL_PNG],
-        );
-
-        await page.waitForFunction(
-          () => document.querySelector(".slidx-media-drop")?.getAttribute("data-target") === "body",
         );
         const chrome = await page.locator(".slidx-media-drop").evaluate((element) => {
           const style = getComputedStyle(element);
