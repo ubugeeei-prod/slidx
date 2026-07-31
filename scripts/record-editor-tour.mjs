@@ -41,6 +41,7 @@ const PRIMARY = process.platform === "darwin" ? "Meta" : "Control";
 const TOUR_SCHEME = "dark";
 const POINTER_STEPS = 28;
 const POINTER_STEP_MS = 16;
+const SHARE_EDIT = "0123456789abcdef.00112233445566778899aabbccddeeff";
 
 const OPENING = `---
 title: Product tour
@@ -55,6 +56,19 @@ Design the moment, keep the source.
 <!-- notes: Start with the document and the canvas moving together. -->
 `;
 
+const DROPPED_MEDIA = [
+  {
+    name: "tour-layout.png",
+    type: "image/png",
+    bytes: readFileSync(resolve("docs/media/editor-storyboard-dark.png")).toString("base64"),
+  },
+  {
+    name: "tour-motion.webm",
+    type: "video/webm",
+    bytes: readFileSync(resolve("docs/media/deck.webm")).toString("base64"),
+  },
+];
+
 const scratch = mkdtempSync(join(tmpdir(), "slidx-editor-tour-"));
 const root = join(scratch, "deck");
 const videoDir = join(scratch, "video");
@@ -62,14 +76,35 @@ mkdirSync(OUT, { recursive: true });
 cpSync(resolve(DECK), join(root, "slides"), { recursive: true });
 writeFileSync(join(root, "slides", FIRST), OPENING);
 
+// The peer enters through the network URL with the same capability a real
+// co-presenter receives. That makes the roster say "guest 2", rather than
+// presenting two loopback tabs as two copies of "you".
+process.env["SLIDX_SHARE_EDIT"] = SHARE_EDIT;
+
 const tokens = execFileSync("cargo", ["run", "-q", "-p", "slidx_docs", "--example", "tokens"], {
   encoding: "utf8",
 });
 const server = await createServer({
   root,
   logLevel: "silent",
-  plugins: [slidx()],
-  server: { port: 0, watch: null, hmr: false },
+  plugins: [
+    {
+      name: "slidx-tour-share-capability",
+      configureServer(server) {
+        server.middlewares.use((request, _response, next) => {
+          if (
+            request.url?.startsWith("/__slidx/") &&
+            request.headers["x-slidx-share"] === undefined
+          ) {
+            request.headers["x-slidx-share"] = SHARE_EDIT;
+          }
+          next();
+        });
+      },
+    },
+    slidx(),
+  ],
+  server: { host: "0.0.0.0", port: 0, watch: null, hmr: false },
 });
 await server.listen();
 
@@ -83,7 +118,10 @@ const peerContext = await browser.newContext({ viewport: EDITOR, colorScheme: TO
 
 try {
   const page = await context.newPage();
-  const editorUrl = `${server.resolvedUrls.local[0]}__slidx/`;
+  const authorBase = new URL(server.resolvedUrls.local[0]);
+  authorBase.hostname = "127.0.0.1";
+  const editorUrl = new URL("__slidx/", authorBase).href;
+  const peerUrl = `${server.resolvedUrls.network[0] ?? server.resolvedUrls.local[0]}__slidx/#s=${SHARE_EDIT}`;
   const stage = join(scratch, "tour.html");
   writeFileSync(
     stage,
@@ -121,11 +159,11 @@ try {
     });
     await page.waitForTimeout(delay);
   };
-  const click = async (locator) => {
+  const pointAt = async (locator, position = { x: 0.5, y: 0.5 }) => {
     const box = await locator.boundingBox();
     if (!box) throw new Error("the tour tried to point at something that was not drawn");
 
-    const to = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    const to = { x: box.x + box.width * position.x, y: box.y + box.height * position.y };
     const from = await page.evaluate(() => {
       const pointer = document.querySelector(".pointer");
       return !pointer || pointer.hasAttribute("hidden")
@@ -143,7 +181,69 @@ try {
       await page.evaluate(([x, y]) => window.slidxStage.pointer(x, y), [at.x, at.y]);
       await page.waitForTimeout(POINTER_STEP_MS);
     }
+
+    return to;
+  };
+  const click = async (locator) => {
+    const to = await pointAt(locator);
     await page.mouse.click(to.x, to.y);
+  };
+  const drag = async (locator, delta, linger = 0, position) => {
+    const from = await pointAt(locator, position);
+    await page.mouse.down();
+
+    for (let step = 1; step <= POINTER_STEPS; step += 1) {
+      const along = easeInOut(step / POINTER_STEPS);
+      const at = {
+        x: from.x + delta.x * along,
+        y: from.y + delta.y * along,
+      };
+      await page.mouse.move(at.x, at.y);
+      await page.evaluate(([x, y]) => window.slidxStage.pointer(x, y), [at.x, at.y]);
+      await page.waitForTimeout(POINTER_STEP_MS);
+    }
+
+    if (linger > 0) await hold(linger);
+    await page.mouse.up();
+  };
+  const dropMedia = async () => {
+    await pointAt(canvas.locator("[data-slidx-region]").first());
+    await editor.evaluate((files) => {
+      const frame = document.querySelector(".slidx-canvas-frame");
+      const preview = frame?.contentDocument;
+      const target = preview?.querySelector("[data-slidx-region]");
+      if (!preview || !target) throw new Error("the tour has no rendered drop region");
+
+      const rect = target.getBoundingClientRect();
+      const transfer = new DataTransfer();
+      for (const item of files) {
+        const text = atob(item.bytes);
+        const bytes = Uint8Array.from(text, (character) => character.charCodeAt(0));
+        transfer.items.add(new File([bytes], item.name, { type: item.type }));
+      }
+      const init = {
+        bubbles: true,
+        cancelable: true,
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + Math.min(12, rect.height / 2),
+        dataTransfer: transfer,
+      };
+
+      preview.dispatchEvent(new DragEvent("dragenter", init));
+      preview.dispatchEvent(new DragEvent("dragover", init));
+      window.__slidxTourDrop = { preview, init };
+    }, DROPPED_MEDIA);
+
+    await chrome.locator('.slidx-media-drop[data-active="true"]:not([data-target=""])').waitFor();
+    await hold(1_200);
+    await editor.evaluate(() => {
+      const drop = window.__slidxTourDrop;
+      if (!drop) throw new Error("the tour did not hold the media drag");
+
+      drop.preview.dispatchEvent(new DragEvent("drop", drop.init));
+      delete window.__slidxTourDrop;
+    });
+    await chrome.locator('.slidx-media-drop[data-active="false"][data-busy="false"]').waitFor();
   };
 
   await showFile();
@@ -207,6 +307,49 @@ try {
   await showFile();
   await hold(1_100);
 
+  await click(canvas.locator("p[contenteditable]").first());
+  await chrome.locator('.slidx-freeform[data-active="true"]').waitFor();
+  await chrome.locator(".slidx-freeform-color-input").fill("#f59e0b");
+  await waitForFile(root, FIRST, (source) => source.includes("-color: #f59e0b"));
+  await showFile();
+  await hold(1_200);
+
+  await drag(chrome.locator('.slidx-freeform-handle[data-handle="se"]'), { x: -140, y: 24 }, 900);
+  await waitForFile(root, FIRST, (source) => source.includes("-inset:"));
+  await showFile();
+  await hold(1_200);
+
+  const beforeMove = readFileSync(join(root, "slides", FIRST), "utf8");
+  const move = await editor.evaluate(() => {
+    const frame = document.querySelector(".slidx-canvas-frame");
+    const preview = frame?.contentDocument;
+    const safe = preview?.querySelector(".slidx-slide-body")?.getBoundingClientRect();
+    const selected = preview
+      ?.querySelector("[data-slidx-editor-selected]")
+      ?.getBoundingClientRect();
+    if (!safe || !selected) throw new Error("the tour cannot measure the selected block");
+
+    return { x: Math.max(32, safe.right - selected.right), y: 0 };
+  });
+  // The north resize handle sits over the centre of the move strip. Aim away
+  // from all three top handles, exactly as a person would, so this records the
+  // move hit target rather than dispatching an invented event.
+  await drag(chrome.locator(".slidx-freeform-move"), move, 1_000, { x: 0.18, y: 0.5 });
+  await waitForFile(root, FIRST, (source) => source !== beforeMove);
+  await showFile();
+  await hold(1_400);
+
+  await dropMedia();
+  await waitForFile(
+    root,
+    FIRST,
+    (source) => source.includes("tour-layout.png") && source.includes("tour-motion.webm"),
+  );
+  await canvas.locator('img[src*="tour-layout.png"]').waitFor();
+  await canvas.locator('video[src*="tour-motion.webm"]').waitFor();
+  await showFile();
+  await hold(2_000);
+
   await click(chrome.locator('.slidx-outline-row[data-slide="0"] .slidx-outline-open'));
   await page.keyboard.press(`${PRIMARY}+m`);
   await chrome.locator(".slidx-outline-row").nth(4).waitFor();
@@ -248,7 +391,7 @@ try {
 
   await click(chrome.locator('.slidx-outline-row[data-slide="0"] .slidx-outline-open'));
   const peer = await peerContext.newPage();
-  await peer.goto(editorUrl);
+  await peer.goto(peerUrl);
   await peer.locator(".slidx-outline-row").first().waitFor();
   await chrome.locator(".slidx-presence[data-empty='false']").waitFor();
   await hold(1_400);

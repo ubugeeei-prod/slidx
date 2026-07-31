@@ -103,11 +103,12 @@ rather than a length, so a resize still means something at 4:3. Nothing reloads:
 the slide is swapped in place, and your caret stays where it was.
 
 <a href="./docs/media/editor-tour.webm">
-  <img alt="The visual editor editing text and addressed styles, choosing a layout that appears in a Markdown style tag, adding and reordering slides with keyboard shortcuts, undoing the move, and receiving a collaborator's edit" src="./docs/media/editor-tour.png">
+  <img alt="The visual editor editing text and addressed styles, changing a block colour, resizing and freely moving it against alignment guides, dropping an image and video, writing layout into a Markdown style tag, managing slides with keyboard shortcuts, and receiving a collaborator's edit" src="./docs/media/editor-tour.png">
 </a>
 
-The full tour above is one real session: visual and Markdown modes, layout,
-transition, slide creation, duplicate and reorder shortcuts, undo and redo, then
+The full tour above is one real session: visual and Markdown modes; block colour,
+eight-handle resize, free movement and guides; image and video drop; layout and
+transition; slide creation, duplicate and reorder shortcuts; undo and redo; then
 a second editor changing the same source. Click it for the video.
 `vp run record:editor` and `vp run record:tour` regenerate both recordings by
 performing their gestures again, so a gesture that stopped working fails to
