@@ -16,23 +16,50 @@ interface Shortcut {
   label: string;
 }
 
-const REFERENCE: Shortcut[] = [
-  { keys: ["⌘/Ctrl", "Z"], label: "Undo" },
-  { keys: ["⇧", "⌘/Ctrl", "Z"], label: "Redo" },
-  { keys: ["⌘/Ctrl", "D"], label: "Duplicate the selected block, or the slide" },
-  { keys: ["⌘/Ctrl", "M"], label: "Add slide" },
-  { keys: ["←", "→"], label: "Previous / next slide, or move the selected block" },
-  { keys: ["↑", "↓"], label: "Move the selected block up or down its region" },
-  { keys: ["Page ↑", "Page ↓"], label: "Previous / next slide" },
-  { keys: ["↑", "↓"], label: "Navigate the focused outline" },
-  { keys: ["⌥/Alt", "↑", "↓"], label: "Move the focused slide" },
-  { keys: ["⌫/Delete"], label: "Remove the focused slide" },
-  { keys: ["V"], label: "Visual mode" },
-  { keys: ["T"], label: "Edit slide text" },
-  { keys: ["M"], label: "Markdown mode" },
-  { keys: ["P"], label: "Open presenter view" },
-  { keys: ["?"], label: "Keyboard shortcuts" },
-  { keys: ["Esc"], label: "Close keyboard shortcuts" },
+interface ShortcutGroup {
+  label: string;
+  shortcuts: Shortcut[];
+}
+
+const REFERENCE: ShortcutGroup[] = [
+  {
+    label: "Navigation",
+    shortcuts: [
+      { keys: ["←", "→"], label: "Previous / next slide, or move the selected block" },
+      { keys: ["Page ↑", "Page ↓"], label: "Previous / next slide" },
+      { keys: ["Home", "End"], label: "First / last slide" },
+      { keys: ["↑", "↓"], label: "Navigate the focused outline" },
+    ],
+  },
+  {
+    label: "Editing",
+    shortcuts: [
+      { keys: ["⌘/Ctrl", "Z"], label: "Undo" },
+      { keys: ["⇧", "⌘/Ctrl", "Z"], label: "Redo" },
+      { keys: ["Ctrl", "Y"], label: "Redo" },
+      { keys: ["⌘/Ctrl", "D"], label: "Duplicate the selected block, or the slide" },
+      { keys: ["↑", "↓"], label: "Move the selected block up or down its region" },
+    ],
+  },
+  {
+    label: "Slides",
+    shortcuts: [
+      { keys: ["⌘/Ctrl", "M"], label: "Add slide" },
+      { keys: ["⌥/Alt", "↑", "↓"], label: "Move the focused slide" },
+      { keys: ["⌫/Delete"], label: "Remove the focused slide" },
+    ],
+  },
+  {
+    label: "View",
+    shortcuts: [
+      { keys: ["V"], label: "Visual mode" },
+      { keys: ["T"], label: "Edit slide text" },
+      { keys: ["M"], label: "Markdown mode" },
+      { keys: ["P"], label: "Open presenter view" },
+      { keys: ["?"], label: "Keyboard shortcuts" },
+      { keys: ["Esc"], label: "Close keyboard shortcuts" },
+    ],
+  },
 ];
 
 export interface ShortcutSurface extends Surface {
@@ -104,6 +131,14 @@ export function createShortcuts(
         return;
       }
 
+      // The other redo spelling used on Windows and Linux. It deliberately
+      // stays Ctrl-only: Command-Y has a different native meaning on macOS,
+      // while Command-Shift-Z above is the platform's redo binding.
+      if (event.ctrlKey && !event.metaKey && !event.shiftKey && key === "y") {
+        handled(event, () => void session.redo());
+        return;
+      }
+
       // Duplicates what is selected, which is a block when there is one and the
       // whole slide otherwise. One binding rather than two, because "make
       // another one of this" is one intention and the selection already says
@@ -164,6 +199,11 @@ export function createShortcuts(
 
       if (key === "pageup" || key === "pagedown") {
         handled(event, () => selectBy(session, key === "pageup" ? -1 : 1));
+        return;
+      }
+
+      if (key === "home" || key === "end") {
+        handled(event, () => selectEdge(session, key === "home" ? "first" : "last"));
         return;
       }
 
@@ -229,16 +269,24 @@ function reference(): HTMLElement {
     { type: "button", class: "slidx-shortcuts-close", "aria-label": "Close keyboard shortcuts" },
     ["Close"],
   );
-  const entries = REFERENCE.map(({ keys, label }) =>
-    element("div", { class: "slidx-shortcut" }, [
-      element(
-        "dt",
-        {},
-        keys.map((key) => element("kbd", {}, [key])),
-      ),
-      element("dd", {}, [label]),
-    ]),
-  );
+  const groups = REFERENCE.map(({ label, shortcuts }, index) => {
+    const id = `slidx-shortcuts-group-${index}`;
+    const entries = shortcuts.map(({ keys, label }) =>
+      element("div", { class: "slidx-shortcut" }, [
+        element(
+          "dt",
+          {},
+          keys.map((key) => element("kbd", {}, [key])),
+        ),
+        element("dd", {}, [label]),
+      ]),
+    );
+
+    return element("section", { class: "slidx-shortcut-group", "aria-labelledby": id }, [
+      element("h3", { id }, [label]),
+      element("dl", { class: "slidx-shortcuts-list" }, entries),
+    ]);
+  });
 
   const dialog = element(
     "section",
@@ -249,7 +297,7 @@ function reference(): HTMLElement {
     },
     [
       element("header", { class: "slidx-shortcuts-head" }, [title, close]),
-      element("dl", { class: "slidx-shortcuts-list" }, entries),
+      element("div", { class: "slidx-shortcut-groups" }, groups),
     ],
   );
   dialog.hidden = true;
@@ -282,6 +330,15 @@ function selectBy(session: Session, by: number): void {
   const slide = Math.max(0, Math.min(state.selection.slide + by, state.slides.length - 1));
   if (slide === state.selection.slide) return;
   session.select({ slide, range: undefined, text: undefined });
+}
+
+function selectEdge(session: Session, edge: "first" | "last"): void {
+  const state = session.state();
+  if (state.slides.length === 0) return;
+
+  const slide = edge === "first" ? 0 : state.slides.length - 1;
+  if (slide === state.selection.slide) return;
+  session.select({ slide, block: undefined, range: undefined, text: undefined });
 }
 
 function moveBy(session: Session, by: number): void {

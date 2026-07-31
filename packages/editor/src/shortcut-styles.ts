@@ -49,13 +49,24 @@ export const SHORTCUT_STYLES = `
 
 .slidx-shortcuts-head h2 { margin: 0; font-size: 1rem; }
 
-.slidx-shortcuts-list {
+.slidx-shortcut-groups {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 var(--slidx-e-loose);
-  margin: 0;
+  gap: var(--slidx-e-loose);
   padding: var(--slidx-e-gap) var(--slidx-e-loose) var(--slidx-e-loose);
 }
+
+.slidx-shortcut-group h3 {
+  margin: 0;
+  padding-bottom: var(--slidx-e-tight);
+  color: var(--slidx-e-text);
+  border-bottom: var(--slidx-e-hairline) solid var(--slidx-e-line);
+  font-size: .75rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.slidx-shortcuts-list { margin: 0; }
 
 .slidx-shortcut {
   display: grid;
@@ -85,6 +96,6 @@ export const SHORTCUT_STYLES = `
 }
 
 @media (max-width: 40rem) {
-  .slidx-shortcuts-list { grid-template-columns: 1fr; }
+  .slidx-shortcut-groups { grid-template-columns: 1fr; }
 }
 `;

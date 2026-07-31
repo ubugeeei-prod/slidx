@@ -118,6 +118,35 @@ describe("visual editor shortcuts", () => {
     expect(fixture.server.ops).toEqual([{ op: "insertSlide", at: 1, body: "## New slide" }]);
   });
 
+  it("redoes with Ctrl+Y without replacing the macOS redo binding", async () => {
+    const fixture = await open();
+    await fixture.session.run({ op: "setHeading", slide: 0, text: "Retitled" });
+    await fixture.session.undo();
+
+    const mac = key(fixture.shortcuts, "y", { metaKey: true });
+    const windows = key(fixture.shortcuts, "y", { ctrlKey: true });
+    await settled();
+
+    expect(mac.defaultPrevented).toBe(false);
+    expect(windows.defaultPrevented).toBe(true);
+    expect(fixture.server.reverted).toEqual([[{ splice: 1 }], [{ splice: -1 }]]);
+    expect(fixture.session.state().canRedo).toBe(false);
+  });
+
+  it("jumps to the first and last slides with Home and End", async () => {
+    const fixture = await open();
+    fixture.session.select({ slide: 1, block: 2 });
+
+    const first = key(fixture.shortcuts, "Home");
+    expect(fixture.session.state().selection).toEqual({ slide: 0 });
+
+    const last = key(fixture.shortcuts, "End");
+    expect(fixture.session.state().selection).toEqual({ slide: 2 });
+    expect(first.defaultPrevented).toBe(true);
+    expect(last.defaultPrevented).toBe(true);
+    expect(fixture.server.ops).toEqual([]);
+  });
+
   it("navigates globally but only moves or removes a slide from the focused outline", async () => {
     const fixture = await open();
 
@@ -159,7 +188,13 @@ describe("visual editor shortcuts", () => {
 
     expect(event.defaultPrevented).toBe(true);
     expect(dialog.hidden).toBe(false);
+    expect(
+      [...dialog.querySelectorAll(".slidx-shortcut-group h3")].map((heading) =>
+        heading.textContent?.trim(),
+      ),
+    ).toEqual(["Navigation", "Editing", "Slides", "View"]);
     expect(dialog.textContent).toContain("Duplicate the selected block, or the slide");
+    expect(dialog.textContent).toContain("First / last slide");
     expect(dialog.textContent).toContain("Edit slide text");
 
     key(fixture.shortcuts, "Escape");
@@ -171,6 +206,8 @@ describe("visual editor shortcuts", () => {
 
     const source = document.createElement("textarea");
     key(fixture.shortcuts, "d", { metaKey: true }, source);
+    fixture.session.select({ slide: 1 });
+    const home = key(fixture.shortcuts, "Home", {}, source);
 
     const editable = document.createElement("p");
     editable.contentEditable = "true";
@@ -181,6 +218,8 @@ describe("visual editor shortcuts", () => {
 
     expect(fixture.server.ops).toEqual([]);
     expect(fixture.modes).toEqual([]);
+    expect(fixture.session.state().selection.slide).toBe(1);
+    expect(home.defaultPrevented).toBe(false);
   });
 
   it("does not repeat an editing operation while a key is held", async () => {
