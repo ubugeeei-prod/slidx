@@ -466,6 +466,32 @@ textarea { resize: vertical; font-size: 12px; }
  * disappears from the layout would move the canvas under the author's cursor.
  * Floating costs nothing when it is not there.
  */
+/*
+ * The scheme control sits beside the Markdown toggle and is the same shape as
+ * it: a quiet button in the panel head, not a switch that draws the eye away
+ * from the slide it is about.
+ */
+.slidx-canvas-scheme {
+  padding: 2px 8px;
+  border: var(--slidx-e-hairline) solid var(--slidx-e-line);
+  border-radius: var(--slidx-e-radius);
+  background: transparent;
+  color: var(--slidx-e-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.slidx-canvas-scheme:hover,
+.slidx-canvas-scheme:focus-visible { color: var(--slidx-e-text); }
+
+/* Auto is the default, so only a deliberate choice is worth marking. */
+.slidx-canvas-scheme[data-scheme="light"],
+.slidx-canvas-scheme[data-scheme="dark"] {
+  border-color: var(--slidx-e-accent);
+  color: var(--slidx-e-text);
+}
+
 .slidx-presence {
   position: fixed;
   top: 6px;

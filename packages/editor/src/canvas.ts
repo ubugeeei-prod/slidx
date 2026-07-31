@@ -97,6 +97,14 @@ export interface CanvasOptions {
   bodyOf(slide: number): string;
   /** Where the slide's blocks and marks are. Absent leaves the page read-only. */
   blocksOf?(slide: number): readonly BlockSpans[];
+  /**
+   * Where the scheme choice is remembered. `localStorage` when there is one.
+   *
+   * Injected rather than reached for, so a test says what was remembered and a
+   * document without storage — a sandboxed frame, a browser with it disabled —
+   * simply starts on auto every time instead of throwing on the first click.
+   */
+  storage?: Pick<Storage, "getItem" | "setItem"> | undefined;
   /** Injected so bringing the frame up to date is testable without a server. */
   fetch?: typeof globalThis.fetch;
 }
@@ -113,6 +121,63 @@ export interface CanvasSurface extends Surface {
   listen(listener: (event: KeyboardEvent) => void): void;
 }
 
+/**
+ * Which palette the canvas shows, and why an author needs to say.
+ *
+ * A deck follows `prefers-color-scheme` by default, so it shows the room it is
+ * in — and in the editor the "room" is the author's laptop. An author working
+ * in dark mode therefore never sees the half a lit lecture theatre will project,
+ * and one working in daylight never sees the other. Both halves are in the file
+ * and only one of them is ever on screen.
+ *
+ * The override already exists in the output: `slidx_theme::css` emits the dark
+ * palette twice, once under the media query and once under `[data-scheme]`, and
+ * says out loud that the second is there "so a presenter can override it at the
+ * venue when the automatic choice is wrong". Nothing had ever written that
+ * attribute — not the editor, not the presenter view, not the runtime.
+ *
+ * # Why it is not stored in the deck
+ *
+ * Because it is a viewing choice, not deck content. Writing it into the
+ * Markdown would put "how I happened to be looking at this on Tuesday" in the
+ * diff, and hand it to a co-editor whose room is different. It lives in this
+ * browser and nowhere else.
+ */
+type Scheme = "auto" | "light" | "dark";
+
+const SCHEMES: Scheme[] = ["auto", "light", "dark"];
+
+const SCHEME_LABEL: Record<Scheme, string> = {
+  auto: "Auto",
+  light: "Light",
+  dark: "Dark",
+};
+
+/** Where the choice is remembered, which is this browser and nothing else. */
+const SCHEME_KEY = "slidx.canvas.scheme";
+
+function storedScheme(storage: Pick<Storage, "getItem"> | undefined): Scheme {
+  const found = storage?.getItem(SCHEME_KEY);
+
+  return SCHEMES.includes(found as Scheme) ? (found as Scheme) : "auto";
+}
+
+/**
+ * Puts the choice on the deck's own document, or takes it off for `auto`.
+ *
+ * Removing rather than writing `auto` is the whole of what makes automatic mean
+ * automatic: the media query is what decides when no attribute is present, and
+ * an attribute spelled `auto` would match neither override and leave the light
+ * palette showing in a dark room.
+ */
+export function applyScheme(document: Document | null | undefined, choice: Scheme): void {
+  const root = document?.documentElement;
+  if (!root) return;
+
+  if (choice === "auto") root.removeAttribute("data-scheme");
+  else root.setAttribute("data-scheme", choice);
+}
+
 export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): CanvasSurface {
   const frame = element("iframe", { class: "slidx-canvas-frame", title: "Slide preview" });
   const source = element("textarea", {
@@ -122,13 +187,27 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
   });
 
   const toggle = element("button", { type: "button", class: "slidx-canvas-toggle" }, ["Markdown"]);
+  const scheme = element(
+    "button",
+    {
+      type: "button",
+      class: "slidx-canvas-scheme",
+      title: "Show the slide light, dark, or as this machine is set",
+    },
+    [SCHEME_LABEL.auto],
+  );
   const stage = element("div", { class: "slidx-canvas-stage" }, [frame, source]);
   const root = element("section", { class: "slidx-canvas", "aria-label": "Slide" }, [
-    element("header", { class: "slidx-panel-head" }, [element("h2", {}, ["Slide"]), toggle]),
+    element("header", { class: "slidx-panel-head" }, [
+      element("h2", {}, ["Slide"]),
+      scheme,
+      toggle,
+    ]),
     stage,
   ]);
 
   let slide = 0;
+  let chosen: Scheme = storedScheme(options.storage);
   let editing = false;
   let shown = "";
   let refresh = 0;
@@ -156,6 +235,14 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
   }
 
   toggle.addEventListener("click", () => showSource(!editing));
+
+  scheme.addEventListener("click", () => {
+    chosen = SCHEMES[(SCHEMES.indexOf(chosen) + 1) % SCHEMES.length]!;
+    scheme.textContent = SCHEME_LABEL[chosen];
+    scheme.setAttribute("data-scheme", chosen);
+    options.storage?.setItem(SCHEME_KEY, chosen);
+    applyScheme(frame.contentDocument, chosen);
+  });
 
   // On blur rather than on every keystroke: an operation per character would
   // write the file per character, and the undo stack is a list of operations.
@@ -193,7 +280,14 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
     if (line && lines.includes(line)) restore(page, line, wanted.at);
   }
 
-  frame.addEventListener("load", () => bind());
+  // Re-applied on every load, because the attribute lives on a document the
+  // frame replaces whenever it navigates to another slide. Setting it once
+  // would give an author one slide in the palette they asked for and the rest
+  // in the one their laptop is set to.
+  frame.addEventListener("load", () => {
+    applyScheme(frame.contentDocument, chosen);
+    bind();
+  });
 
   return {
     root,

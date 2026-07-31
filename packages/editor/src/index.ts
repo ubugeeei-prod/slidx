@@ -90,6 +90,22 @@ export interface MountedEditor {
   destroy(): void;
 }
 
+/**
+ * `localStorage`, when this document is allowed one.
+ *
+ * Reading it throws outright in a sandboxed frame and in a browser with storage
+ * disabled, so the editor asks once and carries on without if the answer is no —
+ * the only thing that costs is a viewing preference that does not survive a
+ * reload.
+ */
+function safeStorage(document: Document): Storage | undefined {
+  try {
+    return document.defaultView?.localStorage ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Builds the editor into an element and reads the deck into it. */
 export function mount(root: HTMLElement, options: MountOptions = {}): MountedEditor {
   applyStyles(root.ownerDocument);
@@ -128,6 +144,7 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
       deckBase: options.deckBase ?? "slides",
       bodyOf,
       blocksOf: (slide) => session.blocksOf(slide),
+      storage: safeStorage(root.ownerDocument),
     },
   );
   const inspector = createInspector(

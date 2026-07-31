@@ -80,7 +80,7 @@ pub fn workshop() -> Theme {
             .palette(),
         // Carried because every theme carries both: a room whose lights go down
         // for a demo is still the same deck.
-        dark: Recipe { hue: 197.0, accent_chroma: 0.12, wash: 0.09, sheet: 0.20, ink: 0.94 }
+        dark: Recipe { hue: 197.0, accent_chroma: 0.12, wash: 0.09, sheet: 0.27, ink: 0.94 }
             .palette(),
         scale: TypeScale { base_px: 33.0, ratio: 1.18, code_factor: 1.0 },
         // Tighter than any built-in, and the one number that says what this

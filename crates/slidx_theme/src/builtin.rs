@@ -66,7 +66,7 @@ pub fn minimal() -> Theme {
         description: "Neutral greys and a single accent. The default.".into(),
         light: Recipe { hue: 258.0, accent_chroma: 0.15, wash: 0.10, sheet: 0.99, ink: 0.24 }
             .palette(),
-        dark: Recipe { hue: 258.0, accent_chroma: 0.12, wash: 0.10, sheet: 0.22, ink: 0.95 }
+        dark: Recipe { hue: 258.0, accent_chroma: 0.12, wash: 0.10, sheet: 0.29, ink: 0.95 }
             .palette(),
         scale: TypeScale::default(),
         spacing: Spacing::default(),
@@ -88,7 +88,7 @@ pub fn editorial() -> Theme {
         description: "Warm neutrals and a dramatic type scale, for prose-led talks.".into(),
         light: Recipe { hue: 55.0, accent_chroma: 0.13, wash: 0.14, sheet: 0.98, ink: 0.25 }
             .palette(),
-        dark: Recipe { hue: 55.0, accent_chroma: 0.12, wash: 0.14, sheet: 0.23, ink: 0.95 }
+        dark: Recipe { hue: 55.0, accent_chroma: 0.12, wash: 0.14, sheet: 0.3, ink: 0.95 }
             .palette(),
         scale: TypeScale { base_px: 34.0, ratio: 1.333, code_factor: 0.95 },
         spacing: Spacing { padding_px: 112.0, block_px: 32.0, ..Spacing::default() },
@@ -112,7 +112,7 @@ pub fn terminal() -> Theme {
         description: "Dark and monospace-forward, sized for code-heavy talks.".into(),
         light: Recipe { hue: 155.0, accent_chroma: 0.12, wash: 0.08, sheet: 0.98, ink: 0.24 }
             .palette(),
-        dark: Recipe { hue: 155.0, accent_chroma: 0.15, wash: 0.08, sheet: 0.18, ink: 0.94 }
+        dark: Recipe { hue: 155.0, accent_chroma: 0.15, wash: 0.08, sheet: 0.25, ink: 0.94 }
             .palette(),
         // Code is the point of this theme, so it is set at full body size.
         scale: TypeScale { base_px: 32.0, ratio: 1.2, code_factor: 1.0 },
@@ -143,7 +143,7 @@ pub fn contrast() -> Theme {
             .into(),
         light: Recipe { hue: 250.0, accent_chroma: 0.16, wash: 0.0, sheet: 1.0, ink: 0.13 }
             .palette(),
-        dark: Recipe { hue: 250.0, accent_chroma: 0.13, wash: 0.0, sheet: 0.11, ink: 1.0 }
+        dark: Recipe { hue: 250.0, accent_chroma: 0.13, wash: 0.0, sheet: 0.16, ink: 1.0 }
             .palette(),
         scale: TypeScale { base_px: 38.0, ratio: 1.25, code_factor: 0.95 },
         spacing: Spacing { padding_px: 88.0, block_px: 32.0, ..Spacing::default() },
