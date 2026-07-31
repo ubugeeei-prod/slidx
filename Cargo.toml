@@ -7,7 +7,7 @@ members = ["crates/*"]
 exclude = ["editors/zed"]
 
 [workspace.package]
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 rust-version = "1.82"
 license = "MIT"
@@ -16,24 +16,24 @@ homepage = "https://github.com/ubugeeei-prod/slidx"
 authors = ["ubugeeei"]
 
 [workspace.dependencies]
-slidx_brand = { version = "0.3.0", path = "crates/slidx_brand" }
-slidx_cli = { version = "0.3.0", path = "crates/slidx_cli" }
-slidx_core = { version = "0.3.0", path = "crates/slidx_core" }
-slidx_dialect = { version = "0.3.0", path = "crates/slidx_dialect" }
-slidx_doctor = { version = "0.3.0", path = "crates/slidx_doctor" }
-slidx_edit = { version = "0.3.0", path = "crates/slidx_edit" }
-slidx_export = { version = "0.3.0", path = "crates/slidx_export" }
-slidx_fmt = { version = "0.3.0", path = "crates/slidx_fmt" }
-slidx_highlight = { version = "0.3.0", path = "crates/slidx_highlight" }
-slidx_i18n = { version = "0.3.0", path = "crates/slidx_i18n" }
-slidx_jsonrpc = { version = "0.3.0", path = "crates/slidx_jsonrpc" }
-slidx_lint = { version = "0.3.0", path = "crates/slidx_lint" }
-slidx_lsp = { version = "0.3.0", path = "crates/slidx_lsp" }
-slidx_publish = { version = "0.3.0", path = "crates/slidx_publish" }
-slidx_qr = { version = "0.3.0", path = "crates/slidx_qr" }
-slidx_render = { version = "0.3.0", path = "crates/slidx_render" }
-slidx_theme = { version = "0.3.0", path = "crates/slidx_theme" }
-slidx_wasm = { version = "0.3.0", path = "crates/slidx_wasm" }
+slidx_brand = { version = "0.4.0", path = "crates/slidx_brand" }
+slidx_cli = { version = "0.4.0", path = "crates/slidx_cli" }
+slidx_core = { version = "0.4.0", path = "crates/slidx_core" }
+slidx_dialect = { version = "0.4.0", path = "crates/slidx_dialect" }
+slidx_doctor = { version = "0.4.0", path = "crates/slidx_doctor" }
+slidx_edit = { version = "0.4.0", path = "crates/slidx_edit" }
+slidx_export = { version = "0.4.0", path = "crates/slidx_export" }
+slidx_fmt = { version = "0.4.0", path = "crates/slidx_fmt" }
+slidx_highlight = { version = "0.4.0", path = "crates/slidx_highlight" }
+slidx_i18n = { version = "0.4.0", path = "crates/slidx_i18n" }
+slidx_jsonrpc = { version = "0.4.0", path = "crates/slidx_jsonrpc" }
+slidx_lint = { version = "0.4.0", path = "crates/slidx_lint" }
+slidx_lsp = { version = "0.4.0", path = "crates/slidx_lsp" }
+slidx_publish = { version = "0.4.0", path = "crates/slidx_publish" }
+slidx_qr = { version = "0.4.0", path = "crates/slidx_qr" }
+slidx_render = { version = "0.4.0", path = "crates/slidx_render" }
+slidx_theme = { version = "0.4.0", path = "crates/slidx_theme" }
+slidx_wasm = { version = "0.4.0", path = "crates/slidx_wasm" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
