@@ -95,6 +95,12 @@ html, body {
   max-width: 100%;
 }
 
+.slidx-block[data-slidx-freeform-frame] {
+  inset: var(--slidx-element-inset);
+  width: auto;
+  height: auto;
+}
+
 .slidx-block[data-slidx-element-color],
 .slidx-block[data-slidx-element-color] :is(h1, h2, h3, h4, h5, h6) {
   color: var(--slidx-element-color);

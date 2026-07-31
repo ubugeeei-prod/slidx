@@ -196,8 +196,14 @@ fn visual_attributes(block: &Block, style: &BTreeMap<String, String>) -> String 
         return attributes;
     }
 
-    if properties.iter().any(|(_, property)| matches!(*property, "x" | "y" | "width" | "height")) {
+    if properties
+        .iter()
+        .any(|(_, property)| matches!(*property, "x" | "y" | "width" | "height" | "inset"))
+    {
         attributes.push_str(" data-slidx-freeform");
+    }
+    if properties.iter().any(|(_, property)| *property == "inset") {
+        attributes.push_str(" data-slidx-freeform-frame");
     }
     if properties.iter().any(|(_, property)| *property == "color") {
         attributes.push_str(" data-slidx-element-color");
@@ -314,6 +320,7 @@ mod tests {
             ":root {\n",
             "  --slidx-block-id-hero-x: 12%;\n",
             "  --slidx-block-id-hero-width: 40%;\n",
+            "  --slidx-block-id-hero-inset: 12% 48% 58% 10%;\n",
             "  --slidx-block-id-hero-color: var(--slidx-color-accent);\n",
             "}\n",
             "</style>\n",
@@ -324,9 +331,11 @@ mod tests {
 
         assert!(html.contains("data-slidx-key=\"hero\""));
         assert!(html.contains("data-slidx-freeform"));
+        assert!(html.contains("data-slidx-freeform-frame"));
         assert!(html.contains("data-slidx-element-color"));
         assert!(html.contains("--slidx-element-x: var(--slidx-block-id-hero-x)"));
         assert!(html.contains("--slidx-element-width: var(--slidx-block-id-hero-width)"));
+        assert!(html.contains("--slidx-element-inset: var(--slidx-block-id-hero-inset)"));
         assert!(html.contains("--slidx-element-color: var(--slidx-block-id-hero-color)"));
         assert!(!html.contains("<style data-slidx>"));
     }
