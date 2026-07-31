@@ -125,6 +125,7 @@ export default defineConfig({
         "check:flat",
         "check:licensed",
         "check:pages",
+        "check:claims",
       ]),
       "ci:rust": group([
         "fmt:rust-check",
@@ -143,6 +144,7 @@ export default defineConfig({
         "check:flat",
         "check:licensed",
         "check:pages",
+        "check:claims",
         "check:version",
         "fmt:rust-check",
         "fmt:ts-check",
@@ -390,6 +392,12 @@ export default defineConfig({
       // a blank page per package. `node scripts/write-pages.mjs` composes one
       // where there is none, from the description the manifest already carries.
       "check:pages": task("node scripts/check-pages.mjs"),
+
+      // Sentences this project has already been caught overstating. Each was
+      // written, believed, questioned by a reader, and found to be wider than
+      // the thing that proves it — and at least one came straight back in the
+      // next rewrite, because it was the shorter sentence.
+      "check:claims": task("node scripts/check-claims.mjs"),
 
       // No palette pasted from a framework, and no palette written as hex
       // literals at all. slidx shipped one popular framework's `zinc` ramp for

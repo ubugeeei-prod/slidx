@@ -36,8 +36,8 @@ code. That is what lets slidx's linter hold this theme to the same contrast and
 legibility rules it holds a deck to, in every room it models, before anyone
 stands in front of it.
 
-Nothing here reaches for a webfont, and nothing here can: a built deck makes
-zero network requests, and a font stack naming a remote face is refused at load
+Nothing here reaches for a webfont, and nothing here can: a built deck asks
+nothing of anywhere but itself, and a font stack naming a remote face is refused at load
 rather than discovered at the venue.
 
 ## License
