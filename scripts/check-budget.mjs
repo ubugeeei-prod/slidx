@@ -29,6 +29,7 @@ import {
   NOT_THE_AUDIENCE,
   overBudget,
   referencesIn,
+  splitPages,
   unmeasured,
 } from "./budget.mjs";
 
@@ -61,8 +62,10 @@ const gzip = (source) => gzipSync(source).byteLength;
 /** Whether a path is something a room fetches. See `NOT_THE_AUDIENCE`. */
 const forTheRoom = (path) => !NOT_THE_AUDIENCE.some((part) => path.includes(part));
 
-/** The audience pages, which are the ones a room loads. */
-const audience = files.filter((path) => path.endsWith(".html") && forTheRoom(path));
+/** Every page a room loads, from the projector or from a phone. */
+const pages = files.filter((path) => path.endsWith(".html") && forTheRoom(path));
+
+const { slides: audience, snippets } = splitPages(pages);
 
 /**
  * The page for the first slide, which is the one with nothing to reveal.
@@ -115,16 +118,27 @@ let audienceBytes = 0;
 for (const path of audience) audienceBytes += gzip(await read(path));
 
 let downloaded = audienceBytes;
+for (const path of snippets) downloaded += gzip(await read(path));
 for (const path of wanted) {
   if (files.includes(path)) downloaded += gzip(await read(path));
 }
 
 const runtime = files.find((path) => path.endsWith(".js") && path.includes("runtime"));
 
+/**
+ * The page a QR code on a slide points at.
+ *
+ * Its reader is standing in a room, on a phone, on whatever signal the venue
+ * has, in the ninety seconds before the speaker moves on — which is the
+ * tightest budget in this file and the one nothing was holding until now.
+ */
+const [snippet] = snippets;
+
 const measured = {
   "javascript on a slide with no steps": scriptBytes,
   "an audience slide, gzipped": Math.round(audienceBytes / audience.length),
   "everything an audience downloads, gzipped": downloaded,
+  ...(snippet === undefined ? {} : { "a shared snippet page, gzipped": gzip(await read(snippet)) }),
   ...(runtime === undefined ? {} : { "the step runtime, gzipped": gzip(await read(runtime)) }),
 };
 
