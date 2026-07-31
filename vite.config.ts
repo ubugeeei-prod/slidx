@@ -397,7 +397,10 @@ export default defineConfig({
       // checkout fails inside esbuild with "Failed to resolve entry for package
       // @ubugeeei/slidx-vite-plugin" — a message about a bundler, for a missing build.
       "preview:deck": uncached("vp exec --filter slidx-example-deck -- vite build", {
-        dependsOn: ["build:plugin"],
+        // A production deck resolves these through their published `exports`.
+        // A warm checkout hides a missing edge with old `dist/` directories;
+        // media generation must also work from a clean clone.
+        dependsOn: ["build:plugin", "build:runtime", "build:rehearsal", "build:islands"],
       }),
       screenshots: uncached("node scripts/screenshot.mjs", { dependsOn: ["preview:deck"] }),
 
