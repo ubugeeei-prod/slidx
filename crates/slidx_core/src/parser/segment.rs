@@ -111,6 +111,22 @@ fn line_start(lines: &[Line<'_>], index: usize, source_len: usize) -> usize {
     lines.get(index).map_or(source_len, |line| line.start)
 }
 
+/// The one-based line a body starting at `index` reports, kept inside the file.
+///
+/// A body can start past the last line: a deck that is nothing but frontmatter
+/// has one slide whose body begins where the file ends, and so does one ending
+/// in a separator. The arithmetic then names a line that is not there, and
+/// every reader of it is an editor being told where to put a caret — a jump to
+/// line 4 of a three-line file lands nowhere, and a diagnostic reported there
+/// is a diagnostic pointing at nothing.
+///
+/// So it is clamped to the last line, which is where an author would type this
+/// slide's first word. One-based, so an empty file still answers 1 rather than
+/// 0: there is a line 1 to put a caret on, even with nothing on it.
+fn line_of_body(lines: &[Line<'_>], index: usize) -> u32 {
+    index.min(lines.len().saturating_sub(1)) as u32 + 1
+}
+
 /// Splits a deck source into segments.
 ///
 /// Always returns at least one segment, so callers never special-case an empty
@@ -135,7 +151,7 @@ pub fn split(source: &str, separator: &str) -> Vec<Segment> {
 
     let mut body_from = cursor;
     let mut body: Vec<&str> = Vec::new();
-    let mut body_line = cursor as u32 + 1;
+    let mut body_line = line_of_body(&lines, cursor);
     let mut fences = FenceTracker::new();
 
     while cursor < lines.len() {
@@ -169,7 +185,7 @@ pub fn split(source: &str, separator: &str) -> Vec<Segment> {
         }
 
         body_from = cursor;
-        body_line = cursor as u32 + 1;
+        body_line = line_of_body(&lines, cursor);
     }
 
     segments.push(Segment {
@@ -342,6 +358,35 @@ mod tests {
         let segments = split_default("---\ntitle: T\n---\n# One\n\n---\n\n# Two");
         assert_eq!(segments[0].line, 4, "body starts after the closing delimiter");
         assert_eq!(segments[1].line, 7);
+    }
+
+    #[test]
+    fn a_body_line_never_names_a_line_the_file_does_not_have() {
+        // Everything that reads this is an editor being told where to put a
+        // caret, and a jump to line 4 of a three-line file lands nowhere.
+        for source in [
+            // Nothing but deck frontmatter: the body begins where the file ends.
+            "---\ntitle: T\n---\n",
+            // The same, with no trailing newline.
+            "---\ntitle: T\n---",
+            // A trailing separator, whose blank segment is dropped — leaving
+            // the slide before it, whose own line must still be inside.
+            "# One\n\n---\n",
+            // Nothing at all.
+            "",
+        ] {
+            let deck = crate::parse_deck(source, &crate::DeckParseOptions::default());
+            let last = source.lines().count().max(1) as u32;
+
+            for slide in &deck.slides {
+                assert!(
+                    slide.source_line >= 1 && slide.source_line <= last,
+                    "{source:?}: slide {} says line {}, file has {last}",
+                    slide.index,
+                    slide.source_line
+                );
+            }
+        }
     }
 
     #[test]
