@@ -8,11 +8,23 @@ export const MEDIA_DROP_STYLESHEET = `
   place-items: center;
   padding: var(--slidx-e-loose);
   border: var(--slidx-e-hairline) solid transparent;
-  background: color-mix(in srgb, var(--slidx-e-canvas) 72%, transparent);
   pointer-events: none;
 }
 
+/*
+ * The scrim belongs to the active state and nothing else.
+ *
+ * It used to be on the rule above, which paints whether or not anything is
+ * being dragged — and this element is sized to cover the canvas, so a 72%
+ * backdrop sat over every slide, always. Only its *children* were hidden when
+ * inactive, so the overlay looked switched off while dimming the one thing in
+ * the editor an author is trying to judge: the slide's own colours.
+ *
+ * It was reported as "not black, just dark, like something is on top of it",
+ * which is exactly what it was.
+ */
 .slidx-media-drop[data-active="true"] {
+  background: color-mix(in srgb, var(--slidx-e-canvas) 72%, transparent);
   border-color: color-mix(in srgb, var(--slidx-e-accent) 44%, transparent);
 }
 

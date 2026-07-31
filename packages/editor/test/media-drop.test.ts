@@ -249,3 +249,24 @@ describe("media drag and drop", () => {
     expect(MEDIA_DROP_STYLESHEET).not.toMatch(/box-shadow|(?:linear|radial)-gradient/);
   });
 });
+
+describe("what the drop target paints when nothing is being dragged", () => {
+  it("paints nothing at all", () => {
+    // It is sized to cover the canvas, so anything it paints while inactive is
+    // a film over every slide. The scrim used to be on the base rule and only
+    // the overlay's *children* were hidden, so it looked switched off while
+    // dimming the one thing an author is trying to judge.
+    const base = MEDIA_DROP_STYLESHEET.slice(
+      MEDIA_DROP_STYLESHEET.indexOf(".slidx-media-drop {"),
+      MEDIA_DROP_STYLESHEET.indexOf("}", MEDIA_DROP_STYLESHEET.indexOf(".slidx-media-drop {")),
+    );
+
+    expect(base).not.toContain("background");
+  });
+
+  it("paints the scrim only once something is over the canvas", () => {
+    expect(MEDIA_DROP_STYLESHEET).toMatch(
+      /\.slidx-media-drop\[data-active="true"\]\s*\{[^}]*background:/,
+    );
+  });
+});
