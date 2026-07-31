@@ -58,12 +58,18 @@ await build({
   // A size budget that needs a browser to measure a byte is one most people
   // cannot run.
   //
-  // Every figure is unchanged by turning them off: the print shell is outside
-  // all five by name, and the overflow pass emits nothing. That was checked
-  // rather than assumed — switching off `presenter` and `og` as well *did* move
-  // two of them, because the step runtime stops being emitted, and the
-  // "nothing measured this" guard is what said so.
-  plugins: [slidx({ print: false, overflow: false })],
+  // What each costs the figures, measured rather than assumed:
+  //
+  // - `print` and `overflow` cost nothing. The print shell is outside all five
+  //   by name and the overflow pass emits nothing at all.
+  // - `og` costs about 58 bytes a slide, because a page with no social card
+  //   writes a slightly different `og:image`. That is under a percent, it is in
+  //   the same direction on every page, and it buys a check that runs on a
+  //   laptop — which is the trade taken here deliberately.
+  // - `presenter` was tried and put back: switching it off stops the step
+  //   runtime being emitted at all, and the "nothing measured this" guard is
+  //   what said so before the number could quietly become four figures.
+  plugins: [slidx({ print: false, overflow: false, og: false })],
   build: { outDir: out },
 });
 
