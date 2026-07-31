@@ -16,7 +16,9 @@
  * So a copy lives beside each manifest, and this decides where "each" is by
  * asking the same two questions the packagers ask rather than by holding a
  * list. A crate added to `crates/` or a package added to `packages/` is covered
- * the day it exists.
+ * the day it exists. The one directory whose copy is written by its build
+ * rather than committed is recognised the same derived way, by asking git which
+ * of the paths it has been told to ignore.
  *
  * # Why byte-identical rather than merely present
  *
@@ -66,6 +68,42 @@ export function publishedPackages(read = readFileSync) {
     .filter((file) => /^packages\/[^/]+\/package\.json$/.test(file))
     .filter((file) => JSON.parse(read(file, "utf8")).private !== true)
     .map(dirname);
+}
+
+/**
+ * Which of those directories has to carry a committed copy.
+ *
+ * `packages/wasm` is generated: `scripts/build-wasm.mjs` emits the dist, writes
+ * the README, and copies this repository's `LICENSE` in beside them, so the
+ * notice is in the tarball without ever being in the tree. `.gitignore` already
+ * says which of those paths are written rather than kept, so asking git keeps
+ * that in one place instead of starting a second list here.
+ *
+ * `isIgnored` is injected for the same reason `read` is below: so the rule can
+ * be exercised without a repository that happens to ignore the right paths.
+ */
+export function needsCommittedLicence(directories, isIgnored = ignored) {
+  const generated = isIgnored(directories.map((directory) => `${directory}/${LICENCE_FILE}`));
+
+  return directories.filter((directory) => !generated.has(`${directory}/${LICENCE_FILE}`));
+}
+
+/** The subset of `paths` git has been told to ignore. */
+function ignored(paths) {
+  if (paths.length === 0) return new Set();
+
+  try {
+    const matched = execFileSync("git", ["check-ignore", "-z", "--stdin"], {
+      input: paths.join("\0"),
+      encoding: "utf8",
+    });
+
+    return new Set(matched.split("\0").filter(Boolean));
+  } catch (error) {
+    // git exits 1 when it ignores none of them, which is not an error here.
+    if (error.status === 1) return new Set();
+    throw error;
+  }
 }
 
 /**

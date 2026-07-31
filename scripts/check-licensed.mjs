@@ -14,10 +14,17 @@
 
 import { readFileSync } from "node:fs";
 
-import { LICENCE_FILE, publishedCrates, publishedPackages, unlicensed } from "./licensed.mjs";
+import {
+  LICENCE_FILE,
+  needsCommittedLicence,
+  publishedCrates,
+  publishedPackages,
+  unlicensed,
+} from "./licensed.mjs";
 
 const licence = readFileSync(LICENCE_FILE, "utf8");
-const directories = [...publishedCrates(), ...publishedPackages()];
+const publishable = [...publishedCrates(), ...publishedPackages()];
+const directories = needsCommittedLicence(publishable);
 const findings = unlicensed(directories, licence);
 
 for (const { directory, problem } of findings) {
@@ -39,6 +46,9 @@ if (findings.length > 0) {
   process.exit(1);
 }
 
+const generated = publishable.length - directories.length;
+
 process.stdout.write(
-  `licensed: ${directories.length} publishable directories checked, every one carries the notice\n`,
+  `licensed: ${directories.length} publishable directories checked, every one carries the notice` +
+    (generated > 0 ? `, ${generated} more written by its build\n` : `\n`),
 );

@@ -9,7 +9,12 @@
 
 import { describe, expect, it } from "vite-plus/test";
 
-import { publishedCrates, publishedPackages, unlicensed } from "../licensed.mjs";
+import {
+  needsCommittedLicence,
+  publishedCrates,
+  publishedPackages,
+  unlicensed,
+} from "../licensed.mjs";
 
 const NOTICE = "MIT License\n\nCopyright (c) 2026 ubugeeei\n";
 
@@ -45,6 +50,31 @@ describe("what has to carry the notice", () => {
   it("leaves out a package marked private", () => {
     // A marketplace extension is not an npm package.
     expect(publishedPackages()).not.toContain("packages/vscode");
+  });
+});
+
+describe("which of them keeps a committed copy", () => {
+  it("asks for a copy in a directory whose contents are kept", () => {
+    expect(needsCommittedLicence(["packages/one"], () => new Set())).toEqual(["packages/one"]);
+  });
+
+  it("leaves out a directory whose copy its build writes", () => {
+    // `packages/wasm` is generated (dist, README, and licence alike), so the
+    // notice reaches the tarball without ever being in the tree, and
+    // `.gitignore` is where that is already said.
+    const ignoredCopy = new Set(["packages/wasm/LICENSE"]);
+
+    expect(needsCommittedLicence(["packages/one", "packages/wasm"], () => ignoredCopy)).toEqual([
+      "packages/one",
+    ]);
+  });
+
+  it("reads .gitignore as it stands, so packages/wasm needs no committed copy", () => {
+    const directories = needsCommittedLicence(publishedPackages());
+
+    expect(publishedPackages()).toContain("packages/wasm");
+    expect(directories).not.toContain("packages/wasm");
+    expect(directories).toContain("packages/vite-plugin");
   });
 });
 
