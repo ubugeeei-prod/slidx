@@ -53,10 +53,44 @@ import { changeBetween, editableIn, planBlock, rangeOf, type TextPlan } from "./
  * every selection twice.
  */
 const REPORTING_ATTRIBUTE = "data-slidx-reporting";
+const SELECTED_ATTRIBUTE = "data-slidx-editor-selected";
+
+/**
+ * Editing affordances inside the real deck page.
+ *
+ * An outline does not change layout, so selecting or typing into a line never
+ * nudges the slide. One quiet hairline replaces the browser's thick default
+ * focus ring, with enough offset that the words keep breathing room.
+ */
+export const EDITING_STYLESHEET = `
+[contenteditable] {
+  outline: 1px solid transparent;
+  outline-offset: 6px;
+}
+
+[contenteditable]:hover {
+  outline-color: color-mix(in srgb, currentColor 18%, transparent);
+}
+
+[contenteditable]:focus {
+  outline-color: color-mix(in srgb, var(--slidx-color-accent) 52%, transparent);
+}
+
+.slidx-block[${SELECTED_ATTRIBUTE}] {
+  outline: 1px solid color-mix(in srgb, var(--slidx-color-accent) 46%, transparent);
+  outline-offset: 6px;
+}
+
+.slidx-block[${SELECTED_ATTRIBUTE}]:has([contenteditable]:focus) {
+  outline-color: transparent;
+}
+`;
 
 export interface CanvasHandlers {
   run(op: EditOp): void;
   selected(text: string, at: number): void;
+  /** Selects a whole rendered block without making the browser write Markdown. */
+  selectedBlock?(block: number | undefined): void;
 }
 
 /** The slide as the file has it, which is what a text edit names bytes of. */
@@ -108,6 +142,7 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
   let refresh = 0;
   let keyListener: ((event: KeyboardEvent) => void) | undefined;
   let listening: Document | undefined;
+  let selectedBlock: number | undefined;
   /** Where the author was before the change that is about to land. */
   let held: Caret | undefined;
 
@@ -152,6 +187,7 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
       body: () => options.bodyOf(slide),
       blocks: () => options.blocksOf?.(slide) ?? [],
     });
+    markSelected(page, selectedBlock);
 
     const wanted = held;
     held = undefined;
@@ -192,6 +228,9 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
     render(state) {
       const moved = state.selection.slide !== slide;
       slide = state.selection.slide;
+      selectedBlock = state.selection.block;
+      const page = frame.contentDocument;
+      if (page) markSelected(page, selectedBlock);
 
       const body = options.bodyOf(slide);
       // Only when it differs, so a re-render does not take the cursor away
@@ -258,6 +297,7 @@ export function attachEditing(
 ): Element[] {
   const body = document.querySelector(".slidx-slide-body");
   if (!body) return [];
+  applyEditingStyles(document);
 
   const text = source.body();
   const blocks = source.blocks();
@@ -290,11 +330,43 @@ export function attachEditing(
   // the slide inside it is what gets replaced.
   if (!document.body.hasAttribute(REPORTING_ATTRIBUTE)) {
     document.body.setAttribute(REPORTING_ATTRIBUTE, "");
+    document.addEventListener("pointerdown", (event) => {
+      // The page is an iframe, so its Element constructor is not the editor
+      // window's Element constructor. `instanceof Element` works in a synthetic
+      // document and fails in the real canvas. `closest` is the capability this
+      // gesture needs and crosses that realm boundary without guessing.
+      const target = event.target as { closest?(selector: string): Element | null } | null;
+      const wrapper = target?.closest?.(`[${BLOCK_ATTRIBUTE}]`);
+      const index = Number(wrapper?.getAttribute(BLOCK_ATTRIBUTE));
+      handlers.selectedBlock?.(Number.isInteger(index) ? index : undefined);
+    });
     document.addEventListener("mouseup", report);
     document.addEventListener("keyup", report);
   }
 
   return opened;
+}
+
+/** Marks one block in the editor-only copy of the deck page. */
+function markSelected(document: Document, selected: number | undefined): void {
+  for (const block of document.querySelectorAll(`[${SELECTED_ATTRIBUTE}]`)) {
+    block.removeAttribute(SELECTED_ATTRIBUTE);
+  }
+
+  if (selected === undefined) return;
+  document
+    .querySelector(`[${BLOCK_ATTRIBUTE}="${selected}"]`)
+    ?.setAttribute(SELECTED_ATTRIBUTE, "");
+}
+
+/** Puts the editor-only hairlines into one canvas document, once. */
+function applyEditingStyles(document: Document): void {
+  if (document.querySelector("style[data-slidx-editing]")) return;
+
+  const style = document.createElement("style");
+  style.setAttribute("data-slidx-editing", "");
+  style.textContent = EDITING_STYLESHEET;
+  document.head.append(style);
 }
 
 /**

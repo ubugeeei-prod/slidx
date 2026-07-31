@@ -14,7 +14,7 @@
 
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { attachEditing } from "../src/canvas";
+import { attachEditing, EDITING_STYLESHEET } from "../src/canvas";
 import type { BlockSpans } from "../src/client";
 import type { EditOp } from "../src/operations";
 import { changeBetween, editableIn, planBlock, rangeOf } from "../src/text";
@@ -89,6 +89,66 @@ const HEADING_AND_PROSE: Fixture = {
 afterEach(() => document.body.replaceChildren());
 
 describe("typing on the canvas", () => {
+  it("selects a whole block from the real rendered page", () => {
+    const selected: number[] = [];
+    const page = window.document.implementation.createHTMLDocument();
+    page.body.innerHTML = `<div class="slidx-slide-body">${HEADING_AND_PROSE.html}</div>`;
+    attachEditing(
+      page,
+      1,
+      {
+        run: () => {},
+        selected: () => {},
+        selectedBlock: (block) => {
+          if (block !== undefined) selected.push(block);
+        },
+      },
+      { body: () => HEADING_AND_PROSE.body, blocks: () => HEADING_AND_PROSE.blocks },
+    );
+
+    page
+      .querySelector("p")!
+      .dispatchEvent(new window.PointerEvent("pointerdown", { bubbles: true }));
+
+    expect(selected).toEqual([1]);
+  });
+
+  it("selects across the iframe's separate element realm", () => {
+    const selected: number[] = [];
+    const frame = document.createElement("iframe");
+    document.body.append(frame);
+    const page = frame.contentDocument!;
+    page.body.innerHTML = `<div class="slidx-slide-body">${HEADING_AND_PROSE.html}</div>`;
+    attachEditing(
+      page,
+      1,
+      {
+        run: () => {},
+        selected: () => {},
+        selectedBlock: (block) => {
+          if (block !== undefined) selected.push(block);
+        },
+      },
+      { body: () => HEADING_AND_PROSE.body, blocks: () => HEADING_AND_PROSE.blocks },
+    );
+
+    page
+      .querySelector("p")!
+      .dispatchEvent(new window.PointerEvent("pointerdown", { bubbles: true }));
+
+    expect(selected).toEqual([1]);
+  });
+
+  it("uses one offset hairline for editing instead of a layout-changing border", () => {
+    const { document } = page(HEADING_AND_PROSE);
+    const injected = document.querySelector<HTMLStyleElement>("style[data-slidx-editing]");
+
+    expect(injected?.textContent).toBe(EDITING_STYLESHEET);
+    expect(EDITING_STYLESHEET).toContain("outline: 1px solid transparent");
+    expect(EDITING_STYLESHEET).toContain("outline-offset: 6px");
+    expect(EDITING_STYLESHEET).not.toContain("border:");
+  });
+
   it("retitles a heading and leaves the marker the author spaced out", () => {
     const { document, ops } = page(HEADING_AND_PROSE);
     const heading = document.querySelector("h2")!;

@@ -109,6 +109,7 @@ describe("one rhythm rather than ad-hoc pixels", () => {
       "12px",
       "13px",
       "16px",
+      "24px",
       "28px",
       "34px",
       "80px",
