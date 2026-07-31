@@ -138,6 +138,16 @@ describe("one rhythm rather than ad-hoc pixels", () => {
 });
 
 describe("states are designed rather than left to the browser", () => {
+  it("shows only the active inspector task and marks its tab", () => {
+    expect(rule(".slidx-inspector-panel[hidden]")).toContain("display: none");
+    expect(rule(".slidx-inspector-panels > .slidx-group.slidx-inspector-panel")).toContain(
+      "border-top: 0",
+    );
+    expect(rule('.slidx-inspector-tab[aria-selected="true"]')).toContain(
+      "border-bottom-color: var(--slidx-e-accent)",
+    );
+  });
+
   it("keeps the diagnostics panel present when there is nothing wrong", () => {
     // It used to be `display: none`, which moves every other panel by its height
     // the moment an author fixes the last diagnostic. The layout jumping is how
