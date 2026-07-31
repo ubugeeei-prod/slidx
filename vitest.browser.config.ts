@@ -4,7 +4,6 @@ import { defineConfig } from "vite-plus";
 export default defineConfig({
   test: {
     include: ["packages/editor/test/**/*.browser.test.ts"],
-    passWithNoTests: true,
     browser: {
       enabled: true,
       headless: true,
