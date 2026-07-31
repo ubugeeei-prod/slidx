@@ -13,6 +13,7 @@
  */
 
 import { sliceBytes } from "./bytes";
+import type { Viewer } from "./collab";
 import type {
   BlockSpans,
   DeckState,
@@ -59,6 +60,16 @@ export interface EditorState {
   durationSeconds?: number | undefined;
   diagnostics: Finding[];
   selection: Selection;
+  /**
+   * Everyone connected to this dev server, the author included.
+   *
+   * State rather than a message passed between two surfaces, because it is
+   * drawn in two places — as a list of names, and as marks over the blocks
+   * those people have selected — and a second route into a second surface is a
+   * second thing that can be out of date. Empty until a stream says otherwise,
+   * which is also what an author working alone sees.
+   */
+  viewers: Viewer[];
   canUndo: boolean;
   canRedo: boolean;
   /** What the last operation was refused for, cleared by the next one. */
@@ -87,6 +98,8 @@ export interface Session {
   select(selection: Partial<Selection>): void;
   /** What the linter says about a change that has not been made yet. */
   foresee(findings: Finding[]): void;
+  /** Who is connected, as the dev server last said. */
+  saw(viewers: Viewer[]): void;
   /** The Markdown of one slide's body, as the author wrote it. */
   bodyOf(slide: number): string;
   /**
@@ -106,6 +119,7 @@ const EMPTY: EditorState = {
   layouts: [],
   diagnostics: [],
   selection: { slide: 0 },
+  viewers: [],
   canUndo: false,
   canRedo: false,
 };
@@ -221,6 +235,10 @@ export function createSession(client: EditorClient, history: History = createHis
       if (findings.length === 0 && (state.foreseen ?? []).length === 0) return;
 
       set({ foreseen: findings });
+    },
+
+    saw(viewers) {
+      set({ viewers });
     },
 
     bodyOf(slide) {

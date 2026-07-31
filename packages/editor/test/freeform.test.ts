@@ -45,6 +45,7 @@ function state(selected: number | null = 0, slide = 2): EditorState {
     layouts: [],
     diagnostics: [],
     selection: { slide, block: selected ?? undefined },
+    viewers: [],
     canUndo: false,
     canRedo: false,
   };

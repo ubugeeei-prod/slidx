@@ -22,6 +22,7 @@
  */
 
 import { createArrange } from "./arrange";
+import { createBeacons } from "./beacons";
 import { createCanvas, routeFor } from "./canvas";
 import { createClient, type EditorClient } from "./client";
 import { createPresence } from "./collab";
@@ -64,6 +65,9 @@ export type { Change, TextPlan, TextRun } from "./text";
 export { changeBetween, editableIn, planBlock, rangeOf, runsIn } from "./text";
 export type { SlideGeometry, RegionBox, BlockBox, Rect } from "./geometry";
 export { readGeometry, BLOCK_ATTRIBUTE, REGION_ATTRIBUTE, WIDTH_ATTRIBUTE } from "./geometry";
+export { createBeacons, inkFor, marksFor, BEACON_INKS } from "./beacons";
+export type { Frame, Viewer } from "./collab";
+export { readFrames } from "./collab";
 export type { Insertion } from "./placement";
 export { landing, nudge, guides, arrival, insertion } from "./placement";
 export type { BlockWidth, Step } from "./widths";
@@ -168,7 +172,11 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
       run: (op) => session.run(op),
     }),
     storyboard,
-    createPresence({ reload: () => void session.open() }),
+    createBeacons(),
+    createPresence({
+      reload: () => void session.open(),
+      saw: (viewers) => session.saw(viewers),
+    }),
     shortcuts,
   ];
   const frame = element(
