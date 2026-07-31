@@ -200,6 +200,19 @@ async function onScreen(frame) {
   // one receives no animation frame to wait for.
   if (frame.url() === "about:blank") return false;
 
+  // Being drawn is inherited: a document inside an iframe its own parent is not
+  // drawing gets no animation frame either, however well placed it is in that
+  // parent. The deck's page lives two frames deep, so the whole chain up to the
+  // top-level document has to hold, not just the last link in it.
+  for (let node = frame; node.parentFrame() !== null; node = node.parentFrame()) {
+    if (!(await drawn(node))) return false;
+  }
+
+  return true;
+}
+
+/** Whether a frame's own iframe element is drawn in the document holding it. */
+async function drawn(frame) {
   const element = await frame.frameElement().catch(() => null);
 
   if (element === null || !(await element.isVisible())) return false;
