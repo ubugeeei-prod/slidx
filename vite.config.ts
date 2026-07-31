@@ -135,7 +135,7 @@ export default defineConfig({
         "check:deck-lint",
       ]),
       "ci:ts": group(["fmt:ts-check", "check:ts", "check:types", "test:ts"]),
-      "ci:build": group(["build:rust", "build:packages", "check:packages-built"]),
+      "ci:build": group(["build:rust", "build:packages", "check:packages-built", "check:budget"]),
 
       "workspace:check": group([
         "check:conventions",
@@ -450,6 +450,18 @@ export default defineConfig({
       }),
       "record:tour": uncached("node scripts/record-editor-tour.mjs", {
         dependsOn: ["build:plugin", "build:editor"],
+      }),
+
+      // What a built deck weighs, and what a slide with no steps loads. Both
+      // are claims slidx makes in prose, so both fail a build here rather than
+      // staying true until an afternoon nobody was watching.
+      //
+      // Bytes rather than milliseconds, and `scripts/budget.mjs` says why: a
+      // time budget on a shared runner fails for reasons nobody caused, and a
+      // gate like that gets switched off. `bench:build` measures time and
+      // reports it, which is the right shape for a number that moves on its own.
+      "check:budget": uncached("node scripts/check-budget.mjs", {
+        dependsOn: ["build:packages"],
       }),
 
       // Benchmarks measure wall-clock time, so a cached result is a wrong one.
