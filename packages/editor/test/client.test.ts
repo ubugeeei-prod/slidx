@@ -10,7 +10,11 @@ function recording() {
   const fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     calls.push({ url, init });
-    const body = url.endsWith("measured") ? [] : deck;
+    const body = url.endsWith("measured")
+      ? []
+      : url.endsWith("media")
+        ? { kind: "image", src: "/slides/assets/chart.png", alt: "chart" }
+        : deck;
     return new Response(JSON.stringify(body), {
       status: 200,
       headers: { "content-type": "application/json" },
@@ -33,12 +37,14 @@ describe("the editor client on a shared deck", () => {
     await client.deck();
     await client.apply({ op: "setHeading", slide: 0, text: "Retitled" });
     await client.revert([]);
+    await client.upload(new File(["image"], "日本 chart.png", { type: "image/png" }));
     await client.measured([]);
 
     expect(sent.calls.map((call) => call.url)).toEqual([
       "/editing/deck",
       "/editing/edit",
       "/editing/edit",
+      "/editing/media",
       "/editing/measured",
     ]);
     for (const call of sent.calls) {
@@ -46,6 +52,11 @@ describe("the editor client on a shared deck", () => {
       const headers = call.init?.headers as Record<string, string> | undefined;
       expect(headers?.[CREDENTIAL_HEADER]).toBe(secret);
     }
+    expect(sent.calls[3]!.init?.headers).toMatchObject({
+      "content-type": "image/png",
+      "x-slidx-name": encodeURIComponent("日本 chart.png"),
+    });
+    expect(sent.calls[3]!.init?.body).toBeInstanceOf(File);
   });
 
   it("sends no credential header for the author's ordinary local editor", async () => {

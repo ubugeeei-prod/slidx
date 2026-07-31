@@ -21,6 +21,7 @@ import type { Edit, EditOp } from "../src/operations";
 export interface Recorded {
   ops: EditOp[];
   reverted: Edit[];
+  uploaded: File[];
   /** What the editor asked the linter about a landing that had not happened. */
   asked: Measurement[][];
 }
@@ -94,6 +95,7 @@ export function fakeServer(initial: DeckState = deckOf("One", "Two", "Three")): 
   const server: FakeServer = {
     ops: [],
     reverted: [],
+    uploaded: [],
     asked: [],
     answer: {},
     findings: [],
@@ -113,6 +115,15 @@ export function fakeServer(initial: DeckState = deckOf("One", "Two", "Three")): 
     revert: async (edit) => {
       server.reverted.push(edit);
       return { ...initial, undo: [{ splice: -server.reverted.length }], ...server.answer };
+    },
+
+    upload: async (file) => {
+      server.uploaded.push(file);
+      return {
+        kind: file.type.startsWith("video/") ? "video" : "image",
+        src: file.name,
+        alt: "media",
+      };
     },
   };
 

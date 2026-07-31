@@ -30,6 +30,17 @@ export interface Landing {
   rect: Rect;
 }
 
+/** Where a new block belongs before it has an index of its own. */
+export interface Insertion {
+  region: string;
+  /** Position among this region's existing blocks. */
+  at: number;
+  /** Position in the slide's source-order block list. */
+  to: number;
+  /** The insertion line the drop surface draws. */
+  rect: Rect;
+}
+
 /** A line worth drawing because the block being dragged lines up with it. */
 export interface Guide {
   /** What the line belongs to, which is what decides how it is drawn. */
@@ -87,6 +98,31 @@ export function landing(
     at,
     to: sourcePosition(geometry, region, index, at),
     rect: slot(geometry, region, others, at),
+  };
+}
+
+/** Where a newly dropped file becomes a block. */
+export function insertion(geometry: SlideGeometry, x: number, y: number): Insertion | undefined {
+  const region = geometry.regions.find((candidate) => contains(candidate.rect, x, y));
+  if (!region) return undefined;
+
+  const at = region.blocks.filter((index) => {
+    const block = geometry.blocks.find((candidate) => candidate.index === index);
+    return block !== undefined && middle(block.rect) < y;
+  }).length;
+  const before = region.blocks[at];
+  const previous = region.blocks[at - 1];
+  const to =
+    before ??
+    (previous === undefined
+      ? (firstBlockAfter(geometry, region) ?? geometry.blocks.length)
+      : previous + 1);
+
+  return {
+    region: region.name,
+    at,
+    to,
+    rect: slot(geometry, region, region.blocks, at),
   };
 }
 
@@ -243,6 +279,14 @@ function sourcePosition(
   }
 
   return others.length;
+}
+
+function firstBlockAfter(geometry: SlideGeometry, region: RegionBox): number | undefined {
+  for (const next of geometry.regions.slice(geometry.regions.indexOf(region) + 1)) {
+    if (next.blocks[0] !== undefined) return next.blocks[0];
+  }
+
+  return undefined;
 }
 
 /** The box a block would occupy once it lands, for the ghost to snap into. */
