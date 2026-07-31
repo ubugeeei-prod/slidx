@@ -173,6 +173,21 @@ img { max-width: 100%; height: auto; }
 .slidx-muted { color: var(--slidx-color-muted); }
 .slidx-code { font-family: var(--slidx-font-mono); }
 
+[data-slidx-color="danger"] { color: #b42318; }
+[data-slidx-color="success"] { color: #067647; }
+[data-slidx-color="text"] { color: var(--slidx-color-text); }
+[data-slidx-color="heading"] { color: var(--slidx-color-heading); }
+[data-slidx-color="muted"] { color: var(--slidx-color-muted); }
+[data-slidx-color="accent"] { color: var(--slidx-color-accent); }
+[data-slidx-font="sans"] { font-family: var(--slidx-font-sans); }
+[data-slidx-font="mono"] { font-family: var(--slidx-font-mono); }
+[data-slidx-size="caption"] { font-size: var(--slidx-size-caption); }
+[data-slidx-size="body"] { font-size: var(--slidx-size-body); }
+[data-slidx-size="code"] { font-size: var(--slidx-size-code); }
+[data-slidx-size="heading-3"] { font-size: var(--slidx-size-heading-3); }
+[data-slidx-size="heading-2"] { font-size: var(--slidx-size-heading-2); }
+[data-slidx-size="heading-1"] { font-size: var(--slidx-size-heading-1); }
+
 [data-slidx-step] { display: none; }
 
 /*
@@ -218,6 +233,13 @@ mod tests {
         // Otherwise the page for stop 2 shows stop 5's content, and the
         // handout is wrong in the one way nobody proofreads for.
         assert!(STYLESHEET.contains("[data-slidx-hidden] { visibility: hidden; }"));
+    }
+
+    #[test]
+    fn visual_text_properties_are_preserved_on_paper() {
+        for attribute in ["color=\"accent\"", "font=\"mono\"", "size=\"heading-1\""] {
+            assert!(STYLESHEET.contains(&format!("[data-slidx-{attribute}]")));
+        }
     }
 
     #[test]

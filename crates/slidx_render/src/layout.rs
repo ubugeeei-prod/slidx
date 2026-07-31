@@ -271,6 +271,18 @@ hr {
 
 [data-slidx-color="danger"] { color: #b42318; }
 [data-slidx-color="success"] { color: #067647; }
+[data-slidx-color="text"] { color: var(--slidx-color-text); }
+[data-slidx-color="heading"] { color: var(--slidx-color-heading); }
+[data-slidx-color="muted"] { color: var(--slidx-color-muted); }
+[data-slidx-color="accent"] { color: var(--slidx-color-accent); }
+[data-slidx-font="sans"] { font-family: var(--slidx-font-sans); }
+[data-slidx-font="mono"] { font-family: var(--slidx-font-mono); }
+[data-slidx-size="caption"] { font-size: var(--slidx-size-caption); }
+[data-slidx-size="body"] { font-size: var(--slidx-size-body); }
+[data-slidx-size="code"] { font-size: var(--slidx-size-code); }
+[data-slidx-size="heading-3"] { font-size: var(--slidx-size-heading-3); }
+[data-slidx-size="heading-2"] { font-size: var(--slidx-size-heading-2); }
+[data-slidx-size="heading-1"] { font-size: var(--slidx-size-heading-1); }
 [data-slidx-weight="bold"] { font-weight: 700; }
 
 /*
@@ -425,6 +437,23 @@ mod tests {
         // slide is a container, so every size inside is a share of it.
         assert!(STYLESHEET.contains("container-type: size"));
         assert!(STYLESHEET.contains("aspect-ratio: var(--slidx-slide-width)"));
+    }
+
+    #[test]
+    fn visual_text_properties_resolve_through_theme_tokens() {
+        for (property, values) in [
+            ("color", &["text", "heading", "muted", "accent"][..]),
+            ("font", &["sans", "mono"][..]),
+            ("size", &["caption", "body", "code", "heading-3", "heading-2", "heading-1"][..]),
+        ] {
+            for value in values {
+                let at = STYLESHEET
+                    .find(&format!("[data-slidx-{property}=\"{value}\"]"))
+                    .unwrap_or_else(|| panic!("no {property} choice for {value}"));
+                let rule = &STYLESHEET[at..STYLESHEET[at..].find('}').unwrap() + at];
+                assert!(rule.contains("var(--slidx-"), "{property}={value} bypasses the theme");
+            }
+        }
     }
 
     #[test]
