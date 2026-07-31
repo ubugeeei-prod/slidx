@@ -158,10 +158,10 @@ describe("freeform canvas controls", () => {
     const frame = opened.root.querySelector<HTMLElement>(".slidx-freeform-frame")!;
     const handle = opened.root.querySelector<HTMLElement>('[data-handle="nw"]')!;
 
-    expect(frame.style.left).toBe("194px");
-    expect(frame.style.top).toBe("144px");
-    expect(handle.style.width).toBe("24px");
-    expect(handle.style.height).toBe("24px");
+    expect(frame.style.left).toBe("192px");
+    expect(frame.style.top).toBe("142px");
+    expect(handle.style.width).toBe("28px");
+    expect(handle.style.height).toBe("28px");
     expect(opened.root.getAttribute("data-manipulating")).toBe("false");
     expect(FREEFORM_STYLESHEET).toContain("width: 7px");
     expect(FREEFORM_STYLESHEET).toContain("outline: 1px solid");
