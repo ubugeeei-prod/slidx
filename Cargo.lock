@@ -615,6 +615,7 @@ dependencies = [
 name = "slidx_render"
 version = "0.4.0"
 dependencies = [
+ "insta",
  "markdown",
  "ox_content_allocator",
  "ox_content_parser",

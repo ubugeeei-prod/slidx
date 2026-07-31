@@ -1,0 +1,10 @@
+---
+source: crates/slidx_render/tests/themes.rs
+expression: "regions(&slide_for(\"minimal\", &layout.id))"
+---
+- "<div class=\"slidx-region\" data-slidx-region=\"title\""
+- "<div class=\"slidx-region\" data-slidx-region=\"body\""
+- "<div class=\"slidx-block\" data-slidx-block=\"0\""
+- "<div class=\"slidx-block\" data-slidx-block=\"1\""
+- "<div class=\"slidx-block\" data-slidx-block=\"2\""
+- "<div class=\"slidx-block\" data-slidx-block=\"3\""

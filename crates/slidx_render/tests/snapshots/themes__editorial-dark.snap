@@ -1,0 +1,24 @@
+---
+source: crates/slidx_render/tests/themes.rs
+expression: declarations(dark)
+---
+- "--slidx-color-accent: #ffba8b"
+- "--slidx-color-border: #4c433d"
+- "--slidx-color-canvas: #120a06"
+- "--slidx-color-code-comment: #e9c9b5"
+- "--slidx-color-code-keyword: #b2d1ff"
+- "--slidx-color-code-number: #ffc48b"
+- "--slidx-color-code-punctuation: #dacec6"
+- "--slidx-color-code-string: #96e0a5"
+- "--slidx-color-code-surface: #302721"
+- "--slidx-color-code-text: #f8ece4"
+- "--slidx-color-code-type: #febaf7"
+- "--slidx-color-heading: #ffffff"
+- "--slidx-color-muted: #a79b94"
+- "--slidx-color-surface: #231b15"
+- "--slidx-color-text: #f8ece4"
+- "grid-template-areas: \"body\""
+- "grid-template-areas: \"left right\""
+- "grid-template-areas: \"main side\""
+- "grid-template-areas: \"title\" \"body\""
+- "grid-template-areas: \"top-left top-right\" \"bottom-left bottom-right\""
