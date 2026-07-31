@@ -43,9 +43,9 @@ export const REGION_ATTRIBUTE = "data-slidx-region";
 /**
  * The share of its region a block takes, from `slidx_theme::layout::width`.
  *
- * Absent on a block that takes the whole region, because the default is written
- * by saying nothing — in the file and therefore on the page. A handle reads it to
- * know where it starts.
+ * Absent on a block that fits its content, because the default is written by
+ * saying nothing — in the file and therefore on the page. `full` and the named
+ * fractional widths stay explicit.
  */
 export const WIDTH_ATTRIBUTE = "data-slidx-width";
 
@@ -71,7 +71,7 @@ export interface BlockBox {
    */
   needsWidth: number;
   /**
-   * The share of its region the block says it takes, or `"full"`.
+   * The width the block says it takes, or `"fit"` when it says nothing.
    *
    * The word the file uses, not a number: a handle that read a measured width
    * would round its way to a different share every time the canvas re-laid out.
@@ -145,7 +145,7 @@ export function readGeometry(frame: HTMLIFrameElement): SlideGeometry | undefine
         region: name,
         rect: at(box),
         needsWidth: needsWidth(box),
-        width: box.getAttribute(WIDTH_ATTRIBUTE) ?? "full",
+        width: box.getAttribute(WIDTH_ATTRIBUTE) ?? "fit",
       });
     }
 

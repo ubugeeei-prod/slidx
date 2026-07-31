@@ -111,6 +111,9 @@ html, body {
  */
 .slidx-block {
   min-width: 0;
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
   display: flex;
   flex-direction: column;
   gap: calc(var(--slidx-space-block) * 0.5);
@@ -132,6 +135,7 @@ html, body {
   width: var(--slidx-element-width, max-content);
   height: var(--slidx-element-height, auto);
   max-width: 100%;
+  margin-inline: 0;
 }
 
 .slidx-block[data-slidx-freeform-frame] {
@@ -454,6 +458,17 @@ mod tests {
                 assert!(rule.contains("var(--slidx-"), "{property}={value} bypasses the theme");
             }
         }
+    }
+
+    #[test]
+    fn ordinary_blocks_fit_their_content_without_exceeding_the_region() {
+        let rules = declarations();
+        let at = rules.find(".slidx-block {").expect("the ordinary block rule");
+        let rule = &rules[at..at + rules[at..].find('}').expect("a closing brace")];
+
+        assert!(rule.contains("width: fit-content"), "{rule}");
+        assert!(rule.contains("max-width: 100%"), "{rule}");
+        assert!(rule.contains("margin-inline: auto"), "{rule}");
     }
 
     #[test]

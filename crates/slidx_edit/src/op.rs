@@ -159,10 +159,10 @@ pub enum EditOp {
     /// an operation carrying the group would delete whatever a co-author had just
     /// added to it.
     ///
-    /// [`BlockWidth::Full`] is written by *removing* the property, the same rule
+    /// [`BlockWidth::Fit`] is written by *removing* the property, the same rule
     /// [`Self::MoveBlock`] holds for the default region: a block that says
-    /// nothing already fills its region. That is what makes dragging a block
-    /// narrower and back again byte-identical.
+    /// nothing takes only the width its content needs. [`BlockWidth::Full`]
+    /// remains explicit because filling the region is now a deliberate choice.
     SetBlockWidth {
         slide: SlideRef,
         block: BlockRef,

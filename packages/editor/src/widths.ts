@@ -17,8 +17,9 @@
  * in yet.
  *
  * So the handle does not write what the pointer is at. It snaps to the nearest
- * share while the pointer is still moving, and what you see under the cursor is
- * what the file will say.
+ * fixed share while the pointer is still moving. The content-sized default is
+ * the one exception: its measured share is admitted as a temporary snap target
+ * so touching its handle does not silently turn it into a fixed width.
  */
 
 import type { Measurement } from "./placement";
@@ -27,7 +28,7 @@ import type { BlockBox, RegionBox } from "./geometry";
 /**
  * The shares the theme names, widest first.
  *
- * Mirrors `BlockWidth::ALL`. Drift is safe in both directions and that is why
+ * Mirrors `BlockWidth::SHARES`. Drift is safe in both directions and that is why
  * the list is allowed to be here: a share only Rust knows is a snap target
  * nobody can reach, and one only this side knows is written into the file and
  * reported by `layout/no-such-width` on the next build. Neither corrupts
@@ -43,16 +44,21 @@ export const WIDTHS = [
   { name: "quarter", share: 0.25 },
 ] as const;
 
-/** One share of a region, as the file names it. */
-export type BlockWidth = (typeof WIDTHS)[number]["name"];
+/** One fixed share of a region, as the file names it. */
+export type ShareWidth = (typeof WIDTHS)[number]["name"];
+
+/** A content-sized block or one fixed share of its region. */
+export type BlockWidth = "fit" | ShareWidth;
 
 /** The share a block currently takes, read off the page. */
 export function widthOf(box: BlockBox): BlockWidth {
-  return WIDTHS.find((width) => width.name === box.width)?.name ?? "full";
+  if (box.width === "fit") return "fit";
+
+  return WIDTHS.find((width) => width.name === box.width)?.name ?? "fit";
 }
 
 /** How much of the region a share is. */
-export function shareOf(name: BlockWidth): number {
+export function shareOf(name: ShareWidth): number {
   return WIDTHS.find((width) => width.name === name)?.share ?? 1;
 }
 
@@ -64,14 +70,22 @@ export function shareOf(name: BlockWidth): number {
  * leading edge in by the same one, so the handle follows the hand rather than
  * running ahead of it.
  */
-export function shareAt(region: RegionBox, x: number): BlockWidth {
+export function shareAt(region: RegionBox, x: number, fitShare?: number): BlockWidth {
   if (region.rect.width <= 0) return "full";
 
   const wanted = ((x - (region.rect.left + region.rect.width / 2)) * 2) / region.rect.width;
-  let nearest: (typeof WIDTHS)[number] = WIDTHS[0]!;
+  let nearest: { name: BlockWidth; share: number } =
+    fitShare === undefined
+      ? WIDTHS[0]!
+      : { name: "fit", share: Math.max(0, Math.min(1, fitShare)) };
 
   for (const width of WIDTHS) {
-    if (Math.abs(width.share - wanted) < Math.abs(nearest.share - wanted)) nearest = width;
+    const distance = Math.abs(width.share - wanted);
+    const nearestDistance = Math.abs(nearest.share - wanted);
+    const tiedPastFit =
+      nearest.name === "fit" && distance === nearestDistance && wanted > nearest.share;
+
+    if (distance < nearestDistance || tiedPastFit) nearest = width;
   }
 
   return nearest.name;
@@ -87,7 +101,26 @@ export type Step = "wider" | "narrower";
  * have one: a deck that can only be laid out with a pointer is a deck half the
  * people who write one cannot lay out at all.
  */
-export function stepped(from: BlockWidth, step: Step): BlockWidth | undefined {
+export function stepped(
+  from: BlockWidth,
+  step: Step,
+  measuredShare?: number,
+): ShareWidth | undefined {
+  if (from === "fit") {
+    if (measuredShare === undefined) return undefined;
+
+    const actual = Math.max(0, Math.min(1, measuredShare));
+    if (step === "narrower") return WIDTHS.find((width) => width.share < actual)?.name;
+
+    for (let index = WIDTHS.length - 1; index >= 0; index -= 1) {
+      const width = WIDTHS[index]!;
+      if (width.share > actual) return width.name;
+    }
+
+    // A fit block capped by the region can still be made deliberately full.
+    return actual === 1 ? "full" : undefined;
+  }
+
   const at = WIDTHS.findIndex((width) => width.name === from);
   const to = step === "wider" ? at - 1 : at + 1;
 
@@ -96,6 +129,8 @@ export function stepped(from: BlockWidth, step: Step): BlockWidth | undefined {
 
 /** The box a block would occupy at a share, for the ghost to snap into. */
 export function boxAt(region: RegionBox, block: BlockBox, name: BlockWidth) {
+  if (name === "fit") return { ...block.rect };
+
   const width = region.rect.width * shareOf(name);
   const centre = region.rect.left + region.rect.width / 2;
 
@@ -123,6 +158,8 @@ export function narrowing(
   name: BlockWidth,
   slideIndex: number,
 ): Measurement[] {
+  if (name === "fit") return [];
+
   const box = region.rect.width * shareOf(name);
   if (box <= 0 || block.needsWidth <= box) return [];
 

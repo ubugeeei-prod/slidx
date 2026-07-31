@@ -35,6 +35,7 @@ use slidx_render::shell::{render_slide, ShellOptions};
 /// palette, and a block placed into a region so the layout has two things to
 /// arrange rather than one.
 const SLIDE: &str = "\
+{width=full}
 # The heading, at display size
 
 Prose of the length prose usually is, with `inline code` and a

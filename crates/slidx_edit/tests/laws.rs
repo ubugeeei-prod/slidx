@@ -178,8 +178,8 @@ fn operations(source: &str) -> Vec<EditOp> {
                 block: (slide.blocks.len() - 1).into(),
             });
 
-            // Every share, including the default — which is the one written by
-            // taking the property away rather than by writing it.
+            // Every width, including the content-sized default — which is the
+            // one written by taking the property away rather than by writing it.
             for width in BlockWidth::ALL {
                 ops.push(EditOp::SetBlockWidth {
                     slide: index.into(),

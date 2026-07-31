@@ -121,11 +121,9 @@ pub(crate) fn set_attributes(
 
 /// Writes how much of its region a block takes, and nothing else about it.
 ///
-/// The default share is written by taking the property away rather than by
-/// writing `width=full`, the same rule [`move_to`] holds for the default region:
-/// a block that says nothing already fills its region, so the property would be
-/// a line in the diff that changes nothing on the slide — and dragging a block
-/// narrower and back again would not come out where it started.
+/// The content-sized default is written by taking the property away rather than
+/// by writing `width=fit`, the same rule [`move_to`] holds for the default
+/// region. `width=full` is deliberate and therefore remains in the source.
 pub(crate) fn set_width(
     deck: &DeckSource<'_>,
     slide: &SlideRef,
@@ -139,7 +137,7 @@ pub(crate) fn set_width(
     let at = locate(&found, block)?;
 
     let mut attributes = found[at].block.attributes.clone();
-    if width == BlockWidth::Full {
+    if width == BlockWidth::Fit {
         attributes.properties.remove(WIDTH_PROPERTY);
     } else {
         attributes.properties.insert(WIDTH_PROPERTY.to_string(), width.as_token().to_string());
@@ -473,13 +471,18 @@ mod tests {
     }
 
     #[test]
-    fn taking_a_block_back_to_its_whole_region_removes_the_property_rather_than_writing_full() {
-        // `width=full` says what the block already does, so writing it would be a
-        // line in the diff that changes nothing on the slide — and a drag
-        // narrower and back would not come out where it started.
+    fn taking_a_block_back_to_content_width_removes_the_property_rather_than_writing_fit() {
         let source = "# One\n\n{width=half}\nSecond.\n";
 
-        assert_eq!(edited(source, &widened(1, BlockWidth::Full)), "# One\n\nSecond.\n");
+        assert_eq!(edited(source, &widened(1, BlockWidth::Fit)), "# One\n\nSecond.\n");
+    }
+
+    #[test]
+    fn taking_a_block_to_the_whole_region_writes_full_explicitly() {
+        assert_eq!(
+            edited("# One\n\nSecond.\n", &widened(1, BlockWidth::Full)),
+            "# One\n\n{width=full}\nSecond.\n"
+        );
     }
 
     #[test]
@@ -487,7 +490,7 @@ mod tests {
         let source = "# One\n\n{width=half}\nSecond.\n";
 
         assert!(planned(source, &widened(1, BlockWidth::Half)).unwrap().is_empty());
-        assert!(planned("# One\n\nSecond.\n", &widened(1, BlockWidth::Full)).unwrap().is_empty());
+        assert!(planned("# One\n\nSecond.\n", &widened(1, BlockWidth::Fit)).unwrap().is_empty());
     }
 
     #[test]

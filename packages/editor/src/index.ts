@@ -71,7 +71,7 @@ export type { Frame, Viewer } from "./collab";
 export { readFrames } from "./collab";
 export type { Insertion } from "./placement";
 export { landing, nudge, guides, arrival, insertion } from "./placement";
-export type { BlockWidth, Step } from "./widths";
+export type { BlockWidth, ShareWidth, Step } from "./widths";
 export { WIDTHS, boxAt, narrowing, shareAt, shareOf, stepped, widthOf } from "./widths";
 export type { EditorState, Selection, Session } from "./session";
 export { createClient } from "./client";

@@ -144,15 +144,15 @@ fn component_blocks(
     (components, consumed)
 }
 
-/// One block's box, carrying its index and the share of the region it takes.
+/// One block's box, carrying its index and the width it asks for.
 ///
-/// A share that is the whole region writes no attribute, the same way a block in
-/// the default region writes no class: the theme's rule for it would be a rule
-/// that changes nothing, and the editor reads an absent attribute as `full`.
+/// The content-sized default writes no attribute, the same way a block in the
+/// default region writes no class. Every fixed share, including `full`, stays
+/// explicit so the editor reads absence as `fit` without guessing.
 fn wrap(
     index: usize,
     block: &Block,
-    share: Option<BlockWidth>,
+    width: Option<BlockWidth>,
     style: &BTreeMap<String, String>,
     html: &str,
 ) -> String {
@@ -167,8 +167,8 @@ fn wrap(
         .map(|class| format!(" slidx-{class}"))
         .collect::<String>();
 
-    let width = match share.filter(|share| *share != BlockWidth::Full) {
-        Some(share) => format!(" {WIDTH_ATTRIBUTE}=\"{}\"", share.as_token()),
+    let width = match width.filter(|width| *width != BlockWidth::Fit) {
+        Some(width) => format!(" {WIDTH_ATTRIBUTE}=\"{}\"", width.as_token()),
         None => String::new(),
     };
     let visual = visual_attributes(block, style);
@@ -384,19 +384,31 @@ mod tests {
     }
 
     #[test]
-    fn a_block_that_takes_its_whole_region_says_nothing_about_width() {
-        // The default writes no attribute, the same way the default region writes
-        // no class — and the editor reads an absent one as the whole region.
+    fn a_block_that_takes_its_whole_region_says_so_explicitly() {
         let html = rendered("# One\n\n{width=full}\nSecond.\n");
+
+        assert!(html.contains("data-slidx-width=\"full\""), "{html}");
+    }
+
+    #[test]
+    fn a_block_with_no_width_attribute_uses_the_content_sized_default() {
+        let html = rendered("# One\n\nSecond.\n");
 
         assert!(!html.contains("data-slidx-width"), "{html}");
     }
 
     #[test]
-    fn a_width_that_is_not_a_share_leaves_the_block_filling_its_region() {
+    fn an_explicit_fit_token_is_canonicalised_to_the_missing_attribute() {
+        let html = rendered("# One\n\n{width=fit}\nSecond.\n");
+
+        assert!(!html.contains("data-slidx-width"), "{html}");
+    }
+
+    #[test]
+    fn a_width_that_is_not_a_share_leaves_the_block_at_the_safe_default() {
         // A pixel is refused by the vocabulary and reported by the linter. The
         // slide still renders, because a slide that lost a block over a typo is
-        // worse than one that shows it too wide.
+        // worse than one that safely ignores the typo.
         let html = rendered("# One\n\n{width=340px}\nSecond.\n");
 
         assert!(!html.contains("data-slidx-width"), "{html}");
