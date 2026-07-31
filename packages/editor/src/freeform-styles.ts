@@ -12,10 +12,14 @@ export const FREEFORM_STYLESHEET = `
 
 .slidx-freeform-frame,
 .slidx-freeform-guide,
-.slidx-freeform-label {
+.slidx-freeform-label,
+.slidx-freeform-color {
   position: fixed;
-  pointer-events: none;
 }
+
+.slidx-freeform-frame,
+.slidx-freeform-guide,
+.slidx-freeform-label { pointer-events: none; }
 
 .slidx-freeform-frame {
   outline: 1px solid color-mix(in srgb, var(--slidx-e-accent) 46%, transparent);
@@ -98,6 +102,58 @@ export const FREEFORM_STYLESHEET = `
 .slidx-freeform[data-manipulating="false"] .slidx-freeform-label {
   display: none;
 }
+
+.slidx-freeform-color {
+  display: flex;
+  align-items: center;
+  gap: var(--slidx-e-snug);
+  min-height: var(--slidx-e-hit);
+  padding: var(--slidx-e-tight) var(--slidx-e-snug);
+  border: var(--slidx-e-hairline) solid var(--slidx-e-line);
+  border-radius: var(--slidx-e-radius);
+  background: var(--slidx-e-canvas);
+  color: var(--slidx-e-text);
+  pointer-events: auto;
+}
+
+.slidx-freeform-color-name {
+  color: var(--slidx-e-muted);
+  font-size: 11px;
+}
+
+.slidx-freeform-color-input {
+  width: var(--slidx-e-hit);
+  height: var(--slidx-e-hit);
+  padding: 2px;
+  border: var(--slidx-e-hairline) solid var(--slidx-e-line);
+  border-radius: var(--slidx-e-radius);
+  background: transparent;
+  cursor: pointer;
+}
+
+.slidx-freeform-color-input::-webkit-color-swatch-wrapper { padding: 0; }
+.slidx-freeform-color-input::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--slidx-e-radius) - 1px);
+}
+.slidx-freeform-color-input::-moz-color-swatch {
+  border: 0;
+  border-radius: calc(var(--slidx-e-radius) - 1px);
+}
+
+.slidx-freeform-color-reset {
+  min-height: var(--slidx-e-hit);
+  padding: 0 var(--slidx-e-snug);
+  border: 0;
+  background: transparent;
+  color: var(--slidx-e-muted);
+  cursor: pointer;
+}
+
+.slidx-freeform-color-reset:hover,
+.slidx-freeform-color-reset:focus-visible { color: var(--slidx-e-text); }
+.slidx-freeform-color-reset:disabled { opacity: 0.42; cursor: default; }
+.slidx-freeform[data-manipulating="true"] .slidx-freeform-color { display: none; }
 
 .slidx-freeform-status {
   position: fixed;
