@@ -94,10 +94,12 @@ canvas.
 
 <video src="../media/editor-tour.webm" controls loop muted playsinline preload="metadata" width="960"></video>
 
-This is one uncut editor session: inline text and addressed styles; a layout
-written back to a Markdown `<style>` tag; transition, slide creation, duplicate
-and reorder shortcuts; undo and redo; and a second editor receiving and sending
-the same operations. `vp run record:tour` performs the whole session again.
+This is one uncut editor session: inline text and addressed styles; block colour,
+eight-handle resize, free movement and alignment guides; image and video drop; a
+layout written back to a Markdown `<style>` tag; transition, slide creation,
+duplicate and reorder shortcuts; undo and redo; and a second editor receiving
+and sending the same operations. `vp run record:tour` performs the whole session
+again.
 
 ## 3. Write a slide
 

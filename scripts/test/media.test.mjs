@@ -37,6 +37,13 @@ describe("the generated product tours", () => {
     expect(EDITOR_RECORDER).toContain('const TOUR_SCHEME = "dark"');
     expect(EDITOR_RECORDER).toContain("const POINTER_STEPS = 28");
     expect(EDITOR_RECORDER).toContain("easeInOut(step / POINTER_STEPS)");
+    expect(EDITOR_RECORDER).toContain(".slidx-freeform-color-input");
+    expect(EDITOR_RECORDER).toContain('data-handle="se"');
+    expect(EDITOR_RECORDER).toContain(".slidx-freeform-move");
+    expect(EDITOR_RECORDER).toContain("new File([bytes], item.name");
+    expect(EDITOR_RECORDER).toContain('video[src*="tour-motion.webm"]');
+    expect(EDITOR_RECORDER).toContain("SLIDX_SHARE_EDIT");
+    expect(EDITOR_RECORDER).toContain("resolvedUrls.network");
     expect(EDITOR_RECORDER).not.toContain('colorScheme: "light"');
 
     expect(MEDIA_RECORDER).toContain('const TOUR_SCHEME = "dark"');
