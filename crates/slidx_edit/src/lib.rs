@@ -108,6 +108,24 @@ pub fn plan(source: &str, options: &DeckParseOptions, op: &EditOp) -> Result<Edi
         EditOp::SetStyle { slide, property, value } => {
             style::set(&deck, slide, property, value.as_deref(), &mut builder)?
         }
+        EditOp::SetBlockStyle { slide, block, property, value } => {
+            if slidx_core::style::block_style_property("element", property).is_none() {
+                return Err(EditError::InvalidStyleProperty { property: property.clone() });
+            }
+
+            let create = value.as_deref().is_some_and(|value| !value.trim().is_empty());
+            let Some(key) = block::style_key(&deck, slide, block, create)? else {
+                return Ok(builder.build());
+            };
+            let managed = slidx_core::style::block_style_property(&key.key, property)
+                .expect("the property name was validated before resolving the block");
+
+            // The style insertion is planned first. When the first block starts
+            // at the same byte as a newly created style block, stable splice
+            // ordering keeps the block above the attribute line it owns.
+            style::set(&deck, slide, &managed, value.as_deref(), &mut builder)?;
+            block::assign_style_key(&deck, slide, block, &key, &mut builder)?;
+        }
         EditOp::AddMark { slide, range, attributes } => {
             inline::add(&deck, slide, *range, attributes, &mut builder)?
         }

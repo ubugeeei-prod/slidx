@@ -59,6 +59,7 @@ html, body {
  * inlined next to this stylesheet.
  */
 .slidx-slide-body {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: grid;
@@ -84,6 +85,20 @@ html, body {
 }
 
 .slidx-block > * { margin: 0; }
+
+.slidx-block[data-slidx-freeform] {
+  position: absolute;
+  left: var(--slidx-element-x, 0%);
+  top: var(--slidx-element-y, 0%);
+  width: var(--slidx-element-width, max-content);
+  height: var(--slidx-element-height, auto);
+  max-width: 100%;
+}
+
+.slidx-block[data-slidx-element-color],
+.slidx-block[data-slidx-element-color] :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--slidx-element-color);
+}
 
 h1, h2, h3, h4, h5, h6 {
   color: var(--slidx-color-heading);

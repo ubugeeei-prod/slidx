@@ -28,6 +28,7 @@
 //! laid out independently.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt::Write;
 
 use slidx_core::{Block, Deck, Slide};
 use slidx_theme::layout::{
@@ -80,11 +81,17 @@ pub fn body(
                     let share = width::of(block).ok();
 
                     if let Some(component) = components.get(&at) {
-                        Some(wrap(at, block, share, component))
+                        Some(wrap(at, block, share, &slide.style, component))
                     } else if component_blocks.contains(&at) {
                         None
                     } else {
-                        Some(wrap(at, block, share, &render(markdown, options)))
+                        Some(wrap(
+                            at,
+                            block,
+                            share,
+                            &slide.style,
+                            &render(markdown, options),
+                        ))
                     }
                 })
                 .collect();
@@ -142,7 +149,13 @@ fn component_blocks(
 /// A share that is the whole region writes no attribute, the same way a block in
 /// the default region writes no class: the theme's rule for it would be a rule
 /// that changes nothing, and the editor reads an absent attribute as `full`.
-fn wrap(index: usize, block: &Block, share: Option<BlockWidth>, html: &str) -> String {
+fn wrap(
+    index: usize,
+    block: &Block,
+    share: Option<BlockWidth>,
+    style: &BTreeMap<String, String>,
+    html: &str,
+) -> String {
     let classes = block
         .attributes
         .classes
@@ -158,12 +171,52 @@ fn wrap(index: usize, block: &Block, share: Option<BlockWidth>, html: &str) -> S
         Some(share) => format!(" {WIDTH_ATTRIBUTE}=\"{}\"", share.as_token()),
         None => String::new(),
     };
+    let visual = visual_attributes(block, style);
 
     // The rendered Markdown is emitted verbatim. Indenting it would indent the
     // inside of every `<pre>`, where whitespace is content.
     format!(
-        "        <div class=\"slidx-block{classes}\" {BLOCK_ATTRIBUTE}=\"{index}\"{width}>\n{html}\n        </div>\n"
+        "        <div class=\"slidx-block{classes}\" {BLOCK_ATTRIBUTE}=\"{index}\"{width}{visual}>\n{html}\n        </div>\n"
     )
+}
+
+fn visual_attributes(block: &Block, style: &BTreeMap<String, String>) -> String {
+    let Some(key) = block.attributes.key.as_deref() else {
+        return String::new();
+    };
+    let prefix = slidx_core::style::block_style_prefix(key);
+    let properties: Vec<_> = style
+        .keys()
+        .filter_map(|name| name.strip_prefix(&prefix).map(|property| (name, property)))
+        .filter(|(_, property)| !property.is_empty())
+        .collect();
+
+    let mut attributes = format!(" data-slidx-key=\"{}\"", escape_attribute(key));
+    if properties.is_empty() {
+        return attributes;
+    }
+
+    if properties.iter().any(|(_, property)| matches!(*property, "x" | "y" | "width" | "height")) {
+        attributes.push_str(" data-slidx-freeform");
+    }
+    if properties.iter().any(|(_, property)| *property == "color") {
+        attributes.push_str(" data-slidx-element-color");
+    }
+
+    attributes.push_str(" style=\"");
+    for (name, property) in properties {
+        let _ = write!(attributes, "--slidx-element-{property}: var(--slidx-{name}); ");
+    }
+    if attributes.ends_with(' ') {
+        attributes.pop();
+    }
+    attributes.push('"');
+
+    attributes
+}
+
+fn escape_attribute(value: &str) -> String {
+    value.replace('&', "&amp;").replace('"', "&quot;").replace('<', "&lt;").replace('>', "&gt;")
 }
 
 /// Each block's Markdown, with any shared-code figure that belongs to it.
@@ -252,6 +305,30 @@ mod tests {
             html.contains("class=\"slidx-block slidx-accent slidx-muted\""),
             "classes were dropped: {html}"
         );
+    }
+
+    #[test]
+    fn managed_block_styles_bind_to_the_addressed_rendered_box() {
+        let html = rendered(concat!(
+            "<style data-slidx>\n",
+            ":root {\n",
+            "  --slidx-block-id-hero-x: 12%;\n",
+            "  --slidx-block-id-hero-width: 40%;\n",
+            "  --slidx-block-id-hero-color: var(--slidx-color-accent);\n",
+            "}\n",
+            "</style>\n",
+            "\n",
+            "{#hero}\n",
+            "# Styled\n",
+        ));
+
+        assert!(html.contains("data-slidx-key=\"hero\""));
+        assert!(html.contains("data-slidx-freeform"));
+        assert!(html.contains("data-slidx-element-color"));
+        assert!(html.contains("--slidx-element-x: var(--slidx-block-id-hero-x)"));
+        assert!(html.contains("--slidx-element-width: var(--slidx-block-id-hero-width)"));
+        assert!(html.contains("--slidx-element-color: var(--slidx-block-id-hero-color)"));
+        assert!(!html.contains("<style data-slidx>"));
     }
 
     #[test]

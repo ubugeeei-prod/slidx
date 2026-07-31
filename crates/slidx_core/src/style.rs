@@ -21,6 +21,7 @@
 //! shares one page and one global `:root`.
 
 use std::collections::BTreeMap;
+use std::fmt::Write;
 
 use crate::scanner::FenceTracker;
 use crate::ByteSpan;
@@ -28,6 +29,7 @@ use crate::ByteSpan;
 pub const OPEN: &str = "<style data-slidx>";
 pub const CLOSE: &str = "</style>";
 const PREFIX: &str = "--slidx-";
+const BLOCK_PREFIX: &str = "block-";
 
 /// One complete tagged style block in a slide body.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -127,6 +129,30 @@ pub fn parse_style_property(line: &str) -> Option<(&str, &str)> {
     Some((name, value))
 }
 
+/// The managed-property prefix for one addressed block.
+///
+/// Readable keys stay readable in the Markdown. Keys containing punctuation
+/// are encoded byte-for-byte so two authored keys can never collapse onto the
+/// same CSS custom property.
+pub fn block_style_prefix(key: &str) -> String {
+    let encoded = if valid_name(key) {
+        format!("id-{key}")
+    } else {
+        let mut encoded = String::from("hex-");
+        for byte in key.as_bytes() {
+            let _ = write!(encoded, "{byte:02x}");
+        }
+        encoded
+    };
+
+    format!("{BLOCK_PREFIX}{encoded}-")
+}
+
+/// One block-local property as it is stored in the slide's managed style map.
+pub fn block_style_property(key: &str, property: &str) -> Option<String> {
+    valid_name(property).then(|| format!("{}{property}", block_style_prefix(key)))
+}
+
 fn valid_name(name: &str) -> bool {
     !name.is_empty()
         && name
@@ -221,5 +247,15 @@ mod tests {
             extract_style(source).properties.get("layout").map(String::as_str),
             Some("aside")
         );
+    }
+
+    #[test]
+    fn block_style_properties_keep_readable_keys_and_encode_every_other_byte() {
+        assert_eq!(block_style_property("hero", "x").as_deref(), Some("block-id-hero-x"));
+        assert_eq!(
+            block_style_property("hero.card", "width").as_deref(),
+            Some("block-hex-6865726f2e63617264-width")
+        );
+        assert!(block_style_property("hero", "Not CSS").is_none());
     }
 }
