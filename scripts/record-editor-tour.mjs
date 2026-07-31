@@ -38,6 +38,9 @@ const EDITOR = { width: 1400, height: 760 };
 const VIEWPORT = { width: EDITOR.width + FILE_WIDTH, height: EDITOR.height };
 const FIRST = "0001.md";
 const PRIMARY = process.platform === "darwin" ? "Meta" : "Control";
+const TOUR_SCHEME = "dark";
+const POINTER_STEPS = 28;
+const POINTER_STEP_MS = 16;
 
 const OPENING = `---
 title: Product tour
@@ -73,10 +76,10 @@ await server.listen();
 const browser = await chromium.launch();
 const context = await browser.newContext({
   viewport: VIEWPORT,
-  colorScheme: "light",
+  colorScheme: TOUR_SCHEME,
   recordVideo: { dir: videoDir, size: VIEWPORT },
 });
-const peerContext = await browser.newContext({ viewport: EDITOR, colorScheme: "light" });
+const peerContext = await browser.newContext({ viewport: EDITOR, colorScheme: TOUR_SCHEME });
 
 try {
   const page = await context.newPage();
@@ -130,29 +133,29 @@ try {
         : { x: Number.parseFloat(pointer.style.left), y: Number.parseFloat(pointer.style.top) };
     });
 
-    for (let step = 1; step <= 12; step += 1) {
-      const along = step / 12;
+    for (let step = 1; step <= POINTER_STEPS; step += 1) {
+      const along = easeInOut(step / POINTER_STEPS);
       const at = {
         x: from.x + (to.x - from.x) * along,
         y: from.y + (to.y - from.y) * along,
       };
       await page.mouse.move(at.x, at.y);
       await page.evaluate(([x, y]) => window.slidxStage.pointer(x, y), [at.x, at.y]);
-      await page.waitForTimeout(18);
+      await page.waitForTimeout(POINTER_STEP_MS);
     }
     await page.mouse.click(to.x, to.y);
   };
 
   await showFile();
-  await hold(900);
+  await hold(1_200);
 
   await click(chrome.locator(".slidx-shortcuts-open"));
-  await hold(1_800);
+  await hold(2_000);
   await page.keyboard.press("Escape");
 
   const heading = canvas.locator("h1[contenteditable]").first();
   await click(heading);
-  await heading.fill("Ideas become an editable deck");
+  await replaceText(heading, "Ideas become an editable deck");
   await heading.press("Tab");
   await waitForFile(root, FIRST, (source) => source.includes("editable deck"));
   await showFile();
@@ -171,11 +174,21 @@ try {
   await chrome.locator('[data-group="selection"] input[placeholder="accent"]').waitFor();
   await hold(900);
 
-  await chrome.locator('[data-group="selection"] input[placeholder="accent"]').fill("accent");
-  await chrome.locator('[data-group="selection"] input[placeholder="result"]').fill("moment");
-  await chrome
-    .locator('[data-group="selection"] [aria-label="Style properties"]')
-    .fill("color=signal\nfont=mono");
+  await replaceText(
+    chrome.locator('[data-group="selection"] input[placeholder="accent"]'),
+    "accent",
+    44,
+  );
+  await replaceText(
+    chrome.locator('[data-group="selection"] input[placeholder="result"]'),
+    "moment",
+    44,
+  );
+  await replaceText(
+    chrome.locator('[data-group="selection"] [aria-label="Style properties"]'),
+    "color=signal\nfont=mono",
+    30,
+  );
   await click(chrome.locator('[data-group="selection"] .slidx-add'));
   await waitForFile(root, FIRST, (source) => source.includes("#moment"));
   await showFile();
@@ -188,7 +201,7 @@ try {
 
   const transition = chrome.locator('[data-group="slide"] [data-key="transition"]');
   await click(transition);
-  await transition.fill("fade");
+  await replaceText(transition, "fade", 48);
   await transition.press("Tab");
   await waitForFile(root, FIRST, (source) => source.includes("transition: fade"));
   await showFile();
@@ -203,7 +216,7 @@ try {
   await page.keyboard.press("m");
   const source = chrome.locator(".slidx-canvas-source");
   await source.waitFor();
-  await source.fill("## Edited in Markdown\n\nBoth views stay synchronized.");
+  await replaceText(source, "## Edited in Markdown\n\nBoth views stay synchronized.", 24);
   await source.press("Tab");
   const added = await waitForSlide(root, "Both views stay synchronized.");
   await showFile(added);
@@ -244,7 +257,7 @@ try {
     .frameLocator(".slidx-canvas-frame")
     .locator("h1[contenteditable]")
     .first();
-  await peerHeading.fill("Two editors, one Markdown file");
+  await replaceText(peerHeading, "Two editors, one Markdown file");
   await peerHeading.press("Tab");
   await waitForFile(root, FIRST, (text) => text.includes("Two editors, one Markdown file"));
   await canvas.locator("text=Two editors, one Markdown file").waitFor();
@@ -285,6 +298,15 @@ async function waitForFile(root, name, accepts) {
     await new Promise((done) => setTimeout(done, 50));
   }
   throw new Error(`${name} never received the edit the tour performed`);
+}
+
+async function replaceText(locator, text, delay = 36) {
+  await locator.fill("");
+  await locator.pressSequentially(text, { delay });
+}
+
+function easeInOut(progress) {
+  return 0.5 - Math.cos(Math.PI * progress) / 2;
 }
 
 async function waitForSlide(root, phrase) {
