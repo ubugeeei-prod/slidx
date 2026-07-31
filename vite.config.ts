@@ -100,7 +100,7 @@ export default defineConfig({
     // Parallel work happens in scratch worktrees under `.claude/`, which are
     // whole checkouts of this repository. Without this the suite runs every
     // test once per worktree, against code that is deliberately not merged.
-    exclude: ["**/node_modules/**", "**/dist/**", ".claude/**"],
+    exclude: ["**/node_modules/**", "**/dist/**", "**/*.browser.test.ts", ".claude/**"],
   },
 
   run: {
@@ -136,6 +136,7 @@ export default defineConfig({
       ]),
       "ci:ts": group(["fmt:ts-check", "check:ts", "check:types", "test:ts"]),
       "ci:build": group(["build:rust", "build:packages", "check:packages-built", "check:budget"]),
+      "ci:browsers": group(["test:browser-engines", "test:browser-mode"]),
 
       "workspace:check": group([
         "check:conventions",
@@ -365,6 +366,13 @@ export default defineConfig({
       // input. Marking it explicitly keeps the run summary honest instead of
       // reporting a miss on every run.
       "test:ts": uncached(builtin("vp test"), { dependsOn: ["build:packages"] }),
+      "test:browser-engines": uncached(
+        builtin("vp test run packages/vite-plugin/test/browser.test.ts"),
+        { dependsOn: ["build:packages"] },
+      ),
+      "test:browser-mode": uncached(builtin("vp test run --config vitest.browser.config.ts"), {
+        dependsOn: ["build:packages"],
+      }),
 
       // Cutting a release. `vp run release minor` writes the version everywhere
       // it lives, runs `check:version` against the tag it is about to create,

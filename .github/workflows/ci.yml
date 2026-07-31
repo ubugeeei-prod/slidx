@@ -139,8 +139,7 @@ jobs:
         with:
           wasm: "true"
           browsers: chromium firefox webkit
-      - run: pnpm exec vp run build:packages
-      - run: pnpm exec vp test run packages/vite-plugin/test/browser.test.ts
+      - run: pnpm exec vp run ci:browsers
 
   # The Zed extension compiles to a target nothing else here uses, in a Cargo
   # workspace of its own. One runner settles it: it is glue, Zed builds it the
