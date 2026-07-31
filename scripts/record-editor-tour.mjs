@@ -2,11 +2,11 @@
  * A deliberate tour of the visual editor, recorded by using the real editor.
  *
  * The short arrange recording proves one gesture. This tour shows the whole
- * loop: keyboard commands, text editing, addressed styles, a layout written to
- * Markdown, slide creation and ordering, source mode, undo/redo, and a second
- * editor changing the same file. The video is for the documentation site; the
- * sparse APNG is the same run sampled at its meaningful states so the README
- * can play it as an image.
+ * loop: resizable chrome, keyboard commands, text editing, visual type choices,
+ * addressed styles, a layout written to Markdown, slide clipboard and ordering,
+ * source mode, undo/redo, and a second editor changing the same file. The video
+ * is for the documentation site; the sparse APNG is the same run sampled at its
+ * meaningful states so the README can play it as an image.
  */
 
 import { execFileSync } from "node:child_process";
@@ -160,6 +160,11 @@ try {
     await page.waitForTimeout(delay);
   };
   const pointAt = async (locator, position = { x: 0.5, y: 0.5 }) => {
+    // Preview rows are intentionally tall enough to read, so later slides can
+    // sit below the outline scrollport. Bring the real target into view before
+    // measuring it, just as an author must, or a coordinate-only click would
+    // land on whatever happens to be drawn at the clipped point instead.
+    await locator.scrollIntoViewIfNeeded();
     const box = await locator.boundingBox();
     if (!box) throw new Error("the tour tried to point at something that was not drawn");
 
@@ -253,6 +258,17 @@ try {
   await hold(2_000);
   await page.keyboard.press("Escape");
 
+  // Both side panels are working space, not fixed chrome. Expanding the left
+  // makes the live slide previews easier to scan; expanding the right gives
+  // the visual choices room without taking either preference into the deck.
+  await drag(chrome.getByRole("separator", { name: "Resize slide panel" }), { x: 88, y: 0 }, 800);
+  await drag(
+    chrome.getByRole("separator", { name: "Resize inspector panel" }),
+    { x: -96, y: 0 },
+    800,
+  );
+  await hold(1_200);
+
   const heading = canvas.locator("h1[contenteditable]").first();
   await click(heading);
   await replaceText(heading, "Ideas become an editable deck");
@@ -284,16 +300,24 @@ try {
     "moment",
     44,
   );
-  await replaceText(
-    chrome.locator('[data-group="selection"] [aria-label="Style properties"]'),
-    "color=signal\nfont=mono",
-    30,
-  );
+  await click(chrome.getByRole("button", { name: "Font: Mono" }));
+  await click(chrome.getByRole("button", { name: "Size: H2" }));
+  await click(chrome.getByRole("button", { name: "Color: Accent" }));
+  await hold(1_100);
   await click(chrome.locator('[data-group="selection"] .slidx-add'));
-  await waitForFile(root, FIRST, (source) => source.includes("#moment"));
+  await waitForFile(
+    root,
+    FIRST,
+    (source) =>
+      source.includes("#moment") &&
+      source.includes("font=mono") &&
+      source.includes("size=heading-2") &&
+      source.includes("color=accent"),
+  );
   await showFile();
   await hold(1_500);
 
+  await openInspectorTab(chrome, "Slide");
   await click(chrome.locator('[data-group="slide"] [data-layout="aside"]'));
   await waitForFile(root, FIRST, (source) => source.includes("--slidx-layout: aside"));
   await showFile();
@@ -367,9 +391,18 @@ try {
 
   await page.keyboard.press("v");
   await canvas.locator("text=Both views stay synchronized.").waitFor();
-  await page.keyboard.press(`${PRIMARY}+d`);
+  await page.keyboard.press(`${PRIMARY}+c`);
+  await click(chrome.locator('.slidx-outline-row[data-slide="3"] .slidx-outline-open'));
+  await page.keyboard.press(`${PRIMARY}+v`);
   await waitForOutlineCount(chrome, 6);
-  await hold(1_100);
+  // Six preview rows no longer all fit in the outline at once. The selected
+  // copy may sit just below its scrollport, so attachment and `aria-current`
+  // are the state to wait for; requiring viewport visibility would turn a
+  // successful paste into a recorder timeout.
+  await waitForSelectedSlide(chrome, 4, "Edited in Markdown");
+  await canvas.locator("text=Both views stay synchronized.").waitFor();
+  await waitForOutlinePreview(chrome, 4, "Edited in Markdown");
+  await hold(1_300);
 
   const order = await outlineTitles(chrome);
   const moving = chrome.locator('.slidx-outline-row[data-slide="3"] .slidx-outline-open');
@@ -404,6 +437,7 @@ try {
   await peerHeading.press("Tab");
   await waitForFile(root, FIRST, (text) => text.includes("Two editors, one Markdown file"));
   await canvas.locator("text=Two editors, one Markdown file").waitFor();
+  await waitForOutlinePreview(chrome, 0, "Two editors, one Markdown file");
   await showFile(FIRST);
   await hold(2_200);
 
@@ -466,12 +500,53 @@ async function outlineTitles(chrome) {
   return chrome.locator(".slidx-outline-title").allTextContents();
 }
 
+/** Opens one inspector section when this editor has the tabbed inspector. */
+async function openInspectorTab(chrome, name) {
+  const tab = chrome.getByRole("tab", { name, exact: true });
+  if ((await tab.count()) > 0 && (await tab.getAttribute("aria-selected")) !== "true") {
+    await tab.click();
+  }
+}
+
 async function waitForOutlineCount(chrome, count) {
   for (let attempt = 0; attempt < 200; attempt += 1) {
     if ((await chrome.locator(".slidx-outline-row").count()) === count) return;
     await new Promise((done) => setTimeout(done, 50));
   }
   throw new Error(`the editor tour did not settle at ${count} slides`);
+}
+
+async function waitForSelectedSlide(chrome, index, title) {
+  let seen = [];
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    seen = await chrome.locator(".slidx-outline-row").evaluateAll((rows) =>
+      rows.map((row) => ({
+        slide: row.getAttribute("data-slide"),
+        current: row.getAttribute("aria-current"),
+        title: row.querySelector(".slidx-outline-title")?.textContent,
+      })),
+    );
+    if (
+      seen.some(
+        (row) => row.slide === String(index) && row.current === "true" && row.title === title,
+      )
+    ) {
+      return;
+    }
+    await new Promise((done) => setTimeout(done, 50));
+  }
+  throw new Error(`the pasted slide was not selected at ${index}: ${JSON.stringify(seen)}`);
+}
+
+async function waitForOutlinePreview(chrome, index, text) {
+  const row = chrome.locator(`.slidx-outline-row[data-slide="${index}"]`);
+  await row.scrollIntoViewIfNeeded();
+  await row
+    .locator(".slidx-outline-frame")
+    .contentFrame()
+    .getByText(text, { exact: true })
+    .first()
+    .waitFor();
 }
 
 async function waitForOutlineOrder(chrome, expected, relation) {
