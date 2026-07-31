@@ -143,9 +143,28 @@ export interface CanvasSurface extends Surface {
  * diff, and hand it to a co-editor whose room is different. It lives in this
  * browser and nowhere else.
  */
-type Scheme = "auto" | "light" | "dark";
+type Scheme = "light" | "dark" | "auto";
 
-const SCHEMES: Scheme[] = ["auto", "light", "dark"];
+const SCHEMES: Scheme[] = ["light", "dark", "auto"];
+
+/**
+ * What the canvas shows before anybody chooses, and why it is not `auto`.
+ *
+ * A deck follows `prefers-color-scheme`, which is right for the deck: it is
+ * shown in a room, and the room decides. It is wrong for the *editor*, where
+ * the "room" is the author's laptop — an author in dark mode was authoring
+ * against a palette no lecture theatre will project, and had no way to see the
+ * one it will.
+ *
+ * So the canvas starts light, because a slide is a sheet of paper and that is
+ * what an author is making. `auto` is still there, one press away, for the
+ * author who wants the canvas to follow their machine — but it is a choice
+ * rather than the thing that happens to them.
+ *
+ * This does not touch what a deck does anywhere else. A built deck, the
+ * presenter view and a projector all still follow the room.
+ */
+const STARTS_AS: Scheme = "light";
 
 const SCHEME_LABEL: Record<Scheme, string> = {
   auto: "Auto",
@@ -156,10 +175,10 @@ const SCHEME_LABEL: Record<Scheme, string> = {
 /** Where the choice is remembered, which is this browser and nothing else. */
 const SCHEME_KEY = "slidx.canvas.scheme";
 
-function storedScheme(storage: Pick<Storage, "getItem"> | undefined): Scheme {
+export function startingScheme(storage: Pick<Storage, "getItem"> | undefined): Scheme {
   const found = storage?.getItem(SCHEME_KEY);
 
-  return SCHEMES.includes(found as Scheme) ? (found as Scheme) : "auto";
+  return SCHEMES.includes(found as Scheme) ? (found as Scheme) : STARTS_AS;
 }
 
 /**
@@ -194,7 +213,7 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
       class: "slidx-canvas-scheme",
       title: "Show the slide light, dark, or as this machine is set",
     },
-    [SCHEME_LABEL.auto],
+    [SCHEME_LABEL[STARTS_AS]],
   );
   const stage = element("div", { class: "slidx-canvas-stage" }, [frame, source]);
   const root = element("section", { class: "slidx-canvas", "aria-label": "Slide" }, [
@@ -207,7 +226,7 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
   ]);
 
   let slide = 0;
-  let chosen: Scheme = storedScheme(options.storage);
+  let chosen: Scheme = startingScheme(options.storage);
   let editing = false;
   let shown = "";
   let refresh = 0;
