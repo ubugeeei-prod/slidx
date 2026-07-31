@@ -83,9 +83,20 @@ export function publishedPackages(read = readFileSync) {
  * be exercised without a repository that happens to ignore the right paths.
  */
 export function needsCommittedLicence(directories, isIgnored = ignored) {
-  const generated = isIgnored(directories.map((directory) => `${directory}/${LICENCE_FILE}`));
+  return needsCommitted(directories, LICENCE_FILE, isIgnored);
+}
 
-  return directories.filter((directory) => !generated.has(`${directory}/${LICENCE_FILE}`));
+/**
+ * The same question about any file a tarball is judged on.
+ *
+ * The licence is one of two: `check-pages.mjs` asks it about `README.md`, which
+ * `packages/wasm` also has written into it by its build. One rule, so the two
+ * cannot come to different conclusions about the same directory.
+ */
+export function needsCommitted(directories, file, isIgnored = ignored) {
+  const generated = isIgnored(directories.map((directory) => `${directory}/${file}`));
+
+  return directories.filter((directory) => !generated.has(`${directory}/${file}`));
 }
 
 /** The subset of `paths` git has been told to ignore. */

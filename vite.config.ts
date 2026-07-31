@@ -124,6 +124,7 @@ export default defineConfig({
         "check:dead-config",
         "check:flat",
         "check:licensed",
+        "check:pages",
       ]),
       "ci:rust": group([
         "fmt:rust-check",
@@ -141,6 +142,7 @@ export default defineConfig({
         "check:dead-config",
         "check:flat",
         "check:licensed",
+        "check:pages",
         "check:version",
         "fmt:rust-check",
         "fmt:ts-check",
@@ -382,6 +384,12 @@ export default defineConfig({
       // which a publish dry run found, and which is much easier to fix before
       // a version exists than after.
       "check:licensed": task("node scripts/check-licensed.mjs"),
+
+      // And a page beside it. A registry renders the README from inside the
+      // tarball and nothing else, so a workspace with one at its root publishes
+      // a blank page per package. `node scripts/write-pages.mjs` composes one
+      // where there is none, from the description the manifest already carries.
+      "check:pages": task("node scripts/check-pages.mjs"),
 
       // No palette pasted from a framework, and no palette written as hex
       // literals at all. slidx shipped one popular framework's `zinc` ramp for
