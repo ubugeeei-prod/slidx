@@ -95,6 +95,10 @@ describe("a target is bigger than its ink", () => {
     expect(remove).toContain("min-width: var(--slidx-e-hit)");
     expect(remove).toContain("min-height: var(--slidx-e-hit)");
   });
+
+  it("keeps slide previews out of pointer interaction", () => {
+    expect(rule(".slidx-outline-frame")).toContain("pointer-events: none");
+  });
 });
 
 describe("one rhythm rather than ad-hoc pixels", () => {

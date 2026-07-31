@@ -125,7 +125,7 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
       text: undefined,
     });
 
-  const outline = createOutline({ select, run });
+  const outline = createOutline({ select, run }, { deckBase: options.deckBase ?? "slides" });
   const canvas = createCanvas(
     {
       run,

@@ -166,6 +166,28 @@ describe("the mounted editor", () => {
     expect(root.querySelectorAll(".slidx-outline-row")).toHaveLength(3);
   });
 
+  it("wires the deck route into kept outline previews", async () => {
+    const { root } = open();
+    await settled();
+    const frames = [...root.querySelectorAll<HTMLIFrameElement>(".slidx-outline-frame")];
+
+    expect(frames.map((frame) => frame.getAttribute("src"))).toEqual([
+      "/slides/",
+      "/slides/2/",
+      "/slides/3/",
+    ]);
+
+    mounted!.session.select({ slide: 2 });
+    mounted!.session.saw([{ id: "seat-2", label: "guest", slide: 1, local: false, canEdit: true }]);
+
+    expect([...root.querySelectorAll<HTMLIFrameElement>(".slidx-outline-frame")]).toEqual(frames);
+    expect(frames.map((frame) => frame.getAttribute("src"))).toEqual([
+      "/slides/",
+      "/slides/2/",
+      "/slides/3/",
+    ]);
+  });
+
   it("points the canvas at the deck's own page for the slide being edited", async () => {
     const { root } = open();
     await settled();
@@ -184,6 +206,9 @@ describe("the mounted editor", () => {
 
     const frame = root.querySelector<HTMLIFrameElement>(".slidx-canvas-frame")!;
     frame.removeAttribute("src");
+    for (const preview of root.querySelectorAll<HTMLIFrameElement>(".slidx-outline-frame")) {
+      preview.removeAttribute("src");
+    }
     document.body.append(root);
     frame.contentDocument!.body.innerHTML = `
       <article class="slidx-slide">
@@ -316,7 +341,9 @@ describe("the mounted editor", () => {
 
       expect(mounted!.session.state().following).toBe("seat-2");
       expect(mounted!.session.state().selection.slide).toBe(2);
-      expect(root.querySelector("iframe")!.getAttribute("src")).toMatch(/^\/slides\/3\//);
+      expect(
+        root.querySelector<HTMLIFrameElement>(".slidx-canvas-frame")!.getAttribute("src"),
+      ).toMatch(/^\/slides\/3\//);
     });
   });
 

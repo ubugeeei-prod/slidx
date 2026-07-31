@@ -85,6 +85,93 @@ describe("the outline", () => {
       "Three",
     ]);
     expect(rows[1]!.getAttribute("aria-current")).toBe("true");
+    expect(rows.map((row) => row.querySelector(".slidx-outline-number")!.textContent)).toEqual([
+      "1",
+      "2",
+      "3",
+    ]);
+  });
+
+  it("previews every slide through the deck's own lazy, non-interactive page", () => {
+    const outline = createOutline(recorder(), { deckBase: "talk" });
+    outline.render(stateOf());
+
+    const frames = [...outline.root.querySelectorAll<HTMLIFrameElement>(".slidx-outline-frame")];
+    expect(frames.map((frame) => frame.getAttribute("src"))).toEqual([
+      "/talk/",
+      "/talk/2/",
+      "/talk/3/",
+    ]);
+    for (const frame of frames) {
+      expect(frame.getAttribute("loading")).toBe("lazy");
+      expect(frame.getAttribute("tabindex")).toBe("-1");
+      expect(frame.getAttribute("aria-hidden")).toBe("true");
+    }
+  });
+
+  it("keeps preview documents mounted across selection and presence updates", () => {
+    const outline = createOutline(recorder());
+    const state = stateOf();
+    outline.render(state);
+    const frames = [...outline.root.querySelectorAll<HTMLIFrameElement>(".slidx-outline-frame")];
+    const sources = frames.map((frame) => frame.getAttribute("src"));
+
+    outline.render({
+      ...state,
+      selection: { slide: 2 },
+      viewers: [{ id: "seat-2", label: "guest", slide: 0, local: false, canEdit: true }],
+    });
+
+    const kept = [...outline.root.querySelectorAll<HTMLIFrameElement>(".slidx-outline-frame")];
+    expect(kept).toEqual(frames);
+    expect(kept.map((frame) => frame.getAttribute("src"))).toEqual(sources);
+    expect(
+      outline.root.querySelectorAll(".slidx-outline-row")[2]!.getAttribute("aria-current"),
+    ).toBe("true");
+  });
+
+  it("refreshes the kept preview nodes when the source changes", () => {
+    const outline = createOutline(recorder());
+    const state = stateOf();
+    outline.render(state);
+    const frames = [...outline.root.querySelectorAll<HTMLIFrameElement>(".slidx-outline-frame")];
+
+    outline.render({ ...state, source: `${state.source}\n` });
+
+    const refreshed = [...outline.root.querySelectorAll<HTMLIFrameElement>(".slidx-outline-frame")];
+    expect(refreshed).toEqual(frames);
+    expect(refreshed.map((frame) => frame.getAttribute("src"))).toEqual([
+      "/slides/?outline=1",
+      "/slides/2/?outline=1",
+      "/slides/3/?outline=1",
+    ]);
+  });
+
+  it("reorders keyed rows instead of recreating their preview frames", () => {
+    const outline = createOutline(recorder());
+    const state = stateOf();
+    outline.render(state);
+    const byId = new Map(
+      state.slides.map((slide, index) => [
+        slide.id,
+        outline.root.querySelectorAll<HTMLIFrameElement>(".slidx-outline-frame")[index]!,
+      ]),
+    );
+    const slides = [state.slides[2]!, state.slides[0]!, state.slides[1]!].map((slide, index) => ({
+      ...slide,
+      index,
+    }));
+
+    outline.render({ ...state, source: `${state.source}\n`, slides });
+
+    expect([...outline.root.querySelectorAll<HTMLIFrameElement>(".slidx-outline-frame")]).toEqual([
+      byId.get("three"),
+      byId.get("one"),
+      byId.get("two"),
+    ]);
+    expect(
+      [...outline.root.querySelectorAll(".slidx-outline-title")].map((title) => title.textContent),
+    ).toEqual(["Three", "One", "Two"]);
   });
 
   it("jumps to a slide when its row is clicked", () => {
