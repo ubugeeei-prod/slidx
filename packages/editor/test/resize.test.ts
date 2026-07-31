@@ -26,6 +26,7 @@ function stateOf(slide = 0): EditorState {
     layouts: [],
     diagnostics: [],
     selection: { slide },
+    viewers: [],
     canUndo: false,
     canRedo: false,
   };

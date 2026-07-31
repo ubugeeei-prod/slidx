@@ -64,6 +64,7 @@ function stateOf(over: Partial<EditorState> = {}): EditorState {
     ],
     diagnostics: [],
     selection: { slide: 0 },
+    viewers: [],
     canUndo: false,
     canRedo: false,
     ...over,

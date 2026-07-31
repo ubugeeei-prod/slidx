@@ -12,13 +12,15 @@
  * cases where the shared document does earn its place.
  */
 
+import { Readable } from "node:stream";
+
 import { describe, expect, it } from "vite-plus/test";
 
 import type { EditOp } from "@slidxjs/editor";
 
 import { createSharedDeck, spliceBetween } from "../src/collab";
 import { createRoster, PRESENCE_TIMEOUT_MS } from "../src/collab/presence";
-import { createRoom } from "../src/collab/room";
+import { createRoom, type Room } from "../src/collab/room";
 import { createStream, frame } from "../src/collab/stream";
 import { applyOperation, revertOperation, type DeckFile } from "../src/edit";
 import { Grant } from "../src/share";
@@ -354,6 +356,48 @@ describe("the roster", () => {
 
     expect(roster.viewers()).toEqual([]);
   });
+
+  it("says which block on it they have selected", () => {
+    const roster = createRoster();
+    roster.seen("a", { local: false, canEdit: true });
+    roster.moved("a", { slide: 4, block: 2 });
+
+    expect(roster.viewers()[0]!.block).toBe(2);
+  });
+
+  it("says nothing at all about a viewer who has selected nothing", () => {
+    // Absent rather than zero, because zero is a block. Anything that draws
+    // this has to tell "in the first paragraph" from "nowhere in particular",
+    // and a number meaning both is how the second lands on somebody's title.
+    const roster = createRoster();
+    roster.seen("a", { local: false, canEdit: true });
+    roster.moved("a", { slide: 4 });
+
+    expect(roster.viewers()[0]!.block).toBeUndefined();
+    expect("block" in roster.viewers()[0]!).toBe(false);
+  });
+
+  it("forgets the block when the viewer deselects, rather than leaving the last one", () => {
+    const roster = createRoster();
+    roster.seen("a", { local: false, canEdit: true });
+    roster.moved("a", { slide: 4, block: 2 });
+    roster.moved("a", { slide: 4 });
+
+    expect(roster.viewers()[0]!.block).toBeUndefined();
+  });
+
+  for (const said of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+    it(`refuses ${said} as a block, because a share link is held by somebody else`, () => {
+      // This is one of the few places in the dev server where the input is not
+      // the author's own. Rounding nonsense into a block would put another
+      // person's name on a paragraph they have never seen.
+      const roster = createRoster();
+      roster.seen("a", { local: false, canEdit: true });
+      roster.moved("a", { slide: 0, block: said });
+
+      expect(roster.viewers()[0]!.block).toBeUndefined();
+    });
+  }
 });
 
 describe("the stream", () => {
@@ -414,6 +458,23 @@ describe("the stream", () => {
   });
 });
 
+/** Reports a position the way a browser does, over the route it uses. */
+async function post(room: Room, said: Record<string, unknown>): Promise<void> {
+  const request = Readable.from([Buffer.from(JSON.stringify(said))]) as unknown as Record<
+    string,
+    unknown
+  >;
+  request["url"] = "/__slidx/here";
+  request["method"] = "POST";
+
+  const answered = await room.handle(request as never, { end: () => {} } as never, {
+    grant: Grant.Write,
+    local: false,
+  });
+
+  expect(answered).toBe(true);
+}
+
 describe("what a room does with a reconciler before anybody edits", () => {
   it("adopts the deck the files say before an operation is planned against it", async () => {
     const room = createRoom({ deckState: () => Promise.resolve({}) });
@@ -448,6 +509,30 @@ describe("what a room does with a reconciler before anybody edits", () => {
 
     await expect(answering).rejects.toThrow("unreadable");
     expect(headers).toEqual([]);
+  });
+
+  it("carries the block a viewer reported through to the roster", async () => {
+    // The block is what the canvas draws a co-presenter's name on, so a route
+    // that dropped it would leave the roster saying "slide 4" forever while
+    // every mark on the slide stayed empty.
+    const roster = createRoster();
+    roster.seen("seat", { local: false, canEdit: true });
+    const room = createRoom({ deckState: () => Promise.resolve({}), roster });
+
+    await post(room, { id: "seat", slide: 4, block: 3 });
+
+    expect(roster.viewers()[0]).toMatchObject({ slide: 4, block: 3 });
+  });
+
+  it("carries a report with no block as no block", async () => {
+    const roster = createRoster();
+    roster.seen("seat", { local: false, canEdit: true });
+    const room = createRoom({ deckState: () => Promise.resolve({}), roster });
+
+    await post(room, { id: "seat", slide: 4, block: 3 });
+    await post(room, { id: "seat", slide: 5 });
+
+    expect(roster.viewers()[0]!.block).toBeUndefined();
   });
 
   it("answers no route it does not own", async () => {

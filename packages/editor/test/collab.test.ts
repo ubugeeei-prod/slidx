@@ -10,23 +10,92 @@
 
 import { describe, expect, it } from "vite-plus/test";
 
-import { createPresence, readCredential, readFrames, CREDENTIAL_HEADER } from "../src/collab";
+import {
+  createPresence,
+  readCredential,
+  readFrames,
+  CREDENTIAL_HEADER,
+  type Viewer,
+} from "../src/collab";
 import type { EditorState } from "../src/session";
 
 const SESSION = "0123456789abcdef";
 const SECRET = "00112233445566778899aabbccddeeff";
 
 /** An editor state with one field that matters here. */
-function state(source: string, slide = 0): EditorState {
+function state(source: string, slide = 0, block?: number): EditorState {
   return {
     source,
     spans: [],
     slides: [],
     layouts: [],
     diagnostics: [],
-    selection: { slide },
+    selection: { slide, block },
+    viewers: [],
     canUndo: false,
     canRedo: false,
+  };
+}
+
+/** One server-sent frame, as the dev server writes it. */
+function sent(event: string, data: unknown): string {
+  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
+/**
+ * A presence surface the server has already given a seat.
+ *
+ * Nothing is reported before the seat arrives — the id is issued on the stream,
+ * so a position posted without one is a position nobody can attribute — which
+ * means every test about what gets reported has to get past that first.
+ */
+async function seated(frames: string[] = []) {
+  const calls: { url: string; init: RequestInit | undefined; body: unknown }[] = [];
+  const rosters: Viewer[][] = [];
+  const encoder = new TextEncoder();
+  const queue = [sent("hello", { id: "seat-1", canEdit: true }), ...frames];
+
+  const send = ((url: string, init?: RequestInit) => {
+    calls.push({
+      url,
+      init,
+      body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined,
+    });
+
+    if (!url.endsWith("live")) return Promise.resolve({ body: undefined } as unknown as Response);
+
+    let at = 0;
+    const body = {
+      getReader: () => ({
+        read: () =>
+          Promise.resolve(
+            at < queue.length
+              ? { value: encoder.encode(queue[at++]!), done: false }
+              : { value: undefined, done: true },
+          ),
+      }),
+    };
+
+    return Promise.resolve({ body } as unknown as Response);
+  }) as unknown as typeof globalThis.fetch;
+
+  const surface = createPresence({
+    reload: () => {},
+    saw: (viewers) => void rosters.push(viewers),
+    fetch: send,
+    href: "http://localhost:5173/__slidx/",
+    retry: 10_000,
+  });
+
+  // The frames are read from a promise chain, so the loop needs turns of the
+  // microtask queue before the seat has arrived.
+  for (let turn = 0; turn < queue.length + 4; turn += 1) await Promise.resolve();
+
+  return {
+    surface,
+    calls,
+    rosters,
+    posted: () => calls.filter((call) => call.url.endsWith("here")),
   };
 }
 
@@ -174,5 +243,84 @@ describe("the presence surface", () => {
     surface.render(state("# One\n", 2));
 
     expect(calls.filter((call) => call.url.endsWith("here"))).toEqual([]);
+  });
+});
+
+describe("what the editor reports about where it is", () => {
+  it("names the block, not only the slide", async () => {
+    const { surface, posted } = await seated();
+    surface.render(state("# One\n", 2, 1));
+
+    expect(posted()[0]!.body).toEqual({ id: "seat-1", slide: 2, block: 1 });
+  });
+
+  it("leaves the block out entirely when nothing is selected", async () => {
+    // Absent rather than null, because that is the statement the roster makes
+    // back: no key means nowhere in particular, and every number is a block.
+    const { surface, posted } = await seated();
+    surface.render(state("# One\n", 2));
+
+    expect(posted()[0]!.body).toEqual({ id: "seat-1", slide: 2 });
+  });
+
+  it("reports again when only the block changed", async () => {
+    // The slide is the same, so a surface watching only the slide would leave
+    // everybody else's screen pointing at the paragraph this author has left.
+    const { surface, posted } = await seated();
+    surface.render(state("# One\n", 2, 0));
+    surface.render(state("# One\n", 2, 3));
+
+    expect(posted().map((call) => call.body)).toEqual([
+      { id: "seat-1", slide: 2, block: 0 },
+      { id: "seat-1", slide: 2, block: 3 },
+    ]);
+  });
+
+  it("reports again when a selection is cleared", async () => {
+    const { surface, posted } = await seated();
+    surface.render(state("# One\n", 2, 0));
+    surface.render(state("# One\n", 2));
+
+    expect(posted()).toHaveLength(2);
+    expect(posted()[1]!.body).toEqual({ id: "seat-1", slide: 2 });
+  });
+
+  it("says nothing at all when neither changed", async () => {
+    // A render happens on every keystroke in the inspector. A post per
+    // keystroke would make presence the busiest thing on the wire.
+    const { surface, posted } = await seated();
+    surface.render(state("# One\n", 2, 1));
+    surface.render(state("# One typed into\n", 2, 1));
+    surface.render(state("# One typed into a bit more\n", 2, 1));
+
+    expect(posted()).toHaveLength(1);
+  });
+});
+
+describe("handing the roster on", () => {
+  it("gives everyone connected to whoever asked for them", async () => {
+    // The same people are drawn twice — once as a list, once as marks over the
+    // blocks they are in — and the stream is still read in one place.
+    const { rosters } = await seated([
+      sent("presence", {
+        viewers: [
+          { id: "seat-1", label: "you", local: true, canEdit: true, slide: 0 },
+          { id: "seat-2", label: "guest 2", local: false, canEdit: true, slide: 3, block: 2 },
+        ],
+      }),
+    ]);
+
+    expect(rosters.at(-1)).toEqual([
+      { id: "seat-1", label: "you", local: true, canEdit: true, slide: 0 },
+      { id: "seat-2", label: "guest 2", local: false, canEdit: true, slide: 3, block: 2 },
+    ]);
+  });
+
+  it("draws its own list when nobody else wants the roster", async () => {
+    // The option is optional, and an editor mounted without it still draws its
+    // own list rather than failing on the first presence frame.
+    const { surface } = presence();
+
+    expect(surface.root.getAttribute("data-empty")).toBe("true");
   });
 });

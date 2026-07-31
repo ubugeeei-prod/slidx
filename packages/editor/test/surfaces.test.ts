@@ -53,6 +53,7 @@ function stateOf(over: Partial<EditorState> = {}): EditorState {
     ],
     diagnostics: [],
     selection: { slide: 1 },
+    viewers: [],
     canUndo: false,
     canRedo: false,
     ...over,

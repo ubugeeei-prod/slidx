@@ -227,6 +227,67 @@ describe("the mounted editor", () => {
     );
   });
 
+  it("puts the marks for the other editors over the canvas, and outside it", async () => {
+    // The same rule the arrange overlay follows, for the same reason: a mark
+    // drawn inside the frame would be an element the build never emits, on the
+    // page whose whole job is to be the page the build emits.
+    const { root } = open();
+    await settled();
+
+    const overlay = root.querySelector(".slidx-beacons");
+    expect(overlay).not.toBeNull();
+    expect(overlay!.closest(".slidx-canvas")).toBeNull();
+  });
+
+  it("puts a roster arriving on the stream into the state every surface reads", async () => {
+    // The seam that would otherwise be a line nothing runs. Presence is the
+    // only thing in the editor that reads a stream, and the marks on the canvas
+    // are drawn from state — so if this one call is missing, both surfaces work
+    // in isolation and nobody ever sees anyone.
+    const real = globalThis.fetch;
+    const encoder = new TextEncoder();
+    const queue = [
+      'event: hello\ndata: {"id":"seat-1"}\n\n',
+      `event: presence\ndata: ${JSON.stringify({
+        viewers: [
+          { id: "seat-1", label: "you", local: true, canEdit: true, slide: 0 },
+          { id: "seat-2", label: "guest 2", local: false, canEdit: true, slide: 0, block: 1 },
+        ],
+      })}\n\n`,
+    ];
+
+    globalThis.fetch = ((url: string) => {
+      if (!String(url).endsWith("live")) return Promise.resolve({ body: undefined });
+
+      let at = 0;
+      return Promise.resolve({
+        body: {
+          getReader: () => ({
+            read: () =>
+              Promise.resolve(
+                at < queue.length
+                  ? { value: encoder.encode(queue[at++]!), done: false }
+                  : { value: undefined, done: true },
+              ),
+          }),
+        },
+      });
+    }) as unknown as typeof globalThis.fetch;
+
+    try {
+      open();
+      await settled();
+      for (let turn = 0; turn < queue.length + 6; turn += 1) await Promise.resolve();
+
+      expect(mounted!.session.state().viewers.map((viewer) => viewer.label)).toEqual([
+        "you",
+        "guest 2",
+      ]);
+    } finally {
+      globalThis.fetch = real;
+    }
+  });
+
   it("puts the arrange overlay over the canvas rather than inside it", async () => {
     // A surface that works when handed a geometry and is never handed one is a
     // surface nobody can reach — and the overlay has to be on this side of the

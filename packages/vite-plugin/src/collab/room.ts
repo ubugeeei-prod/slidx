@@ -178,8 +178,12 @@ export function createRoom(options: RoomOptions): Room {
         const said = await body(request);
         const id = typeof said["id"] === "string" ? said["id"] : "";
         const slide = typeof said["slide"] === "number" ? said["slide"] : 0;
+        // Passed through as it arrived, including nonsense: the roster decides
+        // what counts as a block, so there is one answer to that rather than
+        // one here and another there.
+        const block = typeof said["block"] === "number" ? said["block"] : undefined;
 
-        roster.moved(id, { slide });
+        roster.moved(id, { slide, block });
         tellEveryone();
 
         response.statusCode = 204;

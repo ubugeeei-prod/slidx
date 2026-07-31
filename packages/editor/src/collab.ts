@@ -39,6 +39,16 @@ export interface PresenceOptions {
   base?: string;
   /** Asked to re-read the deck when somebody else changed it. */
   reload(): void;
+  /**
+   * Handed everyone connected, whenever that changes.
+   *
+   * These people are drawn twice — as a list of names here, and as marks over
+   * the blocks they have selected on the canvas — so they belong in the
+   * session's state rather than being passed from this surface to that one.
+   * This is the one place a stream is read, and it puts what it read where
+   * every surface already looks.
+   */
+  saw?(viewers: Viewer[]): void;
   fetch?: typeof globalThis.fetch;
   /** The URL to take the share credential out of. Defaults to this page's. */
   href?: string;
@@ -53,6 +63,8 @@ export interface Viewer {
   local: boolean;
   canEdit: boolean;
   slide: number;
+  /** Which block they have selected on it, when they have one. */
+  block?: number;
 }
 
 /**
@@ -83,7 +95,8 @@ export function createPresence(options: PresenceOptions): Surface {
 
   let seat: string | undefined;
   let source = "";
-  let reported = -1;
+  /** The last position posted, as one string so a pair can be compared as one. */
+  let reported = "";
   let stopped = false;
 
   /**
@@ -100,6 +113,8 @@ export function createPresence(options: PresenceOptions): Surface {
   const headers: Record<string, string> = credential ? { [CREDENTIAL_HEADER]: credential } : {};
 
   function draw(viewers: Viewer[]): void {
+    options.saw?.(viewers);
+
     // Nobody else connected means no new chrome at all. An author working alone
     // should not have to look at a panel telling them they are alone.
     root.setAttribute("data-empty", String(viewers.length < 2));
@@ -121,7 +136,7 @@ export function createPresence(options: PresenceOptions): Surface {
   function heard(event: string, payload: Record<string, unknown>): void {
     if (event === "hello" && typeof payload["id"] === "string") {
       seat = payload["id"];
-      reported = -1;
+      reported = "";
       return;
     }
 
@@ -202,16 +217,22 @@ export function createPresence(options: PresenceOptions): Surface {
     render(state: EditorState) {
       source = state.source;
 
+      const { slide, block } = state.selection;
+      const at = `${slide}:${block ?? ""}`;
+
       // Only when it changed. A render happens on every keystroke in the
       // inspector, and a post per keystroke would make presence the busiest
       // thing on the wire.
-      if (stopped || seat === undefined || state.selection.slide === reported) return;
-      reported = state.selection.slide;
+      if (stopped || seat === undefined || at === reported) return;
+      reported = at;
 
       void send(`${base}here`, {
         method: "POST",
         headers: { ...headers, "content-type": "application/json" },
-        body: JSON.stringify({ id: seat, slide: reported }),
+        // The block is left out rather than sent as null when nothing is
+        // selected, because that is the same statement the roster makes back:
+        // absent means nowhere in particular, and every number means a block.
+        body: JSON.stringify({ id: seat, slide, ...(block === undefined ? {} : { block }) }),
       }).catch(() => {
         // Presence is the first thing that should fail quietly.
       });

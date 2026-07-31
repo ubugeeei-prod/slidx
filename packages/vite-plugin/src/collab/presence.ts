@@ -39,11 +39,29 @@ export interface Viewer {
   canEdit: boolean;
   /** Which slide they are looking at, counting from zero. */
   slide: number;
+  /**
+   * Which block on it they have selected, when they have one.
+   *
+   * Absent rather than zero for a viewer who has selected nothing, because
+   * zero is a block. An editor drawing this has to be able to tell "on this
+   * slide, in the first paragraph" from "on this slide, nowhere in
+   * particular", and a number that means both is how the second becomes a
+   * marker sitting on somebody's title.
+   */
+  block?: number;
 }
 
-/** What a viewer said about itself. */
+/**
+ * What a viewer said about itself.
+ *
+ * `block` is written `| undefined` rather than left merely optional because
+ * this is a report rather than a patch: a viewer who has deselected has to be
+ * able to say so, and leaving the field out of an object built from a request
+ * body would mean building a different object for that case.
+ */
 export interface Position {
   slide: number;
+  block?: number | undefined;
 }
 
 export interface Roster {
@@ -61,6 +79,7 @@ interface Seat {
   local: boolean;
   canEdit: boolean;
   slide: number;
+  block: number | undefined;
   at: number;
 }
 
@@ -89,7 +108,7 @@ export function createRoster(now: () => number = Date.now): Roster {
       }
 
       arrivals += 1;
-      seats.set(id, { order: arrivals, slide: 0, at: now(), ...about });
+      seats.set(id, { order: arrivals, slide: 0, block: undefined, at: now(), ...about });
     },
 
     moved(id, position) {
@@ -97,6 +116,7 @@ export function createRoster(now: () => number = Date.now): Roster {
       if (!seat) return;
 
       seat.slide = Math.max(0, Math.trunc(position.slide));
+      seat.block = blockOf(position.block);
       seat.at = now();
     },
 
@@ -114,7 +134,22 @@ export function createRoster(now: () => number = Date.now): Roster {
           local: seat.local,
           canEdit: seat.canEdit,
           slide: seat.slide,
+          ...(seat.block === undefined ? {} : { block: seat.block }),
         }));
     },
   };
+}
+
+/**
+ * A block number, or nothing at all.
+ *
+ * Everything that reaches here came off a POST body, and a share link is handed
+ * to somebody else — so this is one of the few places in the dev server where
+ * the input is not the author's own. A fraction, a negative, an infinity or a
+ * string all mean the same thing as saying nothing: that viewer has no block
+ * selected. Rounding them into a block instead would put another person's name
+ * on a paragraph they have never seen.
+ */
+function blockOf(said: number | undefined): number | undefined {
+  return typeof said === "number" && Number.isInteger(said) && said >= 0 ? said : undefined;
 }
