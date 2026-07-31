@@ -117,6 +117,20 @@ export type EditOp =
    * missing block is created by the Rust writer rather than composed here.
    */
   | { op: "setStyle"; slide: SlideRef; property: string; value?: string }
+  /**
+   * One visual property for one block, stored in the slide's managed style.
+   *
+   * An unnamed block receives a stable key in the same operation. The browser
+   * never composes that key or the custom-property name; the Rust writer owns
+   * both so direct manipulation stays one undoable edit.
+   */
+  | {
+      op: "setBlockStyle";
+      slide: SlideRef;
+      block: BlockRef;
+      property: string;
+      value?: string;
+    }
   | { op: "addMark"; slide: SlideRef; range: ByteSpan; attributes: MarkAttributes }
   | { op: "setMark"; slide: SlideRef; mark: MarkRef; attributes: MarkAttributes }
   | { op: "removeMark"; slide: SlideRef; mark: MarkRef }

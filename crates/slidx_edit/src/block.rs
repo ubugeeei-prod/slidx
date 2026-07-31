@@ -35,6 +35,70 @@ use crate::edit::EditBuilder;
 use crate::op::{BlockRef, EditError, SlideRef};
 use crate::source::DeckSource;
 
+pub(crate) struct StyleKey {
+    pub key: String,
+    pub assigned: bool,
+}
+
+/// The stable key a block-local visual property uses.
+///
+/// Existing authored keys win. An unnamed block receives the first available
+/// `element-N` key only when a property is being added; removing a property
+/// from an unnamed block is already a no-op and must not put an attribute line
+/// in the file.
+pub(crate) fn style_key(
+    deck: &DeckSource<'_>,
+    slide: &SlideRef,
+    block: &BlockRef,
+    create: bool,
+) -> Result<Option<StyleKey>, EditError> {
+    let index = deck.resolve(slide)?;
+    let body = deck.at(index).body;
+    let found = find_blocks(body.slice(deck.source));
+    let at = locate(&found, block)?;
+
+    if let Some(key) = &found[at].block.attributes.key {
+        return Ok(Some(StyleKey { key: key.clone(), assigned: false }));
+    }
+    if !create {
+        return Ok(None);
+    }
+
+    let used = found
+        .iter()
+        .filter_map(|candidate| candidate.block.attributes.key.as_deref())
+        .collect::<std::collections::BTreeSet<_>>();
+    let key = (1usize..)
+        .map(|number| format!("element-{number}"))
+        .find(|candidate| !used.contains(candidate.as_str()))
+        .expect("the unbounded key sequence has an available value");
+
+    Ok(Some(StyleKey { key, assigned: true }))
+}
+
+/// Adds a key chosen by [`style_key`] without replacing any other attributes.
+pub(crate) fn assign_style_key(
+    deck: &DeckSource<'_>,
+    slide: &SlideRef,
+    block: &BlockRef,
+    key: &StyleKey,
+    builder: &mut EditBuilder<'_>,
+) -> Result<(), EditError> {
+    if !key.assigned {
+        return Ok(());
+    }
+
+    let index = deck.resolve(slide)?;
+    let body = deck.at(index).body;
+    let found = find_blocks(body.slice(deck.source));
+    let at = locate(&found, block)?;
+    let mut attributes = found[at].block.attributes.clone();
+    attributes.key = Some(key.key.clone());
+    write_line(deck, body, &found[at], &attributes, builder);
+
+    Ok(())
+}
+
 pub(crate) fn set_attributes(
     deck: &DeckSource<'_>,
     slide: &SlideRef,

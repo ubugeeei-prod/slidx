@@ -80,6 +80,13 @@ const OPERATIONS = {
   setText: { op: "setText", slide: 2, range: spanOf(THIRD_BODY, "120ms"), text: "38ms" },
   setField: { op: "setField", slide: 1, key: "budget", value: "90s" },
   setStyle: { op: "setStyle", slide: 1, property: "layout", value: "aside" },
+  setBlockStyle: {
+    op: "setBlockStyle",
+    slide: 1,
+    block: 1,
+    property: "x",
+    value: "12.5%",
+  },
   setNotes: { op: "setNotes", slide: 0, notes: "Open with the outcome." },
   insertSlide: { op: "insertSlide", at: 1, body: "## Inserted\n" },
   duplicateSlide: { op: "duplicateSlide", slide: 1 },

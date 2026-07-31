@@ -202,6 +202,9 @@ fn insert_block(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::apply;
+    use crate::op::EditOp;
+    use slidx_core::DeckParseOptions;
 
     #[test]
     fn declarations_keep_the_value_and_whole_line_spans() {
@@ -219,5 +222,87 @@ mod tests {
     fn a_closing_root_line_is_found_without_parsing_css() {
         assert_eq!(closing_root_line(":root {\n  color: red;\n}\n"), Some(22));
         assert_eq!(closing_root_line("not a root\n"), None);
+    }
+
+    #[test]
+    fn a_block_visual_property_assigns_one_key_and_lives_in_the_managed_style() {
+        let source = "# One\n\nBody.\n";
+        let op = EditOp::SetBlockStyle {
+            slide: 0.into(),
+            block: 1.into(),
+            property: "x".into(),
+            value: Some("12.5%".into()),
+        };
+
+        assert_eq!(
+            apply(source, &DeckParseOptions::default(), &op).unwrap(),
+            concat!(
+                "<style data-slidx>\n",
+                ":root {\n",
+                "  --slidx-block-id-element-1-x: 12.5%;\n",
+                "}\n",
+                "</style>\n",
+                "\n",
+                "# One\n",
+                "\n",
+                "{#element-1}\n",
+                "Body.\n",
+            )
+        );
+    }
+
+    #[test]
+    fn removing_a_block_property_does_not_name_an_unnamed_block() {
+        let source = "# One\n";
+        let op = EditOp::SetBlockStyle {
+            slide: 0.into(),
+            block: 0.into(),
+            property: "x".into(),
+            value: None,
+        };
+
+        assert_eq!(apply(source, &DeckParseOptions::default(), &op).unwrap(), source);
+    }
+
+    #[test]
+    fn an_invalid_block_property_is_refused_even_when_removal_would_be_a_no_op() {
+        let source = "# One\n";
+        let op = EditOp::SetBlockStyle {
+            slide: 0.into(),
+            block: 0.into(),
+            property: "bad property".into(),
+            value: None,
+        };
+
+        assert!(matches!(
+            apply(source, &DeckParseOptions::default(), &op),
+            Err(EditError::InvalidStyleProperty { .. })
+        ));
+    }
+
+    #[test]
+    fn block_properties_are_independent_and_keep_an_authored_key() {
+        let source = concat!(
+            "<style data-slidx>\n",
+            ":root {\n",
+            "  --slidx-block-id-hero-x: 10%;\n",
+            "  --slidx-block-id-hero-color: red;\n",
+            "}\n",
+            "</style>\n",
+            "\n",
+            "{#hero .accent}\n",
+            "# One\n",
+        );
+        let op = EditOp::SetBlockStyle {
+            slide: 0.into(),
+            block: "hero".into(),
+            property: "x".into(),
+            value: Some("24%".into()),
+        };
+        let changed = apply(source, &DeckParseOptions::default(), &op).unwrap();
+
+        assert!(changed.contains("--slidx-block-id-hero-x: 24%;"));
+        assert!(changed.contains("--slidx-block-id-hero-color: red;"));
+        assert!(changed.contains("{#hero .accent}"));
     }
 }

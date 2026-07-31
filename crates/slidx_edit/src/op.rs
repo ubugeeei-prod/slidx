@@ -106,6 +106,21 @@ pub enum EditOp {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         value: Option<String>,
     },
+    /// Writes one visual property for one block into the slide's tagged style
+    /// block, assigning the block a stable key when direct manipulation first
+    /// needs one.
+    ///
+    /// The browser names the block and the property; Rust owns both the key and
+    /// the managed custom-property spelling. A missing value removes only this
+    /// property, so a co-author changing colour while another changes position
+    /// does not make either gesture replace the other.
+    SetBlockStyle {
+        slide: SlideRef,
+        block: BlockRef,
+        property: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        value: Option<String>,
+    },
     /// Wraps a range of a slide's body in a mark. `range` is measured in the
     /// slide's source body, which is what a text selection maps to.
     AddMark {
@@ -468,6 +483,46 @@ mod tests {
         assert_eq!(
             serde_json::to_value(&remove).unwrap(),
             json!({ "op": "setStyle", "slide": 2, "property": "layout" })
+        );
+        assert_eq!(
+            serde_json::from_value::<EditOp>(serde_json::to_value(&set).unwrap()).unwrap(),
+            set
+        );
+    }
+
+    #[test]
+    fn a_block_style_crosses_as_one_addressed_property_and_an_optional_value() {
+        let set = EditOp::SetBlockStyle {
+            slide: "intro".into(),
+            block: "hero".into(),
+            property: "x".into(),
+            value: Some("12.5%".into()),
+        };
+        let remove = EditOp::SetBlockStyle {
+            slide: 2.into(),
+            block: 1.into(),
+            property: "color".into(),
+            value: None,
+        };
+
+        assert_eq!(
+            serde_json::to_value(&set).unwrap(),
+            json!({
+                "op": "setBlockStyle",
+                "slide": "intro",
+                "block": "hero",
+                "property": "x",
+                "value": "12.5%",
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(&remove).unwrap(),
+            json!({
+                "op": "setBlockStyle",
+                "slide": 2,
+                "block": 1,
+                "property": "color",
+            })
         );
         assert_eq!(
             serde_json::from_value::<EditOp>(serde_json::to_value(&set).unwrap()).unwrap(),
