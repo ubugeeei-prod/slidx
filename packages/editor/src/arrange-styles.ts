@@ -31,6 +31,10 @@ export const ARRANGE_STYLESHEET = `
   pointer-events: none;
 }
 
+.slidx-arrange[data-freeform-selection="true"] .slidx-arrange-grips {
+  display: none;
+}
+
 .slidx-arrange-region, .slidx-arrange-safe, .slidx-arrange-drop, .slidx-arrange-ghost {
   position: fixed;
   opacity: 0;

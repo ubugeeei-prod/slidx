@@ -76,14 +76,6 @@ export const EDITING_STYLESHEET = `
   outline-color: color-mix(in srgb, var(--slidx-color-accent) 52%, transparent);
 }
 
-.slidx-block[${SELECTED_ATTRIBUTE}] {
-  outline: 1px solid color-mix(in srgb, var(--slidx-color-accent) 46%, transparent);
-  outline-offset: 6px;
-}
-
-.slidx-block[${SELECTED_ATTRIBUTE}]:has([contenteditable]:focus) {
-  outline-color: transparent;
-}
 `;
 
 export interface CanvasHandlers {
