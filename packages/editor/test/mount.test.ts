@@ -47,6 +47,7 @@ describe("the mounted editor", () => {
     expect(root.querySelector(".slidx-inspector")).not.toBeNull();
     expect(root.querySelector(".slidx-timeline")).not.toBeNull();
     expect(root.querySelector(".slidx-diagnostics")).not.toBeNull();
+    expect(root.querySelector(".slidx-media-drop")).not.toBeNull();
   });
 
   it("draws the timeline for the slide being edited, from the deck it read", async () => {

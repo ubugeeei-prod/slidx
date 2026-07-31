@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 
-import { createServer, type ViteDevServer } from "vite";
+import { build, createServer, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { slidx } from "../src/index";
@@ -12,6 +12,24 @@ import { uploadMedia } from "../src/media-upload";
 import { resolveOptions } from "../src/options";
 import { Grant } from "../src/share";
 import { createEditSession } from "../src/session";
+
+async function chromiumAvailable(): Promise<boolean> {
+  try {
+    const { chromium } = await import("playwright");
+    const browser = await chromium.launch();
+    await browser.close();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const hasChromium = await chromiumAvailable();
+const browserTest = it.skipIf(!hasChromium);
+const ONE_PIXEL_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+  "base64",
+);
 
 describe("dropped media uploads", () => {
   let root: string;
@@ -143,4 +161,123 @@ describe("dropped media uploads", () => {
     expect(await response.json()).toMatchObject({ message: expect.stringContaining("empty") });
     expect(await readdir(join(root, "slides/assets"))).not.toContain("empty.webp");
   });
+
+  browserTest(
+    "drops a real browser File onto the visual editor and survives reload and build",
+    async () => {
+      const { chromium } = await import("playwright");
+      const browser = await chromium.launch();
+      const context = await browser.newContext({
+        colorScheme: "dark",
+        viewport: { width: 1_600, height: 1_000 },
+      });
+      const page = await context.newPage();
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+
+      try {
+        await page.goto(`${url}__slidx/`, { waitUntil: "domcontentloaded" });
+        await page.waitForFunction(
+          () =>
+            document
+              .querySelector<HTMLIFrameElement>(".slidx-canvas-frame")
+              ?.contentDocument?.querySelector("[data-slidx-region]") !== null,
+        );
+
+        await page.evaluate(
+          (bytes) => {
+            const frame = document.querySelector<HTMLIFrameElement>(".slidx-canvas-frame");
+            const preview = frame?.contentDocument;
+            const region = preview?.querySelector("[data-slidx-region]");
+            if (!preview || !region) throw new Error("the visual slide did not render");
+
+            const rect = region.getBoundingClientRect();
+            const transfer = new DataTransfer();
+            transfer.items.add(
+              new File([new Uint8Array(bytes)], "browser-drop.png", { type: "image/png" }),
+            );
+            const init: DragEventInit = {
+              bubbles: true,
+              cancelable: true,
+              clientX: rect.left + rect.width / 2,
+              clientY: rect.top + 4,
+              dataTransfer: transfer,
+            };
+            preview.dispatchEvent(new DragEvent("dragenter", init));
+            preview.dispatchEvent(new DragEvent("dragover", init));
+            (
+              window as unknown as {
+                __slidxDrop: { preview: Document; init: DragEventInit };
+              }
+            ).__slidxDrop = { preview, init };
+          },
+          [...ONE_PIXEL_PNG],
+        );
+
+        await page.waitForFunction(
+          () => document.querySelector(".slidx-media-drop")?.getAttribute("data-target") === "body",
+        );
+        const chrome = await page.locator(".slidx-media-drop").evaluate((element) => {
+          const style = getComputedStyle(element);
+          return {
+            active: element.getAttribute("data-active"),
+            padding: style.padding,
+            border: style.borderTopWidth,
+            background: getComputedStyle(document.body).backgroundColor,
+          };
+        });
+        expect(chrome).toEqual({
+          active: "true",
+          padding: "24px",
+          border: "1px",
+          background: "rgb(22, 24, 29)",
+        });
+
+        await page.evaluate(() => {
+          const holder = window as unknown as {
+            __slidxDrop?: { preview: Document; init: DragEventInit };
+          };
+          const drop = holder.__slidxDrop;
+          if (!drop) throw new Error("the file drag was not held");
+          drop.preview.dispatchEvent(new DragEvent("drop", drop.init));
+          delete holder.__slidxDrop;
+        });
+        await page.locator('.slidx-media-drop[data-active="false"]').waitFor({ timeout: 15_000 });
+        await page.waitForFunction(
+          () =>
+            document
+              .querySelector<HTMLIFrameElement>(".slidx-canvas-frame")
+              ?.contentDocument?.querySelector('img[src*="browser-drop.png"]') !== null,
+        );
+
+        const source = await readFile(join(root, "slides/0001.md"), "utf8");
+        expect(source).toMatch(
+          /^!\[browser drop\]\(<\/slides\/assets\/browser-drop\.png>\)\n\n# One/,
+        );
+        expect(await readFile(join(root, "slides/assets/browser-drop.png"))).toEqual(ONE_PIXEL_PNG);
+
+        await page.reload({ waitUntil: "domcontentloaded" });
+        await page.waitForFunction(
+          () =>
+            document
+              .querySelector<HTMLIFrameElement>(".slidx-canvas-frame")
+              ?.contentDocument?.querySelector('img[src*="browser-drop.png"]') !== null,
+        );
+
+        await build({
+          root,
+          logLevel: "silent",
+          plugins: [slidx({ presenter: false, print: false, og: false, overflow: false })],
+          build: { outDir: join(root, "dist") },
+        });
+        expect(await readFile(join(root, "dist/slides/assets/browser-drop.png"))).toEqual(
+          ONE_PIXEL_PNG,
+        );
+        expect(errors).toEqual([]);
+      } finally {
+        await browser.close();
+      }
+    },
+    120_000,
+  );
 });
