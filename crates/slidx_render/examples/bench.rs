@@ -53,7 +53,7 @@ fn main() {
         black_box(slidx_theme::css::render(&options.theme).len());
     });
     let layouts = best(RUNS, || {
-        black_box(slidx_theme::layout::css(&slidx_theme::layout::all()).len());
+        black_box(slidx_theme::layout::stylesheet().len());
     });
 
     let bytes: usize =
@@ -63,9 +63,49 @@ fn main() {
     println!("  parse            {parse:>12.2?}");
     println!("  render           {render:>12.2?}");
     println!("  ├ theme css      {theme:>12.2?}  (once per deck)");
-    println!("  └ layout css     {layouts:>12.2?}  (built fresh)");
+    println!("  └ layout css     {layouts:>12.2?}  (once per process)");
     println!("\n  emitted          {:>10} kB", bytes / 1000);
     println!("  per slide        {:>12.2?}", render / count as u32);
+
+    by_content(count);
+}
+
+/// The same shell, four different slides.
+///
+/// A total says the render is slow; this says *what* is slow, which is the
+/// question anybody reading it actually has. Every row emits within a few
+/// hundred bytes of the same document — the shell stylesheet, the theme and the
+/// layouts are the same 29kB every time — so the spread between the rows is
+/// content processing and nothing else, and an empty slide is the floor:
+/// assemble the page and stop.
+///
+/// The gap is the finding. Assembling a 29kB document costs about 21µs; a
+/// realistic slide costs an order of magnitude more, and none of it is the
+/// shell. Anybody reaching for the page assembly is optimising the wrong end,
+/// which is a mistake this table exists to stop somebody making twice.
+fn by_content(count: usize) {
+    let cases = [
+        ("empty", "# H\n"),
+        ("prose", "## Slide\n\nA paragraph of the length prose usually is, twice over.\n"),
+        ("prose + code", "## Slide\n\nA paragraph mentioning `inline code` and **emphasis**.\n"),
+        ("list + mark + code", REALISTIC),
+    ];
+
+    println!("\n  per slide, by what is on it");
+    for (label, body) in cases {
+        let source = (0..count).map(|_| body.to_string()).collect::<Vec<_>>().join("\n---\n\n");
+        let deck = parse_deck(&source, &DeckParseOptions::default());
+        let options = ShellOptions::default();
+        let bytes = render_slide(&deck, &deck.slides[0], &options).len();
+
+        let taken = best(RUNS, || {
+            for slide in &deck.slides {
+                black_box(render_slide(&deck, slide, &options).len());
+            }
+        });
+
+        println!("    {label:<20} {:>9.2?}   {bytes} B", taken / count as u32);
+    }
 }
 
 fn best(runs: u32, mut work: impl FnMut()) -> Duration {
@@ -82,17 +122,16 @@ fn best(runs: u32, mut work: impl FnMut()) -> Duration {
 /// A slide of realistic weight: a heading, a list, prose, and a mark.
 fn deck_source(count: usize) -> String {
     (0..count)
-        .map(|index| {
-            format!(
-                "## Slide {index}\n\n\
-                 - The first point\n\
-                 - The second, with [a marked phrase]{{#result .accent}}\n\
-                 - The third\n\n\
-                 A paragraph of the length prose usually is, mentioning \
-                 `inline code` and **emphasis** so both reach the highlighter \
-                 and the theme.\n"
-            )
-        })
+        .map(|index| REALISTIC.replacen("## Slide", &format!("## Slide {index}"), 1))
         .collect::<Vec<_>>()
         .join("\n---\n\n")
 }
+
+/// The slide the headline figure is measured against, and the last row of the
+/// breakdown, so the two cannot drift into describing different decks.
+const REALISTIC: &str = "## Slide\n\n\
+     - The first point\n\
+     - The second, with [a marked phrase]{#result .accent}\n\
+     - The third\n\n\
+     A paragraph of the length prose usually is, mentioning `inline code` and \
+     **emphasis** so both reach the highlighter and the theme.\n";
