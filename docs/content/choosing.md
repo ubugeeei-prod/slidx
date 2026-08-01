@@ -95,8 +95,12 @@ slide and the whole design leans on that.
 theme. Arbitrary free-form layout is not what it is for, and a deck that is
 really a set of drawings will fight it the whole way.
 
-**You need it to control the machine.** slidx holds a wake lock and goes
-fullscreen. It does not turn on Do Not Disturb or set your volume, because no
+**You need it to control the machine.** A deck is a page, and the page does not
+yet reach for fullscreen or hold a wake lock — the code for both is written and
+nothing on a slide calls it, which is a gap rather than a decision. Use your
+browser's own fullscreen for now.
+
+It will not turn on Do Not Disturb or set your volume even then, because no
 browser API does and none should — a page that could mute your machine could
 hide a phishing alert. Those are a checklist naming the setting and where it
 lives on your platform.
