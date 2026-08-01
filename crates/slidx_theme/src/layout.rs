@@ -39,6 +39,19 @@ mod place;
 pub mod width;
 
 pub use css::{render as css, LAYOUT_ATTRIBUTE, REGION_ATTRIBUTE};
+
+/// Every built-in layout as one stylesheet, rendered once per process.
+///
+/// [`css`] takes whatever layouts a caller has, because a theme package will
+/// one day bring its own. This is the answer for the callers that always want
+/// all of them — which is every shell — and it is memoised because they ask
+/// per *slide*: a five-hundred-slide deck built six `Layout` values and
+/// formatted the same stylesheet five hundred times, and threw away four
+/// hundred and ninety-nine of them.
+pub fn stylesheet() -> &'static str {
+    static SHEET: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    SHEET.get_or_init(|| css(&all()))
+}
 pub use place::{diagnose, place, Misplaced, PlacedRegion, Placement};
 pub use width::{BlockWidth, WIDTH_ATTRIBUTE, WIDTH_PROPERTY};
 

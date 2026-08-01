@@ -144,13 +144,15 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
         presenter: options.presenter,
     };
 
+    // One `ShellOptions` for the whole deck, so the theme is compiled to CSS
+    // once rather than once per slide — this is the loop that made that matter.
     let shell = ShellOptions {
-        theme: theme.clone(),
         markdown,
         runtime_src: runtime_src.clone(),
         seo: seo.clone(),
         ..ShellOptions::default()
-    };
+    }
+    .with_theme(theme.clone());
     let print_theme = theme.clone();
     let snippet_theme = theme.clone();
     let og_theme = theme.clone();
