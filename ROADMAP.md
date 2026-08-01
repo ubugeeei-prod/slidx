@@ -29,6 +29,14 @@ library, and this workspace's only callers are inside it. But the rule stands
 on its own: a box here is checked when the path from a person to the behaviour
 exists, not when the code that would implement it does.
 
+**Five boxes in M4 have since been unchecked for exactly this reason**, and the
+pattern is one `check-dead-config.mjs` cannot see: a TypeScript symbol exported
+from `packages/runtime`'s barrel that no shipped page imports. Presentation
+mode, the behind/ahead reading, the demo switch, the phone remote and the whole
+audience channel are all written, all tested, and all reachable by nobody. The
+equivalent check — an exported symbol with no consumer — does not exist, and its
+absence is why five features could sit in that state at once.
+
 ---
 
 ## M0 — Foundations
@@ -193,14 +201,30 @@ Everything between walking up and sitting down.
 
 - [x] Presenter view: next slide, notes, position — #12
 - [x] Timer against the declared slot, with a warning before the end
-- [x] Behind/ahead indicator, and hints naming the optional slides to drop
+- [ ] Behind/ahead indicator, and hints naming the optional slides to drop.
+      `assessPace` and `describePace` are written and exported; the presenter
+      view does not call either, so the only per-slide reading a speaker gets
+      is the rehearsal report, after the fact
 - [x] Mirroring across windows and screens — #13
 - [x] Navigation from the presenter view, which is where a clicker's keys go — #12
-- [x] Remote control from a separate device — #13
-- [x] Presentation mode: wake lock, fullscreen, and a named DND checklist — #13
+- [ ] Remote control from a separate device — #13. `createPairing`,
+      `pairingUrl` and `createRemoteTransport` exist and nothing constructs a
+      `RemoteSocket` for them; there is no relay. `readPairing`'s one caller
+      is the _editor's_ collaboration gate, not slide control
+- [ ] Presentation mode: wake lock, fullscreen, and a named DND checklist — #13.
+      `enterPresentation` is written, tested and exported, and no shipped page
+      calls it. Unchecked again for the reason at the top of this file: the
+      behaviour needs a gesture to hang off, and a deck has no key or control
+      that offers one. `choosing.md` claimed it for months
 - [x] Rehearsal recording; actual per-slide dwell time diffed against budget — #17
-- [x] **Demo fallback** as a declared construct: live target plus recorded video — #14
-- [x] Audience channel — moderated Q&A and reactions on a Worker — #16
+- [ ] **Demo fallback** as a declared construct: live target plus recorded
+      video — #14. Both sides ship in the markup, which is the hard half and
+      is done. Switching between them is one attribute write and nothing a
+      speaker can reach performs it: `createDemoSwitch` has no caller
+- [ ] Audience channel — moderated Q&A and reactions on a Worker — #16.
+      `@slidxjs/audience` is 1,983 lines with its own protocol, room state and
+      rate limiting, no `package.json` in the workspace depends on it, and
+      there is no wrangler configuration to deploy the Worker anywhere
 - [x] Live code sharing: a highlighted snippet page, and its QR on the slide — #15
 - [x] Snippet pages written by the build, so a scanned QR reaches a page
       rather than a 404 — #15
@@ -216,6 +240,21 @@ honoured: that URL has already been written down somewhere.
 The demo fallback ships both sides in the markup, so switching is one attribute
 write. A fallback that has to be fetched when the demo dies is not a fallback —
 it is a second thing that fails, at the same moment, for the same reason.
+
+**Mirroring only ever worked in one direction, and the box was checked anyway.**
+Two windows, two counters, and one watermark between them: the mirror ordered
+messages by a sequence documented as monotonic _per sender_ and compared it
+against a single highest-seen. A deck is multi-page HTML, so every move reloads
+a window and restarts its counter at one — and the presenter view announces its
+position on load, which raised that bar to 1 before anything happened. From then
+on it dropped every position the projector sent, because a freshly loaded
+projector page can only count to 1 as well.
+
+The speaker drives from the projector, because that is where a clicker's keys
+land. Their notes stopped following, silently, for the whole talk. Every test
+passed: with one sender the rule is correct, and every test had one sender.
+`MirrorMessage.from` is the fix and the three tests beside it are named after
+the failure.
 
 ---
 
@@ -285,7 +324,7 @@ matters least — a laptop the night before, on conference wifi.
 - [x] Documentation site, with the sections built around readers rather than crates
 - [ ] First release to npm and crates.io — needs the maintainer's accounts
 
-Everything either side of that box is done. `vp run release <level>` writes the
+Everything either side of that box in M6 is done. `vp run release <level>` writes the
 version everywhere it lives, runs the version check against the tag it is about
 to create, and pushes it; the tag starts a workflow that publishes through OIDC
 with no token stored anywhere. A dry run over all 28 publishable directories is
@@ -330,16 +369,16 @@ Everything checked above is merged, tested, and — where a browser can tell the
 difference — verified in one rather than assumed. The counts are the honest
 measure of that:
 
-|                                     |                           |
-| ----------------------------------- | ------------------------- |
-| Rust tests                          | 3825                      |
-| TypeScript tests                    | 1846                      |
-| Crates                              | 19                        |
-| Publishable npm packages            | 10                        |
-| Platforms in CI                     | Linux, macOS, Windows     |
-| Browsers exercised                  | Chromium, Firefox, WebKit |
-| Runtimes exercised                  | Node, Bun, Deno           |
-| JavaScript on a slide with no steps | none                      |
+|                                          |                           |
+| ---------------------------------------- | ------------------------- |
+| Rust tests                               | 3825                      |
+| TypeScript tests                         | 1846                      |
+| Crates                                   | 19                        |
+| Publishable npm packages                 | 10                        |
+| Platforms in CI                          | Linux, macOS, Windows     |
+| Browsers exercised                       | Chromium, Firefox, WebKit |
+| Runtimes exercised                       | Node, Bun, Deno           |
+| JavaScript a slide with no steps fetches | none                      |
 
 `node scripts/count-coverage.mjs` reproduces the first four rows, so they are
 measured rather than remembered. They had said 1642, 1080 and 10 against a tree
@@ -348,10 +387,29 @@ typed, and drifted far enough that two readers noticed independently before
 anyone corrected them. A table that calls itself the honest measure has to be
 able to prove it.
 
-That last row used to read "on an audience slide", and the correction is the
-point of this document. A slide with steps loads one shared module and its own
-compiled timeline; a slide without steps is finished markup and loads nothing.
-The old wording was true only because the feature did not work.
+That last row has now been corrected twice, and both corrections are the point
+of this document.
+
+It first read "on an audience slide", which was true only because the compiled
+step pipeline reached no projector. A slide with steps loads one shared module
+and its own compiled timeline; a slide without steps fetches nothing.
+
+Then it read "on a slide with no steps: none", and that was true for a worse
+reason: **such a slide could not be advanced.** No key was bound, because the
+key handler shipped with the stage. Nothing in the body linked anywhere —
+`<link rel="next">` sat in the `<head>`, where no browser has surfaced it for
+twenty years. And the presenter view's mirror broadcast into a window with no
+listener, so a speaker on the title slide could press the clicker and watch the
+projector not move. The runtime had `next`, `prev`, `first`, `last` and a key
+table the whole time. Nobody in a room could reach any of them.
+
+A deck you cannot advance is not a deck, so navigation is now on every slide:
+two real anchors in the footer, which cost nothing and work from a USB stick
+with the script disabled, and a few hundred inline bytes that turn a clicker
+and the presenter's mirror into a click on one of them. `slidx_render::navigation`
+has the reasoning; `scripts/budget.mjs` holds the size and keeps the half of the
+old claim that was ever load-bearing — a finished slide still **fetches**
+nothing.
 
 The unchecked items are the work, not a wish list. Each is an open issue with a
 stated shape, and each unchecked line above says _why_ it is not done rather

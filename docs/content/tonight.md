@@ -100,8 +100,8 @@ vp exec playwright install chromium
 ## The presenter view will not open, or the projector forces mirroring
 
 The presenter view is its own URL, not a window slidx has to be allowed to
-open — `/slides/presenter/` in dev, `presenter/index.html` in the build. Press
-`p` from the audience window, or open the address yourself in a second window.
+open — `/slides/presenter/` in dev, `presenter/index.html` in the build. Open
+the address yourself in a second window; there is no key that opens it for you.
 
 Two windows stay on the same slide over a broadcast channel. Where that channel
 is unavailable, mirroring is off and **the deck still presents** — you drive the
@@ -109,10 +109,15 @@ window you are looking at.
 
 ## The demo might die
 
-If the slide declared a fallback, `d` switches between the live target and the
-recording of it working. Both are already in the markup: a fallback that has to
-be fetched when the demo dies is not a fallback, it is a second thing that
-fails, at the same moment, for the same reason.
+A slide that declared a fallback ships **both** sides in the markup — the live
+target and a recording of it working — because a fallback that has to be fetched
+when the demo dies is not a fallback, it is a second thing that fails at the same
+moment for the same reason.
+
+Switching between them is one attribute write and **there is no key bound to it
+yet**, which is worth knowing tonight rather than on stage. If the demo dies,
+the recording is in the page: open the console and set
+`data-slidx-demo="fallback"` on the figure.
 
 If your demo slide has no declared fallback and you have an hour, record it
 working and declare it. If you have ten minutes, screenshot it.
@@ -120,10 +125,13 @@ working and declare it. If you have ten minutes, screenshot it.
 ## I am going to run over
 
 The presenter view's clock runs against the slot your frontmatter declared, and
-warns before the end rather than as it expires. Under it, the pace reading
-compares where you are against the `budget:` you wrote per slide, so the answer
-is "slide 7 took four minutes and was budgeted one" rather than "you ran over" —
-which is the one form of the fact you can act on.
+warns before the end rather than as it expires.
+
+The per-slide reading is the **rehearsal report**, which is the same fact
+measured rather than predicted: press Rehearse, give the talk, and it says
+"slide 7 took four minutes and was budgeted one" — the one form of the fact you
+can act on. Do that tonight; there is no live behind/ahead indicator while you
+are speaking.
 
 Mark the slides you could drop, tonight, while you can still think about it:
 
@@ -155,21 +163,27 @@ reproduce rather than leaving a picture of something that no longer happens.
 
 ## Keys I will want and will not remember
 
-| Key                      | What it does                      |
-| ------------------------ | --------------------------------- |
-| `→` `Space` `PageDown`   | Next stop                         |
-| `←` `PageUp` `Backspace` | Previous stop                     |
-| `Home` / `End`           | First / last stop on this slide   |
-| `o`                      | Slide overview                    |
-| `p`                      | Presenter view                    |
-| `b` or `.`               | Black out the screen              |
-| `f`                      | Fullscreen                        |
-| `t` / `r`                | Start or pause / reset the timer  |
-| `d`                      | Switch the demo for its recording |
-| `?`                      | Show these shortcuts              |
+| Key                                | What it does                                |
+| ---------------------------------- | ------------------------------------------- |
+| `→` `↓` `Space` `Enter` `PageDown` | Forward: the next stop, then the next slide |
+| `←` `↑` `PageUp` `Backspace`       | Back                                        |
+| `Home` / `End`                     | First / last slide                          |
+| `Tab` then `Enter`                 | The `‹` and `›` in the footer               |
 
-The navigation keys are the ones presentation remotes actually send. The letters
-are the ones already in your fingers.
+These are the keys presentation remotes actually send, and they work on **every**
+slide — including one with nothing to reveal, which until recently was a page a
+right arrow did nothing to at all.
+
+They also work in the presenter view, which is usually where a clicker's keys
+land, and the two windows follow each other in both directions.
+
+The footer's `‹ n / m ›` is the same navigation without a keyboard: real links
+between real documents, so it works on a phone, from a USB stick, and with
+scripting switched off.
+
+**There is no blackout, fullscreen, or overview key yet.** They are worth having
+and they are not there; a list that promised them the night before a talk would
+be worse than a short list.
 
 ## Somebody is going to ask for the code
 
