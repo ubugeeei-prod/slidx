@@ -205,6 +205,13 @@
     "transitionMs": 120,
     "transitionEasing": "ease-out"
   },
+  "typography": {
+    "baseLeading": 1.5,
+    "leadingResponse": 0.52,
+    "trackingResponse": 0.022,
+    "proseMeasureEm": 30.0,
+    "headingMeasureEm": 13.0
+  },
   "fontSans": "system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif",
   "fontMono": "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Roboto Mono', 'Noto Sans Mono CJK JP', monospace"
 }

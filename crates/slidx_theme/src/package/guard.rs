@@ -35,6 +35,7 @@ use slidx_lint::Rgba;
 
 use crate::palette::{Palette, SyntaxPalette};
 use crate::theme::{Motion, Spacing, Theme};
+use crate::typography::Typography;
 
 /// One value the guard would not pass through.
 #[derive(Debug, Clone, PartialEq)]
@@ -115,6 +116,23 @@ const MAX_BLOCK_PX: f64 = 120.0;
 /// guarantee the shell owns. Small ceilings, for that reason and not for taste.
 const MAX_RADIUS_PX: f64 = 16.0;
 const MAX_HAIRLINE_PX: f64 = 8.0;
+
+/// How type is set, bounded.
+///
+/// [`Typography::leading`](crate::Typography::leading) already clamps what it
+/// emits, so leading is safe whatever a document says. Tracking and measure are
+/// not: a response of five puts a tenth of an em between every letter, and a
+/// measure of two hundred is no measure at all. Both reach a stylesheet
+/// directly, so both are held here rather than at the point of use.
+///
+/// The leading pair is bounded anyway, because a value that survives into the
+/// editor's theme panel should be a number somebody can read.
+const MIN_BASE_LEADING: f64 = 1.0;
+const MAX_BASE_LEADING: f64 = 2.5;
+const MAX_LEADING_RESPONSE: f64 = 2.0;
+const MAX_TRACKING_RESPONSE: f64 = 0.1;
+const MIN_MEASURE_EM: f64 = 4.0;
+const MAX_MEASURE_EM: f64 = 120.0;
 
 /// Past roughly this an audience watches the transition instead of the slide.
 ///
@@ -208,6 +226,43 @@ pub fn hold(theme: Theme, fallback: &Theme) -> Held {
         motion: Motion {
             transition_ms: milliseconds(theme.motion.transition_ms, &mut repairs),
             transition_easing: theme.motion.transition_easing,
+        },
+        typography: Typography {
+            base_leading: bounded(
+                "typography.baseLeading",
+                theme.typography.base_leading,
+                MIN_BASE_LEADING,
+                MAX_BASE_LEADING,
+                &mut repairs,
+            ),
+            leading_response: bounded(
+                "typography.leadingResponse",
+                theme.typography.leading_response,
+                0.0,
+                MAX_LEADING_RESPONSE,
+                &mut repairs,
+            ),
+            tracking_response: bounded(
+                "typography.trackingResponse",
+                theme.typography.tracking_response,
+                0.0,
+                MAX_TRACKING_RESPONSE,
+                &mut repairs,
+            ),
+            prose_measure_em: bounded(
+                "typography.proseMeasureEm",
+                theme.typography.prose_measure_em,
+                MIN_MEASURE_EM,
+                MAX_MEASURE_EM,
+                &mut repairs,
+            ),
+            heading_measure_em: bounded(
+                "typography.headingMeasureEm",
+                theme.typography.heading_measure_em,
+                MIN_MEASURE_EM,
+                MAX_MEASURE_EM,
+                &mut repairs,
+            ),
         },
         font_sans: stack("fontSans", theme.font_sans, &fallback.font_sans, &mut repairs),
         font_mono: stack("fontMono", theme.font_mono, &fallback.font_mono, &mut repairs),
@@ -517,6 +572,34 @@ mod tests {
 
         assert_eq!(spacing.radius_px, MAX_RADIUS_PX);
         assert_eq!(spacing.hairline_px, MAX_HAIRLINE_PX);
+    }
+
+    #[test]
+    fn a_theme_keeps_the_way_it_sets_type() {
+        // The guard rebuilds a theme field by field, which is how a field added
+        // to `Theme` quietly stops arriving. `editorial` is the one built-in
+        // that moves its leading, so it is the fixture that would notice.
+        let held = held(builtin::editorial());
+
+        assert_eq!(held.theme.typography, builtin::editorial().typography);
+        assert_ne!(held.theme.typography, Typography::default(), "the fixture must differ");
+    }
+
+    #[test]
+    fn tracking_and_measure_a_document_cannot_be_talked_out_of_are_capped() {
+        // Leading is clamped where it is emitted; these two are written into a
+        // stylesheet as given. A response of five is a tenth of an em between
+        // every letter, and a two-hundred-em measure is no measure at all.
+        let mut theme = builtin::minimal();
+        theme.typography.tracking_response = 5.0;
+        theme.typography.prose_measure_em = 200.0;
+        theme.typography.heading_measure_em = 0.0;
+
+        let typography = held(theme).theme.typography;
+
+        assert_eq!(typography.tracking_response, MAX_TRACKING_RESPONSE);
+        assert_eq!(typography.prose_measure_em, MAX_MEASURE_EM);
+        assert_eq!(typography.heading_measure_em, MIN_MEASURE_EM);
     }
 
     #[test]
