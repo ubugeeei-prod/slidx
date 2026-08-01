@@ -97,7 +97,7 @@ pub fn render_print(deck: &Deck, options: &PrintOptions) -> String {
 
     format!(
         r#"<!doctype html>
-<html lang="en" data-slidx-print>
+<html lang="{lang}" data-slidx-print>
 <head>
 <meta charset="utf-8">
 <title>{title}</title>
@@ -119,6 +119,9 @@ pub fn render_print(deck: &Deck, options: &PrintOptions) -> String {
 </body>
 </html>
 "#,
+        // This document becomes the PDF, so the language decides how every line
+        // in the exported deck breaks — not only how it is read aloud.
+        lang = escape(deck.language()),
         title = escape(deck.meta.title.as_deref().unwrap_or("slidx")),
         // This document is every slide again, on one page. Indexed, it would
         // compete with the pages it duplicates for the same words, and win —

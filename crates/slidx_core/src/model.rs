@@ -304,6 +304,36 @@ impl Deck {
     pub fn optional_slides(&self) -> Vec<&Slide> {
         self.slides.iter().filter(|slide| slide.optional).collect()
     }
+
+    /// The BCP 47 tag every renderer writes into `<html lang>`.
+    ///
+    /// A declared `lang:` wins outright. Otherwise the slides are read — see
+    /// [`crate::language`] for what that is allowed to conclude — and `en` is
+    /// the answer when they say nothing, which is what shipped before.
+    ///
+    /// One function rather than an `unwrap_or("en")` at each renderer, because
+    /// the slide shell, the presenter page, the print document and the
+    /// structured data all have to agree: a deck read aloud in one language and
+    /// typeset in another is worse than either mistake alone.
+    pub fn language(&self) -> &str {
+        if let Some(declared) = self.meta.lang.as_deref() {
+            if !declared.trim().is_empty() {
+                return declared;
+            }
+        }
+
+        // Titles and body text. Speaker notes are excluded on purpose: they are
+        // written for the speaker and are routinely in a different language
+        // from the deck, which is exactly the evidence that would mislead here.
+        let written: String = self
+            .slides
+            .iter()
+            .flat_map(|slide| slide.title.as_deref().into_iter().chain([slide.content.as_str()]))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        crate::language::detect(&written).unwrap_or("en")
+    }
 }
 
 #[cfg(test)]

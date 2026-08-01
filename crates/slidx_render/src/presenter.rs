@@ -51,7 +51,7 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
 
     format!(
         r#"<!doctype html>
-<html lang="en" data-slidx-presenter>
+<html lang="{lang}" data-slidx-presenter>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -127,6 +127,8 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
 </body>
 </html>
 "#,
+        // The notes are the deck's own language, and this page is mostly notes.
+        lang = escape(deck.language()),
         deck_title = escape(deck.meta.title.as_deref().unwrap_or("slidx")),
         // Never indexed, whatever the deck says about being published. This page
         // holds the speaker's notes — the half of a talk written to be said and
