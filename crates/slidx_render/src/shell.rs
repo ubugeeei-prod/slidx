@@ -199,7 +199,7 @@ fn slide_frame(
 
     format!(
         r#"<main class="slidx-deck">
-  <article class="slidx-slide" data-slidx-layout="{slide_layout}" style="--slidx-slide-width: {width}; --slidx-slide-height: {height};{slide_style}">
+  <article class="slidx-slide" aria-label="{slide_name}" data-slidx-layout="{slide_layout}" style="--slidx-slide-width: {width}; --slidx-slide-height: {height};{slide_style}">
     <div class="slidx-slide-body">
 {body}{camera}    </div>
     <footer class="slidx-slide-footer">
@@ -208,6 +208,13 @@ fn slide_frame(
   </article>
 </main>
 "#,
+        // An `<article>` with no name is announced as "article" and nothing
+        // else. Its own heading is the name — a slide with none says which
+        // number it is, which is the only true thing left to say about it.
+        slide_name = escape(&match &slide.title {
+            Some(title) => title.clone(),
+            None => format!("Slide {}", slide.index + 1),
+        }),
         slide_layout = slide_layout.id,
         width = width,
         height = height,
@@ -425,6 +432,29 @@ mod tests {
 
     const DEMO: &str =
         "---\ndemo:\n  live: https://app.example.com\n  fallback: ./checkout.mp4\n---\n\n# Live\n";
+
+    #[test]
+    fn a_slide_says_which_slide_it_is() {
+        // An `<article>` with no accessible name is announced as "article" and
+        // nothing else, which is the whole of what a screen reader could say
+        // about a slide.
+        assert!(shell("# Making Decks Fast\n").contains(r#"aria-label="Making Decks Fast""#));
+    }
+
+    #[test]
+    fn a_slide_with_no_heading_says_its_number_instead() {
+        // The only true thing left to say about it. Silence would be worse:
+        // the reader would not know they had moved.
+        assert!(shell("Just a paragraph.\n").contains(r#"aria-label="Slide 1""#));
+    }
+
+    #[test]
+    fn a_slide_name_cannot_close_its_own_attribute() {
+        let html = shell("# A \"quoted\" title\n");
+
+        assert!(!html.contains(r#"aria-label="A "quoted""#), "got:\n{html}");
+        assert!(html.contains("&quot;quoted&quot;"));
+    }
 
     #[test]
     fn a_deck_is_served_in_the_language_it_declares() {

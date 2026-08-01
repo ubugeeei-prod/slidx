@@ -87,10 +87,16 @@ pub fn links(deck: &Deck, slide: &Slide) -> String {
     let previous = step(index > 0, "prev", "Previous", "\u{2039}", || href(index, index - 1));
     let next = step(index < last, "next", "Next", "\u{203a}", || href(index, index + 1));
 
+    // The landmark carries the position and the counter is hidden from it.
+    //
+    // "3 / 12" is four characters a reader takes in at a glance and a sentence
+    // a screen reader cannot make anything of. The same fact belongs in the
+    // name of the region that holds it, where it is announced once, in words,
+    // alongside the two links out of the slide.
     format!(
-        "<nav class=\"slidx-slide-nav\" aria-label=\"Slides\">\
+        "<nav class=\"slidx-slide-nav\" aria-label=\"Slide {number} of {count}\">\
          {previous}\
-         <span class=\"slidx-slide-number\">{number} / {count}</span>\
+         <span class=\"slidx-slide-number\" aria-hidden=\"true\">{number} / {count}</span>\
          {next}\
          </nav>",
         number = index + 1,
@@ -305,7 +311,11 @@ mod tests {
 
         assert!(markup.contains(r#"aria-label="Previous""#));
         assert!(markup.contains(r#"aria-label="Next""#));
-        assert!(markup.contains(r#"aria-label="Slides""#));
+        assert!(markup.contains(r#"aria-label="Slide 2 of 3""#), "got: {markup}");
+        assert!(
+            markup.contains(r#"class="slidx-slide-number" aria-hidden="true""#),
+            "the same fact twice is the same fact announced twice: {markup}"
+        );
     }
 
     #[test]
