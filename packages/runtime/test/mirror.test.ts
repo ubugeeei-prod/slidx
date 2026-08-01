@@ -45,6 +45,36 @@ function bus() {
   };
 }
 
+/**
+ * A transport that echoes and delivers late, which the interface permits and
+ * neither shipped transport does. Holds what was posted until `deliver`, so an
+ * echo can land after the window has moved on.
+ */
+function loopback() {
+  const listeners = new Set<(message: MirrorMessage) => void>();
+  const posted: MirrorMessage[] = [];
+
+  return {
+    posted,
+    deliver() {
+      const queued = posted.splice(0);
+      for (const message of queued) {
+        for (const listener of listeners) listener(message);
+      }
+    },
+    channel(): MirrorTransport {
+      return {
+        post: (message) => void posted.push(message),
+        listen(handler) {
+          listeners.add(handler);
+          return () => listeners.delete(handler);
+        },
+        close() {},
+      };
+    },
+  };
+}
+
 function pair() {
   const shared = bus();
   const presenter = createMirror({ transport: shared.channel() });
@@ -181,6 +211,30 @@ describe("messages arriving out of order", () => {
 
     expect(seen).toHaveBeenCalledTimes(1);
     expect(seen).toHaveBeenCalledWith({ slide: 5, step: 0 });
+  });
+
+  it("ignores its own message, even from a transport that echoes", () => {
+    // Nothing in `MirrorTransport` forbids an echo. One would hand a window
+    // back its own delayed position after a newer one and walk the deck
+    // backwards, and hand it its own request to answer.
+    const bounced = loopback();
+    const solo = createMirror({ transport: bounced.channel(), id: "solo" });
+
+    const seen = vi.fn();
+    solo.subscribe(seen);
+
+    solo.sendAt({ slide: 2, step: 0 }, 1);
+    solo.sendAt({ slide: 5, step: 0 }, 5);
+    bounced.deliver();
+
+    expect(seen).not.toHaveBeenCalled();
+    expect(solo.position()).toEqual({ slide: 5, step: 0 });
+
+    // An echoed request would have it answer itself.
+    solo.requestPosition();
+    bounced.deliver();
+
+    expect(bounced.posted).toEqual([]);
   });
 
   it("hears a window that names no sender, as it always did", () => {

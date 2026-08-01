@@ -108,6 +108,12 @@ export function createMirror(options: MirrorOptions = {}): Mirror {
   let sequence = 0;
 
   const apply = (message: MirrorMessage) => {
+    // A window's own message tells it nothing it does not already know, and a
+    // transport that echoes one would otherwise answer its own request and let
+    // a delayed local position drag the deck back. This window's own sequence
+    // is deliberately not in `seen`.
+    if (message.from === me) return;
+
     if (message.type === "request") {
       // Answer only if there is something to answer with; a window that has
       // not moved has no opinion about where the deck is.
@@ -133,7 +139,7 @@ export function createMirror(options: MirrorOptions = {}): Mirror {
   const sendAt = (position: Position, at: number) => {
     sequence = Math.max(sequence, at);
     current = position;
-    // Nothing to record here: a sender's own messages never come back to it,
+    // Nothing to record here: a sender's own messages are dropped on arrival,
     // and every other sender is counted under its own key.
     post({ type: "position", position, sequence: at });
   };
