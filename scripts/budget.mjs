@@ -141,7 +141,13 @@ export const BUDGETS = [
     // 55,777 to 57,125. Nothing new is fetched (the first figure in this list
     // is still zero), the pages simply each carry the listener that lets a
     // thumb move the deck.
-    limit: 57_600,
+    //
+    // Raised again, to 66,600, for `/overview/`: 57,125 to 66,156 measured on
+    // a build. It is one page per deck rather than one per slide, and it is
+    // every slide over again because the thumbnails are the real slides —
+    // which is the whole reason the page needs no script and no second way of
+    // rendering one. It fetches nothing the slides do not already reference.
+    limit: 66_600,
     protects:
       "the whole of what a room fetches for this deck — every page, and every stylesheet, " +
       "script and image those pages actually reference",
@@ -227,11 +233,19 @@ export function referencesIn(page) {
  * towards what a room fetches, and it must stay out of the per-slide average —
  * it is a fraction of the weight of a slide, so averaging it in makes every
  * slide look lighter the more code a deck shares, which is backwards.
+ *
+ * The overview is the same argument from the other end: it carries every slide
+ * at once, so it is several slides' weight in one page, and averaging it in
+ * would report a per-slide figure that no slide has. It is still a page the
+ * audience can open, so it is still counted in the total.
  */
 export function splitPages(paths) {
+  const overview = (path) => /(?:^|\/)overview\//.test(path);
+
   return {
-    slides: paths.filter((path) => !path.includes("/snippets/")),
+    slides: paths.filter((path) => !path.includes("/snippets/") && !overview(path)),
     snippets: paths.filter((path) => path.includes("/snippets/")),
+    overview: paths.filter((path) => overview(path)),
   };
 }
 

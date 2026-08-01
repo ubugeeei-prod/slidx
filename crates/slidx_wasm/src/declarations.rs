@@ -309,6 +309,7 @@ mod tests {
             diagnostics: Vec::new(),
             has_blocking: false,
             print_html: None,
+            overview_html: None,
             og_svg: None,
             snippets: Vec::new(),
             sitemap: None,

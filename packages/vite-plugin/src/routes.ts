@@ -13,6 +13,8 @@ export interface SlideRequest {
   presenter: boolean;
   /** The whole deck as one printable document, rather than one slide. */
   print?: boolean;
+  /** Every slide at once, as a page of links. */
+  overview?: boolean;
 }
 
 /**
@@ -34,6 +36,7 @@ export function slideRequestFor(url: string, base: string): SlideRequest | null 
   if (rest === "index.html") rest = "";
 
   if (rest === "print") return { index: 0, presenter: false, print: true };
+  if (rest === "overview") return { index: 0, presenter: false, overview: true };
 
   const presenter = rest === "presenter" || rest.endsWith("/presenter");
   if (presenter) rest = rest.replace(/\/?presenter$/, "");
