@@ -445,6 +445,11 @@ export default defineConfig({
       // English deck.
       "media:japanese": uncached("node scripts/japanese.mjs"),
 
+      // The README's overview picture. A deck long enough that a grid is the
+      // point — twelve slides, because the feature answers "where is the one
+      // about X" and four slides is a question nobody has.
+      "media:overview": uncached("node scripts/overview.mjs"),
+
       // Every picture and recording the documentation site uses, from real
       // runs: `slidx` under a pty so its own colour survives, and the built
       // deck driven by the arrow key a remote sends. Needs the built deck for
