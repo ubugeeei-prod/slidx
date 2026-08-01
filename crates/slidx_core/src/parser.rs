@@ -77,7 +77,11 @@ pub fn parse_deck(source: &str, options: &DeckParseOptions) -> Deck {
         })
         .collect();
 
-    Deck { meta, slides, diagnostics }
+    let mut deck = Deck { meta, slides, diagnostics, resolved_language: String::new() };
+    // Resolved here because this is the one place that has already read every
+    // slide. Asking per slide made the render quadratic; see `Deck::language`.
+    deck.resolved_language = deck.resolve_language().to_string();
+    deck
 }
 
 fn read_frontmatter(segment: &Segment, diagnostics: &mut Diagnostics) -> JsonValue {
