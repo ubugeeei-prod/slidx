@@ -1,6 +1,6 @@
 # slidx_highlight
 
-Build-time syntax highlighting for slidx, so an audience slide ships no JavaScript.
+Build-time syntax highlighting for slidx, so an audience slide fetches no JavaScript.
 
 ## Where this fits
 

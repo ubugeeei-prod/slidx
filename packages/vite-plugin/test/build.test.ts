@@ -92,13 +92,19 @@ describe("building a deck with no configuration", () => {
       "slides/runtime.js",
     ]);
 
-    // The one `<script>` on an audience slide is the structured data, which is
-    // a block of JSON in the container the JSON-LD specification chose for it.
-    // No browser executes it; `browser.test.ts` checks that in three of them.
+    // The `<script>` elements on an audience slide are enumerated rather than
+    // counted at zero, because neither of them is fetched. One is the
+    // structured data, a block of JSON in the container the JSON-LD
+    // specification chose for it, which no browser executes. The other is the
+    // navigator: a few hundred inline bytes that turn a clicker's keys into a
+    // click on a link already in the footer, and the only reason a slide with
+    // no steps can be left at all — see `slidx_render::navigation`.
     const slide = await readFile(join(result.root, "dist/slides/index.html"), "utf8");
     expect(slide).not.toContain('<script type="module"');
-    expect(slide.match(/<script/g)).toEqual(["<script"]);
+    expect(slide).not.toMatch(/<script[^>]*\ssrc=/);
+    expect(slide.match(/<script/g)).toEqual(["<script", "<script"]);
     expect(slide).toContain('<script type="application/ld+json">');
+    expect(slide).toContain(".slidx-slide-nav");
   });
 
   it("ships no way to edit the deck it was built from", async () => {

@@ -2,9 +2,15 @@
  * What a built deck is allowed to weigh, and what it is allowed to load.
  *
  * slidx makes two claims about output that a reader has no way to check: that a
- * slide without steps ships no JavaScript at all, and that a deck is small. Both
- * are the kind of claim that stays true until the afternoon somebody adds one
- * import to a shell, and then stays *written down* for a year.
+ * slide without steps fetches nothing, and that a deck is small. Both are the
+ * kind of claim that stays true until the afternoon somebody adds one import to
+ * a shell, and then stays *written down* for a year.
+ *
+ * The first of those used to be stronger — no JavaScript at all — and it was
+ * kept for a reason nobody had noticed: a slide with no steps had no navigation
+ * of any kind, so there was nothing for a script to do. The budget below is the
+ * shape that claim should always have had, in two figures that fail
+ * differently.
  *
  * So they are budgets rather than sentences, and CI fails on them.
  *
@@ -87,11 +93,25 @@ export const FIXTURE = {
  */
 export const BUDGETS = [
   {
-    name: "javascript on a slide with no steps",
+    name: "javascript a slide with no steps fetches",
     limit: 0,
     protects:
-      "the claim slidx repeats most often. A slide with nothing to reveal is finished markup, " +
-      "and one byte of script here makes that sentence false everywhere it appears",
+      "the half of the claim that was ever load-bearing. A finished slide asks for no module, " +
+      "no bundle and no request — which is what makes it open from a USB stick and survive a " +
+      "venue with no working wifi",
+  },
+  {
+    name: "javascript inlined into a slide with no steps",
+    // Raised from 1,600 for the one line that stops this running inside a
+    // frame. The editor draws every slide in the outline as a live frame of
+    // its own page, and without the guard a single position on the mirror
+    // channel pulled every preview onto the same slide.
+    limit: 1_700,
+    protects:
+      "the other half, which used to be zero. It was zero because such a slide could not be " +
+      "advanced: no key, no link, and no listener for the presenter's mirror — see " +
+      "`slidx_render::navigation`. A number rather than a sentence, because the pressure on " +
+      "this one is a line at a time",
   },
   {
     name: "an audience slide, gzipped",

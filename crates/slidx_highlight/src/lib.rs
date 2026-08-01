@@ -5,7 +5,7 @@
 //!
 //! ## Why there is no highlighter in the browser
 //!
-//! An audience slide ships zero JavaScript. That is not a size budget — it is
+//! An audience slide fetches no JavaScript. That is not a size budget — it is
 //! the offline guarantee and the failure model. A deck is opened from a USB
 //! stick, over a hotel connection, on a machine that is not the author's, three
 //! minutes before a talk; every script on that page is one more thing that can

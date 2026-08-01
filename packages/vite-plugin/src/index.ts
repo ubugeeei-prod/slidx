@@ -14,8 +14,9 @@
  *
  * The built deck is ordinary multi-page HTML: one document per slide, no
  * router, and no client runtime on a slide that has no steps. Navigation is
- * the browser's job, which is why a slide URL can be shared, bookmarked,
- * crawled, and opened on a phone with no JavaScript at all.
+ * the browser's job — real anchors between real documents — which is why a
+ * slide URL can be shared, bookmarked, crawled, and opened on a phone with
+ * scripting switched off.
  */
 
 import type { Plugin, ViteDevServer } from "vite";
@@ -280,7 +281,7 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
 
       // The virtual entry existed only to give rollup something to start
       // from. Leaving it emits an empty chunk into a deck that otherwise
-      // ships no JavaScript at all, which is the property worth protecting.
+      // fetches no JavaScript at all, which is the property worth protecting.
       for (const [fileName, chunk] of Object.entries(bundle)) {
         if (chunk.type === "chunk" && chunk.facadeModuleId === RESOLVED_ENTRY_ID) {
           delete bundle[fileName];

@@ -6,7 +6,7 @@
 //! read without guessing, so none of them has to scrape a heading out of the
 //! markup and hope.
 //!
-//! # Why a `<script>` in a deck that ships no JavaScript
+//! # Why a `<script>` in a deck that loads no module
 //!
 //! `application/ld+json` is not a script type any browser executes. The element
 //! is a container the specification chose for a block of JSON; nothing parses

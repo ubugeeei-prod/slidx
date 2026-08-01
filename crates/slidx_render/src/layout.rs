@@ -267,6 +267,58 @@ hr {
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * The counter, with the deck's two neighbours around it.
+ *
+ * Chrome on a slide is a tax on the content, so this is sized and coloured as
+ * the counter already was and adds one character either side of it. It is the
+ * whole navigation of a deck with no JavaScript — see `crate::navigation` —
+ * which is why the target is much larger than the glyph: `padding` here is
+ * measured against the caption size, so at 1080 it clears the 44px a finger
+ * needs while the mark itself stays as quiet as the number.
+ *
+ * The inert one at each end of the deck is drawn in the hairline colour rather
+ * than hidden. Removing it would slide the counter sideways on the first and
+ * last slides, and chrome that moves under an audience reads as a page still
+ * loading.
+ */
+.slidx-slide-nav {
+  display: flex;
+  align-items: baseline;
+  gap: calc(var(--slidx-space-block) * 0.25);
+  margin-right: calc(var(--slidx-size-caption) * -0.9);
+}
+
+.slidx-slide-step {
+  padding: 0.35em 0.9em;
+  margin: -0.35em 0;
+  color: var(--slidx-color-line);
+  font-size: 1.15em;
+  line-height: 1;
+  text-decoration: none;
+}
+
+a.slidx-slide-step {
+  color: var(--slidx-color-muted);
+}
+
+/*
+ * Focus is visible on a deck too.
+ *
+ * These are the only focusable things on an audience slide, and they are how it
+ * is navigated without a pointer. An outline in the accent colour is already
+ * held to 4.5:1 against the slide by the theme audit.
+ */
+a.slidx-slide-step:focus-visible {
+  outline: calc(var(--slidx-hairline) * 2) solid var(--slidx-color-accent);
+  outline-offset: 2px;
+  color: var(--slidx-color-accent);
+}
+
+@media (hover: hover) {
+  a.slidx-slide-step:hover { color: var(--slidx-color-accent); }
+}
+
 /* Marks: the theme decides what a property means, not the compiler. */
 [data-slidx-mark] { transition: color 200ms ease-out; }
 .slidx-accent { color: var(--slidx-color-accent); }

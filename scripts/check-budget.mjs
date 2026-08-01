@@ -6,7 +6,7 @@
  * deck" is one taken off a deck that was built.
  *
  * The same build answers the claim slidx repeats most often — that a slide
- * without steps ships no JavaScript — by reading the page rather than the
+ * without steps fetches no JavaScript — by reading the page rather than the
  * template that produced it. A page can reference a module the shell did not
  * mean to emit, and only the emitted page knows.
  */
@@ -106,21 +106,25 @@ const stillPage = (await read(still)).toString("utf8");
 /**
  * Script bytes the page would run, counted as the page presents them.
  *
- * Both halves matter and they fail differently: an inline `<script>` is weight
- * in the document, and a `src` is a request. A slide with nothing to reveal is
- * allowed neither.
+ * Both halves matter and they fail differently, so they are counted apart. An
+ * inline `<script>` is weight in the document and has a budget. A `src` is a
+ * *request*, which is the thing a room on venue wifi actually pays for, and a
+ * slide with nothing to reveal is allowed none.
  */
-let scriptBytes = 0;
+let inlineBytes = 0;
+let fetchedBytes = 0;
 for (const { attributes, body } of executableScripts(stillPage)) {
-  scriptBytes += Buffer.byteLength(body);
-
   const src = /\bsrc="([^"]+)"/.exec(attributes);
-  if (src === null) continue;
+
+  if (src === null) {
+    inlineBytes += Buffer.byteLength(body);
+    continue;
+  }
 
   const path = resolve(still.slice(0, still.lastIndexOf("/")), src[1]);
   // A reference to something the build did not emit still costs a request, so
   // it is not nothing.
-  scriptBytes += files.includes(path) ? (await read(path)).byteLength : 1;
+  fetchedBytes += files.includes(path) ? (await read(path)).byteLength : 1;
 }
 
 /** What the pages themselves ask a browser to fetch. */
@@ -153,7 +157,8 @@ const runtime = files.find((path) => path.endsWith(".js") && path.includes("runt
 const [snippet] = snippets;
 
 const measured = {
-  "javascript on a slide with no steps": scriptBytes,
+  "javascript a slide with no steps fetches": fetchedBytes,
+  "javascript inlined into a slide with no steps": inlineBytes,
   "an audience slide, gzipped": Math.round(audienceBytes / audience.length),
   "everything an audience downloads, gzipped": downloaded,
   ...(snippet === undefined ? {} : { "a shared snippet page, gzipped": gzip(await read(snippet)) }),
