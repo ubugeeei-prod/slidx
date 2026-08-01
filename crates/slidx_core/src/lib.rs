@@ -53,6 +53,7 @@ pub mod demo;
 pub mod diagnostic;
 pub mod frontmatter;
 pub mod grid;
+pub mod language;
 pub mod mark;
 pub mod markers;
 pub mod model;

@@ -75,9 +75,12 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
 {frame}{script}</body>
 </html>
 "#,
-        // English only because an unset attribute is worse than a wrong one:
-        // assistive technology can be corrected by a reader, silence cannot.
-        lang = escape(deck.meta.lang.as_deref().unwrap_or("en")),
+        // A declared `lang:` where there is one, and the slides' own characters
+        // where there is not. An unset attribute is worse than a wrong one —
+        // assistive technology can be corrected by a reader, silence cannot —
+        // and `en` on a Japanese deck was a wrong one that also decides how
+        // every line in it breaks. See `slidx_core::language`.
+        lang = escape(deck.language()),
         aspect = deck.meta.aspect.as_token(),
         title = escape(&title),
         seo = seo::head(deck, slide, &options.seo),
@@ -115,7 +118,7 @@ pub(crate) fn render_static_preview(deck: &Deck, slide: &Slide, options: &ShellO
 {frame}</body>
 </html>
 "#,
-        lang = escape(deck.meta.lang.as_deref().unwrap_or("en")),
+        lang = escape(deck.language()),
         aspect = deck.meta.aspect.as_token(),
         title = escape(&slide.display_title()),
         theme_css = css::render(&options.theme),
