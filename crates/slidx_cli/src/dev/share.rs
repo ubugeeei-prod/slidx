@@ -60,6 +60,8 @@ const EDITOR_ROUTE: &str = super::EDITOR_ROUTE;
 /// `packages/vite-plugin/src/share.ts`, which is the only reader.
 pub const SHARE_VARIABLE: &str = "SLIDX_SHARE";
 pub const SHARE_EDIT_VARIABLE: &str = "SLIDX_SHARE_EDIT";
+/// Public LAN origin the plugin uses to rebuild the printed links for the author.
+pub const SHARE_ORIGIN_VARIABLE: &str = "SLIDX_SHARE_ORIGIN";
 
 /// One shared session's capabilities.
 #[derive(Debug, Clone, PartialEq, Eq)]

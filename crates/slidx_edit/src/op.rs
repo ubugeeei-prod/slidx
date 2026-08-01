@@ -34,6 +34,26 @@ mod error;
 
 pub use error::EditError;
 
+/// A common authored block the visual editor can add without composing Markdown.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum BlockKind {
+    Heading,
+    Text,
+    List,
+    Quote,
+}
+
+/// A narrative starting point for a slide created in the visual editor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SlideKind {
+    TitleBody,
+    Statement,
+    Comparison,
+    Points,
+}
+
 /// One change to a deck source.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "op")]
@@ -70,6 +90,15 @@ pub enum EditOp {
         at: usize,
         body: String,
     },
+    /// Creates a slide from an authored intention rather than browser-written Markdown.
+    ///
+    /// The kind chooses a useful narrative structure and the Rust writer owns
+    /// its blocks, layout declaration, spacing, and line endings. `InsertSlide`
+    /// remains the exact-source operation; this is the visual editor's path.
+    CreateSlide {
+        at: usize,
+        kind: SlideKind,
+    },
     /// Copies one slide after `after`, or immediately after itself when the
     /// destination is omitted.
     ///
@@ -80,6 +109,17 @@ pub enum EditOp {
         slide: SlideRef,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         after: Option<SlideRef>,
+    },
+    /// Adds one common content block at a position on a slide.
+    ///
+    /// The browser sends the kind rather than a Markdown template. The writer
+    /// owns the syntax, placeholder copy, line endings and blank lines, so the
+    /// first action in the visual editor follows the same one-writer rule as a
+    /// drag or a media drop.
+    InsertBlock {
+        slide: SlideRef,
+        at: usize,
+        kind: BlockKind,
     },
     RemoveSlide {
         slide: SlideRef,
@@ -95,6 +135,15 @@ pub enum EditOp {
         slide: SlideRef,
         key: String,
         value: JsonValue,
+    },
+    /// Removes one frontmatter key without serialising the surrounding YAML.
+    ///
+    /// Absence is meaningful for inherited and estimated values. Writing an
+    /// empty string or `null` would leave a different document for both the
+    /// parser and the author.
+    RemoveField {
+        slide: SlideRef,
+        key: String,
     },
     /// Writes one slide-local `--slidx-*` custom property in the tagged style
     /// block carried by the Markdown body.
@@ -195,6 +244,12 @@ pub enum EditOp {
     /// copied; naming it is the author's next decision rather than an
     /// inheritance.
     DuplicateBlock {
+        slide: SlideRef,
+        block: BlockRef,
+    },
+    /// Removes one block, its attribute line and the invisible source attached
+    /// to it. Neighbouring blocks are never re-emitted.
+    RemoveBlock {
         slide: SlideRef,
         block: BlockRef,
     },
@@ -482,6 +537,43 @@ mod tests {
                 "slide": 0,
                 "block": 2,
                 "attributes": { "classes": ["side"] },
+            })
+        );
+        assert_eq!(
+            serde_json::from_value::<EditOp>(serde_json::to_value(&op).unwrap()).unwrap(),
+            op
+        );
+    }
+
+    #[test]
+    fn a_new_content_block_crosses_as_a_kind_without_markdown() {
+        let op = EditOp::InsertBlock { slide: 1.into(), at: 2, kind: BlockKind::Quote };
+
+        assert_eq!(
+            serde_json::to_value(&op).unwrap(),
+            json!({
+                "op": "insertBlock",
+                "slide": 1,
+                "at": 2,
+                "kind": "quote",
+            })
+        );
+        assert_eq!(
+            serde_json::from_value::<EditOp>(serde_json::to_value(&op).unwrap()).unwrap(),
+            op
+        );
+    }
+
+    #[test]
+    fn a_new_slide_crosses_as_an_intention_without_source() {
+        let op = EditOp::CreateSlide { at: 2, kind: SlideKind::Comparison };
+
+        assert_eq!(
+            serde_json::to_value(&op).unwrap(),
+            json!({
+                "op": "createSlide",
+                "at": 2,
+                "kind": "comparison",
             })
         );
         assert_eq!(

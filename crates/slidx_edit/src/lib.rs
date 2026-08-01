@@ -74,6 +74,7 @@ mod media;
 mod notes;
 mod op;
 mod slide;
+mod slide_create;
 mod source;
 mod spans;
 mod step;
@@ -82,7 +83,9 @@ mod text;
 
 pub use edit::{Edit, EditBuilder, Splice};
 pub use media::MediaKind;
-pub use op::{BlockRef, EditError, EditOp, MarkAttributes, MarkRef, SlideRef};
+pub use op::{
+    BlockKind, BlockRef, EditError, EditOp, MarkAttributes, MarkRef, SlideKind, SlideRef,
+};
 pub use spans::{slide_spans, BlockSpans, MarkSpans, SlideSpans};
 
 use slidx_core::DeckParseOptions;
@@ -101,13 +104,20 @@ pub fn plan(source: &str, options: &DeckParseOptions, op: &EditOp) -> Result<Edi
             text::set(&deck, slide, *range, text, &mut builder)?
         }
         EditOp::InsertSlide { at, body } => slide::insert(&deck, *at, body, &mut builder)?,
+        EditOp::CreateSlide { at, kind } => slide_create::create(&deck, *at, *kind, &mut builder)?,
         EditOp::DuplicateSlide { slide, after } => {
             slide::duplicate(&deck, slide, after.as_ref(), &mut builder)?
+        }
+        EditOp::InsertBlock { slide, at, kind } => {
+            block::insert(&deck, slide, *at, *kind, &mut builder)?
         }
         EditOp::RemoveSlide { slide } => slide::remove(&deck, slide, &mut builder)?,
         EditOp::MoveSlide { slide, to } => slide::move_to(&deck, slide, *to, &mut builder)?,
         EditOp::SetField { slide, key, value } => {
             frontmatter::set_field(&deck, slide, key, value, &mut builder)?
+        }
+        EditOp::RemoveField { slide, key } => {
+            frontmatter::remove_field(&deck, slide, key, &mut builder)?
         }
         EditOp::SetStyle { slide, property, value } => {
             style::set(&deck, slide, property, value.as_deref(), &mut builder)?
@@ -146,6 +156,7 @@ pub fn plan(source: &str, options: &DeckParseOptions, op: &EditOp) -> Result<Edi
         EditOp::DuplicateBlock { slide, block } => {
             block::duplicate(&deck, slide, block, &mut builder)?
         }
+        EditOp::RemoveBlock { slide, block } => block::remove(&deck, slide, block, &mut builder)?,
         EditOp::MoveBlock { slide, block, to, region } => {
             block::move_to(&deck, options, slide, block, *to, region.as_deref(), &mut builder)?
         }

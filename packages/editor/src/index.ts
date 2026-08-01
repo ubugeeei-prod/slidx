@@ -22,13 +22,17 @@
  */
 
 import { createArrange } from "./arrange";
+import { createAppbar } from "./appbar";
 import { createBeacons } from "./beacons";
-import { createCanvas, routeFor } from "./canvas";
+import { createCanvas, routeFor, startingScheme } from "./canvas";
 import { createClient, type EditorClient } from "./client";
 import { createPresence } from "./collab";
+import { createCommandPalette } from "./command-palette";
 import { createDiagnostics } from "./diagnostics";
 import { element } from "./dom";
 import { createFreeform } from "./freeform";
+import { visualOf } from "./freeform-color";
+import { readGeometry } from "./geometry";
 import { createInspector } from "./inspector";
 import { createMediaDrop } from "./media-drop";
 import { createOutline, type Surface } from "./outline";
@@ -37,10 +41,14 @@ import { createResize } from "./resize";
 import { createRevisions } from "./revisions";
 import { occurrenceInRendered, locateSelection } from "./selection";
 import { createSession, type Session } from "./session";
+import { createShareControl } from "./share-control";
 import { createShortcuts } from "./shortcuts";
 import { createStoryboard } from "./storyboard";
 import { applyStyles } from "./styles";
+import { createTextBar } from "./text-bar";
 import { createTimeline } from "./timeline";
+import { createWorkspaceFocus } from "./workspace-focus";
+import type { SlideKind } from "./operations";
 
 export type {
   EditOp,
@@ -48,6 +56,8 @@ export type {
   MarkAttributes,
   BlockAttributes,
   ByteSpan,
+  BlockKind,
+  SlideKind,
   MediaKind,
 } from "./operations";
 export type {
@@ -60,7 +70,11 @@ export type {
   MarkSpans,
   Measurement,
   SlideSummary,
+  ThemeChoice,
+  ThemePaletteChoice,
+  TransitionChoice,
   UploadedMedia,
+  SharingInfo,
 } from "./client";
 export type { Change, TextPlan, TextRun } from "./text";
 export { changeBetween, editableIn, planBlock, rangeOf, runsIn } from "./text";
@@ -79,6 +93,24 @@ export { createSession } from "./session";
 export { createHistory } from "./history";
 export { locateSelection, occurrenceInRendered } from "./selection";
 export { routeFor } from "./canvas";
+
+export interface DeliveryRoutes {
+  audience: string;
+  presenter: string;
+  print: string;
+}
+
+/** Every finished-deck surface, derived from the same deck and slide route. */
+export function deliveryRoutes(base: string, slide: number): DeliveryRoutes {
+  const audience = routeFor(base, slide);
+  const deck = routeFor(base, 0);
+
+  return {
+    audience,
+    presenter: `${audience}presenter/`,
+    print: `${deck}print/`,
+  };
+}
 
 export interface MountOptions {
   /** The route the deck is served under, so the canvas shows the real page. */
@@ -116,7 +148,7 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
   const bodyOf = (slide: number) => session.bodyOf(slide);
   const storage = safeStorage(root.ownerDocument);
 
-  const run = (op: Parameters<Session["run"]>[0]) => void session.run(op);
+  const run = (op: Parameters<Session["run"]>[0]) => session.run(op);
   const select = (slide: number) =>
     session.select({
       slide,
@@ -125,7 +157,8 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
       text: undefined,
     });
 
-  const outline = createOutline({ select, run }, { deckBase: options.deckBase ?? "slides" });
+  let outline: ReturnType<typeof createOutline> | undefined;
+  let inspector: ReturnType<typeof createInspector> | undefined;
   const canvas = createCanvas(
     {
       run,
@@ -147,31 +180,117 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
       bodyOf,
       blocksOf: (slide) => session.blocksOf(slide),
       storage,
+      schemeChanged: (scheme) => {
+        outline?.showScheme(scheme);
+        inspector?.render(session.state());
+      },
     },
   );
-  const inspector = createInspector(
-    { run },
-    { bodyOf, blocksOf: (slide) => session.blocksOf(slide) },
+  const deckBase = options.deckBase ?? "slides";
+  const deliver = (target: keyof DeliveryRoutes) => {
+    const routes = deliveryRoutes(deckBase, session.state().selection.slide);
+    window.open(routes[target], "_blank", "noopener");
+  };
+  const present = () => deliver("presenter");
+  const audience = () => deliver("audience");
+  const print = () => deliver("print");
+  outline = createOutline(
+    { select, run, created: () => canvas.focusFresh() },
+    { preview: (slide) => routeFor(deckBase, slide), scheme: startingScheme(storage) },
   );
+  const canvasFrame = canvas.root.querySelector<HTMLIFrameElement>(".slidx-canvas-frame")!;
+  inspector = createInspector(
+    {
+      run,
+      selectBlock: (block) => session.select({ block, range: undefined, text: undefined }),
+    },
+    {
+      bodyOf,
+      blocksOf: (slide) => session.blocksOf(slide),
+      geometry: () => readGeometry(canvasFrame),
+      visualOf: (block) => visualOf(canvasFrame, block),
+      scheme: () => canvas.palette(),
+    },
+  );
+  // The session announces an edit before the live canvas swap finishes. Any
+  // inspector field derived from rendered CSS therefore needs the frame's load
+  // boundary as well as session state; otherwise a newly pinned frame or chosen
+  // colour is visible on the slide while its control still describes the old
+  // page until some unrelated action happens.
+  const canvasRendered = () => inspector?.render(session.state());
+  canvasFrame.addEventListener("load", canvasRendered);
   const diagnostics = createDiagnostics({ select });
 
   const storyboard = createStoryboard({ select, run: (op) => session.run(op) });
-  const deckBase = options.deckBase ?? "slides";
   const arrange = createArrange(
     { run, foresee: (findings) => session.foresee(findings) },
     { measure: (measured) => client.measured(measured) },
   );
-  const shortcuts = createShortcuts(session, canvas, {
-    nudge: (block, key) => arrange.nudge(block, key),
-    present: () => {
-      const route = routeFor(deckBase, session.state().selection.slide);
-      window.open(`${route}presenter/`, "_blank", "noopener");
-    },
+  const createSlide = (kind: SlideKind) => {
+    const before = session.state().slides.length;
+    const at = Math.min(session.state().selection.slide + 1, before);
+
+    void session.run({ op: "createSlide", at, kind }).then(() => {
+      if (session.state().slides.length <= before) return;
+      session.select({ slide: at, block: undefined, range: undefined, text: undefined });
+      canvas.focusFresh();
+    });
+  };
+  const addSlide = () => createSlide("title-body");
+  const workspace = createWorkspaceFocus({
+    changed: () => root.ownerDocument.defaultView?.dispatchEvent(new Event("resize")),
+    storage,
   });
+  const shortcuts = createShortcuts(session, canvas, {
+    addSlide,
+    focusCanvas: () => workspace.toggle(),
+    canvasFocused: () => workspace.active(),
+    nudge: (block, key) => arrange.nudge(block, key),
+    present,
+  });
+  const commands = createCommandPalette(session, canvas, {
+    addSlide,
+    createSlide,
+    focusCanvas: () => workspace.toggle(),
+    canvasFocused: () => workspace.active(),
+    present,
+    audience,
+    print,
+  });
+  const presence = createPresence({
+    reload: () => void session.open(),
+    saw: (viewers) => session.saw(viewers),
+    follow: (seat) => session.follow(seat),
+  });
+  const share = createShareControl({
+    load: () => client.sharing?.() ?? Promise.resolve(null),
+  });
+  const textBar = createTextBar(
+    {
+      run,
+      done: () => {
+        canvas.finishTextSelection();
+        session.select({ text: undefined, range: undefined });
+      },
+    },
+    { bodyOf, blocksOf: (slide) => session.blocksOf(slide) },
+  );
+  canvas.root.querySelector(".slidx-panel-head")!.append(textBar.root);
 
   const surfaces: Surface[] = [
+    createAppbar(
+      {
+        undo: () => void session.undo(),
+        redo: () => void session.redo(),
+        present,
+        audience,
+        print,
+      },
+      { accessories: [commands.trigger, workspace.root, share.root, presence.root] },
+    ),
     outline,
     canvas,
+    textBar,
     inspector,
     diagnostics,
     createTimeline({ run }),
@@ -195,25 +314,33 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
     storyboard,
     createPanelResize({ storage }),
     createBeacons(),
-    createPresence({
-      reload: () => void session.open(),
-      saw: (viewers) => session.saw(viewers),
-      follow: (seat) => session.follow(seat),
-    }),
+    presence,
+    share,
+    commands,
     shortcuts,
   ];
   const frame = element(
     "div",
     { class: "slidx-editor" },
-    surfaces.map((surface) => surface.root),
+    // These accessory surfaces are already mounted inside their owning chrome.
+    // They remain here for state and teardown, but appending their roots again
+    // would move them out of that context.
+    surfaces
+      .filter((surface) => surface !== presence && surface !== share && surface !== textBar)
+      .map((surface) => surface.root),
   );
   root.append(frame);
+  workspace.connect();
 
   const unsubscribe = session.subscribe((state) => {
+    frame.dataset.access = state.canEdit === false ? "read" : "write";
     for (const surface of surfaces) surface.render(state);
   });
 
-  const keys = (event: KeyboardEvent) => shortcuts.keydown(event);
+  const keys = (event: KeyboardEvent) => {
+    commands.keydown(event);
+    if (!event.defaultPrevented) shortcuts.keydown(event);
+  };
   const copy = (event: ClipboardEvent) => shortcuts.copy(event);
   const paste = (event: ClipboardEvent) => shortcuts.paste(event);
   root.ownerDocument.addEventListener("keydown", keys);
@@ -231,6 +358,7 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
       root.ownerDocument.removeEventListener("keydown", keys);
       root.ownerDocument.removeEventListener("copy", copy);
       root.ownerDocument.removeEventListener("paste", paste);
+      canvasFrame.removeEventListener("load", canvasRendered);
       // Removing the frame is enough for a surface that is only its own DOM.
       // Presence holds a connection, and a connection survives its element.
       for (const surface of surfaces) surface.destroy?.();

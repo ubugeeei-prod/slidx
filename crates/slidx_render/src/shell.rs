@@ -46,25 +46,16 @@ impl Default for ShellOptions {
 
 /// Renders one slide as a complete HTML document.
 pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> String {
+    let title = document_title(deck, slide);
     let slide_layout = region::layout_of(slide);
-    let body = region::body(
+    let frame = slide_frame(
         deck,
         slide,
+        options,
         &slide_layout,
-        &options.theme,
-        &options.markdown,
         &demo_markup(slide),
+        &camera_markup(slide, &slide_layout),
     );
-    let (width, height) = deck.meta.aspect.dimensions();
-
-    let title = match (&slide.title, &deck.meta.title) {
-        (Some(slide_title), Some(deck_title)) if slide_title != deck_title => {
-            format!("{slide_title} — {deck_title}")
-        }
-        (Some(slide_title), _) => slide_title.clone(),
-        (None, Some(deck_title)) => deck_title.clone(),
-        (None, None) => format!("Slide {}", slide.index + 1),
-    };
 
     format!(
         r#"<!doctype html>
@@ -81,17 +72,7 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
 </style>
 </head>
 <body>
-<main class="slidx-deck">
-  <article class="slidx-slide" data-slidx-layout="{slide_layout}" style="--slidx-slide-width: {width}; --slidx-slide-height: {height};{slide_style}">
-    <div class="slidx-slide-body">
-{body}{camera}    </div>
-    <footer class="slidx-slide-footer">
-      <span class="slidx-slide-brand">{brand}</span>
-      <span class="slidx-slide-number">{number} / {count}</span>
-    </footer>
-  </article>
-</main>
-{script}</body>
+{frame}{script}</body>
 </html>
 "#,
         // English only because an unset attribute is worse than a wrong one:
@@ -104,12 +85,85 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
         shell_css = layout::STYLESHEET,
         layout_css = slidx_theme::layout::css(&slidx_theme::layout::all()),
         transition_css = transition_css(deck, slide, &options.theme),
+        script = stage_script(deck, slide, options),
+    )
+}
+
+/// Renders the real slide frame into an isolated, inert document for previews.
+///
+/// It shares the audience frame writer rather than reflowing Markdown a second
+/// way. Live demos, cameras, navigation, and transitions stay out: a preview
+/// must show the authored geometry without starting venue-only behaviour.
+pub(crate) fn render_static_preview(deck: &Deck, slide: &Slide, options: &ShellOptions) -> String {
+    let slide_layout = region::layout_of(slide);
+    let frame = slide_frame(deck, slide, options, &slide_layout, "", "");
+
+    format!(
+        r#"<!doctype html>
+<html lang="{lang}" data-slidx-aspect="{aspect}" data-slidx-preview>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title}</title>
+<style>
+{theme_css}
+{shell_css}
+{layout_css}
+</style>
+</head>
+<body>
+{frame}</body>
+</html>
+"#,
+        lang = escape(deck.meta.lang.as_deref().unwrap_or("en")),
+        aspect = deck.meta.aspect.as_token(),
+        title = escape(&slide.display_title()),
+        theme_css = css::render(&options.theme),
+        shell_css = layout::STYLESHEET,
+        layout_css = slidx_theme::layout::css(&slidx_theme::layout::all()),
+    )
+}
+
+fn document_title(deck: &Deck, slide: &Slide) -> String {
+    match (&slide.title, &deck.meta.title) {
+        (Some(slide_title), Some(deck_title)) if slide_title != deck_title => {
+            format!("{slide_title} — {deck_title}")
+        }
+        (Some(slide_title), _) => slide_title.clone(),
+        (None, Some(deck_title)) => deck_title.clone(),
+        (None, None) => format!("Slide {}", slide.index + 1),
+    }
+}
+
+fn slide_frame(
+    deck: &Deck,
+    slide: &Slide,
+    options: &ShellOptions,
+    slide_layout: &Layout,
+    appended: &str,
+    camera: &str,
+) -> String {
+    let body = region::body(deck, slide, slide_layout, &options.theme, &options.markdown, appended);
+    let (width, height) = deck.meta.aspect.dimensions();
+
+    format!(
+        r#"<main class="slidx-deck">
+  <article class="slidx-slide" data-slidx-layout="{slide_layout}" style="--slidx-slide-width: {width}; --slidx-slide-height: {height};{slide_style}">
+    <div class="slidx-slide-body">
+{body}{camera}    </div>
+    <footer class="slidx-slide-footer">
+      <span class="slidx-slide-brand">{brand}</span>
+      <span class="slidx-slide-number">{number} / {count}</span>
+    </footer>
+  </article>
+</main>
+"#,
         slide_layout = slide_layout.id,
         width = width,
         height = height,
         slide_style = crate::slide_style::declarations(slide),
         body = body,
-        camera = camera_markup(slide, &slide_layout),
+        camera = camera,
         brand = escape(
             deck.meta
                 .talk
@@ -122,7 +176,6 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
         ),
         number = slide.index + 1,
         count = deck.slides.len(),
-        script = stage_script(deck, slide, options),
     )
 }
 
@@ -163,7 +216,12 @@ import {{ createStage, createNavigator, createMirror, loadEffects, markScriptEna
 // shows every element rather than a slide that is mostly invisible. Setting it
 // is therefore what *switches staging on*, and it has to happen before the
 // first frame is applied or the slide flashes its whole content on load.
-if (await loadEffects(document)) markScriptEnabled(document);
+// The runtime is a virtual module in development, so its `import.meta.url`
+// names Vite's internal module id rather than the public file beside the deck.
+// Resolve the stylesheet from the public runtime URL the caller supplied: the
+// same address works in development and in the emitted site.
+const effects = new URL("./effects.css", new URL("{runtime_src}", location.href)).href;
+if (await loadEffects(document, effects)) markScriptEnabled(document);
 
 const stage = createStage(document.querySelector(".slidx-slide"), {timeline});
 
@@ -203,7 +261,7 @@ deck.subscribe((position) => mirror.send(position));
     )
 }
 
-/// The transition this slide leaves with.
+/// The transition this slide arrives with.
 ///
 /// A slide's own `transition:` wins over the deck's, because the interesting
 /// case is one slide that moves differently — a section break, a demo — inside
@@ -463,6 +521,36 @@ mod tests {
         assert!(html.trim_end().ends_with("</html>"));
     }
 
+    #[test]
+    fn a_static_preview_keeps_the_real_frame_and_removes_live_behaviour() {
+        let source = concat!(
+            "---\n",
+            "layout: split\n",
+            "transition: fade\n",
+            "camera: left\n",
+            "demo:\n",
+            "  live: https://app.example.com\n",
+            "  fallback: ./demo.mp4\n",
+            "---\n\n",
+            "# Left\n\n",
+            "{.right}\n",
+            "Beside it.\n\n",
+            "- first <!-- step -->\n",
+        );
+        let deck = parse_deck(source, &DeckParseOptions::default());
+        let html = render_static_preview(&deck, &deck.slides[0], &ShellOptions::default());
+
+        assert!(html.contains("data-slidx-preview"));
+        assert!(html.contains("data-slidx-layout=\"split\""));
+        assert!(html.contains("data-slidx-region=\"right\""));
+        assert!(html.contains("Beside it."));
+        assert!(!html.contains("<script"));
+        assert!(!html.contains("<figure class=\"slidx-demo\""));
+        assert!(!html.contains("<figure class=\"slidx-camera\""));
+        assert!(!html.contains("@view-transition"));
+        assert!(!html.contains("https://app.example.com"));
+    }
+
     /// A slide with two stops: one element whose text changes on the way.
     const STAGED: &str = "# Latency\n\nDropped to [120ms]{#latency}[38ms]{#latency}.\n";
 
@@ -523,7 +611,15 @@ mod tests {
         let options =
             ShellOptions { runtime_src: "/assets/slidx.js".to_string(), ..ShellOptions::default() };
 
-        assert!(render_slide(&deck, &deck.slides[0], &options).contains("\"/assets/slidx.js\""));
+        let html = render_slide(&deck, &deck.slides[0], &options);
+
+        assert!(html.contains("\"/assets/slidx.js\""));
+        assert!(
+            html.contains(
+                "new URL(\"./effects.css\", new URL(\"/assets/slidx.js\", location.href))"
+            ),
+            "the effect stylesheet did not stay beside the caller's runtime:\n{html}"
+        );
     }
 
     #[test]

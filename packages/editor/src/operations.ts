@@ -29,6 +29,12 @@ export type BlockRef = number | string;
 /** A local file the visual editor can place onto a slide. */
 export type MediaKind = "image" | "video";
 
+/** A common authored block the visual editor can add without writing Markdown. */
+export type BlockKind = "heading" | "text" | "list" | "quote";
+
+/** A narrative starting point for a slide created in the visual editor. */
+export type SlideKind = "title-body" | "statement" | "comparison" | "points";
+
 /** A half-open byte range. Bytes, not characters — a selection has to survive CJK. */
 export interface ByteSpan {
   start: number;
@@ -109,8 +115,17 @@ export type EditOp =
    */
   | { op: "setText"; slide: SlideRef; range: ByteSpan; text: string }
   | { op: "insertSlide"; at: number; body: string }
+  /** Creates a useful first draft while Rust remains the only source writer. */
+  | { op: "createSlide"; at: number; kind: SlideKind }
   /** Copies a slide after itself, or after another slide when `after` is present. */
   | { op: "duplicateSlide"; slide: SlideRef; after?: SlideRef }
+  /**
+   * Adds one common content block at a position on a slide.
+   *
+   * The kind is semantic. Rust owns its source, spacing and line endings, so a
+   * button never becomes a second Markdown writer.
+   */
+  | { op: "insertBlock"; slide: SlideRef; at: number; kind: BlockKind }
   /**
    * A second copy of one block, immediately after it and without its key.
    *
@@ -120,9 +135,13 @@ export type EditOp =
    * copied, and naming it is the author's next decision.
    */
   | { op: "duplicateBlock"; slide: SlideRef; block: BlockRef }
+  /** Removes one authored block and the invisible source attached to it. */
+  | { op: "removeBlock"; slide: SlideRef; block: BlockRef }
   | { op: "removeSlide"; slide: SlideRef }
   | { op: "moveSlide"; slide: SlideRef; to: number }
   | { op: "setField"; slide: SlideRef; key: string; value: unknown }
+  /** Removes a frontmatter key so inheritance or estimation can take over. */
+  | { op: "removeField"; slide: SlideRef; key: string }
   /**
    * One slide-local `--slidx-*` property in the Markdown style block.
    *

@@ -15,8 +15,8 @@
 
 export const TIMELINE_STYLESHEET = `
 .slidx-editor {
-  grid-template-rows: minmax(0, 1fr) auto auto;
-  grid-template-areas: "outline canvas inspector" "timeline timeline timeline" "findings findings findings";
+  grid-template-rows: 34px minmax(0, 1fr) auto auto;
+  grid-template-areas: "appbar appbar appbar" "outline canvas inspector" "timeline timeline timeline" "findings findings findings";
 }
 
 .slidx-timeline {

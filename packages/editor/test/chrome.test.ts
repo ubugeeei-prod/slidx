@@ -10,19 +10,25 @@
 
 import { describe, expect, it } from "vite-plus/test";
 
+import { APPBAR_STYLESHEET } from "../src/appbar-styles";
+import { COMMAND_PALETTE_STYLESHEET } from "../src/command-palette-styles";
+import { PRESENCE_STYLESHEET } from "../src/presence-styles";
 import { STYLESHEET } from "../src/styles";
+import { WORKSPACE_FOCUS_STYLESHEET } from "../src/workspace-focus-styles";
+
+const CHROME = `${STYLESHEET}\n${APPBAR_STYLESHEET}\n${PRESENCE_STYLESHEET}\n${COMMAND_PALETTE_STYLESHEET}\n${WORKSPACE_FOCUS_STYLESHEET}`;
 
 /** One rule's body, by selector. */
 function rule(selector: string): string {
-  const at = STYLESHEET.indexOf(`${selector} {`);
+  const at = CHROME.indexOf(`${selector} {`);
   expect(at, `no rule for ${selector}`).toBeGreaterThan(-1);
 
-  return STYLESHEET.slice(at, STYLESHEET.indexOf("}", at));
+  return CHROME.slice(at, CHROME.indexOf("}", at));
 }
 
 /** The stylesheet with comments removed, so a note about a rule is not a rule. */
 function declarations(): string {
-  return STYLESHEET.replaceAll(/\/\*[\s\S]*?\*\//g, "");
+  return CHROME.replaceAll(/\/\*[\s\S]*?\*\//g, "");
 }
 
 describe("a Japanese deck is written in this, not only shown in it", () => {
@@ -90,7 +96,7 @@ describe("a target is bigger than its ink", () => {
   });
 
   it("gives the remove button a square target rather than a sliver", () => {
-    const remove = rule(".slidx-outline-remove");
+    const remove = rule(".slidx-outline-actions button");
 
     expect(remove).toContain("min-width: var(--slidx-e-hit)");
     expect(remove).toContain("min-height: var(--slidx-e-hit)");
@@ -117,6 +123,7 @@ describe("one rhythm rather than ad-hoc pixels", () => {
       "12px",
       "13px",
       "16px",
+      "17px",
       "24px",
       "28px",
       "34px",
@@ -134,6 +141,28 @@ describe("one rhythm rather than ad-hoc pixels", () => {
     for (const token of ["--slidx-e-tight", "--slidx-e-snug", "--slidx-e-gap", "--slidx-e-loose"]) {
       expect(rule(":root"), token).toContain(token);
     }
+  });
+});
+
+describe("the slide keeps the room when the workspace narrows", () => {
+  it("yields side-panel width in two deliberate steps", () => {
+    expect(declarations()).toContain("@media (max-width: 75em)");
+    expect(declarations()).toContain("grid-template-columns: 12.5rem minmax(0, 1fr) 16.5rem");
+    expect(declarations()).toContain("@media (max-width: 56em)");
+    expect(declarations()).toContain("grid-template-columns: 11rem minmax(0, 1fr) 14rem");
+  });
+
+  it("keeps compact panel commands on one line", () => {
+    expect(rule(".slidx-slide-add-toggle")).toContain("white-space: nowrap");
+    expect(rule(".slidx-canvas-toggle")).toContain("white-space: nowrap");
+  });
+
+  it("has a reversible mode where the canvas owns the panel grid", () => {
+    const focused = rule('.slidx-editor.slidx-editor[data-canvas-focus="true"]');
+
+    expect(focused).toContain("grid-template-columns: minmax(0, 1fr)");
+    expect(focused).toContain('grid-template-areas: "appbar" "canvas"');
+    expect(declarations()).toContain('.slidx-editor[data-canvas-focus="true"] > .slidx-timeline');
   });
 });
 
@@ -176,6 +205,33 @@ describe("states are designed rather than left to the browser", () => {
     const current = rule('.slidx-outline-row[aria-current="true"]');
 
     expect(current).toContain("border-left: 2px solid var(--slidx-e-accent)");
+    expect(rule('.slidx-outline-row[aria-current="true"] .slidx-outline-thumbnail')).toContain(
+      "border-color: var(--slidx-e-accent)",
+    );
+  });
+
+  it("gives the overview a real slide-shaped visual field", () => {
+    expect(rule(".slidx-outline-thumbnail")).toContain("aspect-ratio: 16 / 9");
+    expect(rule(".slidx-outline-frame")).toContain("pointer-events: none");
+  });
+});
+
+describe("the product has one signature across every editor surface", () => {
+  it("gives the lockup its published minimum size", () => {
+    expect(rule(":root")).toContain("--slidx-e-lockup: 17px");
+    expect(rule(".slidx-appbar-mark")).toContain("var(--slidx-e-lockup)");
+    expect(rule(".slidx-appbar-wordmark")).toContain("var(--slidx-e-lockup)");
+  });
+
+  it("uses ink for the document and signal for the produced pages", () => {
+    expect(rule(".slidx-appbar-mark-document")).toContain("var(--slidx-e-text)");
+    expect(rule(".slidx-appbar-mark-page")).toContain("var(--slidx-e-accent)");
+  });
+
+  it("keeps collaboration in the command bar until its roster is opened", () => {
+    expect(rule(".slidx-presence")).toContain("position: relative");
+    expect(rule(".slidx-presence-popover")).toContain("position: absolute");
+    expect(declarations()).not.toContain(".slidx-presence {\n  position: fixed");
   });
 });
 

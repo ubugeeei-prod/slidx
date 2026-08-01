@@ -373,6 +373,7 @@ describe("the editor in the dev server", () => {
   it("says which slide has a problem in the same call that returns the deck", async () => {
     const response = await fetch(`${session.url}__slidx/deck`);
     const payload = (await response.json()) as {
+      access: { canEdit: boolean };
       spans: { body: { start: number; end: number } }[];
       deck: { diagnostics: unknown[]; slides: { frontmatter?: Record<string, unknown> }[] };
     };
@@ -380,6 +381,7 @@ describe("the editor in the dev server", () => {
     // Live diagnostics cost the editor nothing: the pipeline returns them with
     // every parse, so wiring them is reading a field.
     expect(payload.deck.diagnostics).toBeInstanceOf(Array);
+    expect(payload.access).toEqual({ canEdit: true });
     expect(payload.spans).toHaveLength(4);
     expect(payload.deck.slides[0]!.frontmatter).toMatchObject({ title: "Making Decks Fast" });
   });

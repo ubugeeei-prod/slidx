@@ -30,6 +30,42 @@ describe("an editing session", () => {
     expect(server.ops).toEqual([{ op: "setHeading", slide: 1, text: "Retitled" }]);
   });
 
+  it("never sends a change through a view-only capability", async () => {
+    const deck = deckOf("One", "Two");
+    deck.access = { canEdit: false };
+    const server = fakeServer(deck);
+    const session = createSession(server);
+    await session.open();
+
+    await session.run({ op: "setHeading", slide: 0, text: "Retitled" });
+    await session.undo();
+    await session.redo();
+
+    expect(session.state().canEdit).toBe(false);
+    expect(server.ops).toEqual([]);
+    expect(server.reverted).toEqual([]);
+    expect(session.state().writing).toBe(false);
+  });
+
+  it("says when a change is still being written and when disk has answered", async () => {
+    const server = fakeServer();
+    let release: (() => void) | undefined;
+    server.apply = () =>
+      new Promise((resolve) => {
+        release = () => resolve({ ...deckOf("One", "Two", "Three"), undo: [{ splice: 1 }] });
+      });
+    const session = createSession(server);
+    await session.open();
+
+    const request = session.run({ op: "setHeading", slide: 1, text: "Retitled" });
+    expect(session.state().writing).toBe(true);
+
+    release!();
+    await request;
+    expect(session.state().writing).toBe(false);
+    expect(session.state().canUndo).toBe(true);
+  });
+
   it("gives back the slide's Markdown, counted in bytes", async () => {
     // Byte offsets, in a language that counts in UTF-16 code units. A deck
     // written in Japanese diverges on the first character, and the slice that
@@ -84,6 +120,29 @@ describe("an editing session", () => {
     });
 
     expect(session.state().selection).toEqual({ slide: 0, block: 0 });
+  });
+
+  it("keeps the same occurrence of selected words across a style rewrite", async () => {
+    const initial = deckOf("fast then fast");
+    const styled = deckOf("fast then [fast]{.accent}");
+    const server = fakeServer(initial);
+    server.answer = styled;
+    const session = createSession(server);
+    await session.open();
+    session.select({ text: "fast", range: { start: 12, end: 16 } });
+
+    await session.run({
+      op: "addMark",
+      slide: 0,
+      range: { start: 12, end: 16 },
+      attributes: { classes: ["accent"] },
+    });
+
+    expect(session.state().selection).toEqual({
+      slide: 0,
+      text: "fast",
+      range: { start: 13, end: 17 },
+    });
   });
 });
 
@@ -207,6 +266,7 @@ describe("a deck the server cannot write", () => {
     await session.run({ op: "setHeading", slide: 0, text: "x" });
 
     expect(session.state().problem).toContain("slides/0001.md");
+    expect(session.state().writing).toBe(false);
   });
 });
 

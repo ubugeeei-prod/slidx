@@ -22,9 +22,12 @@ import type {
   LayoutChoice,
   SlideSpans,
   SlideSummary,
+  ThemeChoice,
+  TransitionChoice,
 } from "./client";
 import { createHistory, type History } from "./history";
 import type { EditOp, EditRefusal } from "./operations";
+import { locateSelection } from "./selection";
 
 /** What is selected, which is what the inspector is about. */
 /**
@@ -48,9 +51,19 @@ export interface Selection {
 export interface EditorState {
   source: string;
   spans: SlideSpans[];
+  /** The deck title, for the workspace context above every surface. */
+  title?: string | undefined;
   slides: SlideSummary[];
   /** Layouts the active pipeline can render, in picker order. */
   layouts: LayoutChoice[];
+  /** Theme that produced the rendered canvas. */
+  activeTheme: string;
+  /** Whether build configuration, rather than the deck, chose that theme. */
+  themeLocked: boolean;
+  /** Themes the active pipeline can render, in picker order. */
+  themes: ThemeChoice[];
+  /** Slide transitions the active renderer implements, in picker order. */
+  transitions: TransitionChoice[];
   /**
    * Length of the speaking slot, when the deck declares one.
    *
@@ -70,6 +83,8 @@ export interface EditorState {
    * which is also what an author working alone sees.
    */
   viewers: Viewer[];
+  /** Whether this browser's link may change the deck. Absent means local/editor-owned. */
+  canEdit?: boolean | undefined;
   /**
    * The seat this editor is following, when it is following one.
    *
@@ -81,6 +96,8 @@ export interface EditorState {
   following?: string | undefined;
   canUndo: boolean;
   canRedo: boolean;
+  /** True while a semantic edit is being written through the dev server. */
+  writing: boolean;
   /** What the last operation was refused for, cleared by the next one. */
   refusal?: EditRefusal | undefined;
   /** A message about something that stopped, rather than something refused. */
@@ -131,11 +148,17 @@ const EMPTY: EditorState = {
   spans: [],
   slides: [],
   layouts: [],
+  activeTheme: "",
+  themeLocked: false,
+  themes: [],
+  transitions: [],
   diagnostics: [],
   selection: { slide: 0 },
   viewers: [],
+  canEdit: true,
   canUndo: false,
   canRedo: false,
+  writing: false,
 };
 
 export function createSession(client: EditorClient, history: History = createHistory()): Session {
@@ -156,19 +179,34 @@ export function createSession(client: EditorClient, history: History = createHis
       state.selection.block < (deck.spans[slide]?.blocks?.length ?? 0)
         ? state.selection.block
         : undefined;
+    const text = relocatedText(deck, slide);
 
     set({
       source: deck.source,
       spans: deck.spans,
+      title: deck.deck.title,
       slides: deck.deck.slides,
       layouts: deck.deck.layouts,
+      activeTheme: deck.deck.activeTheme,
+      themeLocked: deck.deck.themeLocked,
+      themes: deck.deck.themes,
+      transitions: deck.deck.transitions,
       durationSeconds: deck.deck.durationSeconds,
       diagnostics: deck.deck.diagnostics,
-      // A selection is a range in a body that has just been rewritten, so it
-      // cannot survive the edit that rewrote it. A whole block can: operations
-      // address it in this same source order, and keeping it selected is what
-      // lets a drag land without taking its handles away.
-      selection: { slide, ...(block === undefined ? {} : { block }) },
+      // A live room announcement belongs to every viewer, so it deliberately
+      // carries no access. Keep the capability established by the initial,
+      // viewer-specific deck response in that case.
+      canEdit: deck.access?.canEdit ?? state.canEdit,
+      // A source range cannot survive a rewrite numerically, but the words the
+      // author selected can survive logically. Relocate the same occurrence in
+      // the new body so a tone click does not throw them out of Text controls
+      // before they can add weight or typeface. A whole block survives by its
+      // shared source order for the same reason direct-manipulation handles do.
+      selection: {
+        slide,
+        ...(block === undefined ? {} : { block }),
+        ...text,
+      },
       canUndo: history.canUndo,
       canRedo: history.canRedo,
       refusal: undefined,
@@ -178,6 +216,23 @@ export function createSession(client: EditorClient, history: History = createHis
       foreseen: undefined,
       ...extra,
     });
+  }
+
+  /** The same selected words, rebased onto a newly returned source body. */
+  function relocatedText(deck: DeckState, slide: number): Pick<Selection, "range" | "text"> {
+    const { text, range } = state.selection;
+    if (slide !== state.selection.slide || !text || !range) return {};
+
+    const oldSpan = state.spans[slide]?.body;
+    const nextSpan = deck.spans[slide]?.body;
+    if (!oldSpan || !nextSpan) return {};
+
+    const oldBody = sliceBytes(state.source, oldSpan.start, oldSpan.end);
+    const nextBody = sliceBytes(deck.source, nextSpan.start, nextSpan.end);
+    const occurrence = occurrencesBefore(oldBody, text.trim(), range.start);
+    const found = locateSelection(nextBody, text, occurrence);
+
+    return "problem" in found ? {} : { text: found.text, range: found.range };
   }
 
   /**
@@ -194,11 +249,14 @@ export function createSession(client: EditorClient, history: History = createHis
       : { selection: { slide: followed.slide } };
   }
 
-  async function attempt(work: () => Promise<void>): Promise<void> {
+  async function attempt(
+    work: () => Promise<void>,
+    failed: Partial<EditorState> = {},
+  ): Promise<void> {
     try {
       await work();
     } catch (error) {
-      set({ problem: error instanceof Error ? error.message : String(error) });
+      set({ problem: error instanceof Error ? error.message : String(error), ...failed });
     }
   }
 
@@ -219,38 +277,56 @@ export function createSession(client: EditorClient, history: History = createHis
     },
 
     run(op, selection) {
-      return attempt(async () => {
-        const answer = await client.apply(op);
-        if (answer.error) {
-          set({ refusal: answer.error });
-          return;
-        }
+      if (state.canEdit === false) return Promise.resolve();
+      set({ writing: true, refusal: undefined, problem: undefined });
+      return attempt(
+        async () => {
+          const answer = await client.apply(op);
+          if (answer.error) {
+            set({ refusal: answer.error, writing: false });
+            return;
+          }
 
-        history.applied(answer.undo ?? []);
-        adopt(answer, selection === undefined ? {} : { selection });
-      });
+          history.applied(answer.undo ?? []);
+          adopt(
+            answer,
+            selection === undefined ? { writing: false } : { writing: false, selection },
+          );
+        },
+        { writing: false },
+      );
     },
 
     undo() {
-      return attempt(async () => {
-        const edit = history.nextUndo();
-        if (!edit) return;
+      if (state.canEdit === false) return Promise.resolve();
+      const edit = history.nextUndo();
+      if (!edit) return Promise.resolve();
 
-        const answer = await client.revert(edit);
-        history.undone(answer.undo ?? []);
-        adopt(answer);
-      });
+      set({ writing: true, refusal: undefined, problem: undefined });
+      return attempt(
+        async () => {
+          const answer = await client.revert(edit);
+          history.undone(answer.undo ?? []);
+          adopt(answer, { writing: false });
+        },
+        { writing: false },
+      );
     },
 
     redo() {
-      return attempt(async () => {
-        const edit = history.nextRedo();
-        if (!edit) return;
+      if (state.canEdit === false) return Promise.resolve();
+      const edit = history.nextRedo();
+      if (!edit) return Promise.resolve();
 
-        const answer = await client.revert(edit);
-        history.redone(answer.undo ?? []);
-        adopt(answer);
-      });
+      set({ writing: true, refusal: undefined, problem: undefined });
+      return attempt(
+        async () => {
+          const answer = await client.revert(edit);
+          history.redone(answer.undo ?? []);
+          adopt(answer, { writing: false });
+        },
+        { writing: false },
+      );
     },
 
     select(selection) {
@@ -305,4 +381,18 @@ export function createSession(client: EditorClient, history: History = createHis
 
     blocksOf: (slide) => state.spans[slide]?.blocks ?? [],
   };
+}
+
+/** Which raw-source appearance begins at the selected byte range. */
+function occurrencesBefore(body: string, text: string, byte: number): number {
+  if (text.length === 0) return 0;
+
+  const prefix = sliceBytes(body, 0, byte);
+  let count = 0;
+  let cursor = prefix.indexOf(text);
+  while (cursor !== -1) {
+    count += 1;
+    cursor = prefix.indexOf(text, cursor + 1);
+  }
+  return count;
 }

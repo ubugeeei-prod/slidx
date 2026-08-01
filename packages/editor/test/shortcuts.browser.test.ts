@@ -62,7 +62,15 @@ async function open(): Promise<Fixture> {
       blocksOf: (slide) => session.blocksOf(slide),
     },
   );
-  const shortcuts = createShortcuts(session, canvas, { present() {} });
+  const shortcuts = createShortcuts(session, canvas, {
+    addSlide() {
+      const at = session.state().selection.slide + 1;
+      void session.run({ op: "insertSlide", at, body: "## New slide" });
+    },
+    focusCanvas() {},
+    canvasFocused: () => false,
+    present() {},
+  });
   const root = document.createElement("main");
   root.tabIndex = -1;
   root.append(canvas.root, shortcuts.root);

@@ -22,9 +22,9 @@
  * is not offered for editing at all. Refusing beats guessing: a guess here
  * splices the wrong bytes of somebody's talk.
  *
- * The Markdown view stays, and is still the way to add a block, split a
- * paragraph, or write a fence. What it is no longer is the only way to change a
- * word.
+ * The Markdown view stays for arbitrary constructs, splitting a paragraph, or
+ * writing a fence. Common headings, text, lists and quotes start in the visual
+ * view; neither path weakens the rule that only the Rust writer composes source.
  *
  * # How a change reaches the page
  *
@@ -38,11 +38,14 @@
  */
 
 import { element } from "./dom";
+import { applyCanvasZoomStyles } from "./canvas-zoom-styles";
+import { createContentMenu } from "./content-menu";
 import type { BlockSpans } from "./client";
 import { BLOCK_ATTRIBUTE } from "./geometry";
 import { canPatch, caretIn, patch, restore, type Caret } from "./live";
-import type { EditOp } from "./operations";
+import type { BlockKind, EditOp } from "./operations";
 import type { Surface } from "./outline";
+import { createSpeakerNotes } from "./speaker-notes";
 import { changeBetween, editableIn, planBlock, rangeOf, type TextPlan } from "./text";
 
 /**
@@ -79,7 +82,7 @@ export const EDITING_STYLESHEET = `
 `;
 
 export interface CanvasHandlers {
-  run(op: EditOp): void;
+  run(op: EditOp): void | Promise<void>;
   selected(text: string, at: number): void;
   /** Selects a whole rendered block without making the browser write Markdown. */
   selectedBlock?(block: number | undefined): void;
@@ -102,9 +105,12 @@ export interface CanvasOptions {
    *
    * Injected rather than reached for, so a test says what was remembered and a
    * document without storage — a sandboxed frame, a browser with it disabled —
-   * simply starts on auto every time instead of throwing on the first click.
+   * simply starts on the paper-first default instead of throwing on the first
+   * click.
    */
   storage?: Pick<Storage, "getItem" | "setItem"> | undefined;
+  /** Keeps every miniature in the outline on the palette the canvas shows. */
+  schemeChanged?(scheme: Scheme): void;
   /** Injected so bringing the frame up to date is testable without a server. */
   fetch?: typeof globalThis.fetch;
 }
@@ -117,6 +123,25 @@ export interface CanvasSurface extends Surface {
   showVisual(): void;
   /** Returns to the rendered slide and focuses its first editable line. */
   focusText(): void;
+  /** Clears the browser selection after contextual text styling is finished. */
+  finishTextSelection(): void;
+  /** Opens the current slide's speaking surface and puts the caret into it. */
+  focusNotes(): void;
+  /** Selects the first placeholder once a newly created slide has loaded. */
+  focusFresh(): void;
+  /** Opens the visual add-content menu. */
+  addContent(): void;
+  /** Inserts one semantic block and selects its placeholder for immediate typing. */
+  insertContent(kind: BlockKind): void;
+  /** The light, dark, or automatic palette the author is previewing. */
+  scheme(): Scheme;
+  /** The palette currently visible after resolving an automatic choice. */
+  palette(): Exclude<Scheme, "auto">;
+  /** The current multiplier over the largest fully visible slide. */
+  zoom(): CanvasZoom;
+  zoomIn(): void;
+  zoomOut(): void;
+  zoomFit(): void;
   /** Receives commands even while focus is inside the preview document. */
   listen(listener: (event: KeyboardEvent) => void): void;
   /** Receives semantic slide copy and paste from the preview document too. */
@@ -148,7 +173,7 @@ export interface CanvasSurface extends Surface {
  * diff, and hand it to a co-editor whose room is different. It lives in this
  * browser and nowhere else.
  */
-type Scheme = "light" | "dark" | "auto";
+export type Scheme = "light" | "dark" | "auto";
 
 const SCHEMES: Scheme[] = ["light", "dark", "auto"];
 
@@ -180,6 +205,19 @@ const SCHEME_LABEL: Record<Scheme, string> = {
 /** Where the choice is remembered, which is this browser and nothing else. */
 const SCHEME_KEY = "slidx.canvas.scheme";
 
+/** Multipliers over the largest slide that fits the current canvas. */
+export type CanvasZoom = 1 | 1.25 | 1.5 | 2;
+
+const ZOOMS: readonly CanvasZoom[] = [1, 1.25, 1.5, 2];
+const ZOOM_KEY = "slidx.canvas.zoom";
+
+/** The remembered detail level, with old or foreign values falling back to fit. */
+export function startingZoom(storage: Pick<Storage, "getItem"> | undefined): CanvasZoom {
+  const found = Number(storage?.getItem(ZOOM_KEY));
+
+  return ZOOMS.includes(found as CanvasZoom) ? (found as CanvasZoom) : 1;
+}
+
 export function startingScheme(storage: Pick<Storage, "getItem"> | undefined): Scheme {
   const found = storage?.getItem(SCHEME_KEY);
 
@@ -203,6 +241,8 @@ export function applyScheme(document: Document | null | undefined, choice: Schem
 }
 
 export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): CanvasSurface {
+  const initialScheme = startingScheme(options.storage);
+  const initialZoom = startingZoom(options.storage);
   const frame = element("iframe", { class: "slidx-canvas-frame", title: "Slide preview" });
   const source = element("textarea", {
     class: "slidx-canvas-source",
@@ -217,21 +257,64 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
       type: "button",
       class: "slidx-canvas-scheme",
       title: "Show the slide light, dark, or as this machine is set",
+      "data-scheme": initialScheme,
     },
-    [SCHEME_LABEL[STARTS_AS]],
+    [SCHEME_LABEL[initialScheme]],
   );
+  const content = createContentMenu((kind) => insert(kind));
+  const notes = createSpeakerNotes({ run: (op) => handlers.run(op), done: () => frame.focus() });
+  const zoomOut = element(
+    "button",
+    {
+      type: "button",
+      class: "slidx-canvas-zoom-out",
+      "aria-label": "Zoom canvas out",
+      title: "Zoom canvas out (⌘/Ctrl −)",
+    },
+    ["−"],
+  ) as HTMLButtonElement;
+  const zoomValue = element(
+    "button",
+    {
+      type: "button",
+      class: "slidx-canvas-zoom-value",
+      "aria-label": "Fit canvas to workspace",
+      title: "Fit canvas to workspace (⌘/Ctrl 0)",
+    },
+    ["Fit"],
+  ) as HTMLButtonElement;
+  const zoomIn = element(
+    "button",
+    {
+      type: "button",
+      class: "slidx-canvas-zoom-in",
+      "aria-label": "Zoom canvas in",
+      title: "Zoom canvas in (⌘/Ctrl +)",
+    },
+    ["+"],
+  ) as HTMLButtonElement;
+  const zoomControl = element(
+    "div",
+    { class: "slidx-canvas-zoom", role: "group", "aria-label": "Canvas zoom" },
+    [zoomOut, zoomValue, zoomIn],
+  );
+  const tools = element("div", { class: "slidx-canvas-tools" }, [
+    content.root,
+    zoomControl,
+    scheme,
+    toggle,
+  ]);
   const stage = element("div", { class: "slidx-canvas-stage" }, [frame, source]);
   const root = element("section", { class: "slidx-canvas", "aria-label": "Slide" }, [
-    element("header", { class: "slidx-panel-head" }, [
-      element("h2", {}, ["Slide"]),
-      scheme,
-      toggle,
-    ]),
+    element("header", { class: "slidx-panel-head" }, [element("h2", {}, ["Slide"]), tools]),
     stage,
+    notes.root,
   ]);
+  applyCanvasZoomStyles(root.ownerDocument);
 
   let slide = 0;
-  let chosen: Scheme = startingScheme(options.storage);
+  let chosen: Scheme = initialScheme;
+  let magnification: CanvasZoom = initialZoom;
   let editing = false;
   let shown = "";
   let refresh = 0;
@@ -240,18 +323,162 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
   let pasteListener: ((event: ClipboardEvent) => void) | undefined;
   let listening: Document | undefined;
   let selectedBlock: number | undefined;
+  let canEdit = true;
+  /** The placeholder line to focus and select after a visual insertion lands. */
+  let focusAfterInsert: { slide: number; block: number; ready: boolean } | undefined;
+  /** A newly created slide whose first authored line should replace on typing. */
+  let focusFreshOnLoad: { slide: number } | undefined;
   /** Where the author was before the change that is about to land. */
   let held: Caret | undefined;
+  let pan = { x: 0.5, y: 0.5 };
+  let centerAfterLoad = true;
+  let viewportFrame = 0;
+  let hasSlides = false;
+  let loadedRoute: string | undefined;
+  let routeRetry: number | undefined;
+  const dismissContent = () => content.close();
+
+  content.setEnabled(options.blocksOf !== undefined);
+
+  function rememberPan(): void {
+    const width = stage.scrollWidth;
+    const height = stage.scrollHeight;
+    if (width > stage.clientWidth) pan.x = (stage.scrollLeft + stage.clientWidth / 2) / width;
+    else pan.x = 0.5;
+    if (height > stage.clientHeight) pan.y = (stage.scrollTop + stage.clientHeight / 2) / height;
+    else pan.y = 0.5;
+  }
+
+  function restorePan(): void {
+    stage.scrollLeft = Math.max(0, pan.x * stage.scrollWidth - stage.clientWidth / 2);
+    stage.scrollTop = Math.max(0, pan.y * stage.scrollHeight - stage.clientHeight / 2);
+  }
+
+  function publishViewport(): void {
+    const editor = root.closest<HTMLElement>(".slidx-editor");
+    if (!editor) return;
+
+    const rect = stage.getBoundingClientRect();
+    const viewport = root.ownerDocument.documentElement;
+    editor.style.setProperty("--slidx-e-viewport-top", `${Math.max(0, rect.top)}px`);
+    editor.style.setProperty(
+      "--slidx-e-viewport-right",
+      `${Math.max(0, viewport.clientWidth - rect.right)}px`,
+    );
+    editor.style.setProperty(
+      "--slidx-e-viewport-bottom",
+      `${Math.max(0, viewport.clientHeight - rect.bottom)}px`,
+    );
+    editor.style.setProperty("--slidx-e-viewport-left", `${Math.max(0, rect.left)}px`);
+  }
+
+  /** Re-measures editor-side handles once after a zoom, pan, or reflow. */
+  function viewportChanged(): void {
+    if (viewportFrame !== 0) return;
+    const view = root.ownerDocument.defaultView;
+    if (!view) return;
+
+    viewportFrame = view.requestAnimationFrame(() => {
+      viewportFrame = 0;
+      publishViewport();
+      view.dispatchEvent(new Event("resize"));
+    });
+  }
+
+  function scrolled(): void {
+    rememberPan();
+    viewportChanged();
+  }
+
+  function showZoom(next: CanvasZoom, remember = true): void {
+    rememberPan();
+    magnification = next;
+    stage.dataset.zoom = next === 1 ? "fit" : String(next);
+    stage.style.setProperty("--slidx-e-canvas-zoom", `${next * 100}%`);
+    zoomValue.textContent = next === 1 ? "Fit" : `${Math.round(next * 100)}%`;
+    zoomValue.title =
+      next === 1
+        ? "Canvas fits the workspace (⌘/Ctrl 0)"
+        : `${Math.round(next * 100)}% · reset to fit (⌘/Ctrl 0)`;
+    zoomOut.disabled = next === ZOOMS[0];
+    zoomIn.disabled = next === ZOOMS[ZOOMS.length - 1];
+    if (remember) options.storage?.setItem(ZOOM_KEY, String(next));
+    restorePan();
+    viewportChanged();
+  }
+
+  function stepZoom(by: -1 | 1): void {
+    const at = ZOOMS.indexOf(magnification);
+    showZoom(ZOOMS[Math.max(0, Math.min(at + by, ZOOMS.length - 1))]!);
+  }
+
+  stage.addEventListener("scroll", scrolled, { passive: true });
+  const Resize = root.ownerDocument.defaultView?.ResizeObserver;
+  const observer = Resize
+    ? new Resize(() => {
+        restorePan();
+        viewportChanged();
+      })
+    : undefined;
+  observer?.observe(stage);
+  zoomOut.addEventListener("click", () => stepZoom(-1));
+  zoomValue.addEventListener("click", () => showZoom(1));
+  zoomIn.addEventListener("click", () => stepZoom(1));
+  showZoom(initialZoom, false);
 
   function fresh(route: string): string {
     refresh += 1;
     return `${route}?at=${Date.now()}-${refresh}`;
   }
 
+  function clearRouteRetry(): void {
+    if (routeRetry === undefined) return;
+    root.ownerDocument.defaultView?.clearTimeout(routeRetry);
+    routeRetry = undefined;
+  }
+
+  /**
+   * Reasserts a slide route after the deck's file updates have settled.
+   *
+   * A whole-slide operation may touch several source files. Vite announces
+   * each write to every deck iframe, and one of those reloads can abort the
+   * canvas navigation that selected the newly created slide. The `src`
+   * attribute still names the right page while the document inside it remains
+   * on the old one, so the canvas verifies the document boundary rather than
+   * trusting the attribute. Three bounded retries cover that reload wave
+   * without leaving a poller behind.
+   */
+  function expectRoute(route: string, attempt = 0): void {
+    clearRouteRetry();
+    const view = root.ownerDocument.defaultView;
+    if (!view) return;
+    const delays = [180, 420, 900] as const;
+
+    routeRetry = view.setTimeout(
+      () => {
+        routeRetry = undefined;
+        if (!hasSlides || route !== routeFor(options.deckBase, slide)) return;
+        if (showsRoute(frame.contentDocument?.URL, route, root.ownerDocument.baseURI)) return;
+
+        frame.setAttribute("src", fresh(route));
+        if (attempt + 1 < delays.length) expectRoute(route, attempt + 1);
+      },
+      delays[attempt] ?? delays[delays.length - 1],
+    );
+  }
+
+  function navigate(route: string): void {
+    frame.setAttribute("src", fresh(route));
+    if (loadedRoute) expectRoute(route);
+    else clearRouteRetry();
+  }
+
   function showSource(next: boolean): void {
     editing = next;
     stage.setAttribute("data-editing", String(editing));
     toggle.textContent = editing ? "Visual" : "Markdown";
+    zoomControl.hidden = editing;
+    content.setEnabled(canEdit && !editing && options.blocksOf !== undefined);
     if (editing) {
       source.focus();
       return;
@@ -276,21 +503,61 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
     listening = page;
   }
 
+  function focusFreshPlaceholder(page: Document): void {
+    const target = focusFreshOnLoad;
+    if (!target || target.slide !== slide) return;
+    const first = page.querySelector<HTMLElement>("[contenteditable]");
+    if (!first) return;
+
+    focusAll(page, first);
+    // File writes can reload a freshly created slide after it first appears.
+    // Keep restoring the selection until the author actually starts using it.
+    const used = () => {
+      if (focusFreshOnLoad === target) focusFreshOnLoad = undefined;
+    };
+    first.addEventListener("beforeinput", used, { once: true });
+    page.addEventListener("pointerdown", used, { once: true });
+  }
+
   toggle.addEventListener("click", () => showSource(!editing));
 
   scheme.addEventListener("click", () => {
+    content.close();
     chosen = SCHEMES[(SCHEMES.indexOf(chosen) + 1) % SCHEMES.length]!;
     scheme.textContent = SCHEME_LABEL[chosen];
     scheme.setAttribute("data-scheme", chosen);
     options.storage?.setItem(SCHEME_KEY, chosen);
     applyScheme(frame.contentDocument, chosen);
+    options.schemeChanged?.(chosen);
   });
+
+  /** Inserts beside the selection, then puts the new placeholder under the caret. */
+  async function insert(kind: BlockKind): Promise<void> {
+    if (!canEdit) return;
+    const targetSlide = slide;
+    const before = options.blocksOf?.(targetSlide) ?? [];
+    const at =
+      selectedBlock === undefined ? before.length : Math.min(selectedBlock + 1, before.length);
+    const target = { slide: targetSlide, block: at, ready: false };
+    focusAfterInsert = target;
+
+    await handlers.run({ op: "insertBlock", slide: targetSlide, at, kind });
+
+    const after = options.blocksOf?.(targetSlide) ?? [];
+    if (after.length <= before.length) {
+      if (focusAfterInsert === target) focusAfterInsert = undefined;
+      return;
+    }
+
+    target.ready = true;
+    if (slide === targetSlide) handlers.selectedBlock?.(at);
+  }
 
   // On blur rather than on every keystroke: an operation per character would
   // write the file per character, and the undo stack is a list of operations.
   source.addEventListener("blur", () => {
-    if (source.value === shown) return;
-    handlers.run({ op: "setBody", slide, body: source.value });
+    if (!canEdit || source.value === shown) return;
+    void handlers.run({ op: "setBody", slide, body: source.value });
   });
 
   /** Makes the page in the frame editable, and puts the caret back if it moved. */
@@ -300,11 +567,42 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
 
     bindListeners(page);
 
-    const lines = attachEditing(page, slide, handlers, {
-      body: () => options.bodyOf(slide),
-      blocks: () => options.blocksOf?.(slide) ?? [],
-    });
+    const lines = attachEditing(
+      page,
+      slide,
+      handlers,
+      {
+        body: () => options.bodyOf(slide),
+        blocks: () => options.blocksOf?.(slide) ?? [],
+      },
+      canEdit,
+    );
     markSelected(page, selectedBlock);
+    page.addEventListener("pointerdown", dismissContent);
+
+    if (focusAfterInsert?.slide === slide) {
+      const target = focusAfterInsert;
+      const inserted = target.block;
+      const line = page.querySelector<HTMLElement>(
+        `[${BLOCK_ATTRIBUTE}="${inserted}"] [contenteditable]`,
+      );
+      // A session update may render before the replacement page arrives. Keep
+      // the request until the authored placeholder is actually in this frame.
+      if (line) {
+        focusAll(page, line);
+        // Vite can follow the live replacement with one real frame reload. A
+        // reload before the author types must restore this caret; the first
+        // editing gesture retires the request so later renders never reselect
+        // authored text.
+        const used = () => {
+          if (focusAfterInsert === target) focusAfterInsert = undefined;
+        };
+        line.addEventListener("beforeinput", used, { once: true });
+        line.addEventListener("pointerdown", used, { once: true });
+      }
+    }
+
+    focusFreshPlaceholder(page);
 
     const wanted = held;
     held = undefined;
@@ -323,8 +621,26 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
   // would give an author one slide in the palette they asked for and the rest
   // in the one their laptop is set to.
   frame.addEventListener("load", () => {
+    // Tests author iframe fixtures in place and deliberately remove `src`; a
+    // real deck frame always has one, so it still gets strict route recovery.
+    const fixture = !frame.hasAttribute("src");
+    if (!hasSlides && !fixture) return;
+    const route = routeFor(options.deckBase, slide);
+    const documentURL = frame.contentDocument?.URL;
+    if (!fixture && !showsRoute(documentURL, route, root.ownerDocument.baseURI)) {
+      if (loadedRoute) navigate(route);
+      return;
+    }
+    if (!fixture) loadedRoute = route;
+    clearRouteRetry();
     applyScheme(frame.contentDocument, chosen);
     bind();
+    viewportChanged();
+    if (centerAfterLoad) {
+      centerAfterLoad = false;
+      pan = { x: 0.5, y: 0.5 };
+      root.ownerDocument.defaultView?.requestAnimationFrame(restorePan);
+    }
   });
 
   return {
@@ -333,9 +649,46 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
     showVisual: () => showSource(false),
     focusText() {
       showSource(false);
+      if (!canEdit) {
+        frame.focus();
+        return;
+      }
       const line = frame.contentDocument?.querySelector<HTMLElement>("[contenteditable]");
       line?.focus();
     },
+    finishTextSelection() {
+      frame.contentDocument?.getSelection()?.removeAllRanges();
+      frame.focus();
+    },
+    focusNotes: () => notes.focus(),
+    focusFresh() {
+      if (!canEdit) return;
+      showSource(false);
+      focusFreshOnLoad = { slide };
+      const page = frame.contentDocument;
+      const route = routeFor(options.deckBase, slide);
+      if (
+        page &&
+        (!frame.hasAttribute("src") || showsRoute(page.URL, route, root.ownerDocument.baseURI))
+      ) {
+        focusFreshPlaceholder(page);
+      }
+    },
+    addContent() {
+      if (canEdit && !editing) content.open();
+    },
+    insertContent: (kind) => insert(kind),
+    scheme: () => chosen,
+    palette: () =>
+      chosen === "auto"
+        ? frame.contentWindow?.matchMedia?.("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light"
+        : chosen,
+    zoom: () => magnification,
+    zoomIn: () => stepZoom(1),
+    zoomOut: () => stepZoom(-1),
+    zoomFit: () => showZoom(1),
     listen(listener) {
       unbindListeners(listening);
       keyListener = listener;
@@ -353,17 +706,42 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
     },
     destroy() {
       unbindListeners(listening);
+      content.destroy();
+      observer?.disconnect();
+      stage.removeEventListener("scroll", scrolled);
+      if (viewportFrame !== 0) root.ownerDocument.defaultView?.cancelAnimationFrame(viewportFrame);
+      clearRouteRetry();
+      frame.contentDocument?.removeEventListener("pointerdown", dismissContent);
       listening = undefined;
       keyListener = undefined;
       copyListener = undefined;
       pasteListener = undefined;
     },
     render(state) {
+      const nextCanEdit = state.canEdit !== false;
+      const accessChanged = canEdit !== nextCanEdit;
+      canEdit = nextCanEdit;
+      source.readOnly = !canEdit;
+      content.setEnabled(canEdit && !editing && options.blocksOf !== undefined);
+      notes.render(state);
       const moved = state.selection.slide !== slide;
+      if (moved) centerAfterLoad = true;
       slide = state.selection.slide;
+      if (moved && focusAfterInsert?.slide !== slide) focusAfterInsert = undefined;
+      if (moved && focusFreshOnLoad?.slide !== slide) focusFreshOnLoad = undefined;
+      if (
+        focusAfterInsert?.ready &&
+        handlers.selectedBlock &&
+        (focusAfterInsert.slide !== slide || focusAfterInsert.block !== state.selection.block)
+      ) {
+        focusAfterInsert = undefined;
+      }
       selectedBlock = state.selection.block;
       const page = frame.contentDocument;
-      if (page) markSelected(page, selectedBlock);
+      if (page) {
+        markSelected(page, selectedBlock);
+        if (accessChanged) bind();
+      }
 
       const body = options.bodyOf(slide);
       // Only when it differs, so a re-render does not take the cursor away
@@ -372,6 +750,20 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
         shown = body;
         source.value = body;
       }
+
+      // The empty state is drawn before the first deck response arrives. A
+      // shared editor uses that response to establish browser-held read access
+      // for the real slide route, so navigating the iframe any earlier would
+      // be both a guaranteed 403 and a misleading console error.
+      if (state.slides.length === 0) {
+        hasSlides = false;
+        loadedRoute = undefined;
+        clearRouteRetry();
+        frame.removeAttribute("src");
+        frame.removeAttribute("data-source");
+        return;
+      }
+      hasSlides = true;
 
       const next = routeFor(options.deckBase, slide);
       if (!moved && frame.getAttribute("data-source") === state.source) return;
@@ -386,7 +778,7 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
 
         void patch(frame, next, options.fetch).then((patched) => {
           if (!patched) {
-            frame.setAttribute("src", fresh(next));
+            navigate(next);
             return;
           }
 
@@ -402,9 +794,21 @@ export function createCanvas(handlers: CanvasHandlers, options: CanvasOptions): 
         return;
       }
 
-      frame.setAttribute("src", fresh(next));
+      navigate(next);
     },
   };
+}
+
+/** Focuses a fresh placeholder and selects it, so the next keystroke replaces it. */
+function focusAll(document: Document, line: HTMLElement): void {
+  line.focus();
+  const selection = document.getSelection();
+  if (!selection) return;
+
+  const range = document.createRange();
+  range.selectNodeContents(line);
+  selection.removeAllRanges();
+  selection.addRange(range);
 }
 
 /** The deck's own URL for one slide. Slides are one-based in a URL. */
@@ -412,6 +816,17 @@ export function routeFor(base: string, slide: number): string {
   const prefix = base ? `/${base}` : "";
 
   return slide === 0 ? `${prefix}/` : `${prefix}/${slide + 1}/`;
+}
+
+/** Whether the document inside a frame is on the slide its `src` names. */
+export function showsRoute(documentURL: string | undefined, route: string, base: string): boolean {
+  if (!documentURL) return false;
+
+  try {
+    return new URL(documentURL, base).pathname === new URL(route, base).pathname;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -427,6 +842,7 @@ export function attachEditing(
   slide: number,
   handlers: CanvasHandlers,
   source: EditableSource,
+  canEdit = true,
 ): Element[] {
   const body = document.querySelector(".slidx-slide-body");
   if (!body) return [];
@@ -442,8 +858,12 @@ export function attachEditing(
     if (spans === undefined) continue;
 
     for (const [line, plan] of planBlock(text, spans, editableIn(wrapper))) {
-      open(line, plan, slide, handlers);
-      opened.push(line);
+      if (canEdit) {
+        open(line, plan, slide, handlers);
+        opened.push(line);
+      } else {
+        line.removeAttribute("contenteditable");
+      }
     }
   }
 
@@ -542,7 +962,7 @@ function commit(line: Element, plan: TextPlan, slide: number, handlers: CanvasHa
   const range = rangeOf(plan, change);
   if (range === undefined) return;
 
-  handlers.run({ op: "setText", slide, range, text: change.text });
+  void handlers.run({ op: "setText", slide, range, text: change.text });
 }
 
 /**

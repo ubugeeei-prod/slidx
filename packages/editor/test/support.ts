@@ -68,6 +68,35 @@ export function deckOf(...titles: string[]): DeckState {
       // A slot, because a deck without one cannot say whether it fits, and the
       // storyboard reads it through the session rather than from the frontmatter.
       durationSeconds: 600,
+      activeTheme: "minimal",
+      themeLocked: false,
+      themes: [],
+      transitions: [
+        {
+          id: "none",
+          name: "Cut",
+          description: "Instant, with no captured animation.",
+          moves: false,
+        },
+        {
+          id: "fade",
+          name: "Fade",
+          description: "Blend softly between the two slides.",
+          moves: false,
+        },
+        {
+          id: "slide",
+          name: "Slide",
+          description: "Bring the next slide over the current one.",
+          moves: true,
+        },
+        {
+          id: "push",
+          name: "Push",
+          description: "Move both slides together to show progression.",
+          moves: true,
+        },
+      ],
       layouts: [
         {
           id: "full",

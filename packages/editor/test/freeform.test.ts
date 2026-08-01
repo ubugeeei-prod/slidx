@@ -43,11 +43,16 @@ function state(selected: number | null = 0, slide = 2): EditorState {
     spans: [],
     slides: [],
     layouts: [],
+    activeTheme: "",
+    themeLocked: false,
+    themes: [],
+    transitions: [],
     diagnostics: [],
     selection: { slide, block: selected ?? undefined },
     viewers: [],
     canUndo: false,
     canRedo: false,
+    writing: false,
   };
 }
 
@@ -60,10 +65,7 @@ function open() {
       run: (op) => ops.push(op),
       select: (selected) => selections.push(selected),
     },
-    {
-      geometry: () => known,
-      visual: () => ({ color: "rgb(165, 201, 255)", managedColor: true }),
-    },
+    { geometry: () => known },
   );
 
   document.body.append(surface.root);
@@ -155,36 +157,6 @@ describe("freeform canvas controls", () => {
 
     expect(opened.selections).toEqual([undefined]);
     expect(opened.ops).toEqual([]);
-  });
-
-  it("sets and resets the selected block color as managed style operations", () => {
-    const opened = open();
-    const color = opened.root.querySelector<HTMLInputElement>(".slidx-freeform-color-input")!;
-    const reset = opened.root.querySelector<HTMLButtonElement>(".slidx-freeform-color-reset")!;
-
-    expect(color.value).toBe("#a5c9ff");
-    expect(reset.disabled).toBe(false);
-
-    color.value = "#d946ef";
-    color.dispatchEvent(new Event("change"));
-    reset.click();
-
-    expect(opened.ops).toEqual([
-      {
-        op: "setBlockStyle",
-        slide: 2,
-        block: 0,
-        property: "color",
-        value: "#d946ef",
-      },
-      {
-        op: "setBlockStyle",
-        slide: 2,
-        block: 0,
-        property: "color",
-      },
-    ]);
-    expect(reset.disabled).toBe(true);
   });
 
   it("keeps compact visible handles but generous invisible hit targets", () => {

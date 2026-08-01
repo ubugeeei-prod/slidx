@@ -50,6 +50,10 @@ function stateOf(over: Partial<EditorState> = {}): EditorState {
     source: "# One\n\nSecond.",
     spans: [{ content: { start: 0, end: 15 }, body: { start: 0, end: 15 } }],
     layouts: [],
+    activeTheme: "minimal",
+    themeLocked: false,
+    themes: [],
+    transitions: [],
     slides: [
       {
         id: "one",
@@ -67,6 +71,7 @@ function stateOf(over: Partial<EditorState> = {}): EditorState {
     viewers: [],
     canUndo: false,
     canRedo: false,
+    writing: false,
     ...over,
   };
 }

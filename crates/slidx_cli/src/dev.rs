@@ -123,7 +123,7 @@ pub fn run(matches: &Matches, style: &Style) -> Outcome {
     // The environment rather than the command line: an argument list is readable
     // by every process on this machine, and this is a capability.
     if let Some(shared) = &shared {
-        command.envs(shared.share.environment());
+        command.envs(shared.environment());
     }
 
     match command.status() {
@@ -141,6 +141,15 @@ pub struct Shared {
     /// Fixed, because a link cannot be printed for a port Vite has not chosen
     /// yet. See [`vite_flags`] on why `--strictPort` goes with it.
     pub port: u16,
+}
+
+impl Shared {
+    /// Every value the plugin needs to authorize and later reconstruct the links.
+    fn environment(&self) -> Vec<(&'static str, String)> {
+        let mut variables = self.share.environment();
+        variables.push((share::SHARE_ORIGIN_VARIABLE, address::origin(self.address, self.port)));
+        variables
+    }
 }
 
 /// What `--crdt` asked for, or nothing.
@@ -493,6 +502,16 @@ mod tests {
             .expect("flags");
 
         assert_eq!(flags, ["--port", "5173", "--strictPort", "--host", "0.0.0.0"]);
+    }
+
+    #[test]
+    fn a_shared_child_receives_the_public_origin_its_links_name() {
+        let environment = shared_session(true).environment();
+
+        assert!(environment
+            .contains(&(share::SHARE_ORIGIN_VARIABLE, "http://192.168.1.42:5173".to_string())));
+        assert!(environment.iter().any(|(name, _)| *name == share::SHARE_VARIABLE));
+        assert!(environment.iter().any(|(name, _)| *name == share::SHARE_EDIT_VARIABLE));
     }
 
     #[test]

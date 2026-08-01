@@ -34,13 +34,20 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 
-import { createRoom } from "./collab/room";
+import { createRoom, HERE_ROUTE, LIVE_ROUTE } from "./collab/room";
 import { readDeck, type DeckSource } from "./deck";
 import { EDITOR_MODULE, EDITOR_PAGE, editorPage, readEditor } from "./editor";
 import { joinDeck } from "./files";
 import { createDeckHistory } from "./history";
 import { MEDIA_UPLOAD_ROUTE, MediaUploadError, uploadMedia } from "./media-upload";
-import { createSharing, isLoopback, CREDENTIAL_HEADER, Grant, type Sharing } from "./share";
+import {
+  createSharing,
+  grantForRequest,
+  isLoopback,
+  rememberReadAccess,
+  Grant,
+  type Sharing,
+} from "./share";
 import {
   applyOperation,
   locate,
@@ -56,7 +63,7 @@ import type { Measurement } from "./overflow";
 import { build as buildDeck, lintMeasured } from "./pipeline";
 import { readThemePackages } from "./themes";
 
-/** Everything the editor posts to, under one prefix nothing else claims. */
+/** Everything the editor posts to, under the plugin's private route prefix. */
 export const EDITOR_ROUTE_PREFIX = "/__slidx/";
 
 const DECK_ROUTE = `${EDITOR_ROUTE_PREFIX}deck`;
@@ -65,6 +72,23 @@ const MEASURED_ROUTE = `${EDITOR_ROUTE_PREFIX}measured`;
 const HISTORY_ROUTE = `${EDITOR_ROUTE_PREFIX}history`;
 const CHANGE_ROUTE = `${EDITOR_ROUTE_PREFIX}history/change`;
 const RESTORE_ROUTE = `${EDITOR_ROUTE_PREFIX}history/restore`;
+const SHARE_ROUTE = `${EDITOR_ROUTE_PREFIX}share`;
+const LIVE_PATH = `${EDITOR_ROUTE_PREFIX}${LIVE_ROUTE}`;
+const HERE_PATH = `${EDITOR_ROUTE_PREFIX}${HERE_ROUTE}`;
+const SESSION_ROUTES = new Set([
+  EDITOR_PAGE,
+  EDITOR_MODULE,
+  DECK_ROUTE,
+  EDIT_ROUTE,
+  MEDIA_UPLOAD_ROUTE,
+  MEASURED_ROUTE,
+  HISTORY_ROUTE,
+  CHANGE_ROUTE,
+  RESTORE_ROUTE,
+  SHARE_ROUTE,
+  LIVE_PATH,
+  HERE_PATH,
+]);
 const WRITE_ROUTES = new Set([EDIT_ROUTE, MEDIA_UPLOAD_ROUTE, RESTORE_ROUTE]);
 /** What the editor posts: one operation, or one edit off its undo stack. */
 interface EditRequest {
@@ -174,10 +198,31 @@ export function createEditSession(
     async handle(request, response) {
       const url = request.url ?? "";
       const path = url.split("?")[0]!;
-      if (!path.startsWith(EDITOR_ROUTE_PREFIX)) return false;
+      // The island client and future plugin-owned modules also live below
+      // `/__slidx/`. Only claim routes this session actually answers so those
+      // modules can continue through the deck middleware and its read gate.
+      if (!SESSION_ROUTES.has(path)) return false;
 
       const local = isLoopback(request.socket.remoteAddress);
-      const grant = sharing.grant(credential(request), request.socket.remoteAddress);
+      const grant = grantForRequest(sharing, request);
+
+      /*
+       * A browser never sends its URL fragment in the first request. The page
+       * and its module therefore have to arrive before JavaScript can read the
+       * capability and present it on the deck request. Both are content-free:
+       * a mount point, the configured public route, and the editor program.
+       * No title or slide bytes cross this boundary until the authenticated
+       * request below.
+       */
+      if (path === EDITOR_PAGE && request.method === "GET") {
+        page(response, editorPage(options.base, undefined));
+        return true;
+      }
+
+      if (path === EDITOR_MODULE && request.method === "GET") {
+        script(response, await readEditor());
+        return true;
+      }
 
       // A shared deck answers only what the presented secret allows. Editing is
       // a second secret rather than a flag on the first, so a viewer cannot
@@ -190,23 +235,33 @@ export function createEditSession(
       try {
         if (await room.handle(request, response, { grant, local })) return true;
 
-        if (path === EDITOR_PAGE && request.method === "GET") {
-          const deck = await state(joinDeck(await files(), options.separator).source);
-          // The generated deck type says `null` because that is what serde
-          // writes across the boundary; everything on this side of it says
-          // `undefined`. One conversion, here, rather than two vocabularies
-          // for absence leaking through the plugin.
-          page(response, editorPage(options.base, deck.deck.title ?? undefined));
-          return true;
-        }
+        if (path === SHARE_ROUTE && request.method === "GET") {
+          // These links contain both capabilities the process was started
+          // with. Even an invited editor receives only the one fragment they
+          // already hold; the complete handoff sheet belongs to the machine
+          // whose files this process can rewrite.
+          if (!local) {
+            send(response, 403, { message: "Only the local author can read the share links." });
+            return true;
+          }
 
-        if (path === EDITOR_MODULE && request.method === "GET") {
-          script(response, await readEditor());
+          send(response, 200, {
+            enabled: sharing.on,
+            ...sharing.links,
+          });
           return true;
         }
 
         if (path === DECK_ROUTE && request.method === "GET") {
-          send(response, 200, await state(joinDeck(await files(), options.separator).source));
+          rememberReadAccess(request, response);
+          send(response, 200, {
+            ...(await state(joinDeck(await files(), options.separator).source)),
+            // This answer belongs to one browser, unlike the room-wide state
+            // event. It is therefore the one safe place to say whether the
+            // presented capability may write without exposing the capability
+            // itself.
+            access: { canEdit: grant === Grant.Write },
+          });
           return true;
         }
 
@@ -305,19 +360,6 @@ function refused(grant: Grant): string {
   return grant === Grant.Read
     ? "This link can read the deck but not change it. Editing needs a link from `slidx dev --crdt --allow-edit`."
     : "This deck is shared by link, and this request carried no valid one.";
-}
-
-/**
- * The share credential a request presented.
- *
- * A header rather than a query parameter, for the same reason the secret lives
- * in the fragment: a query string reaches an access log, and this is the value
- * that log would then be enough to replay.
- */
-function credential(request: IncomingMessage): string | undefined {
-  const presented = request.headers[CREDENTIAL_HEADER];
-
-  return Array.isArray(presented) ? presented[0] : presented;
 }
 
 /**

@@ -19,6 +19,7 @@ use slidx_theme::{Catalogue, Published, Resolved};
 
 use crate::{
     parse_options, BuildOptions, BuildResult, BuiltSlide, Finding, LayoutChoice, SnippetFile,
+    ThemeChoice, TransitionChoice,
 };
 
 pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
@@ -27,6 +28,12 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
     let catalogue = catalogue(options);
     let resolved = resolve_theme(&catalogue, options.theme.as_deref(), deck.meta.theme.as_deref());
     let theme = resolved.theme.clone();
+    let active_theme = theme.id.clone();
+    let themes = slidx_theme::builtin::all()
+        .into_iter()
+        .chain(catalogue.installed().map(|(_, installed)| installed.clone()))
+        .map(|choice| ThemeChoice::from(&choice))
+        .collect();
     let surfaces = theme.surfaces();
 
     let mut diagnostics: Vec<Finding> = deck.diagnostics.iter().map(finding).collect();
@@ -216,6 +223,13 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
         title: deck.meta.title.clone(),
         description: deck.meta.description.clone(),
         duration_seconds: deck.meta.duration_seconds,
+        active_theme,
+        theme_locked: options.theme.is_some(),
+        themes,
+        transitions: slidx_theme::transition::Transition::ALL
+            .into_iter()
+            .map(TransitionChoice::from)
+            .collect(),
         layouts: slidx_theme::layout::all()
             .into_iter()
             .map(|layout| LayoutChoice {

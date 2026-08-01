@@ -85,6 +85,26 @@ impl Transition {
         }
     }
 
+    /// The compact name shown wherever a person chooses or previews this transition.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::None => "Cut",
+            Self::Fade => "Fade",
+            Self::Slide => "Slide",
+            Self::Push => "Push",
+        }
+    }
+
+    /// One sentence explaining the visible relationship between the two slides.
+    pub fn description(self) -> &'static str {
+        match self {
+            Self::None => "Instant, with no captured animation.",
+            Self::Fade => "Blend softly between the two slides.",
+            Self::Slide => "Bring the next slide over the current one.",
+            Self::Push => "Move both slides together to show progression.",
+        }
+    }
+
     /// Whether this transition translates the whole slide across the screen.
     ///
     /// Full-screen movement is the specific thing that triggers vestibular
@@ -307,6 +327,14 @@ mod tests {
                 token.chars().all(|c| c.is_ascii_lowercase()),
                 "`{token}` is not what someone writes in YAML"
             );
+        }
+    }
+
+    #[test]
+    fn every_choice_explains_itself_in_the_ui() {
+        for kind in Transition::ALL {
+            assert!(!kind.name().is_empty(), "{} has no name", kind.as_token());
+            assert!(!kind.description().is_empty(), "{} has no description", kind.as_token());
         }
     }
 

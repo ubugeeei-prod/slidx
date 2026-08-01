@@ -34,7 +34,12 @@ function page(fixture: Fixture): { document: Document; ops: EditOp[] } {
   attachEditing(
     page,
     1,
-    { run: (op) => ops.push(op), selected: () => {} },
+    {
+      run: (op) => {
+        ops.push(op);
+      },
+      selected: () => {},
+    },
     { body: () => fixture.body, blocks: () => fixture.blocks },
   );
 
@@ -136,6 +141,32 @@ describe("typing on the canvas", () => {
       .querySelector("p")!
       .dispatchEvent(new window.PointerEvent("pointerdown", { bubbles: true }));
 
+    expect(selected).toEqual([1]);
+  });
+
+  it("keeps block selection but opens no editable line for a view-only link", () => {
+    const selected: number[] = [];
+    const page = window.document.implementation.createHTMLDocument();
+    page.body.innerHTML = `<div class="slidx-slide-body">${HEADING_AND_PROSE.html}</div>`;
+    attachEditing(
+      page,
+      1,
+      {
+        run: () => {},
+        selected: () => {},
+        selectedBlock: (block) => {
+          if (block !== undefined) selected.push(block);
+        },
+      },
+      { body: () => HEADING_AND_PROSE.body, blocks: () => HEADING_AND_PROSE.blocks },
+      false,
+    );
+
+    page
+      .querySelector("p")!
+      .dispatchEvent(new window.PointerEvent("pointerdown", { bubbles: true }));
+
+    expect(page.querySelector("[contenteditable]")).toBeNull();
     expect(selected).toEqual([1]);
   });
 

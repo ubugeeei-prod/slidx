@@ -8,12 +8,13 @@ export const MEDIA_DROP_STYLESHEET = `
   place-items: center;
   padding: var(--slidx-e-loose);
   border: var(--slidx-e-hairline) solid transparent;
-  background: color-mix(in srgb, var(--slidx-e-canvas) 72%, transparent);
+  background: transparent;
   pointer-events: none;
 }
 
 .slidx-media-drop[data-active="true"] {
   border-color: color-mix(in srgb, var(--slidx-e-accent) 44%, transparent);
+  background: color-mix(in srgb, var(--slidx-e-canvas) 72%, transparent);
 }
 
 .slidx-media-drop[data-active="false"] > :not(.slidx-media-drop-status) {

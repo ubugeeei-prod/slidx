@@ -10,7 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { slidx } from "../src/index";
 import { uploadMedia } from "../src/media-upload";
 import { resolveOptions } from "../src/options";
-import { Grant } from "../src/share";
+import { CREDENTIAL_HEADER, Grant } from "../src/share";
 import { createEditSession } from "../src/session";
 
 async function chromiumAvailable(): Promise<boolean> {
@@ -121,7 +121,7 @@ describe("dropped media uploads", () => {
       method: "POST",
       headers: {},
       socket: { remoteAddress: "192.0.2.1" },
-    } as IncomingMessage;
+    } as unknown as IncomingMessage;
     let answer = "";
     const response = {
       statusCode: 0,
@@ -135,6 +135,69 @@ describe("dropped media uploads", () => {
       expect(await session.handle(request, response)).toBe(true);
       expect(response.statusCode).toBe(403);
       expect(JSON.parse(answer)).toMatchObject({ message: expect.stringContaining("read") });
+    } finally {
+      session.close();
+    }
+  });
+
+  it("tells a read-only collaborator the access their workspace should show", async () => {
+    const session = createEditSession(root, resolveOptions(), {
+      sharing: { on: true, grant: () => Grant.Read },
+    });
+    const request = {
+      url: "/__slidx/deck",
+      method: "GET",
+      headers: { [CREDENTIAL_HEADER]: "read-capability" },
+      socket: { remoteAddress: "192.0.2.1" },
+    } as unknown as IncomingMessage;
+    let answer = "";
+    const headers = new Map<string, string | number | readonly string[]>();
+    const response = {
+      statusCode: 0,
+      setHeader: (name: string, value: string | number | readonly string[]) => {
+        headers.set(name, value);
+      },
+      end: (value: string) => {
+        answer = value;
+      },
+    } as unknown as ServerResponse;
+
+    try {
+      expect(await session.handle(request, response)).toBe(true);
+      expect(response.statusCode).toBe(200);
+      expect(JSON.parse(answer)).toMatchObject({ access: { canEdit: false } });
+      expect(headers.get("set-cookie")).toContain("HttpOnly; SameSite=Strict");
+    } finally {
+      session.close();
+    }
+  });
+
+  it("serves the content-free editor shell before a fragment capability can be presented", async () => {
+    const session = createEditSession(root, resolveOptions(), {
+      sharing: { on: true, grant: () => Grant.None },
+    });
+    const request = {
+      url: "/__slidx/",
+      method: "GET",
+      headers: {},
+      socket: { remoteAddress: "192.0.2.1" },
+    } as IncomingMessage;
+    let answer = "";
+    const response = {
+      statusCode: 0,
+      setHeader: () => {},
+      end: (value: string) => {
+        answer = value;
+      },
+    } as unknown as ServerResponse;
+
+    try {
+      expect(await session.handle(request, response)).toBe(true);
+      expect(response.statusCode).toBe(200);
+      expect(answer).toContain('<div id="slidx-editor">');
+      expect(answer).toContain("<title>slidx — editor</title>");
+      expect(answer).toContain('<link rel="icon" href="data:image/svg+xml,');
+      expect(answer).not.toContain("# One");
     } finally {
       session.close();
     }
@@ -237,7 +300,8 @@ describe("dropped media uploads", () => {
           active: "true",
           padding: "24px",
           border: "1px",
-          background: "rgb(22, 24, 29)",
+          // The editor chrome's dark paper, from the committed brand palette.
+          background: "rgb(19, 23, 30)",
         });
 
         await page.evaluate(() => {

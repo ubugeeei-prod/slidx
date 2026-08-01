@@ -113,14 +113,22 @@ describe("the repository is clean", () => {
   });
 });
 
-describe("the editor chrome uses the brand's own signal", () => {
-  it("takes its accent from the committed brand tokens", () => {
-    // The editor is TypeScript and cannot call the mixer, so its accent is
-    // copied. Copied and checked is a different thing from copied and hoped.
+describe("the editor chrome uses the brand's own palette", () => {
+  it("takes its semantic colours from the committed brand tokens", () => {
+    // The editor is TypeScript and cannot call the mixer, so these are copied.
+    // Copied and checked is a different thing from copied and hoped.
     const tokens = JSON.parse(read("assets/brand/tokens.json"));
     const styles = read("packages/editor/src/styles.ts");
 
-    expect(styles).toContain(`--slidx-e-accent: ${tokens.color.light.signal};`);
-    expect(styles).toContain(`--slidx-e-accent: ${tokens.color.dark.signal};`);
+    for (const [editor, brand] of [
+      ["canvas", "paper"],
+      ["text", "ink"],
+      ["muted", "muted"],
+      ["accent", "signal"],
+      ["line", "line"],
+    ]) {
+      expect(styles).toContain(`--slidx-e-${editor}: ${tokens.color.light[brand]};`);
+      expect(styles).toContain(`--slidx-e-${editor}: ${tokens.color.dark[brand]};`);
+    }
   });
 });

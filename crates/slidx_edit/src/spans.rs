@@ -22,7 +22,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use slidx_core::{find_blocks, find_marks, ByteSpan, DeckParseOptions};
+use slidx_core::{find_blocks, find_marks, Attributes, ByteSpan, DeckParseOptions};
 
 use crate::source::DeckSource;
 
@@ -49,6 +49,13 @@ pub struct SlideSpans {
 pub struct BlockSpans {
     /// The block's own bytes, its attribute line excluded.
     pub span: ByteSpan,
+    /// What the block says about itself, parsed by the same reader edits use.
+    ///
+    /// Optional on the wire when empty, because the common block carries no
+    /// attribute line and sending an empty mapping for every block in a deck
+    /// would make the editor state larger without saying anything.
+    #[serde(default, skip_serializing_if = "Attributes::is_empty")]
+    pub attributes: Attributes,
     /// The marks inside it, in source order.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub marks: Vec<MarkSpans>,
@@ -117,7 +124,7 @@ fn blocks_of(body: &str) -> Vec<BlockSpans> {
                 })
                 .collect();
 
-            BlockSpans { span, marks }
+            BlockSpans { span, attributes: found.block.attributes, marks }
         })
         .collect()
 }
@@ -242,5 +249,25 @@ mod tests {
 
         let json = serde_json::to_value(block).unwrap();
         assert_eq!(json.get("marks"), None);
+    }
+
+    #[test]
+    fn a_blocks_attributes_cross_the_boundary_without_parsing_markdown_in_the_browser() {
+        let block = &spans("{#hero .right .accent width=half}\n# One\n")[0].blocks[0];
+
+        assert_eq!(block.attributes.key.as_deref(), Some("hero"));
+        assert_eq!(block.attributes.classes, ["right", "accent"]);
+        assert_eq!(block.attributes.properties.get("width").map(String::as_str), Some("half"));
+
+        let json = serde_json::to_value(block).unwrap();
+        assert_eq!(json["attributes"]["key"], "hero");
+        assert_eq!(json["attributes"]["classes"], serde_json::json!(["right", "accent"]));
+    }
+
+    #[test]
+    fn a_block_with_no_attributes_omits_the_empty_mapping() {
+        let json = serde_json::to_value(&spans("# One\n")[0].blocks[0]).unwrap();
+
+        assert_eq!(json.get("attributes"), None);
     }
 }

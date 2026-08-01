@@ -227,9 +227,9 @@ impl Catalogue {
     /// check needs, and the source each came from, which is what a report needs.
     ///
     /// There is deliberately no `names()` returning the built-ins alongside
-    /// these. A picker wants that list and no picker reads one yet, so it would
-    /// be a public method documented for a caller that does not exist — the
-    /// failure `ROADMAP.md` opens with. The method arrives with the picker.
+    /// these. The visual picker needs the full theme documents, so its build
+    /// boundary joins [`builtin::all`] to this iterator instead of adding a
+    /// second id-only vocabulary that another caller could misuse.
     pub fn installed(&self) -> impl Iterator<Item = (&str, &Theme)> {
         self.installed.iter().map(|held| (held.source.as_str(), &held.theme))
     }

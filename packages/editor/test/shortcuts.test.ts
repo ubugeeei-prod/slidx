@@ -20,24 +20,56 @@ interface Fixture {
   modes: string[];
 }
 
-async function open(): Promise<Fixture> {
-  const server = fakeServer();
+async function open(canEdit = true): Promise<Fixture> {
+  const deck = deckOf("One", "Two", "Three");
+  deck.access = { canEdit };
+  const server = fakeServer(deck);
   const session = createSession(server);
   await session.open();
 
   const modes: string[] = [];
+  let focused = false;
   const canvas: CanvasSurface = {
     root: document.createElement("section"),
     render() {},
     showMarkdown: () => modes.push("markdown"),
     showVisual: () => modes.push("visual"),
     focusText: () => modes.push("text"),
+    finishTextSelection: () => modes.push("finish-text"),
+    focusNotes: () => modes.push("notes"),
+    focusFresh: () => modes.push("fresh"),
+    addContent: () => modes.push("add"),
+    insertContent: (kind) => modes.push(`insert:${kind}`),
+    scheme: () => "light",
+    palette: () => "light",
+    zoom: () => 1,
+    zoomIn: () => modes.push("zoom-in"),
+    zoomOut: () => modes.push("zoom-out"),
+    zoomFit: () => modes.push("zoom-fit"),
     listen() {},
     listenClipboard() {},
   };
 
+  const addSlide = () => {
+    const before = session.state().slides.length;
+    const at = Math.min(session.state().selection.slide + 1, before);
+    void session.run({ op: "createSlide", at, kind: "title-body" }).then(() => {
+      if (session.state().slides.length <= before) return;
+      session.select({ slide: at, block: undefined, range: undefined, text: undefined });
+      canvas.focusFresh();
+    });
+  };
+
   return {
-    shortcuts: createShortcuts(session, canvas, { present: () => modes.push("present") }),
+    shortcuts: createShortcuts(session, canvas, {
+      addSlide,
+      focusCanvas: () => {
+        focused = !focused;
+        modes.push(focused ? "focus" : "restore");
+      },
+      canvasFocused: () => focused,
+      present: () => modes.push("present"),
+    }),
     session,
     server,
     modes,
@@ -223,14 +255,29 @@ describe("visual editor shortcuts", () => {
     expect(fixture.server.ops).toEqual([]);
   });
 
+  it("removes a selected block without requiring outline focus", async () => {
+    const fixture = await open();
+    fixture.session.select({ slide: 1, block: 2 });
+
+    const event = key(fixture.shortcuts, "Delete");
+    await settled();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(fixture.server.ops).toEqual([{ op: "removeBlock", slide: 1, block: 2 }]);
+    expect(fixture.session.state().selection.block).toBeUndefined();
+  });
+
   it("adds after the selected slide through the shared edit operation", async () => {
     const fixture = await open();
     fixture.session.select({ slide: 0 });
+    fixture.server.answer = deckOf("One", "New slide", "Two", "Three");
 
     key(fixture.shortcuts, "m", { ctrlKey: true });
     await settled();
 
-    expect(fixture.server.ops).toEqual([{ op: "insertSlide", at: 1, body: "## New slide" }]);
+    expect(fixture.server.ops).toEqual([{ op: "createSlide", at: 1, kind: "title-body" }]);
+    expect(fixture.session.state().selection.slide).toBe(1);
+    expect(fixture.modes).toEqual(["fresh"]);
   });
 
   it("redoes with Ctrl+Y without replacing the macOS redo binding", async () => {
@@ -283,16 +330,127 @@ describe("visual editor shortcuts", () => {
     ]);
   });
 
-  it("uses V, T, M, and P to address explicit editor commands without writing the deck", async () => {
+  it("uses A, V, T, N, M, F, and P to address explicit editor commands without writing", async () => {
     const fixture = await open();
 
     key(fixture.shortcuts, "m");
     key(fixture.shortcuts, "v");
     key(fixture.shortcuts, "t");
+    key(fixture.shortcuts, "n");
+    key(fixture.shortcuts, "a");
+    key(fixture.shortcuts, "f");
     key(fixture.shortcuts, "p");
 
-    expect(fixture.modes).toEqual(["markdown", "visual", "text", "present"]);
+    expect(fixture.modes).toEqual([
+      "markdown",
+      "visual",
+      "text",
+      "notes",
+      "add",
+      "focus",
+      "present",
+    ]);
     expect(fixture.server.ops).toEqual([]);
+  });
+
+  it("zooms the canvas without changing the browser or the deck", async () => {
+    const fixture = await open();
+
+    const out = key(fixture.shortcuts, "-", { metaKey: true });
+    const into = key(fixture.shortcuts, "=", { metaKey: true });
+    const plus = key(fixture.shortcuts, "+", { ctrlKey: true });
+    const fit = key(fixture.shortcuts, "0", { metaKey: true });
+
+    expect([out, into, plus, fit].every((event) => event.defaultPrevented)).toBe(true);
+    expect(fixture.modes).toEqual(["zoom-out", "zoom-in", "zoom-in", "zoom-fit"]);
+    expect(fixture.server.ops).toEqual([]);
+  });
+
+  it("turns the standard bold key into a source-backed text style", async () => {
+    const fixture = await open();
+    fixture.session.select({
+      slide: 1,
+      text: "Two",
+      range: { start: 2, end: 5 },
+    });
+    const editable = document.createElement("p");
+    editable.contentEditable = "true";
+
+    const event = key(fixture.shortcuts, "b", { metaKey: true }, editable);
+    await settled();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(fixture.server.ops).toEqual([
+      {
+        op: "addMark",
+        slide: 1,
+        range: { start: 2, end: 5 },
+        attributes: { key: undefined, classes: [], properties: { weight: "bold" } },
+      },
+    ]);
+  });
+
+  it("blocks a native-only bold mutation when the selection is not addressable", async () => {
+    const fixture = await open();
+    const editable = document.createElement("p");
+    editable.contentEditable = "true";
+
+    const event = key(fixture.shortcuts, "b", { ctrlKey: true }, editable);
+    await settled();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(fixture.server.ops).toEqual([]);
+  });
+
+  it("finishes contextual text styling with Escape and keeps its block selected", async () => {
+    const fixture = await open();
+    fixture.session.select({
+      slide: 1,
+      block: 0,
+      text: "Two",
+      range: { start: 2, end: 5 },
+    });
+    const editable = document.createElement("p");
+    editable.contentEditable = "true";
+
+    const event = key(fixture.shortcuts, "Escape", {}, editable);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(fixture.modes).toEqual(["finish-text"]);
+    expect(fixture.session.state().selection).toMatchObject({
+      slide: 1,
+      block: 0,
+      text: undefined,
+      range: undefined,
+    });
+  });
+
+  it("keeps review navigation and delivery keys while ignoring authoring keys", async () => {
+    const fixture = await open(false);
+
+    key(fixture.shortcuts, "d", { metaKey: true });
+    key(fixture.shortcuts, "m", { ctrlKey: true });
+    key(fixture.shortcuts, "t");
+    key(fixture.shortcuts, "a");
+    key(fixture.shortcuts, "PageDown");
+    key(fixture.shortcuts, "n");
+    key(fixture.shortcuts, "m");
+    key(fixture.shortcuts, "p");
+    await settled();
+
+    expect(fixture.server.ops).toEqual([]);
+    expect(fixture.session.state().selection.slide).toBe(1);
+    expect(fixture.modes).toEqual(["notes", "markdown", "present"]);
+  });
+
+  it("restores the workspace with Escape while the canvas is focused", async () => {
+    const fixture = await open();
+
+    key(fixture.shortcuts, "f");
+    const event = key(fixture.shortcuts, "Escape");
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(fixture.modes).toEqual(["focus", "restore"]);
   });
 
   it("shows a complete reference with question mark and closes it with Escape", async () => {
@@ -312,7 +470,13 @@ describe("visual editor shortcuts", () => {
     expect(dialog.textContent).toContain("Paste the copied slide");
     expect(dialog.textContent).toContain("Duplicate the selected block, or the slide");
     expect(dialog.textContent).toContain("First / last slide");
+    expect(dialog.textContent).toContain("Search commands and slides");
+    expect(dialog.textContent).toContain("Remove the selected block, or the focused slide");
+    expect(dialog.textContent).toContain("Add content");
     expect(dialog.textContent).toContain("Edit slide text");
+    expect(dialog.textContent).toContain("Toggle bold on selected words");
+    expect(dialog.textContent).toContain("Write speaker notes");
+    expect(dialog.textContent).toContain("Focus canvas / restore workspace");
 
     key(fixture.shortcuts, "Escape");
     expect(dialog.hidden).toBe(true);
@@ -330,6 +494,10 @@ describe("visual editor shortcuts", () => {
     editable.contentEditable = "true";
     key(fixture.shortcuts, "m", {}, editable);
 
+    fixture.session.select({ slide: 1, text: "Two", range: { start: 2, end: 5 } });
+    const input = document.createElement("input");
+    const bold = key(fixture.shortcuts, "b", { metaKey: true }, input);
+
     key(fixture.shortcuts, "d", { metaKey: true, isComposing: true });
     await settled();
 
@@ -337,6 +505,7 @@ describe("visual editor shortcuts", () => {
     expect(fixture.modes).toEqual([]);
     expect(fixture.session.state().selection.slide).toBe(1);
     expect(home.defaultPrevented).toBe(false);
+    expect(bold.defaultPrevented).toBe(false);
   });
 
   it("does not repeat an editing operation while a key is held", async () => {
@@ -377,11 +546,25 @@ describe("arrows, which mean one of two things", () => {
       showMarkdown() {},
       showVisual() {},
       focusText() {},
+      finishTextSelection() {},
+      focusNotes() {},
+      focusFresh() {},
+      addContent() {},
+      insertContent() {},
+      scheme: () => "light",
+      palette: () => "light",
+      zoom: () => 1,
+      zoomIn() {},
+      zoomOut() {},
+      zoomFit() {},
       listen() {},
       listenClipboard() {},
     };
 
     const shortcuts = createShortcuts(session, canvas, {
+      addSlide: () => {},
+      focusCanvas: () => {},
+      canvasFocused: () => false,
       present: () => {},
       nudge: (block, key) => {
         asked.push({ block, key });

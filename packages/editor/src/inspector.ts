@@ -1,301 +1,176 @@
 /**
- * What is selected, and what can be said about it.
+ * The editor for what the author has selected.
  *
- * Three things at once, in the order an author reaches for them: the phrase
- * they just selected, the slide they are on, and the deck. Scalar metadata
- * writes one frontmatter key through `setField`. Visual state is different:
- * the layout picker writes one `--slidx-*` property through `setStyle`, so it
- * lands in the slide's Markdown `<style>` block without replacing YAML or a
- * neighbouring visual choice.
- *
- * Giving a selection a class is how "select these words and animate them" is
- * spelled in a file, and it is `addMark`. The class lands in the Markdown as
- * `[three words]{.accent}`, which a theme styles and a step can target by name.
+ * The most specific target wins: selected words, then a block, then the slide.
+ * Slide and deck settings stay one click away instead of being stacked below
+ * every selection. Every control still emits one semantic operation; this
+ * surface never composes Markdown.
  */
 
-import { element, fill, field } from "./dom";
-import { layoutField } from "./layout-picker";
-import { locateSelection } from "./selection";
+import { blockPanel } from "./block-inspector";
 import type { BlockSpans } from "./client";
-import type { ByteSpan, EditOp, MarkAttributes } from "./operations";
+import { deckTransitionField, slideDelivery } from "./delivery-controls";
+import { element, fill, field } from "./dom";
+import type { BlockVisual } from "./freeform-color";
+import type { SlideGeometry } from "./geometry";
+import { applyInspectorStyles } from "./inspector-styles";
+import { layoutField } from "./layout-picker";
+import type { EditOp } from "./operations";
 import type { Surface } from "./outline";
 import type { EditorState } from "./session";
-import { createTextControls } from "./text-controls";
+import { textPanel } from "./text-inspector";
+import { themeField, type VisibleScheme } from "./theme-picker";
 
 export interface InspectorHandlers {
   run(op: EditOp): void;
+  selectBlock?(block: number | undefined): void;
 }
 
 export interface InspectorOptions {
   bodyOf(slide: number): string;
   blocksOf?(slide: number): readonly BlockSpans[];
+  /** Real boxes from the rendered deck, when the canvas is visible. */
+  geometry?(): SlideGeometry | undefined;
+  /** Real computed colour from the rendered deck. */
+  visualOf?(block: number): BlockVisual | undefined;
+  /** The light or dark palette currently visible in the canvas. */
+  scheme?(): VisibleScheme;
 }
 
+type InspectorTab = "text" | "block" | "slide" | "deck";
+
 /** The keys worth offering by name. Anything else the author wrote still shows. */
-const DECK_KEYS = ["title", "event", "duration", "theme", "aspect"];
-const SLIDE_KEYS = ["transition", "budget", "optional"];
-const TASKS = ["selection", "slide", "deck"] as const;
-
-type InspectorTask = (typeof TASKS)[number];
-
-let inspectorCount = 0;
+const DECK_KEYS = ["title", "event", "duration", "aspect"];
 
 export function createInspector(handlers: InspectorHandlers, options: InspectorOptions): Surface {
-  const id = `slidx-inspector-${++inspectorCount}`;
-  let active: InspectorTask = "slide";
-  let selectedText: string | undefined;
-  let rendered = new Map<InspectorTask, HTMLElement>();
-
-  const tabs = new Map(
-    TASKS.map((task) => {
-      const label = task[0]!.toUpperCase() + task.slice(1);
-      const tab = element("button", {
-        type: "button",
-        class: "slidx-inspector-tab",
-        role: "tab",
-        id: `${id}-tab-${task}`,
-        "aria-controls": `${id}-panel-${task}`,
-      });
-      tab.textContent = label;
-      return [task, tab] as const;
-    }),
-  );
-  const tablist = element(
-    "div",
-    {
-      class: "slidx-inspector-tabs",
-      role: "tablist",
-      "aria-label": "Inspector sections",
-      "aria-orientation": "horizontal",
-    },
-    [...tabs.values()],
-  );
+  const tabs = element("div", {
+    class: "slidx-inspector-tabs",
+    role: "tablist",
+    "aria-label": "Inspector target",
+    "aria-orientation": "horizontal",
+  });
   const panels = element("div", { class: "slidx-inspector-panels" });
   const root = element("section", { class: "slidx-inspector", "aria-label": "Inspector" }, [
-    element("header", { class: "slidx-panel-head" }, [element("h2", {}, ["Inspector"])]),
-    tablist,
+    element("header", { class: "slidx-panel-head slidx-inspector-head" }, [
+      element("div", {}, [
+        element("span", { class: "slidx-inspector-eyebrow" }, ["Properties"]),
+        element("h2", {}, ["Inspector"]),
+      ]),
+    ]),
+    tabs,
     panels,
   ]);
 
-  const activate = (task: InspectorTask, focus = false): void => {
-    active = task;
-    for (const name of TASKS) {
-      const current = name === task;
-      const tab = tabs.get(name)!;
-      tab.setAttribute("aria-selected", String(current));
-      tab.setAttribute("tabindex", current ? "0" : "-1");
-      rendered.get(name)?.toggleAttribute("hidden", !current);
-    }
-    if (focus) tabs.get(task)!.focus();
-  };
+  let active: InspectorTab = "slide";
+  let target = "";
 
-  for (const [task, tab] of tabs) {
-    tab.addEventListener("click", () => activate(task));
-    tab.addEventListener("keydown", (event) => {
-      const at = TASKS.indexOf(task);
-      const next =
-        event.key === "ArrowRight"
-          ? TASKS[(at + 1) % TASKS.length]
-          : event.key === "ArrowLeft"
-            ? TASKS[(at - 1 + TASKS.length) % TASKS.length]
-            : event.key === "Home"
-              ? TASKS[0]
-              : event.key === "End"
-                ? TASKS[TASKS.length - 1]
-                : undefined;
-      if (next === undefined) return;
-      event.preventDefault();
-      activate(next, true);
-    });
+  function activate(next: InspectorTab): void {
+    active = next;
+    for (const tab of tabs.querySelectorAll<HTMLElement>("[role=tab]")) {
+      const selected = tab.dataset.tab === next;
+      tab.setAttribute("aria-selected", String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+    }
+    for (const panel of panels.querySelectorAll<HTMLElement>("[role=tabpanel]")) {
+      panel.hidden = panel.dataset.panel !== next;
+    }
   }
 
-  activate(active);
+  tabs.addEventListener("keydown", (event) => {
+    const tab = (event.target as HTMLElement).closest<HTMLElement>("[role=tab]");
+    if (!tab || !tabs.contains(tab)) return;
+
+    const available = [...tabs.querySelectorAll<HTMLElement>("[role=tab]")];
+    const at = available.indexOf(tab);
+    const next =
+      event.key === "ArrowRight"
+        ? available[(at + 1) % available.length]
+        : event.key === "ArrowLeft"
+          ? available[(at - 1 + available.length) % available.length]
+          : event.key === "Home"
+            ? available[0]
+            : event.key === "End"
+              ? available.at(-1)
+              : undefined;
+    if (!next) return;
+
+    event.preventDefault();
+    activate(next.dataset.tab as InspectorTab);
+    next.focus();
+  });
 
   return {
     root,
     render(state) {
-      const nextSelection = selectionKey(state);
-      if (nextSelection !== selectedText) {
-        if (nextSelection !== undefined) active = "selection";
-        else if (selectedText !== undefined && active === "selection") active = "slide";
+      applyInspectorStyles(root.ownerDocument);
+
+      const specific = defaultTab(state);
+      const nextTarget = selectionKey(state);
+      if (nextTarget !== target) {
+        active = specific;
+        target = nextTarget;
       }
-      selectedText = nextSelection;
 
-      // A render can be triggered by a selection elsewhere while an inspector
-      // input still owns focus. Hide the old panel before detaching it so any
-      // browser-generated blur is recognisably non-user intent and cannot
-      // commit half-typed metadata.
-      for (const panel of rendered.values()) panel.hidden = true;
+      const available: InspectorTab[] = [
+        ...(state.selection.text ? (["text"] as const) : []),
+        ...(state.selection.block === undefined ? [] : (["block"] as const)),
+        "slide",
+        "deck",
+      ];
+      if (!available.includes(active)) active = specific;
 
-      rendered = new Map([
-        ["selection", tabPanel(id, "selection", selectionPanel(state, handlers, options))],
-        ["slide", tabPanel(id, "slide", slidePanel(state, handlers))],
-        ["deck", tabPanel(id, "deck", deckPanel(state, handlers))],
+      fill(
+        tabs,
+        available.map((name) => tabButton(name, () => activate(name))),
+      );
+      fill(panels, [
+        tabPanel("text", textPanel(state, handlers, options)),
+        tabPanel("block", blockPanel(state, handlers, options)),
+        tabPanel("slide", slidePanel(state, handlers)),
+        tabPanel("deck", deckPanel(state, handlers, options)),
       ]);
-      fill(panels, [...rendered.values()]);
       activate(active);
     },
   };
 }
 
-function selectionKey(state: EditorState): string | undefined {
-  const text = state.selection.text;
-  if (text === undefined || text.length === 0) return undefined;
-
-  return JSON.stringify([
-    state.selection.slide,
-    state.selection.range?.start,
-    state.selection.range?.end,
-    text,
-  ]);
+function defaultTab(state: EditorState): InspectorTab {
+  if (state.selection.text) return "text";
+  return state.selection.block === undefined ? "slide" : "block";
 }
 
-function tabPanel(id: string, task: InspectorTask, panel: HTMLElement): HTMLElement {
-  panel.classList.add("slidx-inspector-panel");
-  panel.setAttribute("role", "tabpanel");
-  panel.setAttribute("id", `${id}-panel-${task}`);
-  panel.setAttribute("aria-labelledby", `${id}-tab-${task}`);
-  panel.setAttribute("tabindex", "0");
-  return panel;
+function selectionKey(state: EditorState): string {
+  const { slide, block, range, text } = state.selection;
+  return `${slide}:${block ?? ""}:${range?.start ?? ""}:${range?.end ?? ""}:${text ?? ""}`;
 }
 
-function selectionPanel(
-  state: EditorState,
-  handlers: InspectorHandlers,
-  options: InspectorOptions,
-): HTMLElement {
-  const selected = state.selection.text ?? "";
-
-  if (selected.length === 0) {
-    return group("Selection", [
-      element("p", { class: "slidx-hint" }, ["Select words in the slide to give them a name."]),
-    ]);
-  }
-
-  const located = locateSelection(options.bodyOf(state.selection.slide), selected, 0);
-  const range = state.selection.range ?? ("problem" in located ? undefined : located.range);
-
-  if (range === undefined) {
-    return group("Selection", [
-      element("p", { class: "slidx-hint" }, [
-        `“${selected}” is written differently in the Markdown, so it cannot be addressed yet.`,
-      ]),
-    ]);
-  }
-
-  const marks = (options.blocksOf?.(state.selection.slide) ?? []).flatMap(
-    (block) => block.marks ?? [],
-  );
-  const exact = marks.findIndex((mark) => same(mark.words, range));
-  const overlap = marks.some((mark) => intersects(mark.words, range));
-
-  if (exact === -1 && overlap) {
-    return group("Selection", [
-      element("p", { class: "slidx-hint" }, [
-        "Select the whole styled phrase to change it without nesting marks.",
-      ]),
-    ]);
-  }
-
-  const mark = exact === -1 ? undefined : marks[exact];
-  const classes = element("input", {
-    type: "text",
-    placeholder: "accent",
-    value: mark?.classes?.join(" ") ?? "",
-  });
-  const key = element("input", {
-    type: "text",
-    placeholder: "result",
-    value: mark?.key ?? "",
-  });
-  const properties = element("textarea", {
-    rows: 3,
-    placeholder: "color=danger\nfont=mono",
-    "aria-label": "Style properties",
-  });
-  properties.value = showProperties(mark?.properties);
-  const textControls = createTextControls({
-    properties: mark?.properties ?? {},
-    change(name, value) {
-      const next = parseProperties(properties.value);
-      if (value === undefined) delete next[name];
-      else next[name] = value;
-      properties.value = showProperties(next);
-    },
-  });
-
-  const apply = element("button", { type: "button", class: "slidx-add" }, [
-    mark ? "Update style" : "Add style",
-  ]);
-
-  apply.addEventListener("click", () =>
-    handlers.run({
-      op: mark ? "setMark" : "addMark",
-      slide: state.selection.slide,
-      ...(mark ? { mark: exact } : { range }),
-      attributes: attributes(key.value, classes.value, properties.value),
-    } as EditOp),
-  );
-
-  const remove = mark
-    ? element("button", { type: "button", class: "slidx-remove-mark" }, ["Remove style"])
-    : undefined;
-  remove?.addEventListener("click", () =>
-    handlers.run({ op: "removeMark", slide: state.selection.slide, mark: exact }),
-  );
-
-  return group("Selection", [
-    element("p", { class: "slidx-selected" }, [selected.trim()]),
-    field("Classes", classes),
-    field("Name", key),
-    textControls,
-    field("Properties", properties),
-    apply,
-    ...(remove ? [remove] : []),
-  ]);
-}
-
-function same(left: ByteSpan, right: ByteSpan): boolean {
-  return left.start === right.start && left.end === right.end;
-}
-
-function intersects(left: ByteSpan, right: ByteSpan): boolean {
-  return left.start < right.end && right.start < left.end;
-}
-
-function attributes(key: string, classes: string, properties: string): MarkAttributes {
-  return {
-    key: key.trim() || undefined,
-    classes: classes
-      .split(/\s+/)
-      .map((name) => name.trim())
-      .filter(Boolean),
-    properties: parseProperties(properties),
+function tabButton(name: InspectorTab, choose: () => void): HTMLButtonElement {
+  const labels: Record<InspectorTab, string> = {
+    text: "Text",
+    block: "Block",
+    slide: "Slide",
+    deck: "Deck",
   };
+  const button = element(
+    "button",
+    {
+      type: "button",
+      class: "slidx-inspector-tab",
+      role: "tab",
+      "data-tab": name,
+      "aria-controls": `slidx-inspector-${name}`,
+    },
+    [labels[name]],
+  ) as HTMLButtonElement;
+  button.addEventListener("click", choose);
+  return button;
 }
 
-/**
- * One property per line rather than a second parser for the mark syntax.
- *
- * The pipeline still owns Markdown. This is only the inspector's lossless form:
- * the first `=` separates the name, so values may contain spaces and more `=`.
- */
-function parseProperties(source: string): Record<string, string> {
-  return Object.fromEntries(
-    source
-      .split("\n")
-      .map((line) => {
-        const at = line.indexOf("=");
-        return at === -1 ? undefined : [line.slice(0, at).trim(), line.slice(at + 1).trim()];
-      })
-      .filter((entry): entry is [string, string] => Boolean(entry?.[0])),
-  );
-}
-
-function showProperties(properties: Record<string, string> | undefined): string {
-  return Object.entries(properties ?? {})
-    .map(([name, value]) => `${name}=${value}`)
-    .join("\n");
+function tabPanel(name: InspectorTab, panel: HTMLElement): HTMLElement {
+  panel.id = `slidx-inspector-${name}`;
+  panel.dataset.panel = name;
+  panel.setAttribute("role", "tabpanel");
+  return panel;
 }
 
 function slidePanel(state: EditorState, handlers: InspectorHandlers): HTMLElement {
@@ -303,57 +178,45 @@ function slidePanel(state: EditorState, handlers: InspectorHandlers): HTMLElemen
   const slide = state.slides[index];
   if (!slide) return group("Slide", []);
 
-  const notes = element("textarea", { rows: 4, "aria-label": "Speaker notes" });
-  notes.value = slide.notes.join("\n\n");
-  notes.addEventListener("blur", () => {
-    if (concealed(notes)) return;
-    handlers.run({ op: "setNotes", slide: index, notes: notes.value });
-  });
-
-  // The first slide's block is the deck's, so showing everything written in it
-  // here would repeat the whole Deck panel one heading higher up.
   const written = index === 0 ? {} : (slide.frontmatter ?? {});
-  const ordinary = without(written, "layout");
+  const ordinary = without(written, "layout", "transition", "budget", "optional");
 
   return group("Slide", [
     layoutField(state, slide, index, (op) => handlers.run(op)),
-    ...keyFields(SLIDE_KEYS, ordinary, (key, value) =>
+    slideDelivery(state, slide, index, (op) => handlers.run(op)),
+    ...keyFields([], ordinary, (key, value) =>
       handlers.run({ op: "setField", slide: index, key, value }),
     ),
-    field("Notes", notes),
   ]);
 }
 
-/**
- * The deck's own keys.
- *
- * They are the first slide's, which is what the parser already believes: a deck
- * and its opening slide share one frontmatter block.
- */
-function deckPanel(state: EditorState, handlers: InspectorHandlers): HTMLElement {
-  // `layout` in the first frontmatter block still describes slide zero. It is
-  // shown by the visual picker above and must not gain a second scalar writer
-  // merely because the opening slide also owns deck metadata.
-  const written = without(state.slides[0]?.frontmatter ?? {}, "layout");
+function deckPanel(
+  state: EditorState,
+  handlers: InspectorHandlers,
+  options: InspectorOptions,
+): HTMLElement {
+  const written = without(
+    state.slides[0]?.frontmatter ?? {},
+    "layout",
+    "theme",
+    "transition",
+    "budget",
+    "optional",
+  );
 
-  return group(
-    "Deck",
-    keyFields(DECK_KEYS, written, (key, value) =>
+  return group("Deck", [
+    themeField(state, options.scheme?.() ?? "light", (op) => handlers.run(op)),
+    deckTransitionField(state, (op) => handlers.run(op)),
+    ...keyFields(DECK_KEYS, written, (key, value) =>
       handlers.run({ op: "setField", slide: 0, key, value }),
     ),
-  );
+  ]);
 }
 
-function without(values: Record<string, unknown>, removed: string): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(values).filter(([key]) => key !== removed));
+function without(values: Record<string, unknown>, ...removed: string[]): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(values).filter(([key]) => !removed.includes(key)));
 }
 
-/**
- * One input per key, offered keys first and then whatever else is written.
- *
- * An author who wrote a key slidx does not know about still sees it, because a
- * tool that hides what it does not understand is a tool that loses it.
- */
 function keyFields(
   offered: string[],
   written: Record<string, unknown>,
@@ -366,10 +229,6 @@ function keyFields(
     const input = element("input", { type: "text", "data-key": key });
     input.value = shown(current);
 
-    // A key whose value is a list or a mapping is shown and not edited. A text
-    // box cannot express `steps:`, and committing what one holds would replace
-    // an author's whole timeline with the string `[object Object]` — which is
-    // what happened before the timeline made that key ordinary.
     if (structured(current)) {
       input.setAttribute("readonly", "");
       input.setAttribute("title", `\`${key}\` is a list, and is edited where it is drawn.`);
@@ -377,7 +236,6 @@ function keyFields(
     }
 
     input.addEventListener("blur", () => {
-      if (concealed(input)) return;
       const value = input.value.trim();
       if (value === shown(current)) return;
       commit(key, coerce(value));
@@ -387,23 +245,10 @@ function keyFields(
   });
 }
 
-/** A control in an inactive task must never produce an editing operation. */
-function concealed(control: HTMLElement): boolean {
-  return control.closest("[hidden]") !== null;
-}
-
-/** True when the value is a list or a mapping rather than one scalar. */
 function structured(value: unknown): boolean {
   return typeof value === "object" && value !== null;
 }
 
-/**
- * A frontmatter value as one line of text.
- *
- * Exhaustive by type rather than ending in a bare `String(value)`, because a
- * mapping stringifies to `[object Object]` — and a field showing that is a
- * field that writes it back.
- */
 function shown(value: unknown): string {
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
@@ -412,13 +257,6 @@ function shown(value: unknown): string {
   return value === null || value === undefined ? "" : "a mapping";
 }
 
-/**
- * What a typed field means.
- *
- * `optional: true` has to reach the file as a boolean, and a budget of `90s`
- * has to stay a string. Anything ambiguous stays text and the pipeline decides
- * how to quote it.
- */
 function coerce(value: string): unknown {
   if (value === "true") return true;
   if (value === "false") return false;

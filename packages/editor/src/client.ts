@@ -8,7 +8,7 @@
  * server, which is the only way the surfaces below are testable at all.
  */
 
-import type { Edit, EditOp, EditRefusal } from "./operations";
+import type { BlockAttributes, Edit, EditOp, EditRefusal } from "./operations";
 import { CREDENTIAL_HEADER, readCredential } from "./collab";
 
 /** One thing a slide's steps can name, which is one row of the timeline. */
@@ -96,6 +96,37 @@ export interface LayoutChoice {
   rows: string;
 }
 
+/** One pipeline-provided slide transition the inspector can explain and choose. */
+export interface TransitionChoice {
+  id: string;
+  name: string;
+  description: string;
+  /** True when the whole slide translates across the viewport. */
+  moves: boolean;
+}
+
+/** Browser-ready roles for one light or dark theme miniature. */
+export interface ThemePaletteChoice {
+  surface: string;
+  text: string;
+  muted: string;
+  heading: string;
+  accent: string;
+  codeSurface: string;
+  codeText: string;
+}
+
+/** One pipeline-provided theme the Deck inspector can preview and choose. */
+export interface ThemeChoice {
+  id: string;
+  name: string;
+  description: string;
+  light: ThemePaletteChoice;
+  dark: ThemePaletteChoice;
+  fontSans: string;
+  fontMono: string;
+}
+
 /** A parse diagnostic or a lint finding. */
 export interface Finding {
   severity: string;
@@ -128,6 +159,8 @@ export interface MarkSpans {
 export interface BlockSpans {
   /** The block's own bytes, its attribute line excluded. Body-local. */
   span: { start: number; end: number };
+  /** Parsed by the same Rust reader block operations use. */
+  attributes?: BlockAttributes;
   /** Absent rather than empty for a block with no marks, which is most. */
   marks?: MarkSpans[];
 }
@@ -144,10 +177,27 @@ export interface SlideSpans {
 export interface DeckState {
   source: string;
   spans: SlideSpans[];
+  /**
+   * What this particular request may do.
+   *
+   * Optional because live deck announcements are shared by everyone in the
+   * room and therefore carry no viewer-specific capability. The initial deck
+   * response always supplies it; later announcements leave the session's
+   * established access alone.
+   */
+  access?: { canEdit: boolean };
   deck: {
     title?: string;
     /** Length of the speaking slot, resolved from `duration:`. */
     durationSeconds?: number;
+    /** Theme that produced the rendered canvas. */
+    activeTheme: string;
+    /** True when build configuration overrides this deck's `theme:` field. */
+    themeLocked: boolean;
+    /** Themes the active pipeline can render, in picker order. */
+    themes: ThemeChoice[];
+    /** Transitions the active renderer implements, in picker order. */
+    transitions: TransitionChoice[];
     /** Pipeline-provided rather than hard-coded into the visual editor. */
     layouts: LayoutChoice[];
     slides: SlideSummary[];
@@ -189,6 +239,13 @@ export interface UploadedMedia {
   alt: string;
 }
 
+/** Links the local author can hand off while this dev server is alive. */
+export interface SharingInfo {
+  enabled: boolean;
+  read?: string;
+  edit?: string;
+}
+
 export interface EditorClient {
   deck(): Promise<DeckState>;
   apply(op: EditOp): Promise<EditAnswer>;
@@ -204,6 +261,13 @@ export interface EditorClient {
    * lands, in the sentence a build would have used.
    */
   measured(measured: Measurement[]): Promise<Finding[]>;
+  /**
+   * Local-only handoff information. `null` for an invited browser.
+   *
+   * Optional so an embedded editor client that predates the share sheet keeps
+   * working; the built-in client always implements it.
+   */
+  sharing?(): Promise<SharingInfo | null>;
 }
 
 /**
@@ -226,7 +290,9 @@ export interface ClientOptions {
 export function createClient(options: ClientOptions = {}): EditorClient {
   const base = options.base ?? EDITOR_BASE;
   const send = options.fetch ?? globalThis.fetch.bind(globalThis);
-  const credential = readCredential(options.href ?? globalThis.location.href);
+  const href = options.href ?? globalThis.location.href;
+  const credential = readCredential(href);
+  const local = isLoopbackHref(href);
   const access = credential ? { [CREDENTIAL_HEADER]: credential } : {};
 
   async function post(body: unknown): Promise<EditAnswer> {
@@ -248,7 +314,9 @@ export function createClient(options: ClientOptions = {}): EditorClient {
   return {
     async deck() {
       const response = await send(`${base}deck`, { headers: access });
-      return (await response.json()) as DeckState;
+      const payload = (await response.json()) as DeckState & { message?: string };
+      if (!response.ok) throw new Error(payload.message ?? "The deck could not be opened.");
+      return payload;
     },
     apply: (op) => post({ op }),
     revert: (edit) => post({ edit }),
@@ -286,5 +354,36 @@ export function createClient(options: ClientOptions = {}): EditorClient {
       // nothing rather than interrupting a drag with an error.
       return response.ok ? ((await response.json()) as Finding[]) : [];
     },
+
+    async sharing() {
+      // The complete handoff sheet exists only on the machine serving the
+      // files. Avoiding the request is also observable quality: an expected
+      // 403 still appears as a failed resource in browser developer tools.
+      // The route enforces the same boundary independently.
+      if (!local) return null;
+
+      const response = await send(`${base}share`, { headers: access });
+      if (response.status === 403) return null;
+
+      const payload = (await response.json()) as Partial<SharingInfo> & { message?: string };
+      if (!response.ok) throw new Error(payload.message ?? "The share links could not be read.");
+      if (typeof payload.enabled !== "boolean")
+        throw new Error("The share route returned an invalid answer.");
+
+      return {
+        enabled: payload.enabled,
+        ...(typeof payload.read === "string" ? { read: payload.read } : {}),
+        ...(typeof payload.edit === "string" ? { edit: payload.edit } : {}),
+      };
+    },
   };
+}
+
+function isLoopbackHref(href: string): boolean {
+  try {
+    const hostname = new URL(href).hostname.replace(/^\[|\]$/g, "");
+    return hostname === "localhost" || hostname === "::1" || hostname.startsWith("127.");
+  } catch {
+    return false;
+  }
 }

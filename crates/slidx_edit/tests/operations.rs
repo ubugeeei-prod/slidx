@@ -224,6 +224,16 @@ fn removing_the_first_slide_leaves_the_decks_frontmatter_behind() {
 }
 
 #[test]
+fn removing_a_block_changes_only_that_block_and_its_separator() {
+    let result = edit(DECK, EditOp::RemoveBlock { slide: 1.into(), block: 1.into() });
+
+    assert!(!result.contains("- one\n- two"));
+    assert!(result.contains("# Deep Dive"));
+    assert!(result.contains("# Closing"));
+    assert_eq!(slide_titles(&result), ["Introduction", "Deep Dive", "Closing"]);
+}
+
+#[test]
 fn moving_a_slide_moves_its_bytes_and_leaves_the_separators_where_they_were() {
     let result = edit(DECK, EditOp::MoveSlide { slide: 0.into(), to: 1 });
 
@@ -285,6 +295,32 @@ fn a_field_is_written_with_its_type_rather_than_as_text() {
 #[test]
 fn setting_a_field_to_its_current_value_is_not_an_edit() {
     let op = EditOp::SetField { slide: 0.into(), key: "title".into(), value: "Fast Decks".into() };
+    assert!(plan(DECK, &DeckParseOptions::default(), &op).unwrap().is_empty());
+}
+
+#[test]
+fn removing_a_field_keeps_every_other_frontmatter_byte() {
+    let source = "---\r\ntitle:    Spaced Out\r\n# keep this comment\r\nbudget: 90s\r\noptional: true\r\n---\r\n\r\n# One\r\n";
+    let result = edit(source, EditOp::RemoveField { slide: 0.into(), key: "budget".into() });
+
+    assert_eq!(
+        result,
+        "---\r\ntitle:    Spaced Out\r\n# keep this comment\r\noptional: true\r\n---\r\n\r\n# One\r\n"
+    );
+}
+
+#[test]
+fn removing_the_only_field_leaves_an_empty_valid_block() {
+    let source = "---\nbudget: 90s\n---\n\n# One\n";
+    let result = edit(source, EditOp::RemoveField { slide: 0.into(), key: "budget".into() });
+
+    assert_eq!(result, "---\n\n---\n\n# One\n");
+    assert!(parse(&result).slides[0].budget_seconds.is_none());
+}
+
+#[test]
+fn removing_a_field_that_is_absent_is_not_an_edit() {
+    let op = EditOp::RemoveField { slide: 0.into(), key: "budget".into() };
     assert!(plan(DECK, &DeckParseOptions::default(), &op).unwrap().is_empty());
 }
 

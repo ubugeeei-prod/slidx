@@ -19,6 +19,10 @@ import { readFile } from "node:fs/promises";
 export const EDITOR_PAGE = "/__slidx/";
 export const EDITOR_MODULE = "/__slidx/editor.js";
 
+/** The product mark, small enough to travel with the content-free shell. */
+const EDITOR_ICON =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='9' height='24' fill='%23161b22'/%3E%3Crect x='12' width='12' height='6' fill='%2301489f'/%3E%3Crect x='12' y='9' width='12' height='6' fill='%2301489f'/%3E%3Crect x='12' y='18' width='12' height='6' fill='%2301489f'/%3E%3C/svg%3E";
+
 /**
  * The page the editor mounts into.
  *
@@ -33,6 +37,7 @@ export function editorPage(deckBase: string, title: string | undefined): string 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
+<link rel="icon" href="${EDITOR_ICON}">
 <title>${escape(title ?? "slidx")} — editor</title>
 </head>
 <body>
