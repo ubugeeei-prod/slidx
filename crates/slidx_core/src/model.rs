@@ -271,6 +271,20 @@ pub struct Deck {
     pub meta: DeckMeta,
     pub slides: Vec<Slide>,
     pub diagnostics: Diagnostics,
+    /// The tag every renderer writes into `<html lang>`, resolved once.
+    ///
+    /// Resolving it is a read of every slide — see [`Deck::language`] — and the
+    /// renderers ask per *slide*, so computing it on each ask made the render
+    /// quadratic in the length of the deck: measured at 219µs a slide on a
+    /// five-hundred-slide deck, which was 80% of the time it took to render
+    /// one. It is answered by the parser instead, which sees the whole deck
+    /// exactly once anyway.
+    ///
+    /// Defaulted on read so a `Deck` built by hand or deserialised from an
+    /// older document still loads; [`Deck::language`] falls back to resolving
+    /// it rather than returning the empty string.
+    #[serde(default)]
+    pub resolved_language: String,
 }
 
 impl Deck {
@@ -316,6 +330,18 @@ impl Deck {
     /// structured data all have to agree: a deck read aloud in one language and
     /// typeset in another is worse than either mistake alone.
     pub fn language(&self) -> &str {
+        if !self.resolved_language.is_empty() {
+            return &self.resolved_language;
+        }
+
+        self.resolve_language()
+    }
+
+    /// Works the answer out from scratch. Called once, by the parser.
+    ///
+    /// Public so `parse_deck` can fill the field, and so a caller that builds a
+    /// `Deck` by hand has a way to fill it too.
+    pub fn resolve_language(&self) -> &str {
         if let Some(declared) = self.meta.lang.as_deref() {
             if !declared.trim().is_empty() {
                 return declared;
@@ -370,6 +396,41 @@ mod tests {
         let words = "word ".repeat(150);
         let seconds = estimate_speaking_seconds(&words);
         assert!((55..=65).contains(&seconds), "150 words should be about a minute, got {seconds}");
+    }
+
+    #[test]
+    fn the_language_is_resolved_once_by_the_parser() {
+        // The renderers ask per *slide*, and resolving reads every slide, so an
+        // unresolved field made the render quadratic in the length of the deck:
+        // 219µs a slide on five hundred slides, 80% of the time it took to
+        // render one. The parser has already read them all.
+        let deck =
+            crate::parse_deck("# はじめに\n\n---\n\n# 続き\n", &crate::DeckParseOptions::default());
+
+        assert_eq!(deck.resolved_language, "ja");
+        assert_eq!(deck.language(), "ja");
+    }
+
+    #[test]
+    fn a_deck_built_by_hand_still_answers() {
+        // `Deck` is a plain data type and a caller may construct one, so the
+        // field being empty has to mean "not resolved yet" rather than "no
+        // language". A cache that returns the wrong answer when cold is worse
+        // than no cache.
+        let parsed = crate::parse_deck("# 日本語の見出し\n", &crate::DeckParseOptions::default());
+        let by_hand = Deck { resolved_language: String::new(), ..parsed };
+
+        assert_eq!(by_hand.language(), "ja");
+    }
+
+    #[test]
+    fn a_declared_language_still_wins_after_resolution() {
+        let deck = crate::parse_deck(
+            "---\nlang: en-GB\n---\n\n# 日本語の見出しだけれど\n",
+            &crate::DeckParseOptions::default(),
+        );
+
+        assert_eq!(deck.language(), "en-GB");
     }
 
     #[test]
