@@ -37,24 +37,31 @@ describe("the README identity", () => {
   });
 });
 
+// The CLI's own section, which is the part written as transcripts; the fences
+// after it belong to the export and benchmark sections.
+const CLI = README.slice(README.indexOf("## The CLI"), README.indexOf("## Give the talk"));
+
 describe("the CLI examples", () => {
   it("do not ask a shell grammar to colour subcommands", () => {
-    const cli = README.slice(README.indexOf("## The CLI"), README.indexOf("## What is actually"));
-
-    expect(cli).toContain("slidx export --target pdf");
-    expect(cli).toContain("slidx cd vueconf");
-    expect(cli).not.toContain("```bash");
-    expect(cli.match(/```text/g)).toHaveLength(2);
+    expect(CLI).toContain("slidx export --target pdf");
+    expect(CLI).toContain("slidx cd vueconf");
+    expect(CLI).not.toContain("```bash");
+    expect(CLI.match(/```text/g)).toHaveLength(3);
   });
 
   it("introduce commands in the order a talk needs them", () => {
-    const cli = README.slice(README.indexOf("## The CLI"), README.indexOf("## What is actually"));
-    const firstFence = cli.match(/```text\n([\s\S]*?)```/)?.[1] ?? "";
-    const commands = firstFence
-      .trim()
-      .split("\n")
-      .map((line) => line.match(/^slidx ([^ ]+)/)?.[1]);
+    const fences = [...CLI.matchAll(/```text\n([\s\S]*?)```/g)].map((fence) =>
+      fence[1]
+        .trim()
+        .split("\n")
+        .map((line) => line.match(/^slidx ([^ ]+)/)?.[1]),
+    );
 
-    expect(commands).toEqual(["dev", "fmt", "lint", "export", "doctor", "publish"]);
+    // Making a deck, then giving the talk, then finding the deck you forgot.
+    expect(fences).toEqual([
+      ["create", "add", "save"],
+      ["dev", "fmt", "lint", "export", "doctor", "publish"],
+      ["list", "grep", "open", "cd", "mv", "rm"],
+    ]);
   });
 });
