@@ -130,7 +130,7 @@ pub fn render_print(deck: &Deck, options: &PrintOptions) -> String {
         noindex = crate::seo::NOINDEX,
         theme_css = css::render(&options.theme),
         print_css = print_layout::STYLESHEET,
-        layout_css = slidx_theme::layout::css(&slidx_theme::layout::all()),
+        layout_css = slidx_theme::layout::stylesheet(),
         page_size = options
             .page_size
             .clone()

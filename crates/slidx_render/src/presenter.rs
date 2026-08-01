@@ -208,11 +208,11 @@ fn next_preview(deck: &Deck, next: Option<&Slide>, options: &PresenterOptions) -
     match next {
         Some(slide) => {
             let shell = ShellOptions {
-                theme: options.theme.clone(),
                 markdown: options.markdown,
                 include_runtime: false,
                 ..ShellOptions::default()
-            };
+            }
+            .with_theme(options.theme.clone());
             let preview = render_static_preview(deck, slide, &shell);
             let (width, height) = deck.meta.aspect.dimensions();
 

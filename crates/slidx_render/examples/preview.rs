@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     report(&deck, &theme, &source_dir);
 
     fs::create_dir_all(&out_dir)?;
-    let options = ShellOptions { theme, ..ShellOptions::default() };
+    let options = ShellOptions::default().with_theme(theme);
 
     for slide in &deck.slides {
         let html = render_slide(&deck, slide, &options);

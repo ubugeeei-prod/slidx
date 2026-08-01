@@ -55,11 +55,7 @@ fn slide_for(theme: &str, layout: &str) -> String {
     let deck = parse_deck(&source, &DeckParseOptions::default());
     let resolved = slidx_theme::resolve(theme).expect("a built-in theme");
 
-    render_slide(
-        &deck,
-        &deck.slides[0],
-        &ShellOptions { theme: resolved, ..ShellOptions::default() },
-    )
+    render_slide(&deck, &deck.slides[0], &ShellOptions::default().with_theme(resolved))
 }
 
 /// What a theme tells the browser, which is the whole of how a slide looks.
