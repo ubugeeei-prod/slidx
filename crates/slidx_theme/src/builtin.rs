@@ -39,6 +39,7 @@ use slidx_core::Easing;
 use crate::builtin::recipe::Recipe;
 use crate::scale::TypeScale;
 use crate::theme::{Motion, Spacing, Theme};
+use crate::typography::Typography;
 
 const SANS: &str = "system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', \
                     'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif";
@@ -71,6 +72,7 @@ pub fn minimal() -> Theme {
         scale: TypeScale::default(),
         spacing: Spacing::default(),
         motion: Motion::default(),
+        typography: Typography::default(),
         font_sans: SANS.into(),
         font_mono: MONO.into(),
     }
@@ -95,6 +97,10 @@ pub fn editorial() -> Theme {
         // Prose is read, not scanned. A slightly longer change of place suits
         // a talk the audience is following sentence by sentence.
         motion: Motion { transition_ms: 320, transition_easing: Easing::EaseInOut },
+        // The one theme that moves its leading, because leading is the prose
+        // decision. Everything above the base still follows the same curve —
+        // this raises where the curve is anchored, not how it bends.
+        typography: Typography { base_leading: 1.6, ..Typography::default() },
         font_sans: SANS.into(),
         font_mono: MONO.into(),
     }
@@ -120,6 +126,7 @@ pub fn terminal() -> Theme {
         // Live-coding talks step back and forth through the same few slides
         // constantly. Anything leisurely becomes a queue of pending animations.
         motion: Motion { transition_ms: 140, transition_easing: Easing::EaseOut },
+        typography: Typography::default(),
         font_sans: MONO.into(),
         font_mono: MONO.into(),
     }
@@ -150,6 +157,7 @@ pub fn contrast() -> Theme {
         // The theme people reach for when seeing the slide is already hard.
         // A long transition is one more thing between them and the content.
         motion: Motion { transition_ms: 160, transition_easing: Easing::EaseOut },
+        typography: Typography::default(),
         font_sans: SANS.into(),
         font_mono: MONO.into(),
     }
