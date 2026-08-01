@@ -37,11 +37,18 @@ test("the npm release resolves workspace dependencies before publishing", async 
 
   assert.doesNotMatch(JSON.stringify(manifest), /"workspace:/);
   assert.match(workflow, /node scripts\/pack-npm\.mjs/);
-  assert.match(workflow, /npm publish "\$tarball"/);
-  assert.doesNotMatch(workflow, /\(cd "\$dir" && npm publish/);
+  assert.match(workflow, /node scripts\/publish-npm\.mjs --provenance --list/);
   assert.match(guide, /node scripts\/pack-npm\.mjs/);
-  assert.match(guide, /npm publish "\$tarball"/);
-  assert.doesNotMatch(guide, /\(cd "\$dir" && npm publish/);
+  assert.match(guide, /node scripts\/publish-npm\.mjs --list/);
+});
+
+void test("registry publication resumes after a partial release", () => {
+  assert.match(workflow, /run: node scripts\/publish-crates\.mjs/);
+  assert.match(workflow, /node scripts\/publish-npm\.mjs --provenance --list/);
+  assert.doesNotMatch(workflow, /for crate in .*publish-order/);
+  assert.doesNotMatch(workflow, /npm publish "\$tarball"/);
+  assert.match(guide, /node scripts\/publish-crates\.mjs/);
+  assert.match(guide, /node scripts\/publish-npm\.mjs --list/);
 });
 
 test("the release packer refuses an unresolved workspace dependency", () => {
