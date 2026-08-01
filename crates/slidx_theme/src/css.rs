@@ -8,6 +8,12 @@
 //! Sizes are emitted in `cqh` units — percentages of the slide container's
 //! height — so a slide scales as one piece to whatever the projector gives it.
 //! Nothing downstream ever has to shrink type to make content fit.
+//!
+//! Leading, tracking and measure are the exception, and deliberately: they are
+//! emitted unitless or in `em`, which resolve against the element's own size
+//! rather than the slide's. That is what lets one declaration be the right
+//! measure on a heading and on a caption without either naming a size — see
+//! [`crate::typography`].
 
 use std::fmt::Write as _;
 
@@ -16,6 +22,7 @@ use slidx_highlight::Token;
 use crate::palette::{Palette, Scheme};
 use crate::scale::REFERENCE_HEIGHT_PX;
 use crate::theme::Theme;
+use crate::typography::Script;
 
 /// Converts a reference-canvas pixel value into container-height units.
 fn cqh(px: f64) -> String {
@@ -44,7 +51,37 @@ pub fn render(theme: &Theme) -> String {
     let _ = writeln!(css, "  --slidx-space-block: {};", cqh(theme.spacing.block_px));
     let _ = writeln!(css, "  --slidx-radius: {:.0}px;", theme.spacing.radius_px);
     let _ = writeln!(css, "  --slidx-hairline: {:.0}px;", theme.spacing.hairline_px);
+    css.push_str(&setting(theme, Script::Latin));
     css.push_str(&colors(&theme.light));
+    let _ = writeln!(css, "}}\n");
+
+    // Where a subtree that switches back to Latin lands. Only the type
+    // settings: sizes and colours are one document-wide answer and inherit from
+    // `:root` unchanged.
+    let _ = writeln!(css, "[lang] {{");
+    css.push_str(&setting(theme, Script::Latin));
+    let _ = writeln!(css, "}}\n");
+
+    // The one script-dependent block, and the reason `[lang]` is in both
+    // selectors rather than only in this one.
+    //
+    // A deck that mixes scripts is the normal case, not the exotic one — an
+    // English pull-quote in a Japanese talk, a Japanese term in an English one
+    // — so this cannot be a whole-document switch on `:root`. `:lang()` matches
+    // an element by its *computed* language, so the override has to re-resolve
+    // inside any subtree that says it is written in something else.
+    //
+    // A bare `:lang(ja)` would do that and would also redeclare fourteen custom
+    // properties on every element in the document, which the print shell
+    // multiplies by every slide in the deck. An element's computed language only
+    // *changes* where a `lang` attribute says so, so matching `[lang]` reaches
+    // exactly those elements and everything under one inherits the answer. The
+    // Latin block above carries `[lang]` for the same reason: it is what a
+    // subtree switching back to English lands on.
+    let cjk =
+        Script::CJK_TAGS.map(|tag| format!(":root:lang({tag}),\n[lang]:lang({tag})")).join(",\n");
+    let _ = writeln!(css, "{cjk} {{");
+    css.push_str(&setting(theme, Script::Cjk));
     let _ = writeln!(css, "}}\n");
 
     let _ = writeln!(css, "@media (prefers-color-scheme: dark) {{");
@@ -56,6 +93,54 @@ pub fn render(theme: &Theme) -> String {
     let _ = writeln!(css, ":root[data-scheme=\"dark\"] {{");
     css.push_str(&colors(&theme.dark));
     let _ = writeln!(css, "}}");
+
+    css
+}
+
+/// The leading, tracking and measure for one script, as custom properties.
+///
+/// Driven off the same size list the sizes above are, so a role that gets a
+/// `--slidx-size-*` gets a leading and a tracking to go with it. A role with a
+/// size and no leading would silently inherit the one belonging to whatever
+/// contains it, which reads as a theme that forgot to set it — because it is.
+fn setting(theme: &Theme, script: Script) -> String {
+    let mut css = String::with_capacity(512);
+    let scale = &theme.scale;
+    let base = scale.base_px;
+
+    for (role, size) in [
+        ("heading-1", scale.heading_px(1)),
+        ("heading-2", scale.heading_px(2)),
+        ("heading-3", scale.heading_px(3)),
+        ("body", scale.body_px()),
+        ("code", scale.code_px()),
+        ("caption", scale.caption_px()),
+    ] {
+        let _ = writeln!(
+            css,
+            "  --slidx-leading-{role}: {:.3};",
+            theme.typography.leading(size, base, script)
+        );
+        // `normal` rather than `0em` where the curve lands on nothing, because
+        // they are not the same declaration: `0` *forbids* the adjustment a
+        // font asks for, and `normal` is the absence of an instruction. The
+        // base size is precisely where nothing is being asked for — every other
+        // step of the scale is stated relative to it — so a zero there would be
+        // an instruction the model never intended to give.
+        let tracking = theme.typography.tracking_em(size, base, script);
+        let _ = if tracking == 0.0 {
+            writeln!(css, "  --slidx-tracking-{role}: normal;")
+        } else {
+            writeln!(css, "  --slidx-tracking-{role}: {tracking:.4}em;")
+        };
+    }
+
+    // One length for both scripts. Thirty em is sixty Latin characters or
+    // thirty Japanese ones, and those are the same sentence — the reasoning is
+    // in `crate::typography`.
+    let _ = writeln!(css, "  --slidx-measure-prose: {:.1}em;", theme.typography.prose_measure_em);
+    let _ =
+        writeln!(css, "  --slidx-measure-heading: {:.1}em;", theme.typography.heading_measure_em);
 
     css
 }
@@ -169,6 +254,63 @@ mod tests {
         }
         assert!(css
             .contains(&format!("--slidx-color-code-comment: {}", theme.light.code_text.to_hex())));
+    }
+
+    #[test]
+    fn a_cjk_deck_is_set_more_open_and_without_negative_tracking() {
+        let css = render(&builtin::minimal());
+        let cjk = css.split(":root:lang(ja)").nth(1).expect("a CJK block");
+
+        assert!(cjk.contains("--slidx-leading-body: 1.700;"), "got:\n{cjk}");
+        assert!(cjk.contains("--slidx-tracking-heading-1: normal;"), "got:\n{cjk}");
+    }
+
+    #[test]
+    fn the_latin_setting_is_reachable_again_inside_a_cjk_deck() {
+        // A deck that mixes scripts is the normal case. An English pull-quote in
+        // a Japanese talk carries `lang="en"`, and it has to land on something —
+        // without the bare `[lang]` block it would inherit the CJK leading from
+        // the document and be set as Japanese in English.
+        let css = render(&builtin::minimal());
+
+        assert!(css.contains("\n[lang] {"), "no Latin block for a subtree to land on:\n{css}");
+    }
+
+    #[test]
+    fn the_script_override_reaches_only_the_elements_that_change_language() {
+        // A bare `:lang(ja)` is correct and redeclares every property on every
+        // element in the document — which the print shell multiplies by every
+        // slide. A language only *changes* where an attribute says so.
+        let css = render(&builtin::minimal());
+
+        assert!(css.contains("[lang]:lang(ja)"));
+        assert!(
+            !css.contains("\n:lang(ja)"),
+            "the override must be anchored to an attribute, not to every element:\n{css}"
+        );
+    }
+
+    #[test]
+    fn every_size_has_a_leading_and_a_tracking_to_go_with_it() {
+        // A role with a size and no leading silently inherits whatever contains
+        // it, which reads as a theme that forgot to set it.
+        let css = render(&builtin::editorial());
+
+        for role in ["heading-1", "heading-2", "heading-3", "body", "code", "caption"] {
+            assert!(css.contains(&format!("--slidx-size-{role}:")), "no size for {role}");
+            assert!(css.contains(&format!("--slidx-leading-{role}:")), "no leading for {role}");
+            assert!(css.contains(&format!("--slidx-tracking-{role}:")), "no tracking for {role}");
+        }
+    }
+
+    #[test]
+    fn the_measure_is_in_em_so_it_resolves_against_the_type_it_holds() {
+        // `ch` is the advance of `0` — a Latin metric, which is how `22ch` came
+        // to be about twelve characters of Japanese.
+        let css = render(&builtin::minimal());
+
+        assert!(css.contains("--slidx-measure-prose: 30.0em;"), "got:\n{css}");
+        assert!(!css.contains("measure-prose: 30.0ch"));
     }
 
     #[test]

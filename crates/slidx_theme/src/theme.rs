@@ -6,6 +6,7 @@ use slidx_lint::{Surface, TextRole, TextSample};
 
 use crate::palette::{Palette, Scheme};
 use crate::scale::{TypeScale, REFERENCE_HEIGHT_PX};
+use crate::typography::Typography;
 
 /// Spacing tokens, in pixels at the reference canvas.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -93,6 +94,15 @@ pub struct Theme {
     /// for the feature.
     #[serde(default)]
     pub motion: Motion,
+    /// Leading, tracking, and measure.
+    ///
+    /// Defaulted on read for the same reason [`Motion`] is: these were
+    /// constants in the shell stylesheet before they were theme tokens, so
+    /// every theme package published without them keeps rendering exactly as it
+    /// did — the defaults are calibrated to reproduce the constants they
+    /// replaced.
+    #[serde(default)]
+    pub typography: Typography,
     /// Font stack for prose. Must resolve locally: a theme that names a font
     /// only available from a CDN fails the offline check at build time.
     pub font_sans: String,

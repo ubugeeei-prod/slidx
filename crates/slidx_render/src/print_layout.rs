@@ -65,7 +65,8 @@ html, body {
   display: grid;
   gap: var(--slidx-space-block);
   font-size: var(--slidx-size-body);
-  line-height: 1.5;
+  line-height: var(--slidx-leading-body);
+  letter-spacing: var(--slidx-tracking-body);
 }
 
 .slidx-region {
@@ -110,17 +111,39 @@ html, body {
   color: var(--slidx-element-color);
 }
 
+/* Set exactly as the served slide is; see `crate::layout`. */
 h1, h2, h3, h4, h5, h6 {
   color: var(--slidx-color-heading);
-  max-width: 22ch;
+  max-width: var(--slidx-measure-heading);
   font-weight: 650;
-  line-height: 1.15;
-  letter-spacing: -0.015em;
 }
 
-h1 { font-size: var(--slidx-size-heading-1); }
-h2 { font-size: var(--slidx-size-heading-2); }
-h3 { font-size: var(--slidx-size-heading-3); }
+h1 {
+  font-size: var(--slidx-size-heading-1);
+  line-height: var(--slidx-leading-heading-1);
+  letter-spacing: var(--slidx-tracking-heading-1);
+}
+
+h2 {
+  font-size: var(--slidx-size-heading-2);
+  line-height: var(--slidx-leading-heading-2);
+  letter-spacing: var(--slidx-tracking-heading-2);
+}
+
+h3 {
+  font-size: var(--slidx-size-heading-3);
+  line-height: var(--slidx-leading-heading-3);
+  letter-spacing: var(--slidx-tracking-heading-3);
+}
+
+p, ul, ol, blockquote, table {
+  max-width: var(--slidx-measure-prose);
+}
+
+.slidx-block[data-slidx-width] :is(p, ul, ol, blockquote, table),
+.slidx-block[data-slidx-freeform] :is(p, ul, ol, blockquote, table) {
+  max-width: none;
+}
 
 strong { color: var(--slidx-color-accent); font-weight: 650; }
 a { color: var(--slidx-color-accent); }
@@ -149,6 +172,8 @@ pre {
   background: var(--slidx-color-code-surface);
   color: var(--slidx-color-code-text);
   border-radius: var(--slidx-radius);
+  line-height: var(--slidx-leading-code);
+  letter-spacing: var(--slidx-tracking-code);
 }
 
 table { border-collapse: collapse; width: 100%; font-size: var(--slidx-size-body); }

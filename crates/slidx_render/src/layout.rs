@@ -78,7 +78,8 @@ html, body {
   display: grid;
   gap: var(--slidx-space-block);
   font-size: var(--slidx-size-body);
-  line-height: 1.5;
+  line-height: var(--slidx-leading-body);
+  letter-spacing: var(--slidx-tracking-body);
 }
 
 /*
@@ -149,19 +150,71 @@ html, body {
   color: var(--slidx-element-color);
 }
 
+/*
+ * Type is set by the theme, not here.
+ *
+ * Size, leading, tracking and measure all arrive as custom properties, because
+ * a heading on a 34px scale and one on a 32px scale do not want the same
+ * numbers and this file cannot know which it is looking at. `slidx_theme`'s
+ * `typography` module has the curves and the reasoning.
+ *
+ * The measure is in `em`, which resolves against the element's own size, so one
+ * declaration is the right line length at every step of the scale. `22ch` was
+ * here before and is a Latin metric — the advance of `0`.
+ */
 h1, h2, h3, h4, h5, h6 {
   color: var(--slidx-color-heading);
-  max-width: 22ch;
+  max-width: var(--slidx-measure-heading);
   font-weight: 650;
-  line-height: 1.15;
-  letter-spacing: -0.015em;
   text-wrap: balance;
 }
 
-h1 { font-size: var(--slidx-size-heading-1); }
-h2 { font-size: var(--slidx-size-heading-2); }
-h3 { font-size: var(--slidx-size-heading-3); }
-h4, h5, h6 { font-size: var(--slidx-size-body); }
+h1 {
+  font-size: var(--slidx-size-heading-1);
+  line-height: var(--slidx-leading-heading-1);
+  letter-spacing: var(--slidx-tracking-heading-1);
+}
+
+h2 {
+  font-size: var(--slidx-size-heading-2);
+  line-height: var(--slidx-leading-heading-2);
+  letter-spacing: var(--slidx-tracking-heading-2);
+}
+
+h3 {
+  font-size: var(--slidx-size-heading-3);
+  line-height: var(--slidx-leading-heading-3);
+  letter-spacing: var(--slidx-tracking-heading-3);
+}
+
+h4, h5, h6 {
+  font-size: var(--slidx-size-body);
+  line-height: var(--slidx-leading-body);
+  letter-spacing: var(--slidx-tracking-body);
+}
+
+/*
+ * Prose gets a measure too, which it did not have.
+ *
+ * A Latin paragraph looked fine without one because it wraps at spaces and a
+ * slide is wide. A cap, never a target: `fit-content` on the block still
+ * shrinks to whatever the content actually needs.
+ */
+p, ul, ol, blockquote, table {
+  max-width: var(--slidx-measure-prose);
+}
+
+/*
+ * Unless the author said how wide it goes.
+ *
+ * `{width=full}` and a freeform frame are decisions; the measure is a default,
+ * and a default that overruled a decision would make the width control look
+ * broken. Found by the browser matrix rather than by reading.
+ */
+.slidx-block[data-slidx-width] :is(p, ul, ol, blockquote, table),
+.slidx-block[data-slidx-freeform] :is(p, ul, ol, blockquote, table) {
+  max-width: none;
+}
 
 p { text-wrap: pretty; }
 
@@ -202,6 +255,8 @@ pre {
   background: var(--slidx-color-code-surface);
   color: var(--slidx-color-code-text);
   border-radius: var(--slidx-radius);
+  line-height: var(--slidx-leading-code);
+  letter-spacing: var(--slidx-tracking-code);
 }
 
 pre code { font-size: inherit; }

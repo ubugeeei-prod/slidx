@@ -23,6 +23,14 @@
 //! to reach for, which makes "shrink the text until it fits" — the reflex that
 //! produces unreadable slides — something the system does not offer.
 //!
+//! ## And so is everything else about setting the type
+//!
+//! A scale answers how large and nothing else. How far apart the lines sit, how
+//! tightly the letters do, and how long a line may run were constants in the
+//! shell stylesheet — one set, applied to every theme and to every script. See
+//! [`typography`] for the curves that replaced them, and for why a Japanese
+//! heading was breaking after ten characters.
+//!
 //! ## A layout is a named set of regions
 //!
 //! `layout: aside` is a grid the theme owns, and `{.side}` on a block is an
@@ -63,6 +71,7 @@ pub mod published;
 pub mod scale;
 pub mod theme;
 pub mod transition;
+pub mod typography;
 
 pub use layout::{Layout, Region, RegionAlign};
 pub use package::{Catalogue, Published, Resolved};
@@ -70,6 +79,7 @@ pub use palette::{Palette, Scheme};
 pub use scale::{TypeScale, REFERENCE_HEIGHT_PX};
 pub use theme::{Motion, Spacing, Theme, REDUCED_MOTION_CEILING_MS};
 pub use transition::Transition;
+pub use typography::{Script, Typography};
 
 /// Resolves a theme by name, against the built-ins alone.
 ///

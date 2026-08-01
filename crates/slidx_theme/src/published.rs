@@ -43,6 +43,7 @@ use slidx_core::Easing;
 use crate::builtin::recipe::Recipe;
 use crate::scale::TypeScale;
 use crate::theme::{Motion, Spacing, Theme};
+use crate::typography::Typography;
 
 /// What a deck writes in `theme:` to reach this theme.
 pub const ID: &str = "workshop";
@@ -89,6 +90,7 @@ pub fn workshop() -> Theme {
         // safe area — the guard's floor is well below it.
         spacing: Spacing { padding_px: 72.0, block_px: 26.0, ..Spacing::default() },
         motion: Motion { transition_ms: 120, transition_easing: Easing::EaseOut },
+        typography: Typography::default(),
         font_sans: SANS.into(),
         font_mono: MONO.into(),
     }
