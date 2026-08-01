@@ -266,8 +266,59 @@ async function measure(engine: Engine, width: number, height: number) {
   }
 }
 
+/**
+ * How much of the Japanese setting each engine actually does.
+ *
+ * `docs/content/typography.md` publishes this table, and a support table copied
+ * off a website is out of date the week it is written. This is where the table
+ * comes from.
+ *
+ * It fails when a browser *gains* one of these, which is the point: the two
+ * Chromium-only rows are described in the documentation as a degradation, and
+ * that sentence should stop being true the moment it stops being true.
+ */
+const CJK_SUPPORT: Record<string, Record<Engine, boolean>> = {
+  "line-break: strict": { chromium: true, firefox: true, webkit: true },
+  'font-feature-settings: "palt" 1': { chromium: true, firefox: true, webkit: true },
+  "text-spacing-trim: trim-start": { chromium: true, firefox: false, webkit: false },
+  "word-break: auto-phrase": { chromium: true, firefox: false, webkit: false },
+};
+
 describe.each(ENGINES)("%s", (engine) => {
   const runs = it.skipIf(!available[engine]);
+
+  runs(
+    "does as much of the Japanese setting as the documentation says it does",
+    async () => {
+      const playwright = await import("playwright");
+      const browser = await playwright[engine].launch();
+
+      try {
+        const tab = await browser.newPage();
+        const measured = await tab.evaluate(
+          (declarations) =>
+            Object.fromEntries(
+              declarations.map((declaration) => {
+                const [property, value] = declaration.split(/:\s*/);
+                return [declaration, CSS.supports(property!, value!)];
+              }),
+            ),
+          Object.keys(CJK_SUPPORT),
+        );
+
+        for (const [declaration, engines] of Object.entries(CJK_SUPPORT)) {
+          expect(
+            measured[declaration],
+            `${engine} ${measured[declaration] ? "now supports" : "no longer supports"} ` +
+              `${declaration} — update the table in docs/content/typography.md`,
+          ).toBe(engines[engine]);
+        }
+      } finally {
+        await browser.close();
+      }
+    },
+    120_000,
+  );
 
   runs(
     "sizes the heading against the slide, not the window",

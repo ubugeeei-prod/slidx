@@ -163,6 +163,60 @@ blockquote {
   color: var(--slidx-color-muted);
 }
 
+/*
+ * Japanese, Chinese and Korean are set as those languages, not as Latin with
+ * different glyphs.
+ *
+ * Everything above is script-neutral. These declarations are not, and none of
+ * them has a Latin equivalent — they are the difference between a Japanese
+ * slide that reads as typeset and one that reads as pasted in.
+ *
+ * `line-break: strict` is 禁則処理. The default lets a line begin with a small
+ * kana or a 長音符; strict does not. A slide is entirely display type, which is
+ * where that shows.
+ *
+ * `text-spacing-trim` is 約物のアキ. A Japanese bracket or full stop is drawn
+ * inside a full em box with the ink on one side, so `「約物」の` sets with holes
+ * either side of the quotes. It is the one thing here a reader notices
+ * immediately without being able to say why.
+ *
+ * `word-break: auto-phrase` breaks at a 文節 boundary rather than wherever the
+ * line runs out of room. Japanese has no spaces, so the default breaks
+ * mid-word. It is applied to prose as well as to headings, which is a choice:
+ * the usual advice reserves it for display type because a phrase boundary
+ * leaves a more ragged right edge, and on a slide every line *is* display type
+ * — three lines long, read from row fifteen, with no column of text for the
+ * raggedness to spoil.
+ *
+ * `palt` asks the font for the proportional advances it already contains. It
+ * does the job for CJK that negative tracking does for Latin, which is why
+ * `--slidx-tracking-*` resolves to zero there: a kanji has no sidebearing to
+ * give up, so tracking would come out of the strokes. Headings only, which is
+ * the convention.
+ *
+ * Support, checked in a browser rather than assumed: `line-break` and `palt`
+ * work in all three engines the matrix covers. `text-spacing-trim` and
+ * `auto-phrase` are Chromium's today, and a deck that gets neither is set the
+ * way a browser sets Japanese on its own — a degradation rather than a break,
+ * the same bargain the cross-document transitions make.
+ */
+:lang(ja), :lang(zh), :lang(ko) {
+  line-break: strict;
+  text-spacing-trim: trim-start;
+}
+
+:is(h1, h2, h3, h4, h5, h6, p, li, blockquote, figcaption, td, th):lang(ja),
+:is(h1, h2, h3, h4, h5, h6, p, li, blockquote, figcaption, td, th):lang(zh),
+:is(h1, h2, h3, h4, h5, h6, p, li, blockquote, figcaption, td, th):lang(ko) {
+  word-break: auto-phrase;
+}
+
+:is(h1, h2, h3, h4, h5, h6):lang(ja),
+:is(h1, h2, h3, h4, h5, h6):lang(zh),
+:is(h1, h2, h3, h4, h5, h6):lang(ko) {
+  font-feature-settings: "palt" 1;
+}
+
 code { font-family: var(--slidx-font-mono); font-size: var(--slidx-size-code); }
 
 pre {

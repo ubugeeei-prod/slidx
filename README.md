@@ -86,6 +86,45 @@ configuration is `plugins: [slidx()]`. `node scripts/screenshot.mjs` regenerates
 it, so an image that stopped being true fails to reproduce rather than quietly
 misleading.
 
+## A deck written in Japanese
+
+Displaying Japanese and **setting** it are different jobs, and a browser left to
+its defaults does the first. 約物 sit in full-width boxes with a hole either
+side. Headings break in the middle of a word, because there is no space to break
+at and nothing said to look for one. The line runs to a measure quoted in
+characters that are half as wide as these.
+
+None of that is exotic — it is what a Japanese slide looks like unless somebody
+decided otherwise.
+
+```md
+---
+lang: ja
+---
+
+## スライドツールにおける日本語組版の現在地
+```
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/media/japanese-dark.png">
+  <img alt="A Japanese slide whose heading breaks at a phrase boundary, with trimmed punctuation and its own leading" src="./docs/media/japanese-light.png">
+</picture>
+
+Rendered from [examples/japanese](./examples/japanese) by the real pipeline;
+`vp run media:japanese` regenerates it, so an image that stopped being true
+fails to reproduce rather than quietly misleading.
+
+`lang: ja` — or nothing at all, because a deck that declares no language has its
+slides read rather than being served as English — switches on 禁則処理, 約物のアキ
+trimming, `palt`, a 文節-aware line break, and a leading of its own, because a run
+of filled em boxes needs more room than a Latin line does at the same ratio.
+
+The measure is one number for both scripts and that is not a shortcut: a CJK
+glyph is about twice as wide as a Latin lowercase **and** carries about twice as
+much, so thirty em is sixty Latin characters or thirty Japanese ones and those
+are the same sentence. [How type is set](./docs/content/typography.md) has the
+curves, the numbers each theme resolves to, and which of it every browser does.
+
 ## The editor
 
 <picture>
@@ -189,6 +228,7 @@ slidx cd vueconf           # with `slidx shell` loaded, takes you there
 | **MDX is opt-in.** `.md` stays plain; `.mdx` components keep a static Markdown fallback.        |
 | **An edit is a byte-range splice.** Your blank lines and `*` bullets survive untouched.         |
 | **The linter checks the room.** Projector washout; angular size from the back row.              |
+| **Japanese is typeset, not rendered.** 禁則, 約物, 文節 breaking, and its own leading.          |
 | **One model, one execution.** Editor, projector, PDF and card share one parser.                 |
 | **Native speed.** 500 slides in 133 ms — `node scripts/bench-build.mjs` reproduces it.          |
 

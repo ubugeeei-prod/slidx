@@ -437,6 +437,14 @@ export default defineConfig({
       }),
       screenshots: uncached("node scripts/screenshot.mjs", { dependsOn: ["preview:deck"] }),
 
+      // The Japanese deck the README's typesetting picture comes from.
+      //
+      // A second example rather than a slide added to the first, because the
+      // one thing being shown is decided per *document*: `lang:` is on `<html>`,
+      // and a mostly-English deck with one Japanese slide is — correctly — an
+      // English deck.
+      "media:japanese": uncached("node scripts/japanese.mjs"),
+
       // Every picture and recording the documentation site uses, from real
       // runs: `slidx` under a pty so its own colour survives, and the built
       // deck driven by the arrow key a remote sends. Needs the built deck for

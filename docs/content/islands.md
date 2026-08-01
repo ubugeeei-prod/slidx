@@ -2,7 +2,7 @@
 title: Framework islands
 summary: Opt one deck into Vue, React, Svelte, Solid or Angular components without making the deck run on one.
 section: reference
-order: 5
+order: 6
 ---
 
 # Framework islands

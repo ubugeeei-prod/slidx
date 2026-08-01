@@ -2,7 +2,7 @@
 title: Lint rules
 summary: What the linter checks, how severe each finding is, and how to suppress one.
 section: reference
-order: 4
+order: 5
 ---
 
 # Lint rules
