@@ -45,6 +45,36 @@ function bus() {
   };
 }
 
+/**
+ * A transport that echoes and delivers late, which the interface permits and
+ * neither shipped transport does. Holds what was posted until `deliver`, so an
+ * echo can land after the window has moved on.
+ */
+function loopback() {
+  const listeners = new Set<(message: MirrorMessage) => void>();
+  const posted: MirrorMessage[] = [];
+
+  return {
+    posted,
+    deliver() {
+      const queued = posted.splice(0);
+      for (const message of queued) {
+        for (const listener of listeners) listener(message);
+      }
+    },
+    channel(): MirrorTransport {
+      return {
+        post: (message) => void posted.push(message),
+        listen(handler) {
+          listeners.add(handler);
+          return () => listeners.delete(handler);
+        },
+        close() {},
+      };
+    },
+  };
+}
+
 function pair() {
   const shared = bus();
   const presenter = createMirror({ transport: shared.channel() });
@@ -138,6 +168,87 @@ describe("messages arriving out of order", () => {
     presenter.send({ slide: 2, step: 1 });
 
     expect(seen).toHaveBeenCalledTimes(1);
+  });
+
+  it("counts each sender separately, so one window cannot silence another", () => {
+    // The stage failure this ordering rule caused, and the reason `from` is on
+    // the wire.
+    //
+    // A deck is multi-page HTML, so every move reloads a window and restarts
+    // its counter at one. The presenter view announces its position on load, so
+    // a projector opening later can sync — with a single watermark that one
+    // announcement raised the bar to 1, and a freshly loaded projector page can
+    // only ever count to 1 as well. Every position the projector sent from then
+    // on was dropped.
+    //
+    // The speaker drives from the projector, because that is where a clicker's
+    // keys land. Their notes stopped following and nothing said so.
+    const shared = bus();
+    const presenter = createMirror({ transport: shared.channel(), id: "presenter" });
+    const projector = createMirror({ transport: shared.channel(), id: "projector" });
+
+    const followed = vi.fn();
+    presenter.subscribe(followed);
+
+    presenter.send({ slide: 0, step: 0 });
+    projector.sendAt({ slide: 1, step: 0 }, 1);
+
+    expect(followed).toHaveBeenCalledWith({ slide: 1, step: 0 });
+  });
+
+  it("still orders a single sender's own messages", () => {
+    // Per-sender is not no ordering. A message that arrives late from the
+    // window that sent it must still not drag the deck backwards.
+    const shared = bus();
+    const presenter = createMirror({ transport: shared.channel(), id: "presenter" });
+    const audience = createMirror({ transport: shared.channel(), id: "audience" });
+
+    const seen = vi.fn();
+    audience.subscribe(seen);
+
+    presenter.sendAt({ slide: 5, step: 0 }, 5);
+    presenter.sendAt({ slide: 2, step: 0 }, 1);
+
+    expect(seen).toHaveBeenCalledTimes(1);
+    expect(seen).toHaveBeenCalledWith({ slide: 5, step: 0 });
+  });
+
+  it("ignores its own message, even from a transport that echoes", () => {
+    // Nothing in `MirrorTransport` forbids an echo. One would hand a window
+    // back its own delayed position after a newer one and walk the deck
+    // backwards, and hand it its own request to answer.
+    const bounced = loopback();
+    const solo = createMirror({ transport: bounced.channel(), id: "solo" });
+
+    const seen = vi.fn();
+    solo.subscribe(seen);
+
+    solo.sendAt({ slide: 2, step: 0 }, 1);
+    solo.sendAt({ slide: 5, step: 0 }, 5);
+    bounced.deliver();
+
+    expect(seen).not.toHaveBeenCalled();
+    expect(solo.position()).toEqual({ slide: 5, step: 0 });
+
+    // An echoed request would have it answer itself.
+    solo.requestPosition();
+    bounced.deliver();
+
+    expect(bounced.posted).toEqual([]);
+  });
+
+  it("hears a window that names no sender, as it always did", () => {
+    // A tab left open from an older build. Those messages share one watermark
+    // between them, which is exactly the behaviour they shipped with.
+    const shared = bus();
+    const listener = createMirror({ transport: shared.channel(), id: "listener" });
+    const raw = shared.channel();
+
+    const seen = vi.fn();
+    listener.subscribe(seen);
+    raw.post({ type: "position", position: { slide: 4, step: 0 }, sequence: 1 });
+
+    expect(seen).toHaveBeenCalledWith({ slide: 4, step: 0 });
   });
 });
 
