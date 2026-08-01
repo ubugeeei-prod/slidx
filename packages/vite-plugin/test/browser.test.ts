@@ -251,6 +251,12 @@ async function measure(engine: Engine, width: number, height: number) {
           fittedToken: fitted.getAttribute("data-slidx-width"),
           fullToken: full.getAttribute("data-slidx-width"),
           scripts: executable.length,
+          // The two halves fail differently: an inline script is bytes in the
+          // document, a `src` is a request off the venue's wifi.
+          fetched: executable.filter((script) => script.getAttribute("src") !== null).length,
+          navigators: executable.filter((script) =>
+            (script.textContent ?? "").includes("slidx-slide-nav"),
+          ).length,
           text: heading.textContent ?? "",
         };
       })),
@@ -312,14 +318,21 @@ describe.each(ENGINES)("%s", (engine) => {
   });
 
   runs(
-    "runs no script at all",
+    "fetches no script at all",
     async () => {
       // The claim on the front page, checked in the browser rather than in the
       // emitted string: nothing to block rendering, nothing to go wrong in the
       // room, nothing to fail with the network cable pulled.
-      const { scripts, errors, text } = await measure(engine, 1280, 800);
+      //
+      // The one thing that runs is the navigator, inline, which is what gives a
+      // slide with no steps a key and a clicker at all — see
+      // `slidx_render::navigation`. It is a few hundred bytes already in the
+      // document, so it is not a request and cannot fail on its own.
+      const { scripts, fetched, navigators, errors, text } = await measure(engine, 1280, 800);
 
-      expect(scripts).toBe(0);
+      expect(fetched).toBe(0);
+      expect(scripts).toBe(navigators);
+      expect(navigators).toBe(1);
       expect(errors).toEqual([]);
       expect(text).toBe("Making Decks Fast");
     },
@@ -485,6 +498,9 @@ async function openDeclaringCamera(engine: Engine) {
         return {
           requests: (window as unknown as Counted).__cameraRequests,
           scripts: executable.length,
+          navigators: executable.filter((script) =>
+            (script.textContent ?? "").includes("slidx-slide-nav"),
+          ).length,
           videos: document.querySelectorAll("video").length,
           declared: tile !== null,
           tileWidth: tile === null ? 0 : tile.getBoundingClientRect().width,
@@ -514,12 +530,14 @@ describe.each(ENGINES)("%s, on a slide that declares a camera", (engine) => {
   runs(
     "never asks the reader for a webcam",
     async () => {
-      const { requests, scripts, errors } = await openDeclaringCamera(engine);
+      const { requests, scripts, navigators, errors } = await openDeclaringCamera(engine);
 
       expect(requests).toBe(0);
-      // The reason it cannot: there is nothing on the page that runs, and so
-      // nothing that could ask.
-      expect(scripts).toBe(0);
+      // The reason it cannot: the only thing on the page that runs is the
+      // navigator, which moves between two addresses the markup already names
+      // and touches no device.
+      expect(scripts).toBe(navigators);
+      expect(navigators).toBe(1);
       expect(errors).toEqual([]);
     },
     120_000,
@@ -653,11 +671,13 @@ describe.each(ENGINES)("%s, on a slide with steps", (engine) => {
   );
 
   runs(
-    "leaves a slide with no steps alone",
+    "keeps the stage off a slide with no steps",
     async () => {
       // Served from the same origin as the staged slide, so this is not
       // passing because a module happened to be unreachable. The second slide
-      // has one stop, and a finished slide ships nothing.
+      // has one stop, and a finished slide fetches nothing: the only thing on
+      // it that runs is the navigator, inline, which is how a clicker leaves a
+      // slide that has nothing to reveal.
       const playwright = await import("playwright");
       const browser = await playwright[engine].launch();
 
@@ -668,12 +688,23 @@ describe.each(ENGINES)("%s, on a slide with steps", (engine) => {
         // Executable scripts. The structured data in the head is a `<script>`
         // element holding JSON that nothing runs, and `document.scripts`
         // counts it regardless of type.
-        const running = await tab.evaluate(
-          () =>
-            [...document.scripts].filter((script) => script.type !== "application/ld+json").length,
-        );
+        const { running, fetched, navigators } = await tab.evaluate(() => {
+          const executable = [...document.scripts].filter(
+            (script) => script.type !== "application/ld+json",
+          );
 
-        expect(running).toBe(0);
+          return {
+            running: executable.length,
+            fetched: executable.filter((script) => script.getAttribute("src") !== null).length,
+            navigators: executable.filter((script) =>
+              (script.textContent ?? "").includes("slidx-slide-nav"),
+            ).length,
+          };
+        });
+
+        expect(fetched).toBe(0);
+        expect(running).toBe(navigators);
+        expect(navigators).toBe(1);
       } finally {
         await browser.close();
       }
