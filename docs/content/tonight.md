@@ -169,6 +169,7 @@ reproduce rather than leaving a picture of something that no longer happens.
 | `←` `↑` `PageUp` `Backspace`       | Back                                        |
 | `Home` / `End`                     | First / last slide                          |
 | `Tab` then `Enter`                 | The `‹` and `›` in the footer               |
+| `f`                                | Fullscreen, and ask the screen to stay on   |
 
 These are the keys presentation remotes actually send, and they work on **every**
 slide — including one with nothing to reveal, which until recently was a page a
@@ -194,9 +195,13 @@ small rather than pictures of them, so what you are looking for looks the way
 you remember it — and the page runs nothing, because a slide is already a size
 container and putting one in a small box is the whole of drawing a thumbnail.
 
-**There is no blackout or fullscreen key yet.** They are worth having and they
-are not there; a list that promised them the night before a talk would be worse
-than a short list.
+`f` asks for the wake lock as well and does not mind being refused: a browser
+that will not hold the lock still gives you the screen. Both are the _browser's_
+to grant — nothing here can turn off Do Not Disturb, and `slidx doctor` names
+where that lives on your platform instead.
+
+**There is no blackout key yet.** It is worth having and it is not there; a list
+that promised it the night before a talk would be worse than a short list.
 
 ## Somebody is going to ask for the code
 
