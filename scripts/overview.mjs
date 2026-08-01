@@ -59,17 +59,17 @@ const TITLES = [
       "is one operation, one undo, and one line in the diff.",
   ],
   ["Two people, one file", "The dev server holds the one document, so a drag and a save merge."],
-  [
-    "Japanese, typeset",
-    "禁則処理、約物のアキ、文節での折り返し。行送りは欧文と別に決まります。",
-  ],
+  ["Japanese, typeset", "禁則処理、約物のアキ、文節での折り返し。行送りは欧文と別に決まります。"],
   [
     "The presenter view",
     "- The next slide, and your notes\n- A clock against the slot you declared\n" +
       "- Which optional slides to drop when you are behind",
   ],
   ["Exporting", "```bash\nslidx export --target pdf\n```\n\nPDF, PNG, PPTX, and the static site."],
-  ["Publishing", "Everything that needs no account, in one command — and the payload for the rest."],
+  [
+    "Publishing",
+    "Everything that needs no account, in one command — and the payload for the rest.",
+  ],
   ["Thank you", "Questions?"],
 ];
 
@@ -79,15 +79,27 @@ try {
   await mkdir(join(root, "slides"), { recursive: true });
   await writeFile(
     join(root, "slides", "0001.md"),
-    TITLES.map(([title, body], index) =>
-      `${index === 0 ? "---\ntitle: Making Decks Fast\nhashtag: slidx\n---\n\n# " : "## "}${title}\n\n${body}\n`,
+    TITLES.map(
+      ([title, body], index) =>
+        `${index === 0 ? "---\ntitle: Making Decks Fast\nhashtag: slidx\n---\n\n# " : "## "}${title}\n\n${body}\n`,
     ).join("\n---\n\n"),
   );
 
   const pages = join(root, "pages");
   execFileSync(
     "cargo",
-    ["run", "--release", "-q", "-p", "slidx_render", "--example", "preview", "--", join(root, "slides"), pages],
+    [
+      "run",
+      "--release",
+      "-q",
+      "-p",
+      "slidx_render",
+      "--example",
+      "preview",
+      "--",
+      join(root, "slides"),
+      pages,
+    ],
     { stdio: ["ignore", "ignore", "inherit"] },
   );
 
@@ -96,7 +108,18 @@ try {
   const overview = join(root, "overview.html");
   execFileSync(
     "cargo",
-    ["run", "--release", "-q", "-p", "slidx_render", "--example", "overview", "--", join(root, "slides"), overview],
+    [
+      "run",
+      "--release",
+      "-q",
+      "-p",
+      "slidx_render",
+      "--example",
+      "overview",
+      "--",
+      join(root, "slides"),
+      overview,
+    ],
     { stdio: ["ignore", "ignore", "inherit"] },
   );
 

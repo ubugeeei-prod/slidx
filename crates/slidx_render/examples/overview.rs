@@ -20,7 +20,8 @@ fn main() {
         .join("\n---\n\n");
 
     let deck = slidx_core::parse_deck(&source, &slidx_core::DeckParseOptions::default());
-    let html = slidx_render::overview::render_overview(&deck, &slidx_render::ShellOptions::default());
+    let html =
+        slidx_render::overview::render_overview(&deck, &slidx_render::ShellOptions::default());
 
     std::fs::write(&out, html).expect("writing the overview");
     println!("{} slides -> {out}", deck.slides.len());
