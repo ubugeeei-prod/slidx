@@ -16,11 +16,12 @@
 //! cannot see is what they meant to say about it.
 
 use slidx_core::{Deck, Slide};
-use slidx_theme::{css, Theme};
+use slidx_theme::{css, transition::Transition, Theme};
 
 use crate::markdown::{render, MarkdownOptions};
 use crate::presenter_layout;
 use crate::presenter_script;
+use crate::shell::{render_static_preview, ShellOptions};
 
 /// How to build the presenter page.
 #[derive(Debug, Clone)]
@@ -98,7 +99,10 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
   </section>
 
   <aside class="slidx-presenter-next" aria-label="Next slide">
-    <h2 class="slidx-presenter-label">Next</h2>
+    <header class="slidx-presenter-next-header">
+      <h2 class="slidx-presenter-label">Next</h2>
+      <span class="slidx-presenter-next-position">{next_position}</span>
+    </header>
 {next_preview}
   </aside>
 
@@ -134,7 +138,10 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
         number = slide.index + 1,
         count = deck.slides.len(),
         notes = notes_html(slide, options),
-        next_preview = next_preview(next, options),
+        next_position = next
+            .map(|next| format!("{} / {}", next.index + 1, deck.slides.len()))
+            .unwrap_or_default(),
+        next_preview = next_preview(deck, next, options),
         stops = stop_label(1, slide.timeline.frames().len()),
         script =
             presenter_script::render(deck, slide, &options.runtime_src, &options.rehearsal_src),
@@ -167,13 +174,18 @@ fn budget_label(deck: &Deck) -> String {
 }
 
 fn human_duration(seconds: u32) -> String {
-    let minutes = seconds / 60;
-    if minutes >= 60 && minutes % 60 == 0 {
-        format!("{}h", minutes / 60)
-    } else if minutes >= 60 {
-        format!("{}h {}m", minutes / 60, minutes % 60)
-    } else {
-        format!("{minutes}m")
+    let hours = seconds / 3_600;
+    let minutes = (seconds % 3_600) / 60;
+    let seconds = seconds % 60;
+
+    match (hours, minutes, seconds) {
+        (0, 0, seconds) => format!("{seconds}s"),
+        (0, minutes, 0) => format!("{minutes}m"),
+        (0, minutes, seconds) => format!("{minutes}m {seconds}s"),
+        (hours, 0, 0) => format!("{hours}h"),
+        (hours, minutes, 0) => format!("{hours}h {minutes}m"),
+        (hours, 0, seconds) => format!("{hours}h {seconds}s"),
+        (hours, minutes, seconds) => format!("{hours}h {minutes}m {seconds}s"),
     }
 }
 
@@ -189,15 +201,73 @@ fn notes_html(slide: &Slide, options: &PresenterOptions) -> String {
     slide.notes.iter().map(|note| render(note, &options.markdown)).collect::<Vec<_>>().join("\n")
 }
 
-/// A preview of what comes next, so the transition is never a surprise.
-fn next_preview(next: Option<&Slide>, options: &PresenterOptions) -> String {
+/// The actual next slide, isolated so a preview can never run authored code.
+fn next_preview(deck: &Deck, next: Option<&Slide>, options: &PresenterOptions) -> String {
     match next {
-        Some(slide) => format!(
-            "    <div class=\"slidx-presenter-preview\">\n{}\n    </div>",
-            render(&slide.content, &options.markdown)
-        ),
+        Some(slide) => {
+            let shell = ShellOptions {
+                theme: options.theme.clone(),
+                markdown: options.markdown,
+                include_runtime: false,
+                ..ShellOptions::default()
+            };
+            let preview = render_static_preview(deck, slide, &shell);
+            let (width, height) = deck.meta.aspect.dimensions();
+
+            format!(
+                concat!(
+                    "    <iframe class=\"slidx-presenter-preview\" ",
+                    "title=\"Next: {title}\" tabindex=\"-1\" sandbox ",
+                    "style=\"aspect-ratio: {width} / {height};\" ",
+                    "srcdoc=\"{preview}\"></iframe>\n",
+                    "{cues}",
+                ),
+                title = escape(&slide.display_title()),
+                width = width,
+                height = height,
+                preview = escape(&preview),
+                cues = delivery_cues(deck, slide),
+            )
+        }
         None => "    <p class=\"slidx-presenter-empty\">Last slide.</p>".to_string(),
     }
+}
+
+/// What the speaker needs to know before advancing, in glance order.
+fn delivery_cues(deck: &Deck, slide: &Slide) -> String {
+    let mut cues = Vec::with_capacity(3);
+
+    if slide.optional {
+        cues.push(("optional", "Safe to skip".to_string()));
+    }
+
+    if let Some(seconds) = slide.budget_seconds {
+        cues.push(("timing", format!("Plan · {}", human_duration(seconds))));
+    } else {
+        let estimate = slide.estimated_seconds();
+        if estimate > 0 {
+            cues.push(("timing", format!("Estimate · ≈ {}", human_duration(estimate))));
+        }
+    }
+
+    let transition = slide
+        .transition
+        .as_deref()
+        .or(deck.meta.transition.as_deref())
+        .and_then(Transition::parse)
+        .unwrap_or_default();
+    cues.push(("arrival", format!("Arrival · {}", transition.name())));
+
+    let items = cues
+        .into_iter()
+        .map(|(kind, label)| {
+            format!("      <li data-slidx-cue=\"{kind}\">{}</li>\n", escape(&label))
+        })
+        .collect::<String>();
+
+    format!(
+        "    <ul class=\"slidx-presenter-cues\" aria-label=\"Next slide delivery\">\n{items}    </ul>"
+    )
 }
 
 fn escape(text: &str) -> String {
@@ -232,6 +302,80 @@ mod tests {
         // A transition should never be a surprise to the person causing it.
         let html = presenter("# One\n\n---\n\n# Two\n", 0);
         assert!(html.contains("Two"));
+        assert!(html.contains("<iframe class=\"slidx-presenter-preview\""));
+        assert!(html.contains("sandbox"));
+        assert!(html.contains("tabindex=\"-1\""));
+    }
+
+    #[test]
+    fn the_next_preview_uses_the_same_layout_frame_as_the_audience() {
+        let html =
+            presenter("# One\n\n---\nlayout: split\n---\n\n# Left\n\n{.right}\nBeside it.\n", 0);
+        let preview = preview_srcdoc(&html);
+
+        assert!(preview.contains("data-slidx-layout=&quot;split&quot;"), "wrong frame:\n{preview}");
+        assert!(
+            preview.contains("data-slidx-region=&quot;right&quot;"),
+            "no right region:\n{preview}"
+        );
+        assert!(preview.contains("Beside it."));
+    }
+
+    #[test]
+    fn the_next_preview_is_inert_even_when_the_slide_is_not() {
+        let html = presenter(
+            concat!(
+                "# One\n\n",
+                "---\n",
+                "transition: fade\n",
+                "camera: body\n",
+                "demo:\n",
+                "  live: https://app.example.com\n",
+                "  fallback: ./demo.mp4\n",
+                "---\n\n",
+                "# Live\n\n",
+                "- first <!-- step -->\n",
+            ),
+            0,
+        );
+        let preview = preview_srcdoc(&html);
+
+        for marker in [
+            "&lt;script",
+            "&lt;figure class=&quot;slidx-demo",
+            "&lt;figure class=&quot;slidx-camera",
+            "@view-transition",
+        ] {
+            assert!(!preview.contains(marker), "preview contains {marker}:\n{preview}");
+        }
+        assert!(!preview.contains("https://app.example.com"));
+    }
+
+    #[test]
+    fn the_next_slide_carries_its_delivery_plan() {
+        let html = presenter(
+            concat!(
+                "---\ntransition: push\n---\n\n",
+                "# One\n\n",
+                "---\ntransition: fade\nbudget: 90s\noptional: true\n---\n\n",
+                "# Two\n",
+            ),
+            0,
+        );
+
+        assert!(html.contains("Safe to skip"));
+        assert!(html.contains("Plan · 1m 30s"));
+        assert!(html.contains("Arrival · Fade"));
+        assert!(html.contains("2 / 2"));
+    }
+
+    #[test]
+    fn notes_supply_an_estimate_when_the_next_slide_has_no_plan() {
+        let html =
+            presenter("# One\n\n---\n\n# Two\n\n<!-- notes: one two three four five -->\n", 0);
+
+        assert!(html.contains("Estimate · ≈ 2s"), "estimate absent:\n{html}");
+        assert!(html.contains("Arrival · Cut"));
     }
 
     #[test]
@@ -264,6 +408,12 @@ mod tests {
     fn a_long_budget_reads_in_hours() {
         assert!(presenter("---\nduration: 90m\n---\n\n# One\n", 0).contains("of 1h 30m"));
         assert!(presenter("---\nduration: 120m\n---\n\n# One\n", 0).contains("of 2h"));
+    }
+
+    #[test]
+    fn a_partial_minute_keeps_the_seconds_the_speaker_planned() {
+        assert_eq!(human_duration(90), "1m 30s");
+        assert_eq!(human_duration(45), "45s");
     }
 
     #[test]
@@ -380,5 +530,11 @@ mod tests {
 
         assert!(!html.contains("<title>Presenter — a <script>"));
         assert!(html.contains("&lt;script&gt;"));
+    }
+
+    fn preview_srcdoc(html: &str) -> &str {
+        let start = html.find("srcdoc=\"").expect("a preview srcdoc") + "srcdoc=\"".len();
+        let rest = &html[start..];
+        &rest[..rest.find('\"').expect("a closed srcdoc attribute")]
     }
 }

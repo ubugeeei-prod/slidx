@@ -12,9 +12,11 @@ function recording() {
     calls.push({ url, init });
     const body = url.endsWith("measured")
       ? []
-      : url.endsWith("media")
-        ? { kind: "image", src: "/slides/assets/chart.png", alt: "chart" }
-        : deck;
+      : url.endsWith("share")
+        ? { enabled: true, read: "https://deck.example/__slidx/#s=viewer" }
+        : url.endsWith("media")
+          ? { kind: "image", src: "/slides/assets/chart.png", alt: "chart" }
+          : deck;
     return new Response(JSON.stringify(body), {
       status: 200,
       headers: { "content-type": "application/json" },
@@ -67,7 +69,38 @@ describe("the editor client on a shared deck", () => {
     });
 
     await client.deck();
+    await client.sharing!();
 
     expect(sent.calls[0]!.init?.headers).toEqual({});
+    expect(sent.calls[1]).toMatchObject({ url: "/__slidx/share", init: { headers: {} } });
+  });
+
+  it("turns an invalid share capability into an open failure the workspace can name", async () => {
+    const client = createClient({
+      fetch: (() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ message: "This deck is shared by link." }), {
+            status: 403,
+            headers: { "content-type": "application/json" },
+          }),
+        )) as typeof globalThis.fetch,
+      href: "https://deck.example/__slidx/#s=invalid",
+    });
+
+    await expect(client.deck()).rejects.toThrow("shared by link");
+  });
+
+  it("treats the local-only handoff route as absent in an invited browser", async () => {
+    let calls = 0;
+    const client = createClient({
+      fetch: (() => {
+        calls += 1;
+        return Promise.resolve(new Response("{}", { status: 403 }));
+      }) as typeof globalThis.fetch,
+      href: "https://deck.example/__slidx/#s=viewer",
+    });
+
+    await expect(client.sharing!()).resolves.toBeNull();
+    expect(calls).toBe(0);
   });
 });

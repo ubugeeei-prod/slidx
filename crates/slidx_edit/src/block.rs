@@ -36,8 +36,12 @@ use crate::op::{BlockRef, EditError, SlideRef};
 use crate::source::DeckSource;
 
 mod duplicate;
+mod insert;
+mod remove;
 
 pub(crate) use duplicate::duplicate;
+pub(crate) use insert::insert;
+pub(crate) use remove::remove;
 
 pub(crate) struct StyleKey {
     pub key: String,

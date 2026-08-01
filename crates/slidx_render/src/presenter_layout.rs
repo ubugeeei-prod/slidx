@@ -156,15 +156,27 @@ html, body {
 
 .slidx-presenter-next {
   grid-area: next;
+  align-self: start;
+  display: grid;
+  grid-template-rows: auto auto auto;
+  align-content: start;
+  gap: 0.8rem;
   padding: 1.1rem 1.25rem;
   background: var(--slidx-color-surface);
   border: var(--slidx-hairline) solid var(--slidx-color-border);
   border-radius: var(--slidx-radius);
-  overflow: hidden;
+  overflow-y: auto;
+}
+
+.slidx-presenter-next-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .slidx-presenter-label {
-  margin: 0 0 0.75rem;
+  margin: 0;
   font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -172,26 +184,52 @@ html, body {
   color: var(--slidx-color-muted);
 }
 
+.slidx-presenter-next-position {
+  color: var(--slidx-color-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
 /*
- * The preview is scaled down rather than reflowed, so it reads as a smaller
- * copy of the next slide instead of as a different slide.
+ * The iframe gets the slide's aspect ratio and the normal audience renderer
+ * sizes its frame to that viewport. It is therefore a real scaled slide, not
+ * Markdown reflowed into the presenter's narrow column.
  */
 .slidx-presenter-preview {
-  font-size: 0.72rem;
-  line-height: 1.4;
+  display: block;
+  width: min(100%, 34rem);
+  height: auto;
+  margin-inline: auto;
+  background: var(--slidx-color-canvas);
+  border: var(--slidx-hairline) solid var(--slidx-color-border);
+  border-radius: calc(var(--slidx-radius) * 0.7);
+  pointer-events: none;
+}
+
+.slidx-presenter-cues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.slidx-presenter-cues li {
+  padding: 0.35rem 0.55rem;
   color: var(--slidx-color-muted);
+  background: var(--slidx-color-canvas);
+  border: var(--slidx-hairline) solid var(--slidx-color-border);
+  border-radius: calc(var(--slidx-radius) * 0.7);
+  font-size: 0.78rem;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
 }
 
-.slidx-presenter-preview h1,
-.slidx-presenter-preview h2,
-.slidx-presenter-preview h3 {
-  font-size: 1.5em;
-  margin: 0 0 0.4em;
+.slidx-presenter-cues [data-slidx-cue="optional"] {
   color: var(--slidx-color-text);
+  font-weight: 600;
 }
-
-.slidx-presenter-preview ul { padding-left: 1.2em; margin: 0; }
-.slidx-presenter-preview pre { display: none; }
 
 .slidx-presenter-empty {
   color: var(--slidx-color-muted);
@@ -251,10 +289,14 @@ html, body {
 @media (max-width: 720px) {
   .slidx-presenter {
     grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto auto;
     grid-template-areas: "bar" "next" "notes" "report";
+    align-content: start;
   }
 
   .slidx-presenter-divider { display: none; }
+
+  .slidx-presenter-preview { width: 100%; }
 }
 "#;
 
@@ -298,6 +340,7 @@ mod tests {
     #[test]
     fn it_collapses_to_one_column_on_a_phone() {
         assert!(STYLESHEET.contains("@media (max-width: 720px)"));
+        assert!(STYLESHEET.contains("grid-template-rows: auto auto auto auto"));
     }
 
     #[test]

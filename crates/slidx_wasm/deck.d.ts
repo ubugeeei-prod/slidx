@@ -155,6 +155,35 @@ export type BuildResult = {
    */
   durationSeconds?: number;
   /**
+   * The theme that actually rendered this build.
+   *
+   * Separate from the authored `theme:` value because build configuration
+   * may deliberately override the file. The editor uses this to mark the
+   * card that agrees with the canvas rather than guessing from frontmatter.
+   */
+  activeTheme: string;
+  /**
+   * Whether build configuration, rather than this deck, chose the theme.
+   *
+   * A locked picker explains why a source edit would not change the canvas
+   * instead of offering a control whose result is immediately overridden.
+   */
+  themeLocked: boolean;
+  /**
+   * Themes the active pipeline can render, in picker order.
+   *
+   * Built-ins come first, followed by installed packages after they have
+   * been hardened and audited by the same catalogue the renderer uses.
+   */
+  themes: Array<ThemeChoice>;
+  /**
+   * Slide transitions the active renderer implements, in picker order.
+   *
+   * The visual editor does not carry a second list: adding a renderer
+   * transition makes it appear here in the same build.
+   */
+  transitions: Array<TransitionChoice>;
+  /**
    * Layouts the active pipeline can render, in picker order.
    *
    * The editor draws this list instead of carrying built-in names. A layout
@@ -228,6 +257,42 @@ export type LayoutChoice = {
    * CSS grid-template-rows.
    */
   rows: string;
+};
+
+/**
+ * One theme as the visual editor needs to choose it.
+ */
+export type ThemeChoice = {
+  /**
+   * What `theme:` stores.
+   */
+  id: string;
+  name: string;
+  /**
+   * One line explaining which kind of talk the theme serves.
+   */
+  description: string;
+  light: ThemePaletteChoice;
+  dark: ThemePaletteChoice;
+  /**
+   * The actual stacks a slide uses, so the miniature previews typography as
+   * well as colour without the editor restating a font decision.
+   */
+  fontSans: string;
+  fontMono: string;
+};
+
+/**
+ * The roles a theme card draws, already converted to browser-ready colours.
+ */
+export type ThemePaletteChoice = {
+  surface: string;
+  text: string;
+  muted: string;
+  heading: string;
+  accent: string;
+  codeSurface: string;
+  codeText: string;
 };
 
 /**

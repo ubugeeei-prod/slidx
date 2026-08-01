@@ -10,6 +10,7 @@ import type { CanvasSurface } from "./canvas";
 import { element } from "./dom";
 import type { Surface } from "./outline";
 import type { Session } from "./session";
+import { resolveTextStyle, textStyleOperation, toggleTextWeight } from "./text-inspector";
 
 interface Shortcut {
   keys: string[];
@@ -34,9 +35,11 @@ const REFERENCE: ShortcutGroup[] = [
   {
     label: "Editing",
     shortcuts: [
+      { keys: ["⌘/Ctrl", "K"], label: "Search commands and slides" },
       { keys: ["⌘/Ctrl", "Z"], label: "Undo" },
       { keys: ["⇧", "⌘/Ctrl", "Z"], label: "Redo" },
       { keys: ["Ctrl", "Y"], label: "Redo" },
+      { keys: ["⌘/Ctrl", "B"], label: "Toggle bold on selected words" },
       { keys: ["⌘/Ctrl", "D"], label: "Duplicate the selected block, or the slide" },
       { keys: ["↑", "↓"], label: "Move the selected block up or down its region" },
     ],
@@ -47,8 +50,9 @@ const REFERENCE: ShortcutGroup[] = [
       { keys: ["⌘/Ctrl", "C"], label: "Copy the selected slide" },
       { keys: ["⌘/Ctrl", "V"], label: "Paste the copied slide" },
       { keys: ["⌘/Ctrl", "M"], label: "Add slide" },
+      { keys: ["A"], label: "Add content" },
       { keys: ["⌥/Alt", "↑", "↓"], label: "Move the focused slide" },
-      { keys: ["⌫/Delete"], label: "Remove the focused slide" },
+      { keys: ["⌫/Delete"], label: "Remove the selected block, or the focused slide" },
     ],
   },
   {
@@ -56,10 +60,15 @@ const REFERENCE: ShortcutGroup[] = [
     shortcuts: [
       { keys: ["V"], label: "Visual mode" },
       { keys: ["T"], label: "Edit slide text" },
+      { keys: ["N"], label: "Write speaker notes" },
       { keys: ["M"], label: "Markdown mode" },
+      { keys: ["F"], label: "Focus canvas / restore workspace" },
+      { keys: ["⌘/Ctrl", "−"], label: "Zoom canvas out" },
+      { keys: ["⌘/Ctrl", "+"], label: "Zoom canvas in" },
+      { keys: ["⌘/Ctrl", "0"], label: "Fit canvas to workspace" },
       { keys: ["P"], label: "Open presenter view" },
       { keys: ["?"], label: "Keyboard shortcuts" },
-      { keys: ["Esc"], label: "Close keyboard shortcuts" },
+      { keys: ["Esc"], label: "Finish text styling or close the active surface" },
     ],
   },
 ];
@@ -71,6 +80,10 @@ export interface ShortcutSurface extends Surface {
 }
 
 export interface ShortcutActions {
+  /** Creates the default narrative slide through the same route as visible UI. */
+  addSlide(): void;
+  focusCanvas(): void;
+  canvasFocused(): boolean;
   present(): void;
   /**
    * Moves the selected block, answering false when nothing could be measured.
@@ -157,12 +170,52 @@ export function createShortcuts(
       // separators, range inputs and future canvas controls mark a handled key
       // this way; treating it as a global command as well would resize a panel
       // and page the deck in the same press.
-      if (event.defaultPrevented || event.isComposing || event.repeat || writingIn(event)) return;
+      if (event.defaultPrevented || event.isComposing || event.repeat) return;
 
       const key = event.key.toLowerCase();
       const primary = event.metaKey || event.ctrlKey;
+      const state = session.state();
+      const canEdit = state.canEdit !== false;
+
+      if (key === "escape" && !dialog.hidden) {
+        handled(event, hide);
+        return;
+      }
+
+      // Native rich-text commands change only the live contenteditable DOM.
+      // They neither reach Markdown nor survive the next render. Bold is a
+      // real deck operation here, and an unsafe selection is still swallowed
+      // inside contenteditable so the browser cannot draw a phantom change.
+      if (primary && key === "b") {
+        if (inField(event)) return;
+        const resolved = resolveTextStyle(state, {
+          bodyOf: (slide) => session.bodyOf(slide),
+          blocksOf: (slide) => session.blocksOf(slide),
+        });
+        const target = "target" in resolved ? resolved.target : undefined;
+        if (!target && !inContenteditable(event)) return;
+
+        event.preventDefault();
+        if (!target || !canEdit || state.writing) return;
+        void session.run(textStyleOperation(target, toggleTextWeight(target.attributes)));
+        return;
+      }
+
+      // Escape completes the contextual selection mode even while focus is in
+      // the canvas document. Both the logical and browser selections go away,
+      // leaving the selected block in place for the next authoring gesture.
+      if (key === "escape" && state.selection.text) {
+        handled(event, () => {
+          canvas.finishTextSelection();
+          session.select({ text: undefined, range: undefined });
+        });
+        return;
+      }
+
+      if (writingIn(event)) return;
 
       if (primary && key === "z") {
+        if (!canEdit) return;
         handled(event, () => void (event.shiftKey ? session.redo() : session.undo()));
         return;
       }
@@ -180,6 +233,7 @@ export function createShortcuts(
       // another one of this" is one intention and the selection already says
       // what "this" is.
       if (primary && key === "d") {
+        if (!canEdit) return;
         handled(event, () => {
           const { slide, block } = session.state().selection;
           if (session.state().slides.length === 0) return;
@@ -194,10 +248,23 @@ export function createShortcuts(
       }
 
       if (primary && key === "m") {
-        handled(event, () => {
-          const at = Math.min(session.state().selection.slide + 1, session.state().slides.length);
-          void session.run({ op: "insertSlide", at, body: "## New slide" });
-        });
+        if (!canEdit) return;
+        handled(event, () => actions.addSlide());
+        return;
+      }
+
+      if (primary && key === "-") {
+        handled(event, () => canvas.zoomOut());
+        return;
+      }
+
+      if (primary && (key === "+" || key === "=")) {
+        handled(event, () => canvas.zoomIn());
+        return;
+      }
+
+      if (primary && key === "0") {
+        handled(event, () => canvas.zoomFit());
         return;
       }
 
@@ -208,8 +275,8 @@ export function createShortcuts(
 
       if (primary || event.shiftKey) return;
 
-      if (key === "escape" && !dialog.hidden) {
-        handled(event, hide);
+      if (key === "escape" && actions.canvasFocused()) {
+        handled(event, () => actions.focusCanvas());
         return;
       }
 
@@ -219,12 +286,29 @@ export function createShortcuts(
       }
 
       if (key === "t") {
+        if (!canEdit) return;
         handled(event, () => canvas.focusText());
+        return;
+      }
+
+      if (key === "n") {
+        handled(event, () => canvas.focusNotes());
+        return;
+      }
+
+      if (!inOutline(event) && key === "a") {
+        if (!canEdit) return;
+        handled(event, () => canvas.addContent());
         return;
       }
 
       if (key === "m") {
         handled(event, () => canvas.showMarkdown());
+        return;
+      }
+
+      if (key === "f") {
+        handled(event, () => actions.focusCanvas());
         return;
       }
 
@@ -255,7 +339,7 @@ export function createShortcuts(
       // Neither happens inside the outline: it has its own arrows, and its own
       // reasons for them.
       if (!inOutline(event) && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
-        const block = session.state().selection.block;
+        const block = canEdit ? session.state().selection.block : undefined;
 
         if (block === undefined) {
           handled(event, () => selectBy(session, event.key === "ArrowLeft" ? -1 : 1));
@@ -264,6 +348,7 @@ export function createShortcuts(
       }
 
       if (!inOutline(event) && event.key.startsWith("Arrow")) {
+        if (!canEdit) return;
         const block = session.state().selection.block;
         if (block === undefined || actions.nudge === undefined) return;
 
@@ -275,9 +360,22 @@ export function createShortcuts(
         return;
       }
 
+      if (!inOutline(event) && (key === "backspace" || key === "delete")) {
+        if (!canEdit) return;
+        const { slide, block } = session.state().selection;
+        if (block === undefined) return;
+
+        handled(event, () => {
+          void session.run({ op: "removeBlock", slide, block });
+          session.select({ block: undefined, range: undefined, text: undefined });
+        });
+        return;
+      }
+
       if (!inOutline(event)) return;
 
       if (key === "arrowup" || key === "arrowdown") {
+        if (event.altKey && !canEdit) return;
         handled(event, () => {
           const by = key === "arrowup" ? -1 : 1;
           if (event.altKey) moveBy(session, by);
@@ -287,6 +385,7 @@ export function createShortcuts(
       }
 
       if (key === "backspace" || key === "delete") {
+        if (!canEdit) return;
         handled(event, () => {
           const state = session.state();
           if (state.slides.length > 1) {
@@ -385,13 +484,22 @@ function eventDocument(event: KeyboardEvent | ClipboardEvent): Document | undefi
 }
 
 function writingIn(event: KeyboardEvent | ClipboardEvent): boolean {
+  return inField(event) || inContenteditable(event);
+}
+
+function inField(event: KeyboardEvent | ClipboardEvent): boolean {
+  return within(event, "input, textarea, select");
+}
+
+function inContenteditable(event: KeyboardEvent | ClipboardEvent): boolean {
+  return within(event, "[contenteditable]:not([contenteditable='false'])");
+}
+
+function within(event: KeyboardEvent | ClipboardEvent, selector: string): boolean {
   return [event.target, eventDocument(event)?.activeElement].some((candidate) => {
     if (!candidate || (candidate as Node).nodeType !== Node.ELEMENT_NODE) return false;
     const element = candidate as Element;
-    return (
-      element.matches("input, textarea, select") ||
-      element.closest("[contenteditable]:not([contenteditable='false'])") !== null
-    );
+    return element.matches(selector) || element.closest(selector) !== null;
   });
 }
 

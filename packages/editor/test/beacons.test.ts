@@ -47,11 +47,16 @@ function state(slide = 0, viewers: Viewer[] = []): EditorState {
     spans: [],
     slides: [],
     layouts: [],
+    activeTheme: "",
+    themeLocked: false,
+    themes: [],
+    transitions: [],
     diagnostics: [],
     selection: { slide },
     viewers,
     canUndo: false,
     canRedo: false,
+    writing: false,
   };
 }
 

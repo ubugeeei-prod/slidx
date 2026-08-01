@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vite-plus/test";
 
-import { insetOf, manipulateFrame } from "../src/freeform-geometry";
+import { alignedFrame, frameAnchorOf, insetOf, manipulateFrame } from "../src/freeform-geometry";
 import type { BlockBox, Rect, SlideGeometry } from "../src/geometry";
 
 const SAFE: Rect = { left: 100, top: 100, width: 800, height: 400 };
@@ -32,6 +32,32 @@ function geometry(): SlideGeometry {
 describe("freeform geometry", () => {
   it("stores a stable four-side value in safe-area percentages", () => {
     expect(insetOf(SELECTED, SAFE)).toBe("12.5% 50% 62.5% 12.5%");
+  });
+
+  it("places a frame on the safe area's nine exact anchors without resizing it", () => {
+    expect(alignedFrame(SELECTED, SAFE, "top-left")).toEqual({
+      left: 100,
+      top: 100,
+      width: 300,
+      height: 100,
+    });
+    expect(alignedFrame(SELECTED, SAFE, "middle-center")).toEqual({
+      left: 350,
+      top: 250,
+      width: 300,
+      height: 100,
+    });
+    expect(alignedFrame(SELECTED, SAFE, "bottom-right")).toEqual({
+      left: 600,
+      top: 400,
+      width: 300,
+      height: 100,
+    });
+  });
+
+  it("recognises only an exact safe-area anchor", () => {
+    expect(frameAnchorOf(alignedFrame(SELECTED, SAFE, "middle-right"), SAFE)).toBe("middle-right");
+    expect(frameAnchorOf(SELECTED, SAFE)).toBeUndefined();
   });
 
   it("clamps a move to the safe area", () => {

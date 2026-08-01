@@ -37,6 +37,41 @@ pub(crate) fn set_field(
     Ok(())
 }
 
+/// Removes one top-level key and exactly one adjacent line ending.
+///
+/// The delimiters stay even when this was the block's only key. Removing them
+/// would be a larger structural edit than the gesture asked for, while an
+/// empty frontmatter block is already valid input to the parser.
+pub(crate) fn remove_field(
+    deck: &DeckSource<'_>,
+    slide: &SlideRef,
+    key: &str,
+    builder: &mut EditBuilder<'_>,
+) -> Result<(), EditError> {
+    let index = deck.resolve(slide)?;
+    let Some(block) = deck.at(index).frontmatter else {
+        return Ok(());
+    };
+    let text = block.slice(deck.source);
+    let Some(found) = entry(text, key) else {
+        return Ok(());
+    };
+
+    let mut span = found.whole;
+    if text[span.end..].starts_with("\r\n") {
+        span.end += 2;
+    } else if text[span.end..].starts_with('\n') {
+        span.end += 1;
+    } else if text[..span.start].ends_with("\r\n") {
+        span.start -= 2;
+    } else if text[..span.start].ends_with('\n') {
+        span.start -= 1;
+    }
+
+    builder.delete(span.shifted(block.start));
+    Ok(())
+}
+
 /// Writes `key:` followed by `value`, which carries its own leading space or
 /// newline because a scalar and a block list need different ones.
 pub(crate) fn write_key(

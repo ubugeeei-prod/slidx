@@ -248,4 +248,21 @@ describe("media drag and drop", () => {
     expect(MEDIA_DROP_STYLESHEET).toContain("var(--slidx-e-hairline) solid");
     expect(MEDIA_DROP_STYLESHEET).not.toMatch(/box-shadow|(?:linear|radial)-gradient/);
   });
+
+  it("leaves the canvas optically untouched until a file is being dragged", () => {
+    const inactive = MEDIA_DROP_STYLESHEET.slice(
+      MEDIA_DROP_STYLESHEET.indexOf(".slidx-media-drop {"),
+      MEDIA_DROP_STYLESHEET.indexOf("}", MEDIA_DROP_STYLESHEET.indexOf(".slidx-media-drop {")),
+    );
+    const active = MEDIA_DROP_STYLESHEET.slice(
+      MEDIA_DROP_STYLESHEET.indexOf('.slidx-media-drop[data-active="true"] {'),
+      MEDIA_DROP_STYLESHEET.indexOf(
+        "}",
+        MEDIA_DROP_STYLESHEET.indexOf('.slidx-media-drop[data-active="true"] {'),
+      ),
+    );
+
+    expect(inactive).toContain("background: transparent");
+    expect(active).toContain("background: color-mix");
+  });
 });

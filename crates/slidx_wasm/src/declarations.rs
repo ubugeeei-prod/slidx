@@ -53,7 +53,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use crate::summary::DeckSummary;
 use crate::{
     AssetSize, BuildOptions, BuildResult, BuiltSlide, Finding, LayoutChoice, SnippetFile,
-    ThemePackage,
+    ThemeChoice, ThemePackage, ThemePaletteChoice,
 };
 
 // Appended verbatim to the `.d.ts` wasm-bindgen writes, which is how the types
@@ -101,6 +101,8 @@ pub fn generate() -> String {
     push::<ThemePackage>(&mut file, &cfg);
     push::<BuildResult>(&mut file, &cfg);
     push::<LayoutChoice>(&mut file, &cfg);
+    push::<ThemeChoice>(&mut file, &cfg);
+    push::<ThemePaletteChoice>(&mut file, &cfg);
     push::<BuiltSlide>(&mut file, &cfg);
     push::<Finding>(&mut file, &cfg);
     push::<SnippetFile>(&mut file, &cfg);
@@ -298,6 +300,10 @@ mod tests {
             title: None,
             description: None,
             duration_seconds: None,
+            active_theme: String::new(),
+            theme_locked: false,
+            themes: Vec::new(),
+            transitions: Vec::new(),
             layouts: Vec::new(),
             slides: Vec::new(),
             diagnostics: Vec::new(),

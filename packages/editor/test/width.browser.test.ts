@@ -104,10 +104,15 @@ function state(): EditorState {
     spans: [],
     slides: [],
     layouts: [],
+    activeTheme: "",
+    themeLocked: false,
+    themes: [],
+    transitions: [],
     diagnostics: [],
     selection: { slide: 0 },
     viewers: [],
     canUndo: false,
     canRedo: false,
+    writing: false,
   };
 }

@@ -81,6 +81,7 @@ const OPERATIONS = {
   setBody: { op: "setBody", slide: 2, body: "## Numbers\n\nLatency dropped to 38ms.\n" },
   setText: { op: "setText", slide: 2, range: spanOf(THIRD_BODY, "120ms"), text: "38ms" },
   setField: { op: "setField", slide: 1, key: "budget", value: "90s" },
+  removeField: { op: "removeField", slide: 0, key: "duration" },
   setStyle: { op: "setStyle", slide: 1, property: "layout", value: "aside" },
   setBlockStyle: {
     op: "setBlockStyle",
@@ -91,8 +92,11 @@ const OPERATIONS = {
   },
   setNotes: { op: "setNotes", slide: 0, notes: "Open with the outcome." },
   insertSlide: { op: "insertSlide", at: 1, body: "## Inserted\n" },
+  createSlide: { op: "createSlide", at: 1, kind: "comparison" },
   duplicateSlide: { op: "duplicateSlide", slide: 1 },
+  insertBlock: { op: "insertBlock", slide: 1, at: 1, kind: "quote" },
   duplicateBlock: { op: "duplicateBlock", slide: 1, block: 1 },
+  removeBlock: { op: "removeBlock", slide: 1, block: 1 },
   removeSlide: { op: "removeSlide", slide: 1 },
   moveSlide: { op: "moveSlide", slide: 2, to: 0 },
   addMark: {

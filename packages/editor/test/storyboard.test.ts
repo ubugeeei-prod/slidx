@@ -77,11 +77,16 @@ function stateOf(over: Partial<EditorState> = {}): EditorState {
     spans: [],
     slides: slides(),
     layouts: [],
+    activeTheme: "",
+    themeLocked: false,
+    themes: [],
+    transitions: [],
     diagnostics: [],
     selection: { slide: 1 },
     viewers: [],
     canUndo: false,
     canRedo: false,
+    writing: false,
     durationSeconds: 300,
     ...over,
   };
@@ -401,6 +406,16 @@ describe("the storyboard", () => {
       .dispatchEvent(new Event("blur"));
 
     expect(log.ops).toEqual([]);
+  });
+
+  it("removes a budget when the author clears it", () => {
+    const { log, root } = open();
+    const budget = rowsIn(root)[0]!.querySelector<HTMLInputElement>(".slidx-sb-budget")!;
+
+    budget.value = "";
+    budget.dispatchEvent(new Event("blur"));
+
+    expect(log.ops).toEqual([{ op: "removeField", slide: 0, key: "budget" }]);
   });
 
   it("keeps its keys to itself while a message is being typed", () => {

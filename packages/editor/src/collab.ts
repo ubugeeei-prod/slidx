@@ -30,8 +30,8 @@
  * every other editor request does.
  */
 
-import { element, fill } from "./dom";
 import type { Surface } from "./outline";
+import { createPresenceView } from "./presence-view";
 import type { EditorState } from "./session";
 
 export interface PresenceOptions {
@@ -94,12 +94,10 @@ export function createPresence(options: PresenceOptions): Surface {
   const base = options.base ?? "/__slidx/";
   const send = options.fetch ?? globalThis.fetch.bind(globalThis);
   const credential = readCredential(options.href ?? location.href);
-
-  const list = element("ul", { class: "slidx-presence-list" });
-  const root = element("aside", { class: "slidx-presence", "data-empty": true }, [
-    element("span", { class: "slidx-presence-label" }, ["Editing together"]),
-    list,
-  ]);
+  const view = createPresenceView(
+    typeof options.follow === "function" ? (seat) => options.follow?.(seat) : undefined,
+  );
+  const { root } = view;
 
   let seat: string | undefined;
   /** The roster as the stream last gave it, and the seat being followed. */
@@ -124,57 +122,7 @@ export function createPresence(options: PresenceOptions): Surface {
   const headers: Record<string, string> = credential ? { [CREDENTIAL_HEADER]: credential } : {};
 
   function draw(): void {
-    // Nobody else connected means no new chrome at all. An author working alone
-    // should not have to look at a panel telling them they are alone.
-    root.setAttribute("data-empty", String(shown.length < 2));
-
-    fill(
-      list,
-      shown.map((viewer) => element("li", { class: "slidx-presence-who" }, [row(viewer)])),
-    );
-  }
-
-  /**
-   * One person, and the way to go and stand where they are.
-   *
-   * A button for everybody but the author, whose own row is text: following
-   * yourself is not a thing anybody means, and a control that does nothing is
-   * worse than no control.
-   */
-  function row(viewer: Viewer): HTMLElement {
-    const inside = [
-      element("span", { class: "slidx-presence-name" }, [viewer.label]),
-      element("span", { class: "slidx-presence-where" }, [`slide ${viewer.slide + 1}`]),
-      ...(viewer.canEdit ? [] : [element("span", { class: "slidx-presence-role" }, ["reading"])]),
-    ];
-
-    if (viewer.local || options.follow === undefined) {
-      return element("span", { class: "slidx-presence-seat", "data-local": viewer.local }, inside);
-    }
-
-    const button = element(
-      "button",
-      {
-        class: "slidx-presence-seat",
-        type: "button",
-        "data-local": false,
-        // Written out either way. A toggle with no `aria-pressed` when it is
-        // off is not announced as a toggle at all, and this one is the only
-        // way to tell a followed seat from a followable one.
-        "aria-pressed": String(viewer.id === following),
-        title:
-          viewer.id === following ? `Stop following ${viewer.label}` : `Follow ${viewer.label}`,
-      },
-      inside,
-    );
-
-    // Pressing the one already followed is how following stops, so the control
-    // is the same shape going both ways.
-    button.addEventListener("click", () =>
-      options.follow?.(viewer.id === following ? undefined : viewer.id),
-    );
-
-    return button;
+    view.draw(shown, following);
   }
 
   function heard(event: string, payload: Record<string, unknown>): void {
@@ -252,6 +200,7 @@ export function createPresence(options: PresenceOptions): Surface {
     destroy() {
       stopped = true;
       live?.abort();
+      view.destroy();
 
       if (waking) {
         clearTimeout(waking.timer);

@@ -11,6 +11,21 @@ import type { Rect, SlideGeometry } from "./geometry";
 
 export type FrameHandle = "move" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w" | "nw";
 
+/** Nine deliberate places a frame can occupy inside the slide's safe area. */
+export const FRAME_ANCHORS = [
+  "top-left",
+  "top-center",
+  "top-right",
+  "middle-left",
+  "middle-center",
+  "middle-right",
+  "bottom-left",
+  "bottom-center",
+  "bottom-right",
+] as const;
+
+export type FrameAnchor = (typeof FRAME_ANCHORS)[number];
+
 export interface FrameGuide {
   kind: "safe" | "block";
   axis: "x" | "y";
@@ -20,6 +35,33 @@ export interface FrameGuide {
 export interface ManipulatedFrame {
   rect: Rect;
   guides: FrameGuide[];
+}
+
+/** Places a frame exactly without changing the size the author already chose. */
+export function alignedFrame(rect: Rect, safe: Rect, anchor: FrameAnchor): Rect {
+  const [vertical, horizontal] = anchor.split("-") as [
+    "top" | "middle" | "bottom",
+    "left" | "center" | "right",
+  ];
+  const left =
+    horizontal === "left"
+      ? safe.left
+      : horizontal === "center"
+        ? safe.left + (safe.width - rect.width) / 2
+        : safe.left + safe.width - rect.width;
+  const top =
+    vertical === "top"
+      ? safe.top
+      : vertical === "middle"
+        ? safe.top + (safe.height - rect.height) / 2
+        : safe.top + safe.height - rect.height;
+
+  return { ...rect, left, top };
+}
+
+/** The exact safe-area anchor a frame currently occupies, when it occupies one. */
+export function frameAnchorOf(rect: Rect, safe: Rect): FrameAnchor | undefined {
+  return FRAME_ANCHORS.find((anchor) => sameFrame(rect, alignedFrame(rect, safe, anchor)));
 }
 
 /** Small enough to stay useful, large enough that every handle remains distinct. */

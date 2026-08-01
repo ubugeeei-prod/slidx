@@ -8,14 +8,22 @@
  */
 
 import { describe, expect, it } from "vite-plus/test";
+import type { IncomingMessage, ServerResponse } from "node:http";
 
 import {
+  CREDENTIAL_COOKIE,
+  CREDENTIAL_HEADER,
   createSharing,
+  grantForRequest,
   isLoopback,
+  rememberReadAccess,
   Grant,
   SHARE_EDIT_VARIABLE,
+  SHARE_ORIGIN_VARIABLE,
   SHARE_VARIABLE,
 } from "../src/share";
+import { resolveOptions } from "../src/options";
+import { createEditSession } from "../src/session";
 
 /** A pairing of the shape `slidx dev --crdt` mints. */
 const SESSION = "0123456789abcdef";
@@ -33,6 +41,10 @@ function sharing(environment: Record<string, string> = {}) {
 
 function shared() {
   return sharing({ [SHARE_VARIABLE]: READ_LINK, [SHARE_EDIT_VARIABLE]: EDIT_LINK });
+}
+
+function request(headers: Record<string, string> = {}, remoteAddress = ELSEWHERE): IncomingMessage {
+  return { headers, socket: { remoteAddress } } as unknown as IncomingMessage;
 }
 
 describe("a dev server nobody asked to share", () => {
@@ -119,6 +131,121 @@ describe("the link slidx prints and the credential this reads", () => {
     const fragment = printed.slice(printed.indexOf("#s=") + 3);
 
     expect(shared().grant(fragment, ELSEWHERE)).toBe(Grant.Read);
+  });
+});
+
+describe("browser-held access after opening a link", () => {
+  it("retains the full grant only for the explicit fragment header", () => {
+    expect(grantForRequest(shared(), request({ [CREDENTIAL_HEADER]: EDIT_LINK }))).toBe(
+      Grant.Write,
+    );
+    expect(
+      grantForRequest(shared(), request({ cookie: `${CREDENTIAL_COOKIE}=${EDIT_LINK}` })),
+    ).toBe(Grant.Read);
+  });
+
+  it("lets the browser read slides with the session cookie and nothing without it", () => {
+    expect(
+      grantForRequest(shared(), request({ cookie: `${CREDENTIAL_COOKIE}=${READ_LINK}` })),
+    ).toBe(Grant.Read);
+    expect(grantForRequest(shared(), request())).toBe(Grant.None);
+    expect(grantForRequest(shared(), request({}, "127.0.0.1"))).toBe(Grant.Write);
+  });
+
+  it("plants a strict, script-invisible session cookie only from an explicit header", () => {
+    const headers = new Map<string, string | number | readonly string[]>();
+    const response = {
+      setHeader: (name: string, value: string | number | readonly string[]) => {
+        headers.set(name, value);
+      },
+    } as unknown as ServerResponse;
+
+    rememberReadAccess(request({ [CREDENTIAL_HEADER]: READ_LINK }), response);
+
+    expect(headers.get("set-cookie")).toBe(
+      `${CREDENTIAL_COOKIE}=${READ_LINK}; Path=/; HttpOnly; SameSite=Strict`,
+    );
+  });
+});
+
+describe("the local author's handoff links", () => {
+  const origin = "http://192.168.1.42:5173";
+
+  it("rebuilds both fragment links from the origin the CLI supplied", () => {
+    const active = sharing({
+      [SHARE_VARIABLE]: READ_LINK,
+      [SHARE_EDIT_VARIABLE]: EDIT_LINK,
+      [SHARE_ORIGIN_VARIABLE]: origin,
+    });
+
+    expect(active.links).toEqual({
+      read: `${origin}/__slidx/#s=${READ_LINK}`,
+      edit: `${origin}/__slidx/#s=${EDIT_LINK}`,
+    });
+  });
+
+  it("does not turn a malformed origin into a capability link", () => {
+    for (const value of [
+      "file:///tmp/deck",
+      "https://author:secret@example.com",
+      "https://example.com/somewhere",
+      "https://example.com/?next=elsewhere",
+      "not a URL",
+    ]) {
+      expect(
+        sharing({ [SHARE_VARIABLE]: READ_LINK, [SHARE_ORIGIN_VARIABLE]: value }).links,
+      ).toBeUndefined();
+    }
+  });
+
+  it("returns every link to loopback and none of them to an invited peer", async () => {
+    const session = createEditSession(process.cwd(), resolveOptions(), {
+      sharing: {
+        on: true,
+        links: {
+          read: `${origin}/__slidx/#s=${READ_LINK}`,
+          edit: `${origin}/__slidx/#s=${EDIT_LINK}`,
+        },
+        grant: () => Grant.Write,
+      },
+    });
+
+    async function ask(remoteAddress: string) {
+      const asked = {
+        url: "/__slidx/share",
+        method: "GET",
+        headers: {},
+        socket: { remoteAddress },
+      } as unknown as IncomingMessage;
+      let body = "";
+      const response = {
+        statusCode: 0,
+        setHeader: () => {},
+        end: (value: string) => {
+          body = value;
+        },
+      } as unknown as ServerResponse;
+
+      expect(await session.handle(asked, response)).toBe(true);
+      return { status: response.statusCode, body: JSON.parse(body) as Record<string, unknown> };
+    }
+
+    try {
+      expect(await ask("127.0.0.1")).toEqual({
+        status: 200,
+        body: {
+          enabled: true,
+          read: `${origin}/__slidx/#s=${READ_LINK}`,
+          edit: `${origin}/__slidx/#s=${EDIT_LINK}`,
+        },
+      });
+      const remote = await ask(ELSEWHERE);
+      expect(remote.status).toBe(403);
+      expect(remote.body).not.toHaveProperty("read");
+      expect(remote.body).not.toHaveProperty("edit");
+    } finally {
+      session.close();
+    }
   });
 });
 

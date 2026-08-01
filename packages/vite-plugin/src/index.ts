@@ -52,6 +52,7 @@ import { blockingSummary, formatReport, groupFindings } from "./report";
 import { emptyDeckMessage, slideRequestFor } from "./routes";
 import { readThemePackages } from "./themes";
 import { EDITOR_PAGE } from "./editor";
+import { createSharing, grantForRequest, Grant } from "./share";
 import { createEditSession } from "./session";
 
 export type { SlidxOptions } from "./options";
@@ -142,7 +143,8 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
      * guarantee: `vite build` never calls this hook.
      */
     configureServer(server) {
-      const session = createEditSession(root, options);
+      const sharing = createSharing();
+      const session = createEditSession(root, options, { sharing });
 
       // The session is told before the browser is: a slide the author saved in
       // their own text editor has to reach the shared document, or the next
@@ -154,6 +156,30 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
 
       server.middlewares.use(async (request, response, next) => {
         const url = request.url ?? "/";
+
+        try {
+          // The content-free editor shell has to arrive before its URL fragment
+          // can be read. Every other editor route is authorised inside the
+          // session, and answering it before the deck routes keeps the shell
+          // from being caught by the shared-deck gate below.
+          if (await session.handle(request, response)) return;
+        } catch (error) {
+          next(error);
+          return;
+        }
+
+        // Binding the dev server to the network must not make the project or
+        // an unreleased deck readable by address alone. The authenticated deck
+        // response plants a read-only session cookie for iframe, asset and
+        // navigation requests; without it, nothing beyond the empty shell is
+        // served.
+        if (sharing.on && grantForRequest(sharing, request) === Grant.None) {
+          response.statusCode = 403;
+          response.setHeader("content-type", "text/plain; charset=utf-8");
+          response.setHeader("cache-control", "no-store");
+          response.end("This deck is shared by link, and this request carried no valid one.");
+          return;
+        }
 
         if (await serveDeckAsset(request, response, root, options.srcDir, options.base)) return;
 
@@ -175,13 +201,6 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
           } catch (error) {
             next(error);
           }
-          return;
-        }
-
-        try {
-          if (await session.handle(request, response)) return;
-        } catch (error) {
-          next(error);
           return;
         }
 

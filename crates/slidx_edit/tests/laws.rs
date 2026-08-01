@@ -16,7 +16,7 @@
 //!    error value, on every source in the corpus.
 
 use slidx_core::{parse_deck, Attributes, ByteSpan, DeckParseOptions, StepAction};
-use slidx_edit::{apply, plan, EditOp, MarkAttributes, SlideRef};
+use slidx_edit::{apply, plan, BlockKind, EditOp, MarkAttributes, SlideKind, SlideRef};
 use slidx_theme::layout::BlockWidth;
 
 /// Decks chosen so that every structural case appears at least once.
@@ -77,6 +77,8 @@ fn operations(source: &str) -> Vec<EditOp> {
         EditOp::MoveSlide { slide: last.into(), to: 0 },
         EditOp::SetField { slide: 0.into(), key: "theme".into(), value: "terminal".into() },
         EditOp::SetField { slide: last.into(), key: "budget".into(), value: "45s".into() },
+        EditOp::RemoveField { slide: 0.into(), key: "title".into() },
+        EditOp::RemoveField { slide: last.into(), key: "budget".into() },
         EditOp::SetStyle {
             slide: 0.into(),
             property: "layout".into(),
@@ -95,6 +97,12 @@ fn operations(source: &str) -> Vec<EditOp> {
         EditOp::SetNotes { slide: 0.into(), notes: String::new() },
         EditOp::SetNotes { slide: last.into(), notes: "said out loud".into() },
     ];
+
+    for kind in
+        [SlideKind::TitleBody, SlideKind::Statement, SlideKind::Comparison, SlideKind::Points]
+    {
+        ops.push(EditOp::CreateSlide { at: last + 1, kind });
+    }
 
     for (index, located) in
         slidx_edit::slide_spans(source, &DeckParseOptions::default()).iter().enumerate()
@@ -132,6 +140,10 @@ fn operations(source: &str) -> Vec<EditOp> {
     }
 
     for (index, slide) in deck.slides.iter().enumerate() {
+        for kind in [BlockKind::Heading, BlockKind::Text, BlockKind::List, BlockKind::Quote] {
+            ops.push(EditOp::InsertBlock { slide: index.into(), at: slide.blocks.len(), kind });
+        }
+
         if !slide.steps.actions.is_empty() {
             ops.push(EditOp::RemoveStep { slide: index.into(), index: 0 });
             ops.push(EditOp::SetStep {
@@ -177,6 +189,7 @@ fn operations(source: &str) -> Vec<EditOp> {
                 slide: index.into(),
                 block: (slide.blocks.len() - 1).into(),
             });
+            ops.push(EditOp::RemoveBlock { slide: index.into(), block: 0.into() });
 
             // Every width, including the content-sized default — which is the
             // one written by taking the property away rather than by writing it.
@@ -265,6 +278,7 @@ fn an_operation_touches_only_the_lines_it_names() {
         EditOp::SetHeading { slide: 0.into(), text: "Retitled".into() },
         EditOp::SetHeading { slide: 50.into(), text: "Retitled".into() },
         EditOp::SetField { slide: 0.into(), key: "title".into(), value: "Renamed".into() },
+        EditOp::RemoveField { slide: 0.into(), key: "title".into() },
     ];
 
     for op in one_line {
@@ -306,6 +320,8 @@ fn a_file_written_with_windows_line_endings_stays_that_way() {
         },
         EditOp::SetNotes { slide: 0.into(), notes: "spoken".into() },
         EditOp::AddStep { slide: 0.into(), at: None, action: StepAction::reveal(".a") },
+        EditOp::InsertBlock { slide: 0.into(), at: 1, kind: BlockKind::List },
+        EditOp::CreateSlide { at: 1, kind: SlideKind::Points },
     ];
 
     for op in writes {
@@ -613,12 +629,15 @@ fn an_operation_naming_something_that_is_not_there_is_an_error_not_a_crash() {
         EditOp::SetBody { slide: 99.into(), body: "x".into() },
         EditOp::SetHeading { slide: SlideRef::Id("nope".into()), text: "x".into() },
         EditOp::InsertSlide { at: 99, body: "x".into() },
+        EditOp::CreateSlide { at: 99, kind: SlideKind::Statement },
         EditOp::DuplicateSlide { slide: 99.into(), after: None },
         EditOp::DuplicateSlide { slide: 0.into(), after: Some(99.into()) },
+        EditOp::InsertBlock { slide: 99.into(), at: 0, kind: BlockKind::Text },
         EditOp::RemoveSlide { slide: 99.into() },
         EditOp::MoveSlide { slide: 0.into(), to: 99 },
         EditOp::MoveSlide { slide: 99.into(), to: 0 },
         EditOp::SetField { slide: 99.into(), key: "a".into(), value: "b".into() },
+        EditOp::RemoveField { slide: 99.into(), key: "a".into() },
         EditOp::SetStyle {
             slide: 99.into(),
             property: "layout".into(),
@@ -657,6 +676,7 @@ fn an_operation_naming_something_that_is_not_there_is_an_error_not_a_crash() {
         EditOp::MoveBlock { slide: 0.into(), block: 99.into(), to: 0, region: None },
         EditOp::SetBlockWidth { slide: 0.into(), block: 99.into(), width: BlockWidth::Half },
         EditOp::SetBlockWidth { slide: 99.into(), block: 0.into(), width: BlockWidth::Half },
+        EditOp::RemoveBlock { slide: 0.into(), block: 99.into() },
         // A drop target one past the last block, which is where the editor
         // aims when an author drags something to the bottom of a region.
         EditOp::MoveBlock { slide: 0.into(), block: 0.into(), to: 99, region: Some("side".into()) },

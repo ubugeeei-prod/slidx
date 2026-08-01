@@ -40,6 +40,7 @@ use wasm_bindgen::prelude::*;
 
 use slidx_core::{parse_deck, DeckParseOptions};
 use slidx_lint::{LintOptions, Measurement};
+use slidx_theme::{transition::Transition, Palette, Theme};
 
 /// What a caller can ask for when building a deck.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
@@ -195,6 +196,27 @@ pub struct BuildResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub duration_seconds: Option<u32>,
+    /// The theme that actually rendered this build.
+    ///
+    /// Separate from the authored `theme:` value because build configuration
+    /// may deliberately override the file. The editor uses this to mark the
+    /// card that agrees with the canvas rather than guessing from frontmatter.
+    pub active_theme: String,
+    /// Whether build configuration, rather than this deck, chose the theme.
+    ///
+    /// A locked picker explains why a source edit would not change the canvas
+    /// instead of offering a control whose result is immediately overridden.
+    pub theme_locked: bool,
+    /// Themes the active pipeline can render, in picker order.
+    ///
+    /// Built-ins come first, followed by installed packages after they have
+    /// been hardened and audited by the same catalogue the renderer uses.
+    pub themes: Vec<ThemeChoice>,
+    /// Slide transitions the active renderer implements, in picker order.
+    ///
+    /// The visual editor does not carry a second list: adding a renderer
+    /// transition makes it appear here in the same build.
+    pub transitions: Vec<TransitionChoice>,
     /// Layouts the active pipeline can render, in picker order.
     ///
     /// The editor draws this list instead of carrying built-in names. A layout
@@ -251,6 +273,87 @@ pub struct LayoutChoice {
     pub columns: String,
     /// CSS grid-template-rows.
     pub rows: String,
+}
+
+/// One transition as the visual editor needs to explain and choose it.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct TransitionChoice {
+    /// What `transition:` stores.
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    /// Whether the full slide translates, for an honest motion warning.
+    pub moves: bool,
+}
+
+impl From<Transition> for TransitionChoice {
+    fn from(transition: Transition) -> Self {
+        Self {
+            id: transition.as_token().to_string(),
+            name: transition.name().to_string(),
+            description: transition.description().to_string(),
+            moves: transition.moves(),
+        }
+    }
+}
+
+/// One theme as the visual editor needs to choose it.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct ThemeChoice {
+    /// What `theme:` stores.
+    pub id: String,
+    pub name: String,
+    /// One line explaining which kind of talk the theme serves.
+    pub description: String,
+    pub light: ThemePaletteChoice,
+    pub dark: ThemePaletteChoice,
+    /// The actual stacks a slide uses, so the miniature previews typography as
+    /// well as colour without the editor restating a font decision.
+    pub font_sans: String,
+    pub font_mono: String,
+}
+
+impl From<&Theme> for ThemeChoice {
+    fn from(theme: &Theme) -> Self {
+        Self {
+            id: theme.id.clone(),
+            name: theme.name.clone(),
+            description: theme.description.clone(),
+            light: (&theme.light).into(),
+            dark: (&theme.dark).into(),
+            font_sans: theme.font_sans.clone(),
+            font_mono: theme.font_mono.clone(),
+        }
+    }
+}
+
+/// The roles a theme card draws, already converted to browser-ready colours.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct ThemePaletteChoice {
+    pub surface: String,
+    pub text: String,
+    pub muted: String,
+    pub heading: String,
+    pub accent: String,
+    pub code_surface: String,
+    pub code_text: String,
+}
+
+impl From<&Palette> for ThemePaletteChoice {
+    fn from(palette: &Palette) -> Self {
+        Self {
+            surface: palette.surface.to_hex(),
+            text: palette.text.to_hex(),
+            muted: palette.muted.to_hex(),
+            heading: palette.heading.to_hex(),
+            accent: palette.accent.to_hex(),
+            code_surface: palette.code_surface.to_hex(),
+            code_text: palette.code_text.to_hex(),
+        }
+    }
 }
 
 /// One shared snippet, as a file waiting to be written.
@@ -581,6 +684,52 @@ mod tests {
     }
 
     #[test]
+    fn the_editor_receives_every_transition_from_the_renderer() {
+        let result = build("# One\n", &BuildOptions::default());
+        let offered: Vec<_> = result.transitions.iter().map(|choice| choice.id.as_str()).collect();
+
+        assert_eq!(
+            offered,
+            Transition::ALL.iter().map(|transition| transition.as_token()).collect::<Vec<_>>()
+        );
+        assert!(result
+            .transitions
+            .iter()
+            .all(|choice| !choice.name.is_empty() && !choice.description.is_empty()));
+        assert_eq!(result.transitions.iter().filter(|choice| choice.moves).count(), 2);
+    }
+
+    #[test]
+    fn the_editor_receives_the_rendered_theme_and_every_audited_choice() {
+        let result = build("---\ntheme: editorial\n---\n\n# One\n", &BuildOptions::default());
+        let offered: Vec<_> = result.themes.iter().map(|theme| theme.id.as_str()).collect();
+
+        assert_eq!(result.active_theme, "editorial");
+        assert!(!result.theme_locked);
+        assert_eq!(
+            offered,
+            slidx_theme::builtin::all().iter().map(|theme| theme.id.as_str()).collect::<Vec<_>>()
+        );
+        assert!(result.themes.iter().all(|theme| {
+            !theme.name.is_empty()
+                && !theme.description.is_empty()
+                && !theme.light.surface.is_empty()
+                && !theme.dark.surface.is_empty()
+                && !theme.font_sans.is_empty()
+                && !theme.font_mono.is_empty()
+        }));
+    }
+
+    #[test]
+    fn a_build_theme_override_is_visible_to_the_editor_as_locked() {
+        let options = BuildOptions { theme: Some("terminal".into()), ..BuildOptions::default() };
+        let result = build("---\ntheme: editorial\n---\n\n# One\n", &options);
+
+        assert_eq!(result.active_theme, "terminal");
+        assert!(result.theme_locked);
+    }
+
+    #[test]
     fn parse_only_skips_the_html() {
         // The editor calls this on every keystroke; rendering four pages to
         // update an outline is work nobody asked for.
@@ -701,6 +850,7 @@ mod tests {
             html.contains(&slidx_theme::published::workshop().light.accent.to_hex()),
             "the package's own accent is not in the page"
         );
+        assert_eq!(built.themes.last().map(|theme| theme.id.as_str()), Some("workshop"));
         assert_ne!(html, default.slides[0].html.as_ref().unwrap());
     }
 
@@ -950,16 +1100,17 @@ mod tests {
             BuildOptions { mdx: true, presenter: true, print: true, ..BuildOptions::default() };
         let result = build(source, &options);
 
-        for html in [
-            result.slides[1].html.as_ref().unwrap(),
-            // The presenter's preview is deliberately static, but it must be
-            // the same compiled fallback the audience will see next.
-            result.slides[0].presenter_html.as_ref().unwrap(),
-            result.print_html.as_ref().unwrap(),
-        ] {
+        for html in [result.slides[1].html.as_ref().unwrap(), result.print_html.as_ref().unwrap()] {
             assert!(html.contains("data-slidx-island=\"Counter\""), "{html}");
             assert!(html.contains("<strong>128 people</strong>"), "{html}");
         }
+
+        // The presenter carries the same compiled fallback inside an escaped,
+        // sandboxed `srcdoc`: the geometry survives but no island can mount.
+        let presenter = result.slides[0].presenter_html.as_ref().unwrap();
+        assert!(presenter.contains("data-slidx-island=&quot;Counter&quot;"), "{presenter}");
+        assert!(presenter.contains("&lt;strong&gt;128 people&lt;/strong&gt;"), "{presenter}");
+        assert!(presenter.contains("tabindex=\"-1\" sandbox"), "{presenter}");
         assert!(!result.has_blocking);
     }
 

@@ -119,6 +119,10 @@ block is selected.
 the deck. The dev server holds the one document, so a drag on their canvas and a
 file you saved in your own text editor merge rather than overwrite.
 
+The local editor keeps those same handoff links under **Share**, labelled by
+what they can do. They are returned only to loopback, never to an invited
+browser, and disappear with the dev server that minted them.
+
 The roster says who is here. The canvas says **where**: a mark on the block each
 person has selected, with their name on it, because knowing somebody is on slide
 four does not stop the two of you rewriting the same paragraph. Press a name to

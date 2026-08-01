@@ -8,7 +8,7 @@
 
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { mount } from "../src/index";
+import { deliveryRoutes, mount } from "../src/index";
 import { deckOf, fakeServer } from "./support";
 
 let mounted: ReturnType<typeof mount> | undefined;
@@ -36,6 +36,12 @@ function open(server = fakeServer()) {
 
 /** Lets the session's first read land. */
 const settled = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+/** Chooses one narrative starting point from the outline's add-slide menu. */
+function addSlide(root: HTMLElement, kind = "title-body"): void {
+  root.querySelector<HTMLElement>(".slidx-slide-add-toggle")!.click();
+  root.querySelector<HTMLElement>(`[data-slide-kind="${kind}"]`)!.click();
+}
 
 /**
  * Mounts with a stream that says one guest is here, on slide three.
@@ -87,12 +93,28 @@ async function withRoster(check: (root: HTMLElement) => Promise<void>): Promise<
 }
 
 describe("the mounted editor", () => {
+  it("derives every delivery surface from one route contract", () => {
+    expect(deliveryRoutes("slides", 2)).toEqual({
+      audience: "/slides/3/",
+      presenter: "/slides/3/presenter/",
+      print: "/slides/print/",
+    });
+    expect(deliveryRoutes("", 0)).toEqual({
+      audience: "/",
+      presenter: "/presenter/",
+      print: "/print/",
+    });
+  });
+
   it("is four surfaces and a strip, and no framework under any of them", async () => {
     const { root } = open();
     await settled();
 
+    expect(root.querySelector(".slidx-appbar")).not.toBeNull();
     expect(root.querySelector(".slidx-outline")).not.toBeNull();
+    expect(root.querySelector(".slidx-slide-add-toggle")?.textContent).toContain("Add slide");
     expect(root.querySelector(".slidx-canvas")).not.toBeNull();
+    expect(root.querySelector(".slidx-content-toggle")?.textContent).toContain("Add");
     expect(root.querySelector(".slidx-inspector")).not.toBeNull();
     expect(root.querySelector(".slidx-timeline")).not.toBeNull();
     expect(root.querySelector(".slidx-diagnostics")).not.toBeNull();
@@ -100,6 +122,134 @@ describe("the mounted editor", () => {
     expect(root.querySelectorAll('[role="separator"][aria-orientation="vertical"]')).toHaveLength(
       2,
     );
+  });
+
+  it("puts the product signature and current deck above every surface", async () => {
+    const { root } = open();
+    await settled();
+
+    const appbar = root.querySelector(".slidx-appbar")!;
+
+    expect(appbar.getAttribute("aria-label")).toBe("slidx editor");
+    expect(appbar.querySelectorAll(".slidx-appbar-mark rect")).toHaveLength(4);
+    expect(appbar.querySelector(".slidx-appbar-title")!.textContent).toBe("A Deck");
+    expect(appbar.querySelector(".slidx-appbar-position")!.textContent).toBe("1 / 3");
+
+    root.querySelectorAll<HTMLElement>(".slidx-outline-open")[2]!.click();
+
+    expect(appbar.querySelector(".slidx-appbar-position")!.textContent).toBe("3 / 3");
+  });
+
+  it("puts undo, redo, save state, and presentation in the shared command bar", async () => {
+    const { root, server } = open();
+    await settled();
+
+    const undo = root.querySelector<HTMLButtonElement>('[aria-label="Undo"]')!;
+    const redo = root.querySelector<HTMLButtonElement>('[aria-label="Redo"]')!;
+    const present = root.querySelector<HTMLButtonElement>('[aria-label="Open presenter view"]')!;
+    const status = root.querySelector<HTMLElement>(".slidx-appbar-status")!;
+
+    expect(status.textContent).toBe("Saved");
+    expect(undo.disabled).toBe(true);
+    expect(redo.disabled).toBe(true);
+    expect(present.disabled).toBe(false);
+
+    await mounted!.session.run({ op: "setHeading", slide: 0, text: "Retitled" });
+    expect(undo.disabled).toBe(false);
+
+    undo.click();
+    await settled();
+    expect(server.reverted).toEqual([[{ splice: 1 }]]);
+    expect(undo.disabled).toBe(true);
+    expect(redo.disabled).toBe(false);
+  });
+
+  it("refreshes rendered inspector facts after the live canvas swap lands", async () => {
+    const deck = deckOf("One");
+    deck.spans[0]!.blocks = [{ span: { start: 0, end: 5 } }];
+    const { root } = open(fakeServer(deck));
+    await settled();
+
+    const frame = root.querySelector<HTMLIFrameElement>(".slidx-canvas-frame")!;
+    frame.removeAttribute("src");
+    document.body.append(root);
+    const block = frame.contentDocument!.createElement("div");
+    block.setAttribute("data-slidx-block", "0");
+    frame.contentDocument!.body.append(block);
+    mounted!.session.select({ block: 0 });
+
+    const state = () => root.querySelector(".slidx-frame-position-state")!.textContent;
+    expect(state()).toBe("Following layout");
+
+    block.setAttribute("data-slidx-freeform-frame", "");
+    frame.dispatchEvent(new Event("load"));
+
+    expect(state()).toBe("Pinned to safe area");
+    expect(root.querySelector<HTMLButtonElement>(".slidx-frame-reset")!.disabled).toBe(false);
+  });
+
+  it("turns a read capability into a review workspace before any edit is attempted", async () => {
+    const deck = deckOf("One", "Two");
+    deck.access = { canEdit: false };
+    const server = fakeServer(deck);
+    const { root } = open(server);
+    await settled();
+
+    const editor = root.querySelector<HTMLElement>(".slidx-editor")!;
+    expect(editor.dataset.access).toBe("read");
+    expect(root.querySelector(".slidx-appbar-status")!.textContent).toBe("View only");
+    expect(root.querySelector<HTMLTextAreaElement>(".slidx-canvas-source")!.readOnly).toBe(true);
+
+    await mounted!.session.run({ op: "setHeading", slide: 0, text: "Not sent" });
+    expect(server.ops).toEqual([]);
+  });
+
+  it("searches commands and slide titles from the shared command bar", async () => {
+    const { root } = open();
+    await settled();
+
+    const event = new KeyboardEvent("keydown", {
+      key: "k",
+      metaKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    document.dispatchEvent(event);
+
+    const palette = root.querySelector<HTMLElement>(".slidx-command-palette")!;
+    const input = palette.querySelector<HTMLInputElement>(".slidx-command-input")!;
+    input.value = "Three";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    palette.querySelector<HTMLButtonElement>('[role="option"]')!.click();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(mounted!.session.state().selection.slide).toBe(2);
+    expect(root.querySelector(".slidx-canvas-frame")!.getAttribute("src")).toMatch(
+      /^\/slides\/3\//,
+    );
+  });
+
+  it("gives the canvas the workspace and restores every panel without losing state", async () => {
+    const { root } = open();
+    await settled();
+    const editor = root.querySelector<HTMLElement>(".slidx-editor")!;
+    const focus = root.querySelector<HTMLButtonElement>('[aria-label="Focus canvas"]')!;
+
+    focus.click();
+
+    expect(editor.getAttribute("data-canvas-focus")).toBe("true");
+    expect(focus.getAttribute("aria-pressed")).toBe("true");
+    expect(focus.getAttribute("aria-label")).toBe("Restore workspace");
+    expect(root.querySelector(".slidx-outline")).not.toBeNull();
+    expect(root.querySelector(".slidx-inspector")).not.toBeNull();
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+    );
+
+    expect(editor.getAttribute("data-canvas-focus")).toBe("false");
+    expect(focus.getAttribute("aria-pressed")).toBe("false");
+    expect(mounted!.session.state().selection.slide).toBe(0);
   });
 
   it("draws the timeline for the slide being edited, from the deck it read", async () => {
@@ -164,28 +314,35 @@ describe("the mounted editor", () => {
     await settled();
 
     expect(root.querySelectorAll(".slidx-outline-row")).toHaveLength(3);
+    expect(
+      [...root.querySelectorAll<HTMLIFrameElement>(".slidx-outline-frame")].map(
+        (frame) => frame.dataset.preview,
+      ),
+    ).toEqual(["/slides/", "/slides/2/", "/slides/3/"]);
   });
 
-  it("wires the deck route into kept outline previews", async () => {
+  it("keeps detached outline previews inert while retaining their routes", async () => {
     const { root } = open();
     await settled();
     const frames = [...root.querySelectorAll<HTMLIFrameElement>(".slidx-outline-frame")];
 
-    expect(frames.map((frame) => frame.getAttribute("src"))).toEqual([
+    expect(frames.map((frame) => frame.dataset.preview)).toEqual([
       "/slides/",
       "/slides/2/",
       "/slides/3/",
     ]);
+    expect(frames.map((frame) => frame.getAttribute("src"))).toEqual([null, null, null]);
 
     mounted!.session.select({ slide: 2 });
     mounted!.session.saw([{ id: "seat-2", label: "guest", slide: 1, local: false, canEdit: true }]);
 
     expect([...root.querySelectorAll<HTMLIFrameElement>(".slidx-outline-frame")]).toEqual(frames);
-    expect(frames.map((frame) => frame.getAttribute("src"))).toEqual([
+    expect(frames.map((frame) => frame.dataset.preview)).toEqual([
       "/slides/",
       "/slides/2/",
       "/slides/3/",
     ]);
+    expect(frames.map((frame) => frame.getAttribute("src"))).toEqual([null, null, null]);
   });
 
   it("points the canvas at the deck's own page for the slide being edited", async () => {
@@ -230,11 +387,41 @@ describe("the mounted editor", () => {
     ).toBe(true);
   });
 
+  it("adds after the current slide and opens the first draft it created", async () => {
+    const server = fakeServer();
+    server.answer = deckOf("One", "New slide", "Two", "Three");
+    const { root } = open(server);
+    await settled();
+
+    addSlide(root, "comparison");
+    await settled();
+
+    expect(server.ops).toEqual([{ op: "createSlide", at: 1, kind: "comparison" }]);
+    expect(mounted!.session.state().selection.slide).toBe(1);
+  });
+
+  it("creates a searched slide composition and opens it for editing", async () => {
+    const server = fakeServer();
+    server.answer = deckOf("One", "New slide", "Two", "Three");
+    const { root } = open(server);
+    await settled();
+
+    root.querySelector<HTMLButtonElement>(".slidx-command-trigger")!.click();
+    const search = root.querySelector<HTMLInputElement>(".slidx-command-input")!;
+    search.value = "comparison slide";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    root.querySelector<HTMLButtonElement>('[role="option"][aria-selected="true"]')!.click();
+    await settled();
+
+    expect(server.ops).toEqual([{ op: "createSlide", at: 1, kind: "comparison" }]);
+    expect(mounted!.session.state().selection.slide).toBe(1);
+  });
+
   it("undoes on the shortcut every editor on both platforms uses", async () => {
     const { root, server } = open();
     await settled();
 
-    root.querySelector<HTMLElement>(".slidx-add")!.click();
+    addSlide(root);
     await settled();
 
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "z", metaKey: true }));
@@ -248,7 +435,7 @@ describe("the mounted editor", () => {
     const { root, server } = open();
     await settled();
 
-    root.querySelector<HTMLElement>(".slidx-add")!.click();
+    addSlide(root);
     await settled();
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "z", metaKey: true }));
     await settled();
@@ -280,7 +467,7 @@ describe("the mounted editor", () => {
   it("stops listening once it is taken down", async () => {
     const { root, server } = open();
     await settled();
-    root.querySelector<HTMLElement>(".slidx-add")!.click();
+    addSlide(root);
     await settled();
 
     mounted!.destroy();
@@ -331,6 +518,16 @@ describe("the mounted editor", () => {
     const overlay = root.querySelector(".slidx-beacons");
     expect(overlay).not.toBeNull();
     expect(overlay!.closest(".slidx-canvas")).toBeNull();
+  });
+
+  it("docks collaboration in the shared command bar instead of over canvas tools", async () => {
+    const { root } = open();
+    await settled();
+
+    const presence = root.querySelector(".slidx-presence");
+    expect(presence).not.toBeNull();
+    expect(presence!.closest(".slidx-appbar")).not.toBeNull();
+    expect(presence!.closest(".slidx-canvas")).toBeNull();
   });
 
   it("puts a roster arriving on the stream into the state every surface reads", async () => {

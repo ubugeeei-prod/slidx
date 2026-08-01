@@ -30,11 +30,16 @@ function state(source: string, slide = 0, block?: number): EditorState {
     spans: [],
     slides: [],
     layouts: [],
+    activeTheme: "",
+    themeLocked: false,
+    themes: [],
+    transitions: [],
     diagnostics: [],
     selection: { slide, block },
     viewers: [],
     canUndo: false,
     canRedo: false,
+    writing: false,
   };
 }
 
@@ -191,7 +196,7 @@ describe("the presence surface", () => {
 
     expect(calls[0]!.url).toBe("/__slidx/live");
     expect(calls[0]!.url).not.toContain(SECRET);
-    expect((calls[0]!.init?.headers as Record<string, string>)[CREDENTIAL_HEADER]).toBe(
+    expect((calls[0]!.init!.headers as Record<string, string>)[CREDENTIAL_HEADER]).toBe(
       `${SESSION}.${SECRET}`,
     );
   });
@@ -339,9 +344,10 @@ describe("going and standing where somebody else is", () => {
   /** A seated surface that has been told who is here. */
   async function withRoster(options: { follow?: boolean } = {}) {
     const asked: (string | undefined)[] = [];
-    const seat = await seated([sent("presence", ROSTER)], {
-      ...(options.follow === false ? {} : { follow: (id?: string) => void asked.push(id) }),
-    });
+    const seat = await seated(
+      [sent("presence", ROSTER)],
+      options.follow === false ? {} : { follow: (id?: string) => void asked.push(id) },
+    );
 
     return {
       ...seat,
@@ -356,6 +362,38 @@ describe("going and standing where somebody else is", () => {
     const { seats } = await withRoster();
 
     expect(seats().map((node) => node.tagName)).toEqual(["SPAN", "BUTTON", "BUTTON"]);
+  });
+
+  it("keeps the roster compact until the author asks for its detail", async () => {
+    const { surface } = await withRoster();
+    const toggle = surface.root.querySelector<HTMLButtonElement>(".slidx-presence-toggle")!;
+    const panel = surface.root.querySelector<HTMLElement>(".slidx-presence-popover")!;
+
+    expect(surface.root.querySelector(".slidx-presence-count")!.textContent).toBe("3 here");
+    expect(surface.root.querySelectorAll(".slidx-presence-avatar")).toHaveLength(3);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(panel.hidden).toBe(true);
+
+    toggle.click();
+
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(panel.hidden).toBe(false);
+    expect(panel.textContent).toContain("guest 2");
+    expect(panel.textContent).toContain("slide 4");
+  });
+
+  it("dismisses the roster with Escape and restores focus to its trigger", async () => {
+    const { surface } = await withRoster();
+    document.body.append(surface.root);
+    const toggle = surface.root.querySelector<HTMLButtonElement>(".slidx-presence-toggle")!;
+    toggle.click();
+
+    surface.root.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(surface.root.querySelector<HTMLElement>(".slidx-presence-popover")!.hidden).toBe(true);
+    expect(document.activeElement).toBe(toggle);
+    surface.root.remove();
   });
 
   it("asks to follow the seat that was pressed", async () => {

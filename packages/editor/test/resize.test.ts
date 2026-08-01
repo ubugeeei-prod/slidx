@@ -25,11 +25,16 @@ function stateOf(slide = 0): EditorState {
     spans: [],
     slides: [],
     layouts: [],
+    activeTheme: "",
+    themeLocked: false,
+    themes: [],
+    transitions: [],
     diagnostics: [],
     selection: { slide },
     viewers: [],
     canUndo: false,
     canRedo: false,
+    writing: false,
   };
 }
 

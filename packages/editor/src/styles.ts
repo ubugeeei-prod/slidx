@@ -13,22 +13,23 @@ import { SHORTCUT_STYLES } from "./shortcut-styles";
  * an author works in is not knowable from here — the same reason the built-in
  * deck themes ship both.
  *
- * The accent is the brand's `signal`, copied from `assets/brand/tokens.json` and
- * checked against it by a test rather than trusted. It used to be a code host's
- * brand blue in light and an editor theme's in dark, which is the same borrowed
- * palette problem `scripts/check-borrowed.mjs` now fails the build over.
+ * The paper, ink, muted, signal, and line colours are the brand palette, copied
+ * from `assets/brand/tokens.json` and checked against it rather than trusted.
+ * The editor used to carry a separate neutral palette around the brand's signal,
+ * which made its identity disappear everywhere except a selected control.
  */
 
 export const STYLESHEET = `
 :root {
-  --slidx-e-canvas: #ffffff;
-  --slidx-e-surface: #f7f7f8;
-  --slidx-e-text: #16181d;
-  --slidx-e-muted: #6a6f7a;
-  --slidx-e-line: #e2e3e7;
+  --slidx-e-canvas: #f7faff;
+  --slidx-e-text: #161b22;
+  --slidx-e-muted: #5f656e;
+  --slidx-e-line: #d3dae4;
   --slidx-e-accent: #01489f;
+  --slidx-e-surface: color-mix(in srgb, var(--slidx-e-line) 24%, var(--slidx-e-canvas));
   --slidx-e-error: #b42318;
   --slidx-e-warning: #9a6700;
+  --slidx-e-success: #067647;
   --slidx-e-hairline: 1px;
   --slidx-e-radius: 4px;
 
@@ -66,20 +67,22 @@ export const STYLESHEET = `
    * meets it whether or not its ink fills it.
    */
   --slidx-e-hit: 28px;
+  /* The lockup's published minimum: below this its set wordmark stops reading. */
+  --slidx-e-lockup: 17px;
 
   color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --slidx-e-canvas: #16181d;
-    --slidx-e-surface: #1c1f26;
-    --slidx-e-text: #e8eaed;
-    --slidx-e-muted: #9aa0ac;
-    --slidx-e-line: #2a2e37;
+    --slidx-e-canvas: #13171e;
+    --slidx-e-text: #eff6ff;
+    --slidx-e-muted: #979da7;
+    --slidx-e-line: #2a2f37;
     --slidx-e-accent: #a5c9ff;
     --slidx-e-error: #f5776a;
     --slidx-e-warning: #d9a441;
+    --slidx-e-success: #57c99d;
   }
 }
 
@@ -128,10 +131,66 @@ body {
   position: relative;
   height: 100vh;
   grid-template-columns: var(--slidx-e-outline-width) minmax(0, 1fr) var(--slidx-e-inspector-width);
-  grid-template-rows: minmax(0, 1fr) auto;
-  grid-template-areas: "outline canvas inspector" "findings findings findings";
+  grid-template-rows: 34px minmax(0, 1fr) auto;
+  grid-template-areas: "appbar appbar appbar" "outline canvas inspector" "findings findings findings";
 }
 
+/*
+ * A read capability is a review workspace, not an editor that fails late.
+ *
+ * The outline and the real rendered canvas remain; authoring-only panels and
+ * gestures leave the stage entirely. The server still guards every write, and
+ * the session refuses one before transport, so this is an honest affordance
+ * rather than the security boundary.
+ */
+.slidx-editor[data-access="read"] {
+  grid-template-columns: 232px minmax(0, 1fr);
+  grid-template-areas: "appbar appbar" "outline canvas" "findings findings";
+}
+
+.slidx-editor[data-access="read"] > :is(
+  .slidx-inspector,
+  .slidx-timeline,
+  .slidx-storyboard,
+  .slidx-revisions,
+  .slidx-arrange,
+  .slidx-resize,
+  .slidx-freeform,
+  .slidx-media-drop
+),
+.slidx-editor[data-access="read"] .slidx-slide-add,
+.slidx-editor[data-access="read"] .slidx-outline-actions,
+.slidx-editor[data-access="read"] .slidx-content {
+  display: none;
+}
+
+.slidx-editor[data-access="read"] :is(textarea, input)[readonly] {
+  color: var(--slidx-e-muted);
+  background: var(--slidx-e-surface);
+  cursor: text;
+}
+
+/*
+ * Preserve the editing field before preserving generous side-panel widths.
+ *
+ * The panels remain present — hiding one would make a narrower window change
+ * what the product can do — but their fixed desktop measures yield in two
+ * deliberate steps. This also keeps all three canvas commands on their row,
+ * instead of clipping the last one behind the inspector.
+ */
+@media (max-width: 75em) {
+  .slidx-editor { grid-template-columns: 12.5rem minmax(0, 1fr) 16.5rem; }
+}
+
+@media (max-width: 56em) {
+  .slidx-editor { grid-template-columns: 11rem minmax(0, 1fr) 14rem; }
+  .slidx-outline .slidx-panel-head {
+    gap: var(--slidx-e-snug);
+    padding-inline: var(--slidx-e-snug);
+  }
+}
+
+.slidx-appbar { grid-area: appbar; }
 .slidx-outline { grid-area: outline; border-right: var(--slidx-e-hairline) solid var(--slidx-e-line); }
 .slidx-canvas { grid-area: canvas; }
 .slidx-inspector { grid-area: inspector; border-left: var(--slidx-e-hairline) solid var(--slidx-e-line); }
@@ -228,6 +287,11 @@ body {
   color: var(--slidx-e-muted);
 }
 
+.slidx-slide-add-toggle { white-space: nowrap; }
+.slidx-content-toggle { white-space: nowrap; }
+.slidx-canvas-scheme { white-space: nowrap; }
+.slidx-canvas-toggle { white-space: nowrap; }
+
 button {
   font: inherit;
   color: var(--slidx-e-text);
@@ -277,12 +341,47 @@ textarea:focus-visible,
 .slidx-outline-row {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(var(--slidx-e-hit), auto) minmax(0, 1fr);
+  gap: var(--slidx-e-tight);
+  min-height: var(--slidx-e-hit);
+  margin-bottom: var(--slidx-e-snug);
+  padding: var(--slidx-e-tight);
+  border-left: 2px solid transparent;
+  border-radius: var(--slidx-e-radius);
+}
+
+.slidx-outline-thumbnail {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  background: var(--slidx-e-surface);
+  border: var(--slidx-e-hairline) solid var(--slidx-e-line);
+  border-radius: var(--slidx-e-radius);
+}
+
+.slidx-outline-thumbnail[data-empty="true"]::after {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: color-mix(in srgb, var(--slidx-e-line) 18%, transparent);
+}
+
+.slidx-outline-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  pointer-events: none;
+}
+
+.slidx-outline-caption {
+  display: flex;
   align-items: center;
   gap: var(--slidx-e-snug);
+  min-width: 0;
   min-height: var(--slidx-e-hit);
-  padding: var(--slidx-e-snug);
-  border-radius: var(--slidx-e-radius);
+  padding: 0 var(--slidx-e-tight);
 }
 
 .slidx-outline-open {
@@ -294,10 +393,11 @@ textarea:focus-visible,
   padding: 0;
   border: 0;
   border-radius: var(--slidx-e-radius);
-  background: transparent;
+  cursor: grab;
 }
 
-.slidx-outline-open:hover { background: transparent; }
+.slidx-outline-open:hover,
+.slidx-outline-open:active { background: transparent; }
 
 .slidx-outline-row:hover { background: var(--slidx-e-surface); }
 
@@ -311,9 +411,11 @@ textarea:focus-visible,
 .slidx-outline-row[aria-current="true"] {
   background: var(--slidx-e-surface);
   border-left: 2px solid var(--slidx-e-accent);
-  padding-left: 6px;
 }
 
+.slidx-outline-row[aria-current="true"] .slidx-outline-thumbnail {
+  border-color: var(--slidx-e-accent);
+}
 .slidx-outline-row[aria-current="true"] .slidx-outline-title { font-weight: 600; }
 
 .slidx-outline-number {
@@ -365,6 +467,7 @@ textarea:focus-visible,
 }
 
 .slidx-dot {
+  flex: none;
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -383,31 +486,35 @@ textarea:focus-visible,
  * switch uses display: none and this does not — here the row must not change
  * width when a pointer enters it.
  */
-.slidx-outline-duplicate,
-.slidx-outline-remove {
+.slidx-outline-actions {
   position: absolute;
   z-index: 2;
   top: var(--slidx-e-snug);
-  border: 0;
+  right: var(--slidx-e-snug);
+  display: flex;
+  gap: var(--slidx-e-tight);
+}
+
+.slidx-outline-actions button {
   min-width: var(--slidx-e-hit);
   min-height: var(--slidx-e-hit);
   padding: 0 var(--slidx-e-tight);
+  background: color-mix(in srgb, var(--slidx-e-canvas) 88%, transparent);
+  border-color: color-mix(in srgb, var(--slidx-e-line) 72%, transparent);
   color: var(--slidx-e-muted);
   background: var(--slidx-e-canvas);
   opacity: 0;
   pointer-events: none;
 }
 
-.slidx-outline-remove { right: var(--slidx-e-snug); }
-.slidx-outline-duplicate { right: calc(var(--slidx-e-snug) + var(--slidx-e-hit)); }
-
-.slidx-outline-row:hover .slidx-outline-duplicate,
-.slidx-outline-row:hover .slidx-outline-remove,
+.slidx-outline-row:hover .slidx-outline-actions button,
 .slidx-outline-duplicate:focus-visible,
 .slidx-outline-remove:focus-visible {
   opacity: 1;
   pointer-events: auto;
 }
+
+.slidx-outline-remove:hover { color: var(--slidx-e-error); }
 
 /* Canvas. */
 
@@ -659,14 +766,6 @@ textarea { resize: vertical; font-size: 12px; }
  */
 
 /*
- * Presence, and why it floats rather than taking a row of the grid.
- *
- * An author working alone is the normal case and must see no new chrome at all,
- * so this is hidden until somebody else connects — and a panel that appears and
- * disappears from the layout would move the canvas under the author's cursor.
- * Floating costs nothing when it is not there.
- */
-/*
  * The scheme control sits beside the Markdown toggle and is the same shape as
  * it: a quiet button in the panel head, not a switch that draws the eye away
  * from the slide it is about.
@@ -685,59 +784,12 @@ textarea { resize: vertical; font-size: 12px; }
 .slidx-canvas-scheme:hover,
 .slidx-canvas-scheme:focus-visible { color: var(--slidx-e-text); }
 
-/* Auto is the default, so only a deliberate choice is worth marking. */
+/* Auto has no forced palette; light and dark are deliberate overrides. */
 .slidx-canvas-scheme[data-scheme="light"],
 .slidx-canvas-scheme[data-scheme="dark"] {
   border-color: var(--slidx-e-accent);
   color: var(--slidx-e-text);
 }
-
-.slidx-presence {
-  position: fixed;
-  top: 6px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  max-width: 60vw;
-  padding: 2px 8px;
-  background: var(--slidx-e-surface);
-  border: var(--slidx-e-hairline) solid var(--slidx-e-line);
-  border-radius: var(--slidx-e-radius);
-  font-size: 12px;
-}
-
-.slidx-presence[data-empty="true"] { display: none; }
-.slidx-presence-label { color: var(--slidx-e-muted); }
-.slidx-presence-list { display: flex; gap: 8px; margin: 0; padding: 0; list-style: none; overflow-x: auto; }
-.slidx-presence-who { display: flex; white-space: nowrap; }
-
-/*
- * Every seat is the same row whether or not it can be pressed, so the panel
- * does not change shape when the author is the only one in it.
- */
-.slidx-presence-seat {
-  display: flex;
-  gap: 4px;
-  align-items: baseline;
-  margin: 0;
-  padding: 0 2px;
-  border: 0;
-  border-radius: 2px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-}
-
-button.slidx-presence-seat { cursor: pointer; }
-button.slidx-presence-seat:hover { background: var(--slidx-e-line); }
-.slidx-presence-seat[aria-pressed="true"] { background: var(--slidx-e-accent); color: var(--slidx-e-canvas); }
-.slidx-presence-seat[aria-pressed="true"] .slidx-presence-where,
-.slidx-presence-seat[aria-pressed="true"] .slidx-presence-role { color: inherit; }
-.slidx-presence-seat[data-local="true"] .slidx-presence-name { color: var(--slidx-e-accent); }
-.slidx-presence-where { color: var(--slidx-e-muted); }
-.slidx-presence-role { color: var(--slidx-e-muted); font-size: 11px; }
 
 ${SHORTCUT_STYLES}
 `;

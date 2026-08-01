@@ -31,6 +31,7 @@
  */
 
 import { timingSafeEqual } from "node:crypto";
+import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { readPairing, type Pairing } from "@slidxjs/runtime";
 
@@ -54,15 +55,35 @@ export enum Grant {
  */
 export const SHARE_VARIABLE = "SLIDX_SHARE";
 export const SHARE_EDIT_VARIABLE = "SLIDX_SHARE_EDIT";
+/** Public LAN origin the CLI printed, used only to rebuild its links locally. */
+export const SHARE_ORIGIN_VARIABLE = "SLIDX_SHARE_ORIGIN";
 
 /** The header the editor presents its share credential in. */
 export const CREDENTIAL_HEADER = "x-slidx-share";
 
+/**
+ * Browser-held reading access for the deck pages an authenticated editor embeds.
+ *
+ * It is a session cookie: closing the browser drops it, and stopping the dev
+ * server invalidates the capability it contains. A cookie is always capped at
+ * reading by [`grantForRequest`]; writes continue to require the explicit
+ * header JavaScript derives from the URL fragment.
+ */
+export const CREDENTIAL_COOKIE = "slidx_share";
+
 export interface Sharing {
   /** True when a secret was issued, which is the only time anything is shared. */
   readonly on: boolean;
+  /** Links the local author may copy again. Never returned to a remote peer. */
+  readonly links?: SharingLinks;
   /** What a request presenting this credential from this address may do. */
   grant(credential: string | undefined, address: string | undefined): Grant;
+}
+
+/** The capabilities the CLI printed when it started this shared session. */
+export interface SharingLinks {
+  readonly read?: string;
+  readonly edit?: string;
 }
 
 /**
@@ -76,9 +97,11 @@ export function createSharing(environment: NodeJS.ProcessEnv = process.env): Sha
   const read = pairing(environment[SHARE_VARIABLE]);
   const write = pairing(environment[SHARE_EDIT_VARIABLE]);
   const on = read !== null || write !== null;
+  const links = sharingLinks(environment, read !== null, write !== null);
 
   return {
     on,
+    ...(links ? { links } : {}),
 
     grant(credential, address) {
       if (!on || isLoopback(address)) return Grant.Write;
@@ -92,6 +115,108 @@ export function createSharing(environment: NodeJS.ProcessEnv = process.env): Sha
       return Grant.None;
     },
   };
+}
+
+/**
+ * Rebuilds the fragment links only when the CLI supplied their public origin.
+ *
+ * The server cannot infer this from a local editor request: its `Host` is
+ * usually `localhost`, while the useful link names the machine on the LAN.
+ * Rejecting paths, credentials and non-HTTP schemes keeps an environment typo
+ * from turning the share sheet into a link to somewhere else.
+ */
+function sharingLinks(
+  environment: NodeJS.ProcessEnv,
+  hasRead: boolean,
+  hasEdit: boolean,
+): SharingLinks | undefined {
+  const origin = shareOrigin(environment[SHARE_ORIGIN_VARIABLE]);
+  if (origin === undefined) return undefined;
+
+  const read = hasRead ? environment[SHARE_VARIABLE] : undefined;
+  const edit = hasEdit ? environment[SHARE_EDIT_VARIABLE] : undefined;
+
+  return {
+    ...(read ? { read: `${origin}/__slidx/#s=${read}` } : {}),
+    ...(edit ? { edit: `${origin}/__slidx/#s=${edit}` } : {}),
+  };
+}
+
+function shareOrigin(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+
+  try {
+    const parsed = new URL(value);
+    if (
+      (parsed.protocol !== "http:" && parsed.protocol !== "https:") ||
+      parsed.username ||
+      parsed.password ||
+      (parsed.pathname !== "/" && parsed.pathname !== "") ||
+      parsed.search ||
+      parsed.hash
+    )
+      return undefined;
+
+    return parsed.origin;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Access presented by one HTTP request.
+ *
+ * An explicit header retains its full grant. A browser cookie is deliberately
+ * capped at reading so another page on the same site cannot turn an ambient
+ * credential into a file-writing request.
+ */
+export function grantForRequest(sharing: Sharing, request: IncomingMessage): Grant {
+  const header = headerCredential(request);
+  if (header !== undefined) return sharing.grant(header, request.socket.remoteAddress);
+
+  const cookie = cookieCredential(request);
+  const grant = sharing.grant(cookie, request.socket.remoteAddress);
+  return cookie !== undefined && grant === Grant.Write ? Grant.Read : grant;
+}
+
+/** The explicit capability the editor presents after reading its fragment. */
+export function headerCredential(request: IncomingMessage): string | undefined {
+  const presented = request.headers[CREDENTIAL_HEADER];
+  return Array.isArray(presented) ? presented[0] : presented;
+}
+
+/**
+ * Lets subsequent same-origin slide and asset requests carry reading access.
+ *
+ * Only called after the header was accepted. `HttpOnly` keeps the credential
+ * out of deck scripts, and `SameSite=Strict` keeps it off cross-site requests.
+ */
+export function rememberReadAccess(request: IncomingMessage, response: ServerResponse): void {
+  const presented = headerCredential(request);
+  if (presented === undefined) return;
+
+  response.setHeader(
+    "set-cookie",
+    `${CREDENTIAL_COOKIE}=${encodeURIComponent(presented)}; Path=/; HttpOnly; SameSite=Strict`,
+  );
+}
+
+function cookieCredential(request: IncomingMessage): string | undefined {
+  const cookies = request.headers.cookie;
+  if (!cookies) return undefined;
+
+  const value = cookies
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${CREDENTIAL_COOKIE}=`))
+    ?.slice(CREDENTIAL_COOKIE.length + 1);
+  if (value === undefined) return undefined;
+
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return undefined;
+  }
 }
 
 /**

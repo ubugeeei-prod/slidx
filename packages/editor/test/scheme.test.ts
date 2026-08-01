@@ -14,7 +14,7 @@
 
 import { describe, expect, it } from "vite-plus/test";
 
-import { applyScheme, startingScheme } from "../src/canvas";
+import { applyScheme, createCanvas, startingScheme } from "../src/canvas";
 
 /** A document standing in for the one inside the canvas frame. */
 function page(): Document {
@@ -74,5 +74,30 @@ describe("what the canvas shows before anybody chooses", () => {
     // Storage is shared with everything else on the origin and outlives any
     // version of this editor.
     expect(startingScheme({ getItem: () => "chartreuse" })).toBe("light");
+  });
+
+  it("shows the remembered choice and shares later choices with the overview", () => {
+    const seen: string[] = [];
+    const canvas = createCanvas(
+      { run: () => {}, selected: () => {} },
+      {
+        deckBase: "slides",
+        bodyOf: () => "# One",
+        storage: { getItem: () => "dark", setItem: () => {} },
+        schemeChanged: (scheme) => seen.push(scheme),
+      },
+    );
+    const button = canvas.root.querySelector<HTMLButtonElement>(".slidx-canvas-scheme")!;
+
+    expect(button.textContent).toBe("Dark");
+    expect(canvas.scheme()).toBe("dark");
+    expect(canvas.palette()).toBe("dark");
+    button.click();
+    expect(canvas.scheme()).toBe("auto");
+    expect(canvas.palette()).toBe("light");
+    button.click();
+
+    expect(seen).toEqual(["auto", "light"]);
+    canvas.destroy?.();
   });
 });

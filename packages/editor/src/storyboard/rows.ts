@@ -134,7 +134,11 @@ function time(slide: SlideTime, handlers: RowHandlers): HTMLElement {
   budget.addEventListener("blur", () => {
     const value = budget.value.trim();
     if (value === slide.written) return;
-    handlers.run({ op: "setField", slide: slide.index, key: "budget", value });
+    handlers.run(
+      value.length === 0
+        ? { op: "removeField", slide: slide.index, key: "budget" }
+        : { op: "setField", slide: slide.index, key: "budget", value },
+    );
   });
 
   const cut = element("input", {

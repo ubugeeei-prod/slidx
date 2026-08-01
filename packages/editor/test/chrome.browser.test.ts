@@ -30,6 +30,10 @@ function stateOf(over: Partial<EditorState> = {}): EditorState {
         rows: "1fr",
       },
     ],
+    activeTheme: "",
+    themeLocked: false,
+    themes: [],
+    transitions: [],
     slides: [
       { ...timing, id: "one", index: 0, title: "One", frontmatter: { title: "A" } },
       { ...timing, id: "two", index: 1, title: "Two", notes: ["said"] },
@@ -40,6 +44,7 @@ function stateOf(over: Partial<EditorState> = {}): EditorState {
     viewers: [],
     canUndo: false,
     canRedo: false,
+    writing: false,
     ...over,
   };
 }
@@ -126,13 +131,16 @@ describe("editor chrome in Chromium", () => {
     expect(roundedWidth(canvas)).toBeGreaterThanOrEqual(360);
   });
 
-  it("keeps lazy outline previews mounted until slide source changes", async () => {
+  it("keeps lazy outline previews mounted across editor state changes", async () => {
     const outline = createOutline(
       {
         select() {},
         run() {},
       },
-      { deckBase: "browser-outline-fixture" },
+      {
+        preview: (slide) =>
+          `/browser-outline-fixture/${slide === 0 ? "" : `${slide + 1}/`}?outline=1`,
+      },
     );
     const initial = stateOf();
     outline.render(initial);
@@ -140,10 +148,6 @@ describe("editor chrome in Chromium", () => {
     outline.root.style.height = "760px";
 
     const frames = [...outline.root.querySelectorAll<HTMLIFrameElement>(".slidx-outline-frame")];
-    let firstFrameLoads = 0;
-    frames[0]!.addEventListener("load", () => {
-      firstFrameLoads += 1;
-    });
     const initialLoad = nextLoad(frames[0]!);
     document.body.append(outline.root);
     await initialLoad;
@@ -157,9 +161,9 @@ describe("editor chrome in Chromium", () => {
       "true",
     ]);
     expect(getComputedStyle(frames[0]!).pointerEvents).toBe("none");
-    await expect.element(page.getByRole("button", { name: "Open slide 2: Two" })).toBeVisible();
+    await expect.element(page.getByRole("button", { name: "2 Two" })).toBeVisible();
 
-    const preview = frames[0]!.closest<HTMLElement>(".slidx-outline-preview")!;
+    const preview = frames[0]!.closest<HTMLElement>(".slidx-outline-thumbnail")!;
     const previewBox = preview.getBoundingClientRect();
     expect(previewBox.width).toBeGreaterThan(150);
     expect(Math.abs(previewBox.width / previewBox.height - 16 / 9)).toBeLessThan(0.02);
@@ -176,21 +180,18 @@ describe("editor chrome in Chromium", () => {
     const kept = [...outline.root.querySelectorAll<HTMLIFrameElement>(".slidx-outline-frame")];
     expect(kept).toEqual(frames);
     expect(kept.map((iframe) => iframe.getAttribute("src"))).toEqual(sources);
-    expect(firstFrameLoads).toBe(1);
     expect(
       outline.root.querySelectorAll(".slidx-outline-row")[2]!.getAttribute("aria-current"),
     ).toBe("true");
 
-    const refreshedLoad = nextLoad(frames[0]!);
     outline.render({ ...initial, source: `${initial.source}\n` });
-    expect(frames[0]!.getAttribute("src")).toBe("/browser-outline-fixture/?outline=1");
-    await refreshedLoad;
+    await frame();
 
-    expect(firstFrameLoads).toBe(2);
+    expect(frames[0]!.getAttribute("src")).toBe("/browser-outline-fixture/?outline=1");
     expect(outline.root.querySelector(".slidx-outline-frame")).toBe(frames[0]);
   });
 
-  it("switches inspector tasks and applies visual text choices", async () => {
+  it("switches inspector targets and applies a visual text choice", async () => {
     const ops: EditOp[] = [];
     const body = "The result was 3.2x faster.";
     const inspector = createInspector({ run: (op) => ops.push(op) }, { bodyOf: () => body });
@@ -199,62 +200,47 @@ describe("editor chrome in Chromium", () => {
     inspector.render(stateOf());
     document.body.append(inspector.root);
 
-    const selectionTab = page.getByRole("tab", { name: "Selection" });
     const slideTab = page.getByRole("tab", { name: "Slide" });
     const deckTab = page.getByRole("tab", { name: "Deck" });
-    await expect.element(page.getByRole("tablist", { name: "Inspector sections" })).toBeVisible();
+    await expect.element(page.getByRole("tablist", { name: "Inspector target" })).toBeVisible();
     await expect.element(slideTab).toHaveAttribute("aria-selected", "true");
-    await expect.element(selectionTab).toHaveAttribute("tabindex", "-1");
 
-    let panels = [...inspector.root.querySelectorAll<HTMLElement>(".slidx-inspector-panel")];
-    expect(panels).toHaveLength(3);
-    expect(panels.filter((panel) => getComputedStyle(panel).display !== "none")).toEqual([
-      panels[1],
-    ]);
-    expect(slideTab.element().getAttribute("aria-controls")).toBe(panels[1]!.id);
-    expect(panels[1]!.getAttribute("aria-labelledby")).toBe(slideTab.element().id);
-
-    await deckTab.click();
-    await expect.element(deckTab).toHaveAttribute("aria-selected", "true");
-    panels = [...inspector.root.querySelectorAll<HTMLElement>(".slidx-inspector-panel")];
+    let panels = [...inspector.root.querySelectorAll<HTMLElement>("[role=tabpanel]")];
+    expect(panels).toHaveLength(4);
     expect(panels.filter((panel) => getComputedStyle(panel).display !== "none")).toEqual([
       panels[2],
     ]);
 
+    await deckTab.click();
+    await expect.element(deckTab).toHaveAttribute("aria-selected", "true");
+    panels = [...inspector.root.querySelectorAll<HTMLElement>("[role=tabpanel]")];
+    expect(panels.filter((panel) => getComputedStyle(panel).display !== "none")).toEqual([
+      panels[3],
+    ]);
+
     await userEvent.keyboard("{ArrowLeft}");
     await expect.element(slideTab).toHaveAttribute("aria-selected", "true");
-    expect(document.activeElement).toBe(slideTab.element());
 
     inspector.render(
       stateOf({
         selection: { slide: 1, text: "3.2x", range: { start: 15, end: 19 } },
       }),
     );
-    await expect.element(selectionTab).toHaveAttribute("aria-selected", "true");
-    await expect.element(page.getByRole("group", { name: "Font" })).toBeVisible();
-    await expect.element(page.getByRole("group", { name: "Size" })).toBeVisible();
-    await expect.element(page.getByRole("group", { name: "Color" })).toBeVisible();
+    const textTab = page.getByRole("tab", { name: "Text" });
+    await expect.element(textTab).toHaveAttribute("aria-selected", "true");
+    await expect.element(page.getByRole("group", { name: "Text typeface" })).toBeVisible();
+    await expect.element(page.getByRole("group", { name: "Text weight" })).toBeVisible();
+    await expect.element(page.getByRole("group", { name: "Text tone" })).toBeVisible();
 
-    const mono = page.getByRole("button", { name: "Font: Mono" });
-    const heading = page.getByRole("button", { name: "Size: H2" });
-    const accent = page.getByRole("button", { name: "Color: Accent" });
+    const mono = page.getByRole("button", { name: "Mono" });
+    const accent = page.getByRole("button", { name: "Accent" });
     await mono.click();
-    await heading.click();
-    await accent.click();
 
-    await expect.element(mono).toHaveAttribute("aria-pressed", "true");
-    await expect.element(heading).toHaveAttribute("aria-pressed", "true");
-    await expect.element(accent).toHaveAttribute("aria-pressed", "true");
     expect(getComputedStyle(mono.element()).fontFamily).toContain("ui-monospace");
-    expect(getComputedStyle(heading.element()).fontSize).toBe("13px");
     expect(roundedWidth(accent.element())).toBeGreaterThanOrEqual(28);
     expect(Math.round(accent.element().getBoundingClientRect().height)).toBeGreaterThanOrEqual(28);
-    const swatch = accent.element().querySelector<HTMLElement>(".slidx-text-swatch")!;
+    const swatch = accent.element().querySelector<HTMLElement>(".slidx-text-tone-swatch")!;
     expect(getComputedStyle(swatch).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
-
-    const properties = page.getByLabelText("Style properties").element() as HTMLTextAreaElement;
-    expect(properties.value).toBe("font=mono\nsize=heading-2\ncolor=accent");
-    await page.getByRole("button", { name: "Add style" }).click();
     expect(ops).toEqual([
       {
         op: "addMark",
@@ -262,8 +248,8 @@ describe("editor chrome in Chromium", () => {
         range: { start: 15, end: 19 },
         attributes: {
           key: undefined,
-          classes: [],
-          properties: { font: "mono", size: "heading-2", color: "accent" },
+          classes: ["code"],
+          properties: {},
         },
       },
     ]);

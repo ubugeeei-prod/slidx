@@ -1,30 +1,47 @@
 /**
- * The deck as a list.
+ * The deck as a visual sequence.
  *
  * Jump, insert, remove, reorder. Reordering is a `moveSlide` operation and not
  * a rewrite — the slide's bytes are the ones that were already in the file, so
  * a deck reordered from here diffs as moved lines. That is the whole reason
  * the operation exists rather than the editor sending a new body.
  *
- * Diagnostics are shown here as a dot on the row they belong to. The pipeline
- * returns them with every parse, so the outline is where an author sees which
- * slide has a problem without opening it.
+ * Each card carries the deck's real page in a lazy iframe. It is not a sketch
+ * of a slide and it is not a browser-side thumbnail renderer: the miniature is
+ * the same route, renderer, theme, fonts and layout that the canvas opens. That
+ * makes the outline useful for judging rhythm, density and colour across the
+ * whole deck instead of merely navigating a list of titles.
+ *
+ * Rows are reconciled rather than rebuilt on every session update. Replacing a
+ * thumbnail iframe when only the selection changed would make the outline
+ * flash, lose lazy-loading progress and reload the deck once per slide on every
+ * keystroke. A slide id is the stable identity; duplicate ids are disambiguated
+ * in source order without pretending the index itself is identity.
+ *
+ * Diagnostics are shown on the card they belong to. The pipeline returns them
+ * with every parse, so the outline is where an author sees which slide has a
+ * problem without opening it.
  */
 
-import { routeFor } from "./canvas";
-import type { SlideSummary } from "./client";
 import { element } from "./dom";
+import type { SlideSummary } from "./client";
+import type { Scheme } from "./canvas";
 import type { EditOp } from "./operations";
 import type { EditorState } from "./session";
+import { createSlideMenu } from "./slide-menu";
 
 export interface OutlineHandlers {
   select(slide: number): void;
-  run(op: EditOp): void;
+  run(op: EditOp): void | Promise<void>;
+  /** Continues a successful creation gesture into editing its first placeholder. */
+  created?(): void;
 }
 
 export interface OutlineOptions {
-  /** The route the deck is served under, so every preview is the real page. */
-  deckBase?: string;
+  /** The real deck page for one slide. Absent keeps embedders text-only. */
+  preview?(slide: number): string;
+  /** The viewing palette shared with the main canvas. */
+  scheme?: Scheme;
 }
 
 export interface Surface {
@@ -40,62 +57,80 @@ export interface Surface {
   destroy?(): void;
 }
 
-export function createOutline(handlers: OutlineHandlers, options: OutlineOptions = {}): Surface {
+export interface OutlineSurface extends Surface {
+  /** Changes every loaded miniature without changing deck content. */
+  showScheme(scheme: Scheme): void;
+}
+
+export function createOutline(
+  handlers: OutlineHandlers,
+  options: OutlineOptions = {},
+): OutlineSurface {
   const list = element("ol", { class: "slidx-outline-list" });
+  let count = 0;
+  let selected = 0;
+  const add = createSlideMenu(async (kind) => {
+    const before = count;
+    const at = Math.min(selected + 1, count);
+
+    await handlers.run({ op: "createSlide", at, kind });
+    if (count > before) {
+      handlers.select(at);
+      handlers.created?.();
+    }
+  });
   const root = element("section", { class: "slidx-outline", "aria-label": "Slides" }, [
-    element("header", { class: "slidx-panel-head" }, [
-      element("h2", {}, ["Slides"]),
-      addButton(handlers, () => count),
-    ]),
+    element("header", { class: "slidx-panel-head" }, [element("h2", {}, ["Slides"]), add.root]),
     list,
   ]);
 
-  let count = 0;
   let dragging: number | undefined;
-  let source: string | undefined;
-  let refresh = 0;
-  const rows = new Map<string, OutlineRow>();
-
-  const drag: DragHandlers = {
-    start: (from) => {
-      dragging = from;
-    },
-    drop: (to) => {
-      if (dragging === undefined || dragging === to) return;
-      handlers.run({ op: "moveSlide", slide: dragging, to });
-      dragging = undefined;
-    },
-  };
+  let rows = new Map<string, OutlineRow>();
+  let previousSelected: number | undefined;
+  let scheme: Scheme = options.scheme ?? "light";
 
   return {
     root,
+    destroy: () => add.destroy(),
+    showScheme(next) {
+      scheme = next;
+      for (const found of rows.values()) found.showScheme(next);
+    },
     render(state) {
       count = state.slides.length;
-      // The session renders its empty starting state before the first read.
-      // There is no preview to refresh then, so the first real deck receives
-      // the clean public route rather than looking like an edit already landed.
-      const changed = rows.size > 0 && source !== undefined && source !== state.source;
-      if (changed) refresh += 1;
-      source = state.source;
+      selected = state.selection.slide;
 
-      reconcile(
-        list,
-        state.slides.map((slide, index) => {
-          const found = rows.get(slide.id);
-          const kept = found ?? row(slide.id, handlers, drag);
-          rows.set(slide.id, kept);
-          update(
-            kept,
-            slide,
-            index,
-            state,
-            routeFor(options.deckBase ?? "slides", index),
-            changed ? refresh : undefined,
-          );
-          return kept;
-        }),
-        rows,
-      );
+      const next = new Map<string, OutlineRow>();
+      const identities = rowIdentities(state.slides);
+      const rendered = state.slides.map((slide, index) => {
+        const identity = identities[index]!;
+        const found =
+          rows.get(identity) ??
+          row(handlers, options, () => scheme, {
+            start: (from) => {
+              dragging = from;
+            },
+            drop: (to) => {
+              if (dragging === undefined || dragging === to) return;
+              void handlers.run({ op: "moveSlide", slide: dragging, to });
+              dragging = undefined;
+            },
+            end: () => {
+              dragging = undefined;
+            },
+          });
+
+        next.set(identity, found);
+        return { found, slide, index };
+      });
+
+      list.replaceChildren(...rendered.map(({ found }) => found.root));
+      for (const { found, slide, index } of rendered) found.render(slide, index, state);
+      if (previousSelected !== selected) {
+        rendered[selected]?.found.root.scrollIntoView?.({ block: "nearest" });
+        previousSelected = selected;
+      }
+      rows = next;
     },
   };
 }
@@ -103,168 +138,173 @@ export function createOutline(handlers: OutlineHandlers, options: OutlineOptions
 interface DragHandlers {
   start(from: number): void;
   drop(to: number): void;
+  end(): void;
 }
 
 interface OutlineRow {
-  id: string;
   root: HTMLElement;
-  open: HTMLButtonElement;
-  frame: HTMLIFrameElement;
-  number: HTMLElement;
-  title: HTMLElement;
-  caption: HTMLElement;
-  duplicate: HTMLButtonElement;
-  remove: HTMLButtonElement;
-  index: number;
-  route?: string;
+  showScheme(scheme: Scheme): void;
+  render(slide: SlideSummary, index: number, state: EditorState): void;
 }
 
-function row(id: string, handlers: OutlineHandlers, drag: DragHandlers): OutlineRow {
-  const number = element("span", { class: "slidx-outline-number" });
-  const frame = element("iframe", {
-    class: "slidx-outline-frame",
-    loading: "lazy",
-    tabindex: -1,
-    "aria-hidden": true,
-  });
-  const preview = element("span", { class: "slidx-outline-preview" }, [frame]);
-  const title = element("span", { class: "slidx-outline-title" });
-  const caption = element("span", { class: "slidx-outline-caption" }, [title]);
+function row(
+  handlers: OutlineHandlers,
+  options: OutlineOptions,
+  scheme: () => Scheme,
+  drag: DragHandlers,
+): OutlineRow {
+  let index = 0;
+  const number = element("span", { class: "slidx-outline-number", "aria-hidden": "true" });
+  const title = element("span", { class: "slidx-outline-title", "aria-hidden": "true" });
+  const dot = element("span", { class: "slidx-dot", "aria-hidden": "true" });
+  const caption = element("div", { class: "slidx-outline-caption" }, [number, title, dot]);
 
-  // The button lies over the visual row rather than containing the iframe.
-  // An iframe is interactive content even with pointer events disabled, and
-  // nesting one in a button would make invalid, confusing accessibility HTML.
+  const thumbnail = element("span", { class: "slidx-outline-thumbnail", "aria-hidden": "true" });
+  const frame = options.preview
+    ? element("iframe", {
+        class: "slidx-outline-frame",
+        loading: "lazy",
+        tabindex: -1,
+        "aria-hidden": "true",
+      })
+    : undefined;
+  if (frame) {
+    // The editor canvas deliberately starts as paper even when the machine is
+    // dark. The overview must tell the same visual truth or a white slide in
+    // the canvas becomes a dark slide one panel away.
+    frame.addEventListener("load", () => {
+      try {
+        // Vite's document reload can briefly send sibling iframes to the page
+        // that changed rather than the route their card owns. The `src`
+        // attribute still says the right thing, so a normal render sees no
+        // difference and leaves a slide-two caption over a slide-one picture.
+        // Reassert the route at the document boundary where the mismatch is
+        // observable, and do not colour the wrong page on its way out.
+        if (recoverPreviewRoute(frame)) return;
+        applyThumbnailScheme(frame.contentDocument, scheme());
+      } catch {
+        // An embed may serve its preview across an origin. It still gets the
+        // real page; only this local viewing preference cannot cross the seam.
+      }
+    });
+    thumbnail.append(frame);
+  } else {
+    thumbnail.setAttribute("data-empty", "true");
+  }
+
+  // A real button overlays the card rather than wrapping the iframe. Interactive
+  // content inside a button is invalid and gives keyboard navigation two focus
+  // stops for what is one action. The miniature never receives input.
   const open = element("button", { type: "button", class: "slidx-outline-open" });
 
-  const remove = element("button", { type: "button", class: "slidx-outline-remove" }, ["×"]);
+  const remove = element(
+    "button",
+    { type: "button", class: "slidx-outline-remove", "aria-label": `Remove slide ${index + 1}` },
+    ["×"],
+  );
   const duplicate = element(
     "button",
     {
       type: "button",
       class: "slidx-outline-duplicate",
+      "aria-label": `Duplicate slide ${index + 1}`,
       title: "Duplicate slide",
     },
     ["⧉"],
   );
 
+  const actions = element("div", { class: "slidx-outline-actions" }, [duplicate, remove]);
   const item = element(
     "li",
     {
       class: "slidx-outline-row",
       draggable: true,
     },
-    [number, preview, caption, open, duplicate, remove],
+    [thumbnail, caption, open, actions],
   );
 
-  const result: OutlineRow = {
-    id,
-    root: item,
-    open,
-    frame,
-    number,
-    title,
-    caption,
-    duplicate,
-    remove,
-    index: 0,
-  };
+  open.addEventListener("click", () => handlers.select(index));
+  duplicate.addEventListener("click", () => {
+    void handlers.run({ op: "duplicateSlide", slide: index });
+  });
+  remove.addEventListener("click", () => {
+    void handlers.run({ op: "removeSlide", slide: index });
+  });
 
-  open.addEventListener("click", () => handlers.select(result.index));
-  duplicate.addEventListener("click", () =>
-    handlers.run({ op: "duplicateSlide", slide: result.index }),
-  );
-  remove.addEventListener("click", () => handlers.run({ op: "removeSlide", slide: result.index }));
-
-  item.addEventListener("dragstart", () => drag.start(result.index));
+  item.addEventListener("dragstart", () => drag.start(index));
   item.addEventListener("dragover", (event) => event.preventDefault());
   item.addEventListener("drop", (event) => {
     event.preventDefault();
-    drag.drop(result.index);
+    drag.drop(index);
   });
+  item.addEventListener("dragend", () => drag.end());
 
-  return result;
+  return {
+    root: item,
+    showScheme: (next) => applyThumbnailScheme(frame?.contentDocument, next),
+    render(slide, nextIndex, state) {
+      index = nextIndex;
+      const label = slide.title ?? `Slide ${index + 1}`;
+      const worst = severityOn(state, index);
+      const route = options.preview?.(index);
+
+      number.textContent = String(index + 1);
+      title.textContent = label;
+      dot.hidden = worst === undefined;
+      dot.title = worst ?? "";
+      open.setAttribute("aria-label", `${index + 1} ${label}`);
+      remove.setAttribute("aria-label", `Remove slide ${index + 1}`);
+      duplicate.setAttribute("aria-label", `Duplicate slide ${index + 1}`);
+      item.setAttribute("aria-current", String(index === state.selection.slide));
+      item.setAttribute("data-slide", String(index));
+      if (worst) item.setAttribute("data-severity", worst);
+      else item.removeAttribute("data-severity");
+
+      if (frame && route) {
+        frame.title = `Preview of slide ${index + 1}: ${label}`;
+        frame.dataset.preview = route;
+        // A detached surface is a DOM test or an embed being assembled. Giving
+        // its iframe a URL starts a network request even though nobody can see
+        // it, and some DOM implementations do so before the element is ever
+        // connected. The first connected render starts the real lazy load.
+        if (item.isConnected && frame.getAttribute("src") !== route) frame.src = route;
+      }
+    },
+  };
 }
 
-/** Updates a kept row without removing its iframe from the document. */
-function update(
-  row: OutlineRow,
-  slide: SlideSummary,
-  index: number,
-  state: EditorState,
-  route: string,
-  refresh: number | undefined,
-): void {
-  const worst = severityOn(state, index);
-  const label = slide.title ?? `Slide ${index + 1}`;
-  row.index = index;
-  row.number.textContent = String(index + 1);
-  row.title.textContent = label;
-  row.open.setAttribute("aria-label", `Open slide ${index + 1}: ${label}`);
-  row.duplicate.setAttribute("aria-label", `Duplicate slide ${index + 1}`);
-  row.remove.setAttribute("aria-label", `Remove slide ${index + 1}`);
-  row.root.setAttribute("data-slide", String(index));
+/** Restores a miniature that a document-wide dev reload moved off its own route. */
+export function recoverPreviewRoute(frame: HTMLIFrameElement): boolean {
+  const route = frame.dataset.preview;
+  const showing = frame.contentDocument?.URL;
+  if (!route || !showing) return false;
 
-  if (index === state.selection.slide) row.root.setAttribute("aria-current", "true");
-  else row.root.removeAttribute("aria-current");
+  const wanted = new URL(route, frame.ownerDocument.baseURI);
+  const current = new URL(showing, frame.ownerDocument.baseURI);
+  if (wanted.origin === current.origin && wanted.pathname === current.pathname) return false;
 
-  if (worst) row.root.setAttribute("data-severity", worst);
-  else row.root.removeAttribute("data-severity");
-
-  const dot = row.caption.querySelector<HTMLElement>(".slidx-dot");
-  if (worst && !dot) row.caption.append(element("span", { class: "slidx-dot", title: worst }));
-  else if (worst) dot!.title = worst;
-  else dot?.remove();
-
-  // A state change that did not change the source — selecting a slide or
-  // receiving somebody's presence — must not navigate every preview again.
-  // A source change does: the route is the same URL but the page it serves is
-  // now different, and the query is only a cache-busting viewing concern.
-  if (row.route !== route || refresh !== undefined) {
-    row.route = route;
-    row.frame.setAttribute("src", refresh === undefined ? route : `${route}?outline=${refresh}`);
-  }
+  frame.src = route;
+  return true;
 }
 
-/**
- * Puts keyed rows in deck order, moving only rows whose order really changed.
- *
- * `replaceChildren` would detach every iframe even when the only change was
- * `aria-current`, and browsers are allowed to reload a frame moved through the
- * DOM. A presence pulse would then become a request for every slide.
- */
-function reconcile(
-  list: HTMLOListElement,
-  wanted: OutlineRow[],
-  rows: Map<string, OutlineRow>,
-): void {
-  const ids = new Set(wanted.map((row) => row.id));
-  for (const [id, row] of rows) {
-    if (ids.has(id)) continue;
-    row.root.remove();
-    rows.delete(id);
-  }
+/** Makes an overview miniature agree with the canvas viewing choice. */
+export function applyThumbnailScheme(document: Document | null | undefined, scheme: Scheme): void {
+  const root = document?.documentElement;
+  if (!root) return;
 
-  let at: ChildNode | null = list.firstChild;
-  for (const row of wanted) {
-    if (row.root === at) {
-      at = at.nextSibling;
-      continue;
-    }
-
-    list.insertBefore(row.root, at);
-  }
+  if (scheme === "auto") root.removeAttribute("data-scheme");
+  else root.setAttribute("data-scheme", scheme);
 }
 
-function addButton(handlers: OutlineHandlers, at: () => number): HTMLElement {
-  const button = element("button", { type: "button", class: "slidx-add" }, ["Add slide"]);
+/** Stable row keys, including the uncommon but valid case of repeated ids. */
+function rowIdentities(slides: readonly SlideSummary[]): string[] {
+  const seen = new Map<string, number>();
 
-  // A new slide arrives with a heading rather than empty, because an empty
-  // slide in the outline is indistinguishable from a bug.
-  button.addEventListener("click", () =>
-    handlers.run({ op: "insertSlide", at: at(), body: "## New slide" }),
-  );
-
-  return button;
+  return slides.map((slide) => {
+    const occurrence = seen.get(slide.id) ?? 0;
+    seen.set(slide.id, occurrence + 1);
+    return `${slide.id}\u0000${occurrence}`;
+  });
 }
 
 /** The worst thing the linter said about one slide, or nothing. */
