@@ -102,18 +102,28 @@ export const BUDGETS = [
   },
   {
     name: "javascript inlined into a slide with no steps",
-    // Raised twice, both deliberately.
+    // This one has moved three times, so it is kept as an inventory rather
+    // than a number. A budget that only ever goes up and says why each time is
+    // still doing its job; one that goes up quietly is not.
     //
-    // 1,600 for the one line that stops this running inside a frame: the
-    // editor draws every slide in the outline as a live frame of its own page,
-    // and without the guard a single position on the mirror channel pulled
-    // every preview onto the same slide.
+    //   ~1,500  keys, the footer's links, and following the presenter's mirror
+    //     +30   not running inside a frame — the editor draws every slide in
+    //           its outline as a live frame, and without this one line a
+    //           single position on the mirror channel pulled every preview
+    //           onto the same slide
+    //    +740   a swipe. Every length on a slide is a share of the slide, so
+    //           the footer's links measure four pixels by three on a 375px
+    //           phone — measured, not assumed. There the swipe is not a
+    //           convenience, it is the navigation
+    //    +160   fullscreen and the wake lock, on `f`. A deck presented in a
+    //           browser window is presented with the browser's chrome around
+    //           it, and there was no way to leave it
     //
-    // 2,400 for the swipe. Every length on a slide is a share of the slide, so
-    // the footer's links measure four pixels by three on a 375px phone —
-    // measured, not assumed. On a phone the swipe is not a convenience, it is
-    // the navigation, and a target that small is not one.
-    limit: 2_400,
+    // What is *not* in here is the shape worth defending: no import, no module
+    // graph, no framework, and no request to anything. That is the half of the
+    // old "no JavaScript" claim that was ever load-bearing, and the figure
+    // above it still reads zero.
+    limit: 2_600,
     protects:
       "the other half, which used to be zero. It was zero because such a slide could not be " +
       "advanced: no key, no link, and no listener for the presenter's mirror — see " +
