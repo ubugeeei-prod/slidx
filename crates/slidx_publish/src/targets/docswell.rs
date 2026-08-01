@@ -177,13 +177,13 @@ mod tests {
 
     #[test]
     fn a_derived_path_is_fitted_to_the_shorter_limit_on_a_word_boundary() {
-        let title = "How We Made A Presentation Framework That Ships No JavaScript At All";
+        let title = "How We Made A Presentation Framework That Loads No Framework At All";
         let composed =
             compose_docswell(&deck(DeckMetadata { title: Some(title.into()), ..meta() }));
 
         assert_eq!(
             composed.value().expect("a payload").path,
-            "how-we-made-a-presentation-framework-that-ships"
+            "how-we-made-a-presentation-framework-that-loads"
         );
     }
 

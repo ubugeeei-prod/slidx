@@ -2,7 +2,11 @@
 //!
 //! One document per slide. Navigation is the browser's job — a built deck is
 //! ordinary multi-page HTML — so a shell carries no router and no framework,
-//! and a slide with no steps carries no JavaScript at all.
+//! and a slide with no steps fetches nothing at all.
+//!
+//! "The browser's job" was doing a lot of work in that sentence for a long
+//! time: it is only true once the document contains a link, and this one did
+//! not. See [`crate::navigation`].
 //!
 //! Everything is inlined: theme, layout, and animation CSS all live in the
 //! document. That is the offline guarantee expressed at the smallest scale —
@@ -55,6 +59,7 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
         &slide_layout,
         &demo_markup(slide),
         &camera_markup(slide, &slide_layout),
+        &crate::navigation::links(deck, slide),
     );
 
     format!(
@@ -85,7 +90,13 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
         shell_css = layout::STYLESHEET,
         layout_css = slidx_theme::layout::css(&slidx_theme::layout::all()),
         transition_css = transition_css(deck, slide, &options.theme),
-        script = stage_script(deck, slide, options),
+        // A staged slide's stage binds the keyboard and the mirror through the
+        // runtime it already loads; every other slide had neither, which is
+        // most of a deck. See `crate::navigation`.
+        script = match stage_script(deck, slide, options) {
+            staged if staged.is_empty() => crate::navigation::script(deck, slide),
+            staged => staged,
+        },
     )
 }
 
@@ -96,7 +107,7 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
 /// must show the authored geometry without starting venue-only behaviour.
 pub(crate) fn render_static_preview(deck: &Deck, slide: &Slide, options: &ShellOptions) -> String {
     let slide_layout = region::layout_of(slide);
-    let frame = slide_frame(deck, slide, options, &slide_layout, "", "");
+    let frame = slide_frame(deck, slide, options, &slide_layout, "", "", "");
 
     format!(
         r#"<!doctype html>
@@ -142,6 +153,9 @@ fn slide_frame(
     slide_layout: &Layout,
     appended: &str,
     camera: &str,
+    // The footer's neighbours, or nothing for a preview — which is inert by
+    // definition and would otherwise offer a link out of itself.
+    navigation: &str,
 ) -> String {
     let body = region::body(deck, slide, slide_layout, &options.theme, &options.markdown, appended);
     let (width, height) = deck.meta.aspect.dimensions();
@@ -153,8 +167,7 @@ fn slide_frame(
 {body}{camera}    </div>
     <footer class="slidx-slide-footer">
       <span class="slidx-slide-brand">{brand}</span>
-      <span class="slidx-slide-number">{number} / {count}</span>
-    </footer>
+{navigation}    </footer>
   </article>
 </main>
 "#,
@@ -174,8 +187,15 @@ fn slide_frame(
                 .unwrap_or_default()
                 .as_str()
         ),
-        number = slide.index + 1,
-        count = deck.slides.len(),
+        navigation = if navigation.is_empty() {
+            format!(
+                "      <span class=\"slidx-slide-number\">{} / {}</span>\n",
+                slide.index + 1,
+                deck.slides.len()
+            )
+        } else {
+            navigation.to_string()
+        },
     )
 }
 
@@ -461,8 +481,12 @@ mod tests {
         // and no browser executes it. Anything else here would be something that
         // runs, and something that runs is the only thing that could open a
         // camera.
-        assert_eq!(html.matches("<script").count(), 1, "something else is scripted:\n{html}");
+        // Something that runs is the only thing that could open a camera, so
+        // what runs is enumerated rather than counted at zero. The other one is
+        // the navigator, which the assertions above have just been run against.
+        assert_eq!(html.matches("<script").count(), 2, "something else is scripted:\n{html}");
         assert!(html.contains("<script type=\"application/ld+json\">"));
+        assert!(html.contains(".slidx-slide-nav"), "and the second one is the navigator");
     }
 
     #[test]
@@ -555,17 +579,40 @@ mod tests {
     const STAGED: &str = "# Latency\n\nDropped to [120ms]{#latency}[38ms]{#latency}.\n";
 
     #[test]
-    fn a_slide_with_one_stop_carries_nothing_that_runs() {
-        // The claim on the front page. A finished slide is finished markup, and
-        // a module on it would cost every audience a request for nothing.
+    fn a_slide_with_one_stop_asks_the_network_for_nothing() {
+        // This test used to say a slide with one stop carried nothing that
+        // runs, and that was true because such a slide could not be advanced:
+        // no key, no link, and no listener for the presenter's mirror. The
+        // claim was a description of the defect.
+        //
+        // What survives the fix is the part that was ever worth having. A
+        // finished slide still costs no request, no module graph and no
+        // framework — see `crate::navigation` for the bargain and its size.
         //
         // The structured data in the head is a `<script>` element and is not
-        // one of those: `application/ld+json` is the container the JSON-LD
+        // code: `application/ld+json` is the container the JSON-LD
         // specification chose for a block of JSON, and no browser executes it.
         let html = shell("# Hello\n\n- one\n");
 
-        assert_eq!(html.matches("<script").count(), 1, "something else is scripted:\n{html}");
+        assert!(!html.contains("<script type=\"module\">"), "no module graph:\n{html}");
+        assert!(!html.contains("<script src="), "no request:\n{html}");
+        assert_eq!(html.matches("<script").count(), 2, "something else is scripted:\n{html}");
         assert!(html.contains("<script type=\"application/ld+json\">"));
+    }
+
+    #[test]
+    fn what_a_finished_slide_pays_for_being_navigable_is_bounded() {
+        // A number rather than an adjective, because "tiny" is what every
+        // bundle says about itself. If this ever needs raising, the raise is
+        // the review.
+        let html = shell("# Hello\n\n- one\n");
+        let script = html
+            .split("<script>")
+            .nth(1)
+            .and_then(|rest| rest.split("</script>").next())
+            .expect("the navigator");
+
+        assert!(script.len() < 1700, "the navigator has grown to {} bytes", script.len());
     }
 
     #[test]

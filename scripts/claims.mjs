@@ -49,6 +49,19 @@ export const CLAIMS = [
     wrong: "same claim, same reason: its own assets are still requests",
     instead: "asks nothing of anywhere but itself, or fetches nothing from another origin",
   },
+  {
+    phrase: "ships no javascript",
+    wrong:
+      "it did, and the reason was a defect: a slide with no steps had no navigation at all — " +
+      "no key, no link, no listener for the presenter's mirror — so there was nothing for a " +
+      "script to do. The zero was a description of what was missing",
+    instead: "fetches no JavaScript, or loads no module and no framework",
+  },
+  {
+    phrase: "ships zero javascript",
+    wrong: "same claim, same reason",
+    instead: "fetches no JavaScript, or loads no module and no framework",
+  },
 ];
 
 export function readableFiles() {

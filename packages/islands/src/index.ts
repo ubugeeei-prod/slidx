@@ -1,7 +1,7 @@
 /**
  * Opt-in framework islands for slidx decks.
  *
- * A slidx deck is multi-page HTML and an audience slide ships zero JavaScript.
+ * A slidx deck is multi-page HTML and an audience slide fetches no JavaScript.
  * A framework therefore cannot be something the deck runs on; it has to be
  * something one slide asks for, mounted into one element, paid for by that
  * slide alone. This package is the contract for that and the loader that

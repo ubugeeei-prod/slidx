@@ -1,7 +1,7 @@
 /**
  * The boundary between a deck and a framework.
  *
- * An audience slide ships no JavaScript. That is the property slidx is sold on
+ * An audience slide fetches no JavaScript. That is the property slidx is sold on
  * and a test asserts it directly, so a framework cannot be a runtime the deck
  * carries — it has to be something one slide opts into and pays for alone.
  * This module is the whole of that opt-in: a name a slide can select, and a

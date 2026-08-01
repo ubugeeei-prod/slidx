@@ -36,6 +36,7 @@ pub mod highlight;
 pub mod layout;
 pub mod markdown;
 mod mdx;
+pub mod navigation;
 pub mod og;
 pub mod presenter;
 pub mod presenter_layout;
