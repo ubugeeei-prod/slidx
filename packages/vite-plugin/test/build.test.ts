@@ -152,6 +152,7 @@ describe("building a deck with no configuration", () => {
       "slides/2/index.html",
       "slides/2/presenter/index.html",
       "slides/index.html",
+      "slides/overview/index.html",
       "slides/presenter/index.html",
       "slides/print/index.html",
       "slides/rehearsal.js",
@@ -213,6 +214,7 @@ describe("options", () => {
     const { files } = await buildDeck({ "0001.md": "# One\n" }, { base: "/" });
     expect(files.filter((file) => !file.startsWith("og"))).toEqual([
       "index.html",
+      "overview/index.html",
       "presenter/index.html",
       "print/index.html",
       "rehearsal.js",
@@ -227,7 +229,9 @@ describe("options", () => {
       { "0001.md": "# One\n" },
       { presenter: false, print: false, og: false },
     );
-    expect(files).toEqual(["robots.txt", "slides/index.html"]);
+    // The overview stays: it is an audience page rather than an extra view,
+    // and it costs one per deck rather than one per slide.
+    expect(files).toEqual(["robots.txt", "slides/index.html", "slides/overview/index.html"]);
   }, 60_000);
 
   it("keeps the print shell without the presenter view", async () => {
