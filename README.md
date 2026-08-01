@@ -86,6 +86,26 @@ configuration is `plugins: [slidx()]`. `node scripts/screenshot.mjs` regenerates
 it, so an image that stopped being true fails to reproduce rather than quietly
 misleading.
 
+## Getting around a deck
+
+`→` and a presentation remote's `PageDown` work on every slide, including the
+ones with nothing to reveal — and so does the presenter view, which is usually
+where a clicker's keys land. The two windows follow each other in **both**
+directions.
+
+Without a keyboard the footer's `‹ n / m ›` is the same navigation: real
+anchors between real documents, so a deck opened from a USB stick with
+scripting switched off is still a deck you can move through. On a phone, swipe
+— every length on a slide is a share of the slide, so those two glyphs measure
+about four pixels by three on a 375px screen, which makes the swipe the
+navigation there rather than a shortcut for it.
+
+`f` takes the whole screen and asks it to stay awake. `/overview/` is every
+slide at once, each a link to itself — the real slides drawn small rather than
+pictures of them, on a page that runs nothing at all, because a slide is
+already a size container and putting one in a small box is the whole of drawing
+a thumbnail.
+
 ## A deck written in Japanese
 
 Displaying Japanese and **setting** it are different jobs, and a browser left to
@@ -229,6 +249,7 @@ slidx cd vueconf           # with `slidx shell` loaded, takes you there
 | **An edit is a byte-range splice.** Your blank lines and `*` bullets survive untouched.         |
 | **The linter checks the room.** Projector washout; angular size from the back row.              |
 | **Japanese is typeset, not rendered.** 禁則, 約物, 文節 breaking, and its own leading.          |
+| **Navigation without a runtime.** Real links between real documents; a swipe on a phone.        |
 | **One model, one execution.** Editor, projector, PDF and card share one parser.                 |
 | **Native speed.** 500 slides in 133 ms — `node scripts/bench-build.mjs` reproduces it.          |
 
