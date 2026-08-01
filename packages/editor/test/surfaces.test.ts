@@ -1500,6 +1500,51 @@ describe("diagnostics", () => {
     expect(jumped).toEqual([2]);
   });
 
+  it("jumps to the slide from the keyboard, which is what its roles promise", () => {
+    // The row carries `role="button"` and `tabindex="0"`, so it is reachable by
+    // Tab and announced as operable. Only `click` was bound, so a keyboard user
+    // could focus a finding, press Enter, and watch nothing happen — the one
+    // path this panel exists to offer, unavailable to the people the roles were
+    // added for.
+    for (const key of ["Enter", " "]) {
+      const jumped: number[] = [];
+      const diagnostics = createDiagnostics({ select: (at) => jumped.push(at) });
+      diagnostics.render(
+        stateOf({
+          diagnostics: [
+            { severity: "warning", code: "a11y/alt", message: "no alt", slideIndex: 2 },
+          ],
+        }),
+      );
+
+      const row = diagnostics.root.querySelector<HTMLElement>(".slidx-finding")!;
+      const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+      row.dispatchEvent(event);
+
+      expect(jumped, `${key} should jump`).toEqual([2]);
+      expect(event.defaultPrevented, `${key} should not also scroll`).toBe(true);
+    }
+  });
+
+  it("leaves keys it does not act on to the browser", () => {
+    // Tab has to keep moving through the list, and a deck-level finding has no
+    // slide to jump to and is not focusable at all.
+    const jumped: number[] = [];
+    const diagnostics = createDiagnostics({ select: (at) => jumped.push(at) });
+    diagnostics.render(
+      stateOf({
+        diagnostics: [{ severity: "warning", code: "a11y/alt", message: "no alt", slideIndex: 2 }],
+      }),
+    );
+
+    const row = diagnostics.root.querySelector<HTMLElement>(".slidx-finding")!;
+    const event = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+    row.dispatchEvent(event);
+
+    expect(jumped).toEqual([]);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
   it("says a refusal in words instead of throwing it away", () => {
     const diagnostics = createDiagnostics({ select: () => {} });
     diagnostics.render(stateOf({ refusal: { error: "noSuchSlide", slide: 9 } }));
