@@ -79,9 +79,27 @@ function row(finding: Finding, handlers: DiagnosticsHandlers, ahead?: string): H
   ]);
 
   if (finding.slideIndex !== undefined) {
+    const go = () => handlers.select(finding.slideIndex!);
+
+    // `role="button"` and `tabindex="0"` are a promise: this is operable, and
+    // reachable by Tab. Only `click` was bound, so a keyboard user could focus
+    // a finding, press Enter, and watch nothing happen — the one path this
+    // panel exists to offer, unavailable to the people the roles were added
+    // for.
+    //
+    // Not an actual `<button>` because the row is a `<li>` in a list of
+    // findings and the list is the semantics that matter; a button inside each
+    // one would announce the row twice.
     item.setAttribute("role", "button");
     item.setAttribute("tabindex", "0");
-    item.addEventListener("click", () => handlers.select(finding.slideIndex!));
+    item.addEventListener("click", go);
+    item.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      // Space scrolls a list by default, which is exactly the gesture a
+      // keyboard user makes to reach the next finding.
+      event.preventDefault();
+      go();
+    });
   }
 
   return item;
