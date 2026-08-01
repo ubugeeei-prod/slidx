@@ -212,10 +212,11 @@ Everything between walking up and sitting down.
       `RemoteSocket` for them; there is no relay. `readPairing`'s one caller
       is the _editor's_ collaboration gate, not slide control
 - [ ] Presentation mode: wake lock, fullscreen, and a named DND checklist — #13.
-      `enterPresentation` is written, tested and exported, and no shipped page
-      calls it. Unchecked again for the reason at the top of this file: the
-      behaviour needs a gesture to hang off, and a deck has no key or control
-      that offers one. `choosing.md` claimed it for months
+      Two of the three now reach a speaker: `f` on any slide takes the whole
+      screen and asks for the wake lock, bound where the gesture has to be —
+      the audience window is the one on the projector, and it has no module.
+      The checklist is still unreachable, and `enterPresentation` — which also
+      arranges a camera — is still called by no shipped page
 - [x] Rehearsal recording; actual per-slide dwell time diffed against budget — #17
 - [ ] **Demo fallback** as a declared construct: live target plus recorded
       video — #14. Both sides ship in the markup, which is the hard half and

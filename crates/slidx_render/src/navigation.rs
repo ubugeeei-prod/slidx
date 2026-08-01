@@ -146,6 +146,24 @@ fn step(
 /// shape for the same reason: it sends from `subscribe`, which fires on the
 /// move.
 ///
+/// # Fullscreen, and the screen staying on
+///
+/// A deck presented in a browser window is presented with the browser's chrome
+/// around it, and there was no way to leave it: `enterPresentation` is written
+/// and tested in `packages/runtime` and no shipped page imports it, which is
+/// why M4's box for it is unchecked.
+///
+/// The gesture has to be on the *audience* window, because that is the one on
+/// the projector, and that window has no module. So `f` is bound here — two
+/// browser calls rather than a second implementation of anything: the runtime's
+/// version also arranges a camera and prints a Do Not Disturb checklist, and
+/// neither belongs on a slide an audience is looking at.
+///
+/// The wake lock is asked for *after* fullscreen resolves and its failure is
+/// swallowed, because both are permission-shaped: a browser that refuses the
+/// lock should still give the speaker the full screen, and one that refuses
+/// both should still show the slide.
+///
 /// # A swipe
 ///
 /// The footer's two glyphs are a poor target for a thumb, and a deck is read
@@ -218,6 +236,12 @@ addEventListener("keydown", (event) => {{
   if (typeof rel === "string") {{ event.preventDefault(); step(rel); }}
   else if (event.key === "Home") {{ event.preventDefault(); go(0, "{root}"); }}
   else if (event.key === "End") {{ event.preventDefault(); go({last}, "{end}"); }}
+  else if (event.key === "f") {{
+    event.preventDefault();
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen?.().then(() =>
+      navigator.wakeLock?.request("screen").catch(() => {{}}));
+  }}
 }});
 addEventListener("click", (event) => {{
   const link = event.target.closest?.(`${{nav}} a[rel]`);
@@ -415,6 +439,31 @@ mod tests {
         assert!(emitted.contains("defaultPrevented"));
         assert!(emitted.contains("metaKey"), "cmd-left is the browser's, not the deck's");
         assert!(emitted.contains("[contenteditable]"));
+    }
+
+    #[test]
+    fn a_slide_can_take_the_whole_screen() {
+        // There was no way to leave the browser's chrome. `enterPresentation`
+        // is written and tested in `packages/runtime`, and no shipped page
+        // imports it — which is why M4's box for it is unchecked.
+        let deck = three_slides();
+        let emitted = script(&deck, &deck.slides[1]);
+
+        assert!(emitted.contains("requestFullscreen"));
+        assert!(emitted.contains("exitFullscreen"), "the same key has to give it back");
+        assert!(emitted.contains(r#"wakeLock?.request("screen")"#));
+    }
+
+    #[test]
+    fn a_refused_wake_lock_still_leaves_a_full_screen() {
+        // Both are permission-shaped. A browser that refuses the lock should
+        // still give the speaker the screen, and one that refuses both should
+        // still show the slide.
+        let deck = three_slides();
+        let emitted = script(&deck, &deck.slides[1]);
+
+        assert!(emitted.contains("requestFullscreen?.()"), "absent API must not throw");
+        assert!(emitted.contains("catch(() => {})"), "a refused lock is not an error here");
     }
 
     #[test]
