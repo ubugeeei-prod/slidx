@@ -481,7 +481,13 @@ export default defineConfig({
       }),
 
       // Benchmarks measure wall-clock time, so a cached result is a wrong one.
-      "bench:rust": uncached("cargo bench --workspace"),
+      //
+      // Not `cargo bench`: this workspace has no `benches/`, so that command
+      // ran zero benchmarks and exited zero — a task that had been reporting
+      // nothing since it was written. `#[bench]` is nightly-only and a harness
+      // is a dependency for a number that is reported rather than gated, which
+      // is the same reasoning `scripts/bench-build.mjs` is a script.
+      "bench:rust": uncached("cargo run --release -p slidx_render --example bench -- 500"),
 
       // Backs the build-time and output-size figures in the README. Run it
       // before changing anything in the pipeline you expect to be free.
