@@ -140,6 +140,23 @@ fn step(
 /// shape for the same reason: it sends from `subscribe`, which fires on the
 /// move.
 ///
+/// # A swipe
+///
+/// The footer's two glyphs are a poor target for a thumb, and a deck is read
+/// on a phone far more often than it is given from one. A swipe is what a
+/// person tries first there, and it costs nothing to answer: it moves the same
+/// two links the keys do.
+///
+/// Bounded on all four sides, because a gesture that fires when it should not
+/// is worse than one that never fires. One finger, so a pinch to zoom is not a
+/// page turn. Under 600ms, so a slow drag to select text is not one either.
+/// Forty pixels, so a tap that wandered is a tap. And twice as far across as
+/// down, so a scroll that drifted stays a scroll.
+///
+/// Both listeners are `passive`, so a swipe never blocks the compositor: the
+/// page keeps scrolling at sixty frames while the gesture is being decided,
+/// and the decision is made after the finger lifts.
+///
 /// # What it refuses
 ///
 /// **A slide that is not the window it would be presented from.** The editor's
@@ -202,6 +219,22 @@ addEventListener("click", (event) => {{
   event.preventDefault();
   step(link.rel);
 }});
+let from = null;
+addEventListener("touchstart", (event) => {{
+  from = event.touches.length === 1 && !event.target.closest?.("a,button,input,textarea,select")
+    ? {{ x: event.touches[0].clientX, y: event.touches[0].clientY, at: event.timeStamp }}
+    : null;
+}}, {{ passive: true }});
+addEventListener("touchend", (event) => {{
+  const start = from;
+  from = null;
+  if (!start || event.changedTouches.length !== 1) return;
+  const dx = event.changedTouches[0].clientX - start.x;
+  const dy = event.changedTouches[0].clientY - start.y;
+  if (event.timeStamp - start.at > 600 || Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 2) return;
+  step(dx < 0 ? "next" : "prev");
+}}, {{ passive: true }});
+
 mirror?.addEventListener("message", (event) => {{
   const to = event.data?.position?.slide;
   if (typeof to !== "number" || to === here) return;
@@ -372,6 +405,42 @@ mod tests {
         assert!(emitted.contains("defaultPrevented"));
         assert!(emitted.contains("metaKey"), "cmd-left is the browser's, not the deck's");
         assert!(emitted.contains("[contenteditable]"));
+    }
+
+    #[test]
+    fn a_phone_can_swipe_because_it_cannot_hit_the_links() {
+        // Every length on a slide is a share of the slide, which is what makes
+        // a deck scale as one piece — and what makes the footer's links four
+        // pixels by three on a 375px phone. Measured in a browser, after a
+        // comment in `crate::layout` claimed they cleared 44px.
+        let deck = three_slides();
+        let emitted = script(&deck, &deck.slides[1]);
+
+        assert!(emitted.contains("touchstart"));
+        assert!(emitted.contains("touchend"));
+        assert!(emitted.contains(r#"{ passive: true }"#), "a swipe must not block the compositor");
+    }
+
+    #[test]
+    fn a_swipe_is_bounded_on_all_four_sides() {
+        // A gesture that fires when it should not is worse than one that never
+        // fires: one finger so a pinch is not a page turn, under 600ms so a
+        // slow selection is not, forty pixels so a wandering tap is not, and
+        // twice as far across as down so a drifting scroll is not.
+        let deck = three_slides();
+        let emitted = script(&deck, &deck.slides[1]);
+
+        assert!(emitted.contains("touches.length === 1"));
+        assert!(emitted.contains("> 600"));
+        assert!(emitted.contains("< 40"));
+        assert!(emitted.contains("Math.abs(dy) * 2"));
+    }
+
+    #[test]
+    fn a_swipe_that_starts_on_a_link_belongs_to_the_link() {
+        let deck = three_slides();
+        assert!(script(&deck, &deck.slides[1])
+            .contains(r#"closest?.("a,button,input,textarea,select")"#));
     }
 
     #[test]

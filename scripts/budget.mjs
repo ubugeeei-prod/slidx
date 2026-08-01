@@ -102,11 +102,18 @@ export const BUDGETS = [
   },
   {
     name: "javascript inlined into a slide with no steps",
-    // Raised from 1,600 for the one line that stops this running inside a
-    // frame. The editor draws every slide in the outline as a live frame of
-    // its own page, and without the guard a single position on the mirror
-    // channel pulled every preview onto the same slide.
-    limit: 1_700,
+    // Raised twice, both deliberately.
+    //
+    // 1,600 for the one line that stops this running inside a frame: the
+    // editor draws every slide in the outline as a live frame of its own page,
+    // and without the guard a single position on the mirror channel pulled
+    // every preview onto the same slide.
+    //
+    // 2,400 for the swipe. Every length on a slide is a share of the slide, so
+    // the footer's links measure four pixels by three on a 375px phone —
+    // measured, not assumed. On a phone the swipe is not a convenience, it is
+    // the navigation, and a target that small is not one.
+    limit: 2_400,
     protects:
       "the other half, which used to be zero. It was zero because such a slide could not be " +
       "advanced: no key, no link, and no listener for the presenter's mirror — see " +

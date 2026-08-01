@@ -649,7 +649,7 @@ mod tests {
             .and_then(|rest| rest.split("</script>").next())
             .expect("the navigator");
 
-        assert!(script.len() < 1700, "the navigator has grown to {} bytes", script.len());
+        assert!(script.len() < 2400, "the navigator has grown to {} bytes", script.len());
     }
 
     #[test]

@@ -381,10 +381,19 @@ hr {
  *
  * Chrome on a slide is a tax on the content, so this is sized and coloured as
  * the counter already was and adds one character either side of it. It is the
- * whole navigation of a deck with no JavaScript — see `crate::navigation` —
- * which is why the target is much larger than the glyph: `padding` here is
- * measured against the caption size, so at 1080 it clears the 44px a finger
- * needs while the mark itself stays as quiet as the number.
+ * whole navigation of a deck with no JavaScript — see `crate::navigation`.
+ *
+ * The padding makes the target larger than the glyph, and this comment used to
+ * claim it cleared the 44px a finger needs. **It does not, and cannot.** Every
+ * length on a slide is a share of the slide, which is what makes a deck scale
+ * as one piece — so on a 375px phone, where the slide letterboxes to 360x203,
+ * this target measures four pixels by three. Measured, after the claim was
+ * written.
+ *
+ * A floor in absolute units would fix the target and break the slide: 44px
+ * inside 203px of slide is a quarter of the height given to a chevron. So the
+ * answer for a phone is the swipe in `crate::navigation`, and what is left
+ * here is an affordance for a pointer, honestly described.
  *
  * The inert one at each end of the deck is drawn in the hairline colour rather
  * than hidden. Removing it would slide the counter sideways on the first and
