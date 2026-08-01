@@ -47,7 +47,15 @@ const STYLESHEET: &str = r#"
  */
 .slidx-overview {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  /*
+   * Wide enough to recognise a slide by.
+   *
+   * A thumbnail is not for reading — 1920 design pixels in a 300px box puts
+   * body text at three — it is for telling one slide from another by the shape
+   * of its heading and where its blocks sit. Below about 320 even that goes,
+   * and the grid stops answering the question it exists for.
+   */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
   gap: 1.25rem;
   align-content: start;
   padding: 1.25rem;
