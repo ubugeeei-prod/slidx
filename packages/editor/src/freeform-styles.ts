@@ -47,8 +47,37 @@ export const FREEFORM_STYLESHEET = `
   outline-color: var(--slidx-e-accent);
 }
 
+/*
+ * The move grip, marked the way the eight handles are.
+ *
+ * It had no mark at all, which made it an invisible button — and it was the
+ * full width of the block, so the invisible part was the part an author was
+ * trying to click on. A hit target larger than its mark is ordinary; a hit
+ * target with no mark is a trap.
+ *
+ * A bar rather than the handles' square dot, because it does a different job:
+ * those eight change the size, this one changes the place.
+ */
 .slidx-freeform-move {
   cursor: move;
+  display: grid;
+  place-items: center;
+}
+
+.slidx-freeform-move::before {
+  content: "";
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--slidx-e-line);
+  opacity: 0.32;
+}
+
+.slidx-freeform-move:hover::before,
+.slidx-freeform-move:focus-visible::before,
+.slidx-freeform[data-manipulating="true"] .slidx-freeform-move::before {
+  background: var(--slidx-e-accent);
+  opacity: 1;
 }
 
 .slidx-freeform-handle {

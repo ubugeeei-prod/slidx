@@ -35,6 +35,13 @@ export interface FreeformOptions {
 const HIT = 28;
 /** Keeps the frame and handles clear of the selected block's content. */
 const FRAME_GAP = 8;
+/**
+ * The move grip: wide enough to read as something to grab, narrow enough that
+ * it cannot be mistaken for the frame it sits above.
+ */
+const MOVE_WIDTH = 44;
+/** Between the grip and the band the top three resize handles occupy. */
+const MOVE_GAP = 4;
 const HANDLES: Exclude<FrameHandle, "move">[] = ["n", "ne", "e", "se", "s", "sw", "w", "nw"];
 
 interface Drag {
@@ -103,10 +110,21 @@ export function createFreeform(handlers: FreeformHandlers, options: FreeformOpti
     };
 
     box(frameBox, chrome);
+    // A grip above the frame, not a bar across it.
+    //
+    // This was the width of the whole block and straddled its top edge, which
+    // put a transparent button over the first fourteen pixels of the content —
+    // most of a one-line block. Every click that landed there started a drag
+    // instead of reaching the text, and nothing on screen said why, because the
+    // control had no mark of its own.
+    //
+    // So it is clear of the frame entirely, and clear of the band the `n`, `nw`
+    // and `ne` handles own — half a hit target either side of the top edge —
+    // with a gap so the two never round into each other.
     box(move, {
-      left: chrome.left,
-      top: chrome.top - HIT / 2,
-      width: Math.max(chrome.width, HIT),
+      left: chrome.left + chrome.width / 2 - MOVE_WIDTH / 2,
+      top: chrome.top - HIT / 2 - HIT - MOVE_GAP,
+      width: MOVE_WIDTH,
       height: HIT,
     });
 
