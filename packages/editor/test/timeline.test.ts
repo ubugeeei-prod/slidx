@@ -236,7 +236,11 @@ describe("the timeline panel", () => {
 
     timeline.root.querySelectorAll<HTMLElement>(".slidx-timeline-stop")[2]!.click();
 
-    expect(posted).toEqual([{ type: "position", position: { slide: 0, step: 2 }, sequence: 1 }]);
+    // `from` is the sender's identity, which the mirror needs to order two
+    // windows independently and which this test has no opinion about.
+    expect(posted).toEqual([
+      { type: "position", position: { slide: 0, step: 2 }, sequence: 1, from: expect.any(String) },
+    ]);
     expect(timeline.root.querySelector(".slidx-timeline-where")!.textContent).toContain("2 of 4");
   });
 
@@ -333,8 +337,8 @@ describe("the timeline panel", () => {
     frame.dispatchEvent(new Event("load"));
 
     expect(posted).toEqual([
-      { type: "position", position: { slide: 0, step: 3 }, sequence: 1 },
-      { type: "position", position: { slide: 0, step: 3 }, sequence: 2 },
+      { type: "position", position: { slide: 0, step: 3 }, sequence: 1, from: expect.any(String) },
+      { type: "position", position: { slide: 0, step: 3 }, sequence: 2, from: expect.any(String) },
     ]);
   });
 

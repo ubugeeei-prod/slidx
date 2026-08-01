@@ -139,6 +139,63 @@ describe("messages arriving out of order", () => {
 
     expect(seen).toHaveBeenCalledTimes(1);
   });
+
+  it("counts each sender separately, so one window cannot silence another", () => {
+    // The stage failure this ordering rule caused, and the reason `from` is on
+    // the wire.
+    //
+    // A deck is multi-page HTML, so every move reloads a window and restarts
+    // its counter at one. The presenter view announces its position on load, so
+    // a projector opening later can sync — with a single watermark that one
+    // announcement raised the bar to 1, and a freshly loaded projector page can
+    // only ever count to 1 as well. Every position the projector sent from then
+    // on was dropped.
+    //
+    // The speaker drives from the projector, because that is where a clicker's
+    // keys land. Their notes stopped following and nothing said so.
+    const shared = bus();
+    const presenter = createMirror({ transport: shared.channel(), id: "presenter" });
+    const projector = createMirror({ transport: shared.channel(), id: "projector" });
+
+    const followed = vi.fn();
+    presenter.subscribe(followed);
+
+    presenter.send({ slide: 0, step: 0 });
+    projector.sendAt({ slide: 1, step: 0 }, 1);
+
+    expect(followed).toHaveBeenCalledWith({ slide: 1, step: 0 });
+  });
+
+  it("still orders a single sender's own messages", () => {
+    // Per-sender is not no ordering. A message that arrives late from the
+    // window that sent it must still not drag the deck backwards.
+    const shared = bus();
+    const presenter = createMirror({ transport: shared.channel(), id: "presenter" });
+    const audience = createMirror({ transport: shared.channel(), id: "audience" });
+
+    const seen = vi.fn();
+    audience.subscribe(seen);
+
+    presenter.sendAt({ slide: 5, step: 0 }, 5);
+    presenter.sendAt({ slide: 2, step: 0 }, 1);
+
+    expect(seen).toHaveBeenCalledTimes(1);
+    expect(seen).toHaveBeenCalledWith({ slide: 5, step: 0 });
+  });
+
+  it("hears a window that names no sender, as it always did", () => {
+    // A tab left open from an older build. Those messages share one watermark
+    // between them, which is exactly the behaviour they shipped with.
+    const shared = bus();
+    const listener = createMirror({ transport: shared.channel(), id: "listener" });
+    const raw = shared.channel();
+
+    const seen = vi.fn();
+    listener.subscribe(seen);
+    raw.post({ type: "position", position: { slide: 4, step: 0 }, sequence: 1 });
+
+    expect(seen).toHaveBeenCalledWith({ slide: 4, step: 0 });
+  });
 });
 
 describe("a window that joins late", () => {
