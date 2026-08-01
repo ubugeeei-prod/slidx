@@ -2,7 +2,7 @@
 title: Steps and animation
 summary: The three ways to stage a slide, and the one model all of them compile to.
 section: reference
-order: 3
+order: 4
 ---
 
 # Steps and animation

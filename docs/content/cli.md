@@ -2,7 +2,7 @@
 title: The slidx command
 summary: Every command the binary has, and the three it deliberately refuses.
 section: reference
-order: 6
+order: 7
 ---
 
 # The slidx command
