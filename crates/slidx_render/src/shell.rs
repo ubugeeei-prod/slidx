@@ -183,7 +183,7 @@ fn document_title(deck: &Deck, slide: &Slide) -> String {
     }
 }
 
-fn slide_frame(
+pub(crate) fn slide_frame(
     deck: &Deck,
     slide: &Slide,
     options: &ShellOptions,
@@ -416,7 +416,7 @@ fn camera_markup(slide: &Slide, layout: &Layout) -> String {
     )
 }
 
-fn escape(text: &str) -> String {
+pub(crate) fn escape(text: &str) -> String {
     text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
 }
 

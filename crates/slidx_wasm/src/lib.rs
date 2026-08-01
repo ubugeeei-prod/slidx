@@ -232,6 +232,11 @@ pub struct BuildResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub print_html: Option<String>,
+    /// Every slide at once, as a page of links. Absent when nothing was
+    /// rendered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub overview_html: Option<String>,
     /// The deck's own social card, as SVG. Absent unless `og` was set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]

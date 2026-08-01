@@ -38,6 +38,7 @@ import {
   ogFileBase,
   effectsFileName,
   presenterFileName,
+  overviewFileName,
   printFileName,
   rehearsalFileName,
   resolveOptions,
@@ -246,11 +247,13 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
             past,
           );
           const slide = built.slides[asked.index];
-          const html = asked.print
-            ? built.printHtml
-            : asked.presenter
-              ? slide?.presenterHtml
-              : slide?.html;
+          const html = asked.overview
+            ? built.overviewHtml
+            : asked.print
+              ? built.printHtml
+              : asked.presenter
+                ? slide?.presenterHtml
+                : slide?.html;
 
           if (!html) {
             response.statusCode = 404;
@@ -384,6 +387,14 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
           type: "asset",
           fileName: printFileName(options),
           source: built.printHtml,
+        });
+      }
+
+      if (built.overviewHtml) {
+        this.emitFile({
+          type: "asset",
+          fileName: overviewFileName(options),
+          source: built.overviewHtml,
         });
       }
 

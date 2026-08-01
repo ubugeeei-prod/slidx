@@ -243,6 +243,11 @@ export function printFileName(options: ResolvedOptions): string {
   return options.base ? `${options.base}/print/index.html` : "print/index.html";
 }
 
+/** Where the overview is written. */
+export function overviewFileName(options: ResolvedOptions): string {
+  return options.base ? `${options.base}/overview/index.html` : "overview/index.html";
+}
+
 /**
  * Where the sitemap is written.
  *

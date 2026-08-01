@@ -205,6 +205,11 @@ export type BuildResult = {
    */
   printHtml?: string;
   /**
+   * Every slide at once, as a page of links. Absent when nothing was
+   * rendered.
+   */
+  overviewHtml?: string;
+  /**
    * The deck's own social card, as SVG. Absent unless `og` was set.
    */
   ogSvg?: string;

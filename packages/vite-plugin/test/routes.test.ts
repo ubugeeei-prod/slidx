@@ -71,4 +71,29 @@ describe("what is not a slide", () => {
   it("does not match a base that is only a prefix of the path", () => {
     expect(index("/slideshow/2/", "slides")).toBeNull();
   });
+
+  it("routes the overview, which is one page for the whole deck", () => {
+    expect(slideRequestFor("/overview", "")).toEqual({
+      index: 0,
+      presenter: false,
+      overview: true,
+    });
+    expect(slideRequestFor("/overview/", "")).toEqual({
+      index: 0,
+      presenter: false,
+      overview: true,
+    });
+    expect(slideRequestFor("/slides/overview/", "slides")).toEqual({
+      index: 0,
+      presenter: false,
+      overview: true,
+    });
+  });
+
+  it("does not mistake a slide called overview for the overview", () => {
+    // A deck's slides are numbered, so nothing else can claim the name — but
+    // the check is cheap and the alternative is a route that shadows a slide.
+    expect(slideRequestFor("/overviews", "")).toBeNull();
+    expect(slideRequestFor("/2/overview", "")).toBeNull();
+  });
 });

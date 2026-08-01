@@ -197,6 +197,13 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
         )
     });
 
+    // Rendered whenever the deck is, and not behind a flag. It costs one page
+    // per deck rather than one per slide, it is the only way to reach a slide
+    // by sight rather than by counting, and a deck that shipped without it
+    // would leave `/overview/` a 404 on exactly the decks long enough to want
+    // one.
+    let overview_html = render.then(|| slidx_render::overview::render_overview(&deck, &shell));
+
     // Rendered whenever the deck is rendered rather than behind a flag: a
     // slide that asks for a snippet already shows a QR pointing at its page,
     // and a code on a projector that resolves to nothing is worse than no code
@@ -246,6 +253,7 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
         diagnostics,
         has_blocking,
         print_html,
+        overview_html,
     }
 }
 

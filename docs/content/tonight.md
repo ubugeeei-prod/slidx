@@ -178,12 +178,25 @@ They also work in the presenter view, which is usually where a clicker's keys
 land, and the two windows follow each other in both directions.
 
 The footer's `‹ n / m ›` is the same navigation without a keyboard: real links
-between real documents, so it works on a phone, from a USB stick, and with
-scripting switched off.
+between real documents, so it works from a USB stick and with scripting
+switched off. On a phone, **swipe** — every length on a slide is a share of the
+slide, so those two glyphs measure about four pixels by three on a 375px
+screen, and a swipe is the navigation there rather than a shortcut for it.
 
-**There is no blackout, fullscreen, or overview key yet.** They are worth having
-and they are not there; a list that promised them the night before a talk would
-be worse than a short list.
+## I need to find one slide out of sixty
+
+```text
+/overview/
+```
+
+Every slide at once, each one a link to itself. They are the real slides drawn
+small rather than pictures of them, so what you are looking for looks the way
+you remember it — and the page runs nothing, because a slide is already a size
+container and putting one in a small box is the whole of drawing a thumbnail.
+
+**There is no blackout or fullscreen key yet.** They are worth having and they
+are not there; a list that promised them the night before a talk would be worse
+than a short list.
 
 ## Somebody is going to ask for the code
 
