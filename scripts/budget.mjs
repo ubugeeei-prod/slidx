@@ -102,11 +102,18 @@ export const BUDGETS = [
   },
   {
     name: "javascript inlined into a slide with no steps",
-    // Raised from 1,600 for the one line that stops this running inside a
-    // frame. The editor draws every slide in the outline as a live frame of
-    // its own page, and without the guard a single position on the mirror
-    // channel pulled every preview onto the same slide.
-    limit: 1_700,
+    // Raised twice, both deliberately.
+    //
+    // 1,600 for the one line that stops this running inside a frame: the
+    // editor draws every slide in the outline as a live frame of its own page,
+    // and without the guard a single position on the mirror channel pulled
+    // every preview onto the same slide.
+    //
+    // 2,400 for the swipe. Every length on a slide is a share of the slide, so
+    // the footer's links measure four pixels by three on a 375px phone —
+    // measured, not assumed. On a phone the swipe is not a convenience, it is
+    // the navigation, and a target that small is not one.
+    limit: 2_400,
     protects:
       "the other half, which used to be zero. It was zero because such a slide could not be " +
       "advanced: no key, no link, and no listener for the presenter's mirror — see " +
@@ -115,13 +122,26 @@ export const BUDGETS = [
   },
   {
     name: "an audience slide, gzipped",
-    limit: 9_000,
+    // Raised from 9,000 for the swipe above. The navigator is inlined into
+    // every slide, so the 693 bytes it grew are 337 more gzipped on each page
+    // of the fixture, and the figure went from 8,838 to 9,175. Measured on a
+    // build, not derived from the raw number.
+    //
+    // What it buys is the only navigation a phone has: every length on a slide
+    // is a share of the slide, so the footer's links measure four pixels by
+    // three on a 375px phone. A page that cannot be left is not lighter, it is
+    // broken, and this is the cheapest way to make it leavable.
+    limit: 9_400,
     protects:
       "what a room downloads per slide, on the wifi a venue has rather than the one it advertises",
   },
   {
     name: "everything an audience downloads, gzipped",
-    limit: 56_000,
+    // Raised from 56,000 by the same swipe, once per page: the deck went from
+    // 55,777 to 57,125. Nothing new is fetched (the first figure in this list
+    // is still zero), the pages simply each carry the listener that lets a
+    // thumb move the deck.
+    limit: 57_600,
     protects:
       "the whole of what a room fetches for this deck — every page, and every stylesheet, " +
       "script and image those pages actually reference",
