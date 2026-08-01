@@ -94,6 +94,53 @@ function drag(control: Element, dx: number, dy: number): void {
 afterEach(() => document.body.replaceChildren());
 
 describe("freeform canvas controls", () => {
+  /** The inline box `paint` writes, which is the geometry under test. */
+  function boxOf(element: HTMLElement) {
+    return {
+      top: Number.parseFloat(element.style.top),
+      left: Number.parseFloat(element.style.left),
+      width: Number.parseFloat(element.style.width),
+      height: Number.parseFloat(element.style.height),
+    };
+  }
+
+  it("keeps the move grip off the block it moves", () => {
+    // It used to be the block's own width and straddle its top edge, so a
+    // transparent button covered the first fourteen pixels of the content —
+    // most of a one-line block. Every click that landed there began a drag
+    // instead of reaching the text.
+    const grip = boxOf(open().root.querySelector<HTMLElement>(".slidx-freeform-move")!);
+
+    expect(grip.top + grip.height).toBeLessThanOrEqual(SELECTED.top);
+  });
+
+  it("keeps the move grip clear of the handles that share the top edge", () => {
+    // `n`, `nw` and `ne` are centred on the top edge, so they own the band half
+    // a hit target either side of it. A grip reaching into it would take the
+    // clicks meant for a resize.
+    const root = open().root;
+    const grip = boxOf(root.querySelector<HTMLElement>(".slidx-freeform-move")!);
+    const north = boxOf(root.querySelector<HTMLElement>('[data-handle="n"]')!);
+
+    expect(grip.top + grip.height).toBeLessThan(north.top);
+  });
+
+  it("sizes the move grip against the hand, not against the block", () => {
+    // The property the old code got backwards: it was `max(block, hit)` wide,
+    // so a wide block got a wide button and a wide button covered wide content.
+    const wide = boxOf(open().root.querySelector<HTMLElement>(".slidx-freeform-move")!);
+
+    expect(wide.width).toBeLessThan(SELECTED.width);
+    expect(wide.height).toBeGreaterThanOrEqual(28);
+  });
+
+  it("marks the move grip, because an invisible button is a trap", () => {
+    // The eight resize handles each draw a dot. This one drew nothing at all,
+    // so the only way to discover it was to click where it happened to be.
+    expect(FREEFORM_STYLESHEET).toContain(".slidx-freeform-move::before");
+    expect(FREEFORM_STYLESHEET).toContain(".slidx-freeform-move:hover::before");
+  });
+
   it("moves a selected block in one inset operation", () => {
     const opened = open();
 
