@@ -83,7 +83,7 @@ const forTheRoom = (path) => !NOT_THE_AUDIENCE.some((part) => path.includes(part
 /** Every page a room loads, from the projector or from a phone. */
 const pages = files.filter((path) => path.endsWith(".html") && forTheRoom(path));
 
-const { slides: audience, snippets } = splitPages(pages);
+const { slides: audience, snippets, overview } = splitPages(pages);
 
 /**
  * The page for the first slide, which is the one with nothing to reveal.
@@ -129,7 +129,7 @@ for (const { attributes, body } of executableScripts(stillPage)) {
 
 /** What the pages themselves ask a browser to fetch. */
 const wanted = new Set();
-for (const path of audience) {
+for (const path of [...audience, ...overview]) {
   const page = (await read(path)).toString("utf8");
   const directory = path.slice(0, path.lastIndexOf("/"));
 
@@ -140,7 +140,7 @@ let audienceBytes = 0;
 for (const path of audience) audienceBytes += gzip(await read(path));
 
 let downloaded = audienceBytes;
-for (const path of snippets) downloaded += gzip(await read(path));
+for (const path of [...snippets, ...overview]) downloaded += gzip(await read(path));
 for (const path of wanted) {
   if (files.includes(path)) downloaded += gzip(await read(path));
 }

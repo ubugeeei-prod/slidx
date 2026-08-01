@@ -123,20 +123,20 @@ pub fn render_overview(deck: &Deck, options: &ShellOptions) -> String {
             let slide_layout = region::layout_of(slide);
             let frame = crate::shell::slide_frame(deck, slide, options, &slide_layout, "", "", "");
 
+            // Relative, like every other address in a deck, so an overview
+            // works from a USB stick and out of a directory somebody moved.
+            let href = format!("../{}", url::slide_path(slide.index));
+            let number = slide.index + 1;
+            let label = crate::shell::escape(&match &slide.title {
+                Some(title) => format!("Slide {number}: {title}"),
+                None => format!("Slide {number}"),
+            });
+
             format!(
                 "<li><a class=\"slidx-overview-slide\" href=\"{href}\" \
                  aria-label=\"{label}\">{frame}\
                  <span class=\"slidx-overview-number\" aria-hidden=\"true\">{number}</span>\
                  </a></li>\n",
-                // Relative, like every other address in a deck, so an overview
-                // works from a USB stick and out of a directory somebody moved.
-                href = format!("../{}", url::slide_path(slide.index)),
-                label = crate::shell::escape(&match &slide.title {
-                    Some(title) => format!("Slide {}: {title}", slide.index + 1),
-                    None => format!("Slide {}", slide.index + 1),
-                }),
-                number = slide.index + 1,
-                frame = frame,
             )
         })
         .collect();

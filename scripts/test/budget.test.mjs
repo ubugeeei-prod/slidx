@@ -173,6 +173,21 @@ describe("which figure a page belongs to", () => {
     expect(snippets).toHaveLength(1);
   });
 
+  it("keeps the overview out of the average as well, and still counts it", () => {
+    // The same argument from the other end: it carries every slide at once, so
+    // averaging it in reports a per-slide figure that no slide has. A reader
+    // can still open it, so it stays in the total.
+    const { slides, snippets, overview } = splitPages([
+      "slides/index.html",
+      "overview/index.html",
+      "talk/overview/index.html",
+    ]);
+
+    expect(slides).toEqual(["slides/index.html"]);
+    expect(snippets).toEqual([]);
+    expect(overview).toEqual(["overview/index.html", "talk/overview/index.html"]);
+  });
+
   it("has a figure for it, which is the tightest one here", () => {
     const page = BUDGETS.find((budget) => budget.name.includes("snippet"));
 
