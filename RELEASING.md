@@ -153,16 +153,15 @@ cargo login
 ```
 
 ```bash
-for crate in $(node scripts/publish-order.mjs crates); do cargo publish -p "$crate" || break; done
+node scripts/publish-crates.mjs
 ```
 
-Every loop here stops on the first failure, and that is not tidiness. Without
-it, one crate that cannot publish becomes a dozen that cannot resolve it, and
-the error you are left reading is the last one — `no matching package named
+The publisher stops on the first real failure, waits for the exact retry time
+when crates.io rate-limits a new name, and skips versions that already exist.
+That makes the command safe to rerun after an interruption. Without stopping,
+one crate that cannot publish becomes a dozen that cannot resolve it, and the
+error you are left reading is the last one — `no matching package named
 slidx_dialect found`, from a crate whose real problem was six crates earlier.
-crates.io rate-limits **new** crate names, so a workspace this size will hit
-that limit partway through and have to continue as it refills; `help@crates.io`
-will raise it if you tell them it is one release of one project.
 
 The order is derived from the manifests rather than written down, because a
 written-down order goes stale silently. It did: `slidx_cli` gained
@@ -199,9 +198,7 @@ bootstrap_dir=$(mktemp -d)
 node scripts/pack-npm.mjs \
   "$bootstrap_dir" \
   $(node scripts/publish-order.mjs npm) > "$bootstrap_dir/source-tarballs"
-while IFS= read -r tarball; do
-  npm publish "$tarball" --access public || break
-done < "$bootstrap_dir/source-tarballs"
+node scripts/publish-npm.mjs --list "$bootstrap_dir/source-tarballs"
 ```
 
 `pack-npm.mjs` is the same path the release workflow uses. It resolves every
@@ -235,9 +232,7 @@ node scripts/pack-npm.mjs \
   "$bootstrap_dir" \
   packages/cli/dist/* \
   packages/cli > "$bootstrap_dir/cli-tarballs"
-while IFS= read -r tarball; do
-  npm publish "$tarball" --access public || break
-done < "$bootstrap_dir/cli-tarballs"
+node scripts/publish-npm.mjs --list "$bootstrap_dir/cli-tarballs"
 ```
 
 Then, for **each** package — everything `publish-order.mjs npm` lists, plus

@@ -2,10 +2,10 @@
  * Publishes the workspace to crates.io, waiting out the rate limit.
  *
  * crates.io meters **new crate names**: a burst, then one per window. A
- * workspace this size therefore cannot be published in one pass, and the plain
- * loop in `RELEASING.md` stops at the first refusal — correctly, because
- * continuing turns one real error into a dozen downstream ones, but it leaves a
- * person re-running a command every ten minutes for an hour.
+ * workspace this size therefore cannot be published in one pass. A plain loop
+ * stops at the first refusal — correctly, because continuing turns one real
+ * error into a dozen downstream ones — but leaves a person re-running a
+ * command every ten minutes for an hour.
  *
  * So this waits. The refusal carries the exact time to try again, and that is
  * the only thing it sleeps on: no interval is guessed here, and nothing is
