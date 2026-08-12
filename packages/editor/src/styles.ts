@@ -124,14 +124,59 @@ body {
 .slidx-editor {
   display: grid;
   height: 100vh;
-  grid-template-columns: 232px minmax(0, 1fr) 296px;
+  /*
+   * The two panel widths are custom properties so the grid stays one
+   * declaration a person can read, and a drag is one assignment rather than a
+   * pair of writes that can disagree. The fallbacks are what the panels were
+   * fixed at before they could be moved.
+   */
+  grid-template-columns:
+    var(--slidx-e-outline-width, 232px)
+    var(--slidx-e-tight)
+    minmax(0, 1fr)
+    var(--slidx-e-tight)
+    var(--slidx-e-inspector-width, 296px);
   grid-template-rows: minmax(0, 1fr) auto;
-  grid-template-areas: "outline canvas inspector" "findings findings findings";
+  grid-template-areas:
+    "outline grip-outline canvas grip-inspector inspector"
+    "findings findings findings findings findings";
 }
 
-.slidx-outline { grid-area: outline; border-right: var(--slidx-e-hairline) solid var(--slidx-e-line); }
+/*
+ * The grips are grid items, not children of a wrapper: "display: contents"
+ * lets one surface own them both while each still sits in its own column.
+ */
+.slidx-grips { display: contents; }
+
+.slidx-grip {
+  position: relative;
+  cursor: col-resize;
+  background: var(--slidx-e-line);
+}
+
+/*
+ * Wider to the pointer than to the eye.
+ *
+ * The column is one step of the rhythm, which is the right amount of ink for an
+ * edge and not enough to hit. This reaches a step either side, so the target is
+ * three times the line without the line getting heavier.
+ */
+.slidx-grip::after {
+  content: "";
+  position: absolute;
+  inset: 0 calc(var(--slidx-e-tight) * -1);
+}
+
+.slidx-grip[data-edge="outline"] { grid-area: grip-outline; }
+.slidx-grip[data-edge="inspector"] { grid-area: grip-inspector; }
+
+.slidx-grip:hover,
+.slidx-grip[data-dragging="true"] { background: var(--slidx-e-accent); }
+
+/* The grip is the edge now, so the panels no longer draw one of their own. */
+.slidx-outline { grid-area: outline; }
 .slidx-canvas { grid-area: canvas; }
-.slidx-inspector { grid-area: inspector; border-left: var(--slidx-e-hairline) solid var(--slidx-e-line); }
+.slidx-inspector { grid-area: inspector; }
 .slidx-diagnostics { grid-area: findings; border-top: var(--slidx-e-hairline) solid var(--slidx-e-line); }
 
 .slidx-outline, .slidx-canvas, .slidx-inspector {

@@ -1,0 +1,61 @@
+/**
+ * How wide the two side panels are allowed to be.
+ *
+ * They were fixed at 232 and 296 pixels — a decision taken once, on one screen,
+ * for every deck anybody will ever write. A Japanese title needs more room than
+ * an English one, a laptop has less to give than a monitor, and an author
+ * arranging blocks wants the canvas as wide as it goes.
+ */
+
+import { describe, expect, it } from "vite-plus/test";
+
+import { DEFAULT_WIDTH, LIMITS, resized, startingWidth } from "../src/panels";
+
+describe("where an edge lands", () => {
+  it("widens the outline when its grip is dragged right", () => {
+    expect(resized("outline", 232, 40)).toBe(272);
+  });
+
+  it("widens the inspector when its grip is dragged left", () => {
+    // It is on the right, so the sign is part of which edge this is rather
+    // than something every call site has to remember.
+    expect(resized("inspector", 296, -40)).toBe(336);
+  });
+
+  it("stops at the floor, which is what the panel is still for", () => {
+    // An outline narrower than this shows a slide number and one character of
+    // its title, which is not an outline.
+    expect(resized("outline", 232, -400)).toBe(LIMITS.outline.min);
+  });
+
+  it("stops at the ceiling, because the canvas is why the window is open", () => {
+    expect(resized("inspector", 296, -2000)).toBe(LIMITS.inspector.max);
+  });
+
+  it("rounds, so a width is never a fraction of a pixel", () => {
+    expect(resized("outline", 232.4, 0.3)).toBe(233);
+  });
+});
+
+describe("where a panel starts", () => {
+  it("uses the old fixed widths when nothing was remembered", () => {
+    expect(startingWidth("outline", undefined)).toBe(DEFAULT_WIDTH.outline);
+    expect(startingWidth("inspector", undefined)).toBe(DEFAULT_WIDTH.inspector);
+  });
+
+  it("remembers what was dragged", () => {
+    expect(startingWidth("outline", { getItem: () => "300" })).toBe(300);
+  });
+
+  it("clamps a remembered width rather than trusting it", () => {
+    // Storage outlives any version of this editor. A limit that moved would
+    // otherwise leave somebody with a panel they cannot drag back into range.
+    expect(startingWidth("outline", { getItem: () => "9999" })).toBe(LIMITS.outline.max);
+    expect(startingWidth("outline", { getItem: () => "1" })).toBe(LIMITS.outline.min);
+  });
+
+  it("ignores a stored value that is not a width", () => {
+    expect(startingWidth("inspector", { getItem: () => "wide" })).toBe(DEFAULT_WIDTH.inspector);
+    expect(startingWidth("inspector", { getItem: () => "" })).toBe(DEFAULT_WIDTH.inspector);
+  });
+});

@@ -29,6 +29,7 @@ import { createPresence } from "./collab";
 import { createDiagnostics } from "./diagnostics";
 import { element } from "./dom";
 import { createFreeform } from "./freeform";
+import { createGrips } from "./grips";
 import { createInspector } from "./inspector";
 import { createMediaDrop } from "./media-drop";
 import { createOutline, type Surface } from "./outline";
@@ -168,6 +169,7 @@ export function mount(root: HTMLElement, options: MountOptions = {}): MountedEdi
   });
 
   const surfaces: Surface[] = [
+    createGrips({ storage: safeStorage(root.ownerDocument) }),
     outline,
     canvas,
     inspector,
