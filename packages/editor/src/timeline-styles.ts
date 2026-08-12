@@ -14,9 +14,21 @@
  */
 
 export const TIMELINE_STYLESHEET = `
+/*
+ * The row this panel adds, and therefore every row above and below it.
+ *
+ * \`grid-template-areas\` is one declaration for the whole grid, so a panel that
+ * adds a row has to restate the panel row as well — including the two grip
+ * columns between the panels. Naming three columns here while \`styles\` lays out
+ * five put the canvas in a 4px grip track and gave its width to the inspector.
+ * The count is checked in \`panels.test.ts\` so the two cannot drift again.
+ */
 .slidx-editor {
   grid-template-rows: minmax(0, 1fr) auto auto;
-  grid-template-areas: "outline canvas inspector" "timeline timeline timeline" "findings findings findings";
+  grid-template-areas:
+    "outline grip-outline canvas grip-inspector inspector"
+    "timeline timeline timeline timeline timeline"
+    "findings findings findings findings findings";
 }
 
 .slidx-timeline {

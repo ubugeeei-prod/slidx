@@ -10,6 +10,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { DEFAULT_WIDTH, LIMITS, resized, startingWidth } from "../src/panels";
+import { STYLESHEET } from "../src/styles";
+import { TIMELINE_STYLESHEET } from "../src/timeline-styles";
 
 describe("where an edge lands", () => {
   it("widens the outline when its grip is dragged right", () => {
@@ -34,6 +36,49 @@ describe("where an edge lands", () => {
 
   it("rounds, so a width is never a fraction of a pixel", () => {
     expect(resized("outline", 232.4, 0.3)).toBe(233);
+  });
+});
+
+/**
+ * The rows every `.slidx-editor` rule lays the grid out in, one per stylesheet
+ * that has an opinion about it.
+ */
+function editorAreas(sheet: string): string[][] {
+  const css = sheet.replaceAll(/\/\*[\s\S]*?\*\//g, "");
+  const areas: string[][] = [];
+
+  for (const rule of css.matchAll(/\.slidx-editor\s*\{([^}]*)\}/g)) {
+    const declared = /grid-template-areas:([^;]*);/.exec(rule[1]!)?.[1];
+    if (declared === undefined) continue;
+    areas.push(
+      Array.from(declared.matchAll(/"([^"]*)"/g), (row) => row[1]!.trim().split(/\s+/).join(" ")),
+    );
+  }
+
+  return areas;
+}
+
+describe("the grid the panels sit in", () => {
+  // `grid-template-areas` is one declaration for the whole grid, so a panel
+  // that adds a row of its own restates the panel row too. One that named the
+  // three columns from before the grips existed put the canvas in a 4px grip
+  // track and handed its width to the inspector.
+  const PANELS = "outline grip-outline canvas grip-inspector inspector";
+  const sheets = [STYLESHEET, TIMELINE_STYLESHEET].flatMap(editorAreas);
+
+  it("is laid out by more than one stylesheet, which is why the rest of this matters", () => {
+    expect(sheets.length).toBeGreaterThan(1);
+  });
+
+  it("puts the panels and their grips in the same columns everywhere", () => {
+    for (const rows of sheets) expect(rows[0]).toBe(PANELS);
+  });
+
+  it("gives every row the same number of columns as the panel row", () => {
+    const columns = PANELS.split(" ").length;
+    for (const rows of sheets) {
+      for (const row of rows) expect(row.split(" ")).toHaveLength(columns);
+    }
   });
 });
 
