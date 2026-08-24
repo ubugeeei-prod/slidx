@@ -433,8 +433,8 @@ measure of that:
 
 |                                          |                           |
 | ---------------------------------------- | ------------------------- |
-| Rust tests                               | 3825                      |
-| TypeScript tests                         | 1846                      |
+| Rust tests                               | 3974                      |
+| TypeScript tests                         | 2105                      |
 | Crates                                   | 19                        |
 | Publishable npm packages                 | 10                        |
 | Platforms in CI                          | Linux, macOS, Windows     |
@@ -448,6 +448,15 @@ holding 2316, 1157 and 13 — written by hand, true on the afternoon they were
 typed, and drifted far enough that two readers noticed independently before
 anyone corrected them. A table that calls itself the honest measure has to be
 able to prove it.
+
+It had drifted again — 3825 and 1846 against 3974 and 2105 — and this time for
+a reason worth recording, because it is the same shape as everything else in
+M7. The command that reproduces the table **could not run**. It parses the test
+runner's JSON report from the first `{` to the end of stdout, and the suites
+under `scripts/` are node:test files whose ticks print around it; the moment one
+landed after the report, the command threw. A count nobody can take is a count
+that goes stale, and the only person who would notice is somebody already
+editing this table.
 
 That last row has now been corrected twice, and both corrections are the point
 of this document.

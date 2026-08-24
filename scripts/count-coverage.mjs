@@ -41,12 +41,28 @@ function rustTests() {
     .filter((line) => line.endsWith(": test")).length;
 }
 
-/** Every test the TypeScript runner collects, asked of the runner. */
+/**
+ * Every test the TypeScript runner collects, asked of the runner.
+ *
+ * The report is one line, and it is not the only thing on stdout: the suites
+ * under `scripts/` are node:test files, and their ticks are printed around it.
+ * Parsing from the first `{` to the end of the output therefore threw as soon
+ * as one of those landed after the report — which is a strange way for the
+ * command behind "the honest measure" to fail, and it failed silently in the
+ * sense that nobody runs it except when editing that table.
+ *
+ * So the line is found by the field the report certainly has, rather than by
+ * the first character that could begin one.
+ */
 function typescriptTests() {
   const output = run("vp", ["test", "--run", "--reporter=json"]);
-  const start = output.indexOf("{");
+  const report = output.split("\n").find((line) => line.startsWith('{"numTotalTestSuites"'));
 
-  return JSON.parse(output.slice(start)).numTotalTests;
+  if (report === undefined) {
+    throw new Error("the test runner printed no JSON report to read a count from");
+  }
+
+  return JSON.parse(report).numTotalTests;
 }
 
 const crates = readdirSync("crates").length;
