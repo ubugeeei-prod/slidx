@@ -364,6 +364,64 @@ directories, and it parses a deck only once something in it has already matched
 
 ---
 
+## M7 — v1.0
+
+Tracking issue: #275
+
+Everything above is checked except six boxes, and five of those six are the
+same defect wearing five faces: the code is written, the tests pass, and no
+person can reach it. v1.0 closes that — not more features, the ones already
+paid for, connected to a hand.
+
+- [x] `check:reachable`: CI fails on a module no page can call — #276
+- [ ] Pace reaches the presenter view — #277
+- [ ] Presentation mode: the checklist a browser cannot perform — #278
+- [ ] Demo fallback: a key that performs the one attribute write — #279
+- [ ] Remote control: a pairing that reaches a slide — #280
+- [ ] Audience channel: deployable, or a stated non-goal — #281
+- [ ] The editor's text controls, which nothing constructs — #283
+- [ ] The rehearsal trend across runs, which reaches no screen — #284
+- [ ] Two key tables, and the one that ships cannot be shown — #285
+- [ ] A clip's level, measured and shown to nobody — #286
+- [ ] An audience downloads 57% of a runtime it cannot run — #291
+- [ ] Images and fonts: the artefact half of performance — #234
+- [ ] A toolchain that moves under the tree — #288
+- [ ] First release to npm and crates.io — needs the maintainer's accounts
+
+**Done when** every promise the README makes is reachable by a person, measured
+rather than asserted, and installable.
+
+The order is not arbitrary. The check comes first because it is the acceptance
+criterion for most of what follows it: each of those closes when the check
+stops reporting its module, which is a stronger statement than a reviewer
+reading a diff and believing it. Closing five unreachable features by hand
+without building the thing that looks for the sixth leaves the sixth to be
+found by a speaker, on a stage — and there turned out to be nine.
+
+`check-dead-config.mjs` catches the shape that produced
+`ShellOptions::include_runtime` — a `pub` field nothing reads. It cannot catch
+the shape that produced these five, because a symbol's real call site in this
+repository is a string literal in another language: `slidx_render` emits
+`import { … } from "…"` into the page it renders. An off-the-shelf dead-export
+tool reads that file as Rust, sees no import, and reports the entire runtime as
+unused and every editor module as used — exactly backwards.
+
+The list grew on the day the check first ran, which is the argument for having
+built it first. Four modules nobody knew were unreachable came out of one
+scan — an editor surface with no constructor call anywhere in the workspace,
+the rehearsal comparison across runs, a second key table, and the half of the
+media feature that normalises a clip's level. Two more findings came from
+looking at what the check had proved: an audience downloads 57% of a runtime
+it cannot run, and a floating toolchain turns somebody else's pull request
+red.
+
+Two of the fourteen cannot be finished from here, and they are named rather
+than quietly carried. The registries need the maintainer signed in; #281 needs
+a decision about who operates a Worker, which is a question about what slidx
+_is_ rather than about what it does.
+
+---
+
 ## Where this stands
 
 Everything checked above is merged, tested, and — where a browser can tell the
