@@ -23,8 +23,8 @@ html, body {
 .slidx-presenter {
   display: grid;
   grid-template-columns: 1fr minmax(280px, 34%);
-  grid-template-rows: auto 1fr auto;
-  grid-template-areas: "bar bar" "notes next" "report report";
+  grid-template-rows: auto auto 1fr auto;
+  grid-template-areas: "bar bar" "present present" "notes next" "report report";
   gap: 1.5rem;
   padding: 1.5rem;
   min-height: 100vh;
@@ -91,6 +91,56 @@ html, body {
 [data-slidx-status="nearly-done"] .slidx-clock-value { color: #b26a00; }
 [data-slidx-status="over"] .slidx-clock-value { color: #b42318; }
 [data-slidx-pace-state="behind"] { color: #b42318; }
+
+/*
+ * What the browser could not do, and where the speaker does it.
+ *
+ * Under the bar rather than beside it: every item names a menu path, so the
+ * lines are long, and this is read once — in the two minutes before a talk —
+ * rather than glanced at during one. It collapses again the moment presenting
+ * starts, which is why it is a row that can be `hidden` rather than a panel.
+ */
+.slidx-present {
+  grid-area: present;
+  display: grid;
+  gap: var(--slidx-e-gap, 0.75rem);
+  padding: 1rem 1.25rem;
+  border: var(--slidx-hairline) solid var(--slidx-color-border);
+  border-radius: var(--slidx-radius);
+}
+
+.slidx-present[hidden] { display: none; }
+
+.slidx-present-state {
+  margin: 0;
+  color: var(--slidx-color-muted);
+}
+
+.slidx-present-checklist {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.slidx-present-checklist li {
+  display: grid;
+  gap: 0.15rem;
+}
+
+/*
+ * The setting, then where it lives. "Turn on Do Not Disturb" is useless advice
+ * in the two minutes before a talk if you cannot remember which menu it is
+ * under, so the path is not the smaller half of the line by accident — it is
+ * the half a speaker is actually looking for.
+ */
+.slidx-present-item { font-weight: 600; }
+
+.slidx-present-where {
+  color: var(--slidx-color-muted);
+  font-size: 0.95rem;
+}
 
 .slidx-presenter-actions {
   display: flex;
@@ -354,9 +404,9 @@ mod tests {
 
     #[test]
     fn the_rehearsal_report_has_its_own_grid_area() {
-        assert!(
-            STYLESHEET.contains(r#"grid-template-areas: "bar bar" "notes next" "report report""#)
-        );
+        assert!(STYLESHEET.contains(
+            r#"grid-template-areas: "bar bar" "present present" "notes next" "report report""#
+        ));
         assert!(STYLESHEET.contains("grid-area: report"));
     }
 
