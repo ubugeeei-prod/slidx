@@ -117,16 +117,10 @@ fn skip_while(content: &str, at: usize, skip: impl Fn(char) -> bool) -> usize {
 }
 
 /// The URL scheme, or `None` for a relative reference.
-pub(crate) fn scheme(url: &str) -> Option<&str> {
-    let (scheme, _) = url.split_once(':')?;
-
-    // A scheme starts with a letter and continues with letters, digits, `+`,
-    // `-`, or `.`. Anything else means the colon belongs to a path segment.
-    let valid = scheme.starts_with(|c: char| c.is_ascii_alphabetic())
-        && scheme.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'));
-
-    valid.then_some(scheme)
-}
+///
+/// `slidx_core::asset`'s, because `slidx_render` asks the same question of the
+/// same references and two answers is what #307 was.
+pub(crate) use slidx_core::asset::scheme;
 
 /// The URL of a Markdown destination, without its `"title"` or `<>` wrapper.
 pub(crate) fn markdown_target(destination: &str) -> &str {

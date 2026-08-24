@@ -46,6 +46,7 @@
 #![deny(missing_debug_implementations)]
 #![warn(clippy::all)]
 
+pub mod asset;
 pub mod attributes;
 pub mod block;
 pub mod camera;
