@@ -395,7 +395,10 @@ paid for, connected to a hand.
 - [ ] A clip's level, measured and shown to nobody — #286
 - [x] A declared camera that never opens — #296
 - [x] An audience downloads 57% of a runtime it cannot run — #291
-- [ ] Images and fonts: the artefact half of performance — #234
+- [x] An image that does not move the slide, from a measurement already taken —
+      #308
+- [x] The image rules are silent in a build, and not from the CLI — #307
+- [ ] Images and fonts: the half of the artefacts that needs a codec — #234
 - [x] A toolchain that moves under the tree — #288
 - [ ] First release to npm and crates.io — needs the maintainer's accounts
 
@@ -421,10 +424,15 @@ The list grew on the day the check first ran, which is the argument for having
 built it first. Four modules nobody knew were unreachable came out of one
 scan — an editor surface with no constructor call anywhere in the workspace,
 the rehearsal comparison across runs, a second key table, and the half of the
-media feature that normalises a clip's level. Two more findings came from
-looking at what the check had proved: an audience downloads 57% of a runtime
-it cannot run, and a floating toolchain turns somebody else's pull request
-red.
+media feature that normalises a clip's level. Four more came from looking at
+what the check had proved: an audience downloads 57% of a runtime it cannot
+run, a floating toolchain turns somebody else's pull request red, two of a
+deck's checked boxes are true of half its slides, and the image rules report
+nothing in the build that most decks are checked by.
+
+Every one of those is the same failure wearing a different coat: something
+that cannot report is indistinguishable from something with nothing to
+report.
 
 What is left is not a list of unfinished features. Each of the four is waiting
 on something that is not code, and saying which is more useful than an estimate:
@@ -438,6 +446,14 @@ clip's level, an image's format and a font's subset are all properties of a
 file, measured once at build time — and each needs a codec that works offline,
 on three platforms, without adding a native build step to a deck. Worth
 deciding once rather than three times.
+
+The half of #234 that needed no codec is done. Every image the plugin measures
+now reaches the page with its own dimensions, so a browser reserves the box
+before the file lands rather than reflowing the slide around it while a room is
+reading — and the measurement was already being taken for the linter and thrown
+away. Finding that also found #307: the linter and the renderer normalised a
+reference two ways, so the image rules were silent in `vite build` and not from
+`slidx lint`. `slidx_core::asset` is the one place now.
 
 **The release** needs the maintainer signed in to two registries.
 `RELEASING.md` is the sequence.
