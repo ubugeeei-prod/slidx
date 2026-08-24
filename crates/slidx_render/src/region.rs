@@ -61,6 +61,7 @@ pub fn body(
     layout: &Layout,
     theme: &Theme,
     options: &MarkdownOptions,
+    sizes: &crate::intrinsic::Sizes,
     appended: &str,
 ) -> String {
     let placement = place(&slide.blocks, layout);
@@ -68,7 +69,7 @@ pub fn body(
     let (components, component_blocks) = component_blocks(slide, options);
     let default = layout.fallback().name.clone();
 
-    placement
+    let regions: String = placement
         .regions
         .iter()
         .map(|region| {
@@ -103,7 +104,12 @@ pub fn body(
                 name = region.region.name,
             )
         })
-        .collect()
+        .collect::<String>();
+
+    // Last, and over the whole body: the build measured every image the deck
+    // references, and a browser that does not know an image's ratio reflows the
+    // slide when it lands. See `crate::intrinsic`.
+    crate::intrinsic::size_images(&regions, sizes)
 }
 
 /// Maps a flow component to the first Markdown block it occupies and remembers
@@ -271,6 +277,7 @@ mod tests {
             &layout_of(slide),
             &slidx_theme::default_theme(),
             &MarkdownOptions::default(),
+            &crate::intrinsic::Sizes::new(),
             "",
         )
     }
@@ -367,8 +374,15 @@ mod tests {
         let deck = parse_deck(source, &DeckParseOptions::default());
         let slide = &deck.slides[0];
         let options = MarkdownOptions { mdx: true, ..MarkdownOptions::default() };
-        let html =
-            body(&deck, slide, &layout_of(slide), &slidx_theme::default_theme(), &options, "");
+        let html = body(
+            &deck,
+            slide,
+            &layout_of(slide),
+            &slidx_theme::default_theme(),
+            &options,
+            &crate::intrinsic::Sizes::new(),
+            "",
+        );
 
         assert!(html.contains("data-slidx-island=\"Counter\""), "{html}");
         assert!(html.contains("<strong>fallback</strong>"), "{html}");
@@ -452,6 +466,7 @@ mod tests {
             &layout_of(slide),
             &slidx_theme::default_theme(),
             &MarkdownOptions::default(),
+            &crate::intrinsic::Sizes::new(),
             "",
         );
 
@@ -476,6 +491,7 @@ mod tests {
             &layout_of(slide),
             &slidx_theme::default_theme(),
             &MarkdownOptions::default(),
+            &crate::intrinsic::Sizes::new(),
             "",
         );
 
@@ -495,6 +511,7 @@ mod tests {
             &layout_of(slide),
             &slidx_theme::default_theme(),
             &MarkdownOptions::default(),
+            &crate::intrinsic::Sizes::new(),
             "      <figure class=\"slidx-demo\"></figure>\n",
         );
 

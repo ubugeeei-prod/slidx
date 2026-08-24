@@ -35,6 +35,13 @@ pub struct PrintOptions {
     pub inline_runtime: Option<String>,
     /// Page size, as CSS. Defaults to the deck's aspect ratio at 10in wide.
     pub page_size: Option<String>,
+    /// Every image the caller measured, keyed the way a slide writes the path.
+    ///
+    /// The same map the slide shell is given. A print shell is paginated rather
+    /// than laid out live, so the reflow this prevents costs a reader less —
+    /// but a document whose images resize as they load is one the PDF exporter
+    /// can capture mid-move. See `crate::intrinsic`.
+    pub asset_sizes: crate::intrinsic::Sizes,
 }
 
 impl Default for PrintOptions {
@@ -45,6 +52,7 @@ impl Default for PrintOptions {
             runtime_src: "./runtime.js".to_string(),
             inline_runtime: None,
             page_size: None,
+            asset_sizes: crate::intrinsic::Sizes::new(),
         }
     }
 }
@@ -86,6 +94,7 @@ pub fn render_print(deck: &Deck, options: &PrintOptions) -> String {
                     &slide_layout,
                     &options.theme,
                     &options.markdown,
+                    &options.asset_sizes,
                     "",
                 ),
                 brand = escape(&brand(deck)),

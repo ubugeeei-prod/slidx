@@ -36,6 +36,7 @@ pub mod camera_script;
 pub mod demo_switch;
 pub mod gestures;
 pub mod highlight;
+pub mod intrinsic;
 pub mod keys;
 pub mod layout;
 pub mod markdown;
