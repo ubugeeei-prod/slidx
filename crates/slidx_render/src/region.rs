@@ -281,7 +281,7 @@ mod tests {
         let at = html.find(&open).unwrap_or_else(|| panic!("no {name} region in {html}"));
         let rest = &html[at..];
 
-        rest[..rest.find("</div>\n      </div>").map_or(rest.len(), |end| end)].to_string()
+        rest[..rest.find("</div>\n      </div>").unwrap_or(rest.len())].to_string()
     }
 
     #[test]
