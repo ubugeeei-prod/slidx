@@ -127,14 +127,27 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
         shell_css = layout::STYLESHEET,
         layout_css = slidx_theme::layout::stylesheet(),
         transition_css = transition_css(deck, slide, &options.theme),
-        // A staged slide's stage binds the keyboard and the mirror through the
-        // runtime it already loads; every other slide had neither, which is
-        // most of a deck. See `crate::navigation`.
-        script = match stage_script(deck, slide, options) {
-            staged if staged.is_empty() => crate::navigation::script(deck, slide),
-            staged => staged,
-        },
+        script = script(deck, slide, options),
     )
+}
+
+/// Every script a slide carries, in the order the document holds them.
+///
+/// A staged slide's stage binds the keyboard and the mirror through the runtime
+/// it already loads; every other slide had neither, which is most of a deck.
+/// See `crate::navigation`.
+///
+/// The demo key is appended to whichever of those two a slide got, rather than
+/// written into both: it belongs to a slide that declares a fallback and not to
+/// a slide that has steps, and those are different slides. See
+/// `crate::demo_switch` for why it cannot be an import.
+fn script(deck: &Deck, slide: &Slide, options: &ShellOptions) -> String {
+    let movement = match stage_script(deck, slide, options) {
+        staged if staged.is_empty() => crate::navigation::script(deck, slide),
+        staged => staged,
+    };
+
+    movement + &crate::demo_switch::script(slide)
 }
 
 /// Renders the real slide frame into an isolated, inert document for previews.
@@ -489,6 +502,34 @@ mod tests {
     #[test]
     fn the_recording_is_told_to_load_before_it_is_needed() {
         assert!(shell(DEMO).contains("preload=\"auto\""));
+    }
+
+    #[test]
+    fn a_declared_demo_reaches_a_hand() {
+        // The half that was missing. Both sides shipped in the markup from the
+        // start and nothing a speaker could press performed the write.
+        let html = shell(DEMO);
+
+        assert!(html.contains(r#"event.key !== "d""#), "no key switches the demo:\n{html}");
+    }
+
+    #[test]
+    fn the_switch_asks_the_network_for_nothing() {
+        // The moment a fallback is needed is the moment the network stopped
+        // working. This is the property the whole feature rests on.
+        let html = shell(DEMO);
+        let at = html.find("figure.setAttribute").expect("no switch");
+        let script = &html[html[..at].rfind("<script").expect("no script tag")..];
+
+        assert!(!script.contains("import "), "{script}");
+        assert!(!script.contains("fetch("), "{script}");
+    }
+
+    #[test]
+    fn a_slide_with_no_demo_binds_no_demo_key() {
+        // A deck with no demo is byte-identical to one built before the switch
+        // existed. `scripts/budget.mjs` measures a deck of exactly that kind.
+        assert!(!shell("# Ordinary\n").contains(r#"event.key !== "d""#));
     }
 
     #[test]

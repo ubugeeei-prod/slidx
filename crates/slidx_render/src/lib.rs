@@ -32,6 +32,7 @@
 #![deny(missing_debug_implementations)]
 #![warn(clippy::all)]
 
+pub mod demo_switch;
 pub mod highlight;
 pub mod layout;
 pub mod markdown;
