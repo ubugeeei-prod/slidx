@@ -88,6 +88,7 @@ describe("building a deck with no configuration", () => {
     // The property that makes a deck load instantly on venue Wi-Fi. A stray
     // empty chunk from the virtual entry would break it silently.
     expect(result.files.filter((file) => file.endsWith(".js"))).toEqual([
+      "slides/presenter.js",
       "slides/rehearsal.js",
       "slides/runtime.js",
     ]);
@@ -153,6 +154,7 @@ describe("building a deck with no configuration", () => {
       "slides/2/presenter/index.html",
       "slides/index.html",
       "slides/overview/index.html",
+      "slides/presenter.js",
       "slides/presenter/index.html",
       "slides/print/index.html",
       "slides/rehearsal.js",
@@ -166,6 +168,7 @@ describe("building a deck with no configuration", () => {
       "utf8",
     );
     expect(presenter).toContain('from "/slides/runtime.js"');
+    expect(presenter).toContain('from "/slides/presenter.js"');
     expect(presenter).toContain('from "/slides/rehearsal.js"');
   });
 
@@ -176,6 +179,24 @@ describe("building a deck with no configuration", () => {
     expect(rehearsal).toContain("openRehearsalSession");
     expect(rehearsal).not.toMatch(/from\s+["']@slidxjs\//);
     expect(runtime).not.toContain("openRehearsalSession");
+  });
+
+  it("keeps the presenter's own half out of the file a slide downloads", async () => {
+    // The reading a speaker wants — whether the talk will fit — is on no
+    // version of the slide on the wall, and both pages were handed one file.
+    const runtime = await readFile(join(result.root, "dist/slides/runtime.js"), "utf8");
+    const presenter = await readFile(join(result.root, "dist/slides/presenter.js"), "utf8");
+
+    expect(presenter).toContain("assessPace");
+    expect(runtime).not.toContain("assessPace");
+    expect(runtime).not.toContain("createTimer");
+
+    // Not a third copy of what both pages need. `createMirror` is on the
+    // projector and at the lectern, and the presenter loads the shared file
+    // too — duplicating it here would spend the speaker's bytes twice to save
+    // the room none.
+    expect(presenter).not.toMatch(/from\s+["']@slidxjs\//);
+    expect(presenter).not.toContain("createMirror");
   });
 
   it("writes complete, self-contained documents", async () => {
@@ -215,6 +236,7 @@ describe("options", () => {
     expect(files.filter((file) => !file.startsWith("og"))).toEqual([
       "index.html",
       "overview/index.html",
+      "presenter.js",
       "presenter/index.html",
       "print/index.html",
       "rehearsal.js",
@@ -241,6 +263,7 @@ describe("options", () => {
 
     expect(files).toContain("slides/print/index.html");
     expect(files).not.toContain("slides/presenter/index.html");
+    expect(files).not.toContain("slides/presenter.js");
     expect(files).not.toContain("slides/rehearsal.js");
   }, 60_000);
 

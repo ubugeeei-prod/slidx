@@ -274,6 +274,17 @@ export function runtimeFileName(options: ResolvedOptions): string {
   return options.base ? `${options.base}/runtime.js` : "runtime.js";
 }
 
+/**
+ * Where the presenter-only half of the runtime is written, and imported from.
+ *
+ * Split from `runtime.js` because that file is on every staged slide: a
+ * projector and a lectern want different things, and an audience was
+ * downloading the timer and the pacing model to run neither.
+ */
+export function presenterRuntimeFileName(options: ResolvedOptions): string {
+  return options.base ? `${options.base}/presenter.js` : "presenter.js";
+}
+
 /** Where the presenter-only rehearsal module is written, and imported from. */
 export function rehearsalFileName(options: ResolvedOptions): string {
   return options.base ? `${options.base}/rehearsal.js` : "rehearsal.js";

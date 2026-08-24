@@ -29,17 +29,25 @@ struct PresenterSlide<'a> {
     optional: bool,
 }
 
-pub(crate) fn render(deck: &Deck, slide: &Slide, runtime_src: &str, rehearsal_src: &str) -> String {
+pub(crate) fn render(
+    deck: &Deck,
+    slide: &Slide,
+    runtime_src: &str,
+    presenter_runtime_src: &str,
+    rehearsal_src: &str,
+) -> String {
     format!(
         r#"import {{
-  assessPace,
-  createTimer,
-  describePace,
-  formatDuration,
   createMirror,
   createNavigator,
   createStopCursor,
 }} from "{runtime_src}";
+import {{
+  assessPace,
+  createTimer,
+  describePace,
+  formatDuration,
+}} from "{presenter_runtime_src}";
 import {{
   formatDelta,
   formatSpan,
@@ -284,6 +292,7 @@ mirror.send({{ slide: {index}, step: deck.step }});
 paintStop();
 "#,
         runtime_src = runtime_src,
+        presenter_runtime_src = presenter_runtime_src,
         rehearsal_src = rehearsal_src,
         presenter_slides = presenter_slides(deck),
         slide_id = serde_json::to_string(&slide.id).expect("slide ids are JSON strings"),

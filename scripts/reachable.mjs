@@ -80,6 +80,7 @@
  */
 export const EMITTED_BUNDLES = {
   "{runtime_src}": "@slidxjs/runtime/emitted",
+  "{presenter_runtime_src}": "@slidxjs/runtime/presenter",
   "{rehearsal_src}": "@slidxjs/rehearsal",
   "${EDITOR_MODULE}": "@slidxjs/editor",
 };
@@ -157,13 +158,20 @@ export const UNREACHABLE = {
  * bundle does not export is a deck that breaks on load, and a name the bundle
  * exports and no page imports is the 47% again. Both directions are reported.
  *
- * Only the runtime is listed. The editor's bundle is served from
- * `configureServer` and reaches nobody but its author, and the rehearsal
- * bundle is on the presenter's own screen — neither is what a room downloads,
- * which is the cost this rule exists to hold down.
+ * Both halves of the runtime are listed, for different reasons. The first is
+ * what a room downloads and the rule holds its size down. The second is on the
+ * speaker's own screen, where a few kilobytes do not matter — but it is where
+ * a presenter-side feature *belongs*, and a name that drifted back into the
+ * first is one an audience pays for. Reporting the extras on both makes that
+ * drift visible in whichever direction it happens.
+ *
+ * The editor's bundle is not listed: it is served from `configureServer`, so
+ * it reaches nobody but its author, and its barrel is a composition root
+ * rather than a list of names a page asks for.
  */
 export const EMITTED_EXACTLY = {
   "@slidxjs/runtime/emitted": "{runtime_src}",
+  "@slidxjs/runtime/presenter": "{presenter_runtime_src}",
 };
 
 /** Barrel exports, split by what a page could actually import. */

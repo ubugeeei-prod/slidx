@@ -131,6 +131,8 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
         || theme_findings.has_blocking();
 
     let runtime_src = options.runtime_src.clone().unwrap_or_else(|| "./runtime.js".to_string());
+    let presenter_runtime_src =
+        options.presenter_runtime_src.clone().unwrap_or_else(|| "./presenter.js".to_string());
     let rehearsal_src =
         options.rehearsal_src.clone().unwrap_or_else(|| "./rehearsal.js".to_string());
 
@@ -156,8 +158,13 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
     let print_theme = theme.clone();
     let snippet_theme = theme.clone();
     let og_theme = theme.clone();
-    let presenter =
-        PresenterOptions { theme, markdown, runtime_src: runtime_src.clone(), rehearsal_src };
+    let presenter = PresenterOptions {
+        theme,
+        markdown,
+        runtime_src: runtime_src.clone(),
+        presenter_runtime_src,
+        rehearsal_src,
+    };
 
     let render = !options.parse_only;
     let og = OgOptions { theme: og_theme, ..OgOptions::default() };
