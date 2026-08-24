@@ -383,7 +383,7 @@ paid for, connected to a hand.
 - [x] The editor's text controls, which nothing constructs — #283
 - [x] The rehearsal trend across runs, which reaches no screen — #284
 - [x] A staged slide answers neither a swipe nor `f` — #299
-- [ ] Two key tables, and the one that ships cannot be shown — #285
+- [x] Two key tables, and the one that ships cannot be shown — #285
 - [ ] A clip's level, measured and shown to nobody — #286
 - [ ] A declared camera that never opens — #296
 - [x] An audience downloads 57% of a runtime it cannot run — #291

@@ -85,6 +85,15 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
       <span class="slidx-presenter-divider" aria-hidden="true"></span>
       <button
         type="button"
+        data-slidx-action="keys"
+        aria-expanded="false"
+        aria-controls="slidx-keys"
+        aria-label="Show the keyboard shortcuts"
+      >
+        ?
+      </button>
+      <button
+        type="button"
         data-slidx-action="present"
         aria-expanded="false"
         aria-controls="slidx-present"
@@ -110,6 +119,11 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
       <span class="slidx-presenter-stop" data-slidx-stop>{stops}</span>
     </div>
   </header>
+
+  <section class="slidx-keys" id="slidx-keys" data-slidx-keys aria-label="Keyboard" hidden>
+    <dl class="slidx-keys-list">
+{keys}    </dl>
+  </section>
 
   <section
     class="slidx-present"
@@ -159,6 +173,7 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
         // The notes are the deck's own language, and this page is mostly notes.
         lang = escape(deck.language()),
         deck_title = escape(deck.meta.title.as_deref().unwrap_or("slidx")),
+        keys = crate::keys::rows(),
         // Never indexed, whatever the deck says about being published. This page
         // holds the speaker's notes — the half of a talk written to be said and
         // not read — and it is one URL away from every audience slide.

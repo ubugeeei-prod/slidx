@@ -123,6 +123,7 @@ export default defineConfig({
         "check:borrowed",
         "check:dead-config",
         "check:reachable",
+        "check:keys",
         "check:flat",
         "check:licensed",
         "check:pages",
@@ -144,6 +145,7 @@ export default defineConfig({
         "check:borrowed",
         "check:dead-config",
         "check:reachable",
+        "check:keys",
         "check:flat",
         "check:licensed",
         "check:pages",
@@ -390,6 +392,11 @@ export default defineConfig({
       // statements out of string literals, because that is where the runtime's
       // real call sites are.
       "check:reachable": task("node scripts/check-reachable.mjs"),
+
+      // A deck has two key handlers in two languages, so nothing but this
+      // compares them. A key that works on half a deck is one a speaker finds
+      // out about on a stage.
+      "check:keys": task("node scripts/check-keys.mjs"),
 
       // No shadows, no gradients, anywhere slidx draws. A gate rather than a
       // warning: the size guideline is a judgement call about how much a file is

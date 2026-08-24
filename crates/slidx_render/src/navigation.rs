@@ -227,8 +227,7 @@ const go = (to, href) => {{
 }};
 const step = (rel) =>
   go(rel === "next" ? here + 1 : here - 1, document.querySelector(`${{nav}} a[rel="${{rel}}"]`)?.href);
-const keys = {{ ArrowRight: "next", ArrowDown: "next", PageDown: "next", " ": "next", Enter: "next",
-  ArrowLeft: "prev", ArrowUp: "prev", PageUp: "prev", Backspace: "prev" }};
+const keys = {keys};
 addEventListener("keydown", (event) => {{
   if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
   if (event.target?.closest?.("input,textarea,select,a,button,[contenteditable]")) return;
@@ -253,6 +252,7 @@ mirror?.addEventListener("message", (event) => {{
 </script>
 "#,
         gestures = crate::gestures::body(),
+        keys = crate::keys::table(),
         index = slide.index,
         last = deck.slides.len().saturating_sub(1),
         up = if slide.index == 0 { "./" } else { "../" },

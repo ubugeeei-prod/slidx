@@ -98,6 +98,8 @@ const finishRehearsal = document.querySelector('[data-slidx-action="finish-rehea
 const abandonRehearsal = document.querySelector('[data-slidx-action="abandon-rehearsal"]');
 const newRehearsal = document.querySelector('[data-slidx-action="new-rehearsal"]');
 const pace = document.querySelector("[data-slidx-pace]");
+const keys = document.querySelector('[data-slidx-action="keys"]');
+const keysPanel = document.querySelector("[data-slidx-keys]");
 const present = document.querySelector('[data-slidx-action="present"]');
 const presentPanel = document.querySelector("[data-slidx-present]");
 const presentState = document.querySelector("[data-slidx-present-state]");
@@ -134,6 +136,21 @@ function paint() {{
   pace.dataset.slidxPaceState = reading.pace;
   pace.textContent = describePace(reading);
 }}
+
+// The list is in the markup, so it is there with the script blocked and there
+// before this runs. All this does is show it — and answer `?`, which is the key
+// the list itself names for the job.
+const showKeys = (open) => {{
+  keysPanel.hidden = !open;
+  keys.setAttribute("aria-expanded", String(open));
+}};
+
+keys.addEventListener("click", () => showKeys(keysPanel.hidden));
+addEventListener("keydown", (event) => {{
+  if (event.target?.closest?.("input,textarea,select,[contenteditable]")) return;
+  if (event.key === "?") showKeys(keysPanel.hidden);
+  else if (event.key === "Escape" && !keysPanel.hidden) showKeys(false);
+}});
 
 // Two states rather than one, because they answer to different things. The
 // panel is open because the speaker asked; the session exists once a browser
