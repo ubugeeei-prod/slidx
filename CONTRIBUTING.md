@@ -104,6 +104,12 @@ That one is a Cargo workspace of its own, built for `wasm32-wasip2`, because
 that is how Zed builds it. Warnings are errors. The task graph lives in
 [vite.config.ts](./vite.config.ts).
 
+The compiler is part of "exactly what CI runs", and used to be the one input
+nobody had written down. `rust-toolchain.toml` pins it, so rustup installs the
+same one here and there; a new stable is found by a weekly job whose failure
+means the compiler moved, rather than by whoever opens the next pull request.
+Bumping the pin is an ordinary change, and its diff is the review.
+
 ## Design
 
 Everything slidx draws is flat: no shadow, no gradient, no decorative radius.

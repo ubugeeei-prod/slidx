@@ -82,14 +82,32 @@ runs:
         path: ~/.cache/ms-playwright
         commit: on-change
 
+    # The pinned compiler, read from the file rather than repeated here — the
+    # same trade `wasm-bindgen` below makes with the crate manifest.
+    #
+    # Installed by name rather than left to rustup. Asking for `stable` and then
+    # letting `rust-toolchain.toml` pull in the version it names is two installs
+    # of one release, and rustup refuses the second: *failed to install
+    # component: rustc-x86_64-unknown-linux-gnu, detected conflict: bin/rust-gdb*.
+    - id: rust
+      if: inputs.rust == 'true' || inputs.wasm == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        channel=$(grep -oE '^channel = "[^"]+"' rust-toolchain.toml | cut -d'"' -f2)
+        test -n "$channel"
+        echo "channel=$channel" >> "$GITHUB_OUTPUT"
+
     - if: inputs.rust == 'true' && inputs.wasm != 'true'
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@master
       with:
+        toolchain: ${{ steps.rust.outputs.channel }}
         components: rustfmt, clippy
 
     - if: inputs.wasm == 'true'
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@master
       with:
+        toolchain: ${{ steps.rust.outputs.channel }}
         components: rustfmt, clippy
         targets: wasm32-unknown-unknown
 

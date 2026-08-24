@@ -1,0 +1,26 @@
+# The compiler this repository is checked with.
+#
+# CI installed `stable` and there was no file here, so the compiler moved under
+# the tree between one run and the next. `clippy::map_or_identity` arrived in a
+# release and turned a documentation-only pull request red on a line that had
+# been there for months — see #288 and #289.
+#
+# `CONTRIBUTING.md` says `vp run workspace:ci` runs exactly what CI runs. That
+# was not true of the one input nobody had written down.
+#
+# A new stable is still found the week it ships, by `.github/workflows/toolchain.yml`
+# rather than by whoever happens to open the next pull request. Its failure means
+# "the compiler moved"; theirs meant nothing they could read.
+#
+# `.github/actions/setup` reads `channel` out of this file and installs it by
+# name. Asking for `stable` and letting rustup pull this one in afterwards is two
+# installs of one release, and rustup refuses the second — so this file is the
+# only place the version is written, and the action is what makes that true of CI
+# rather than only of a laptop.
+# `wasm32-unknown-unknown` is deliberately not listed. Two of the seven CI jobs
+# build the WebAssembly boundary and the rest do not, so the setup action adds
+# the target where it is wanted — naming it here would download it on every job
+# that has no use for it.
+[toolchain]
+channel = "1.98.0"
+components = ["rustfmt", "clippy"]
