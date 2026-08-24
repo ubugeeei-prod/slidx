@@ -29,13 +29,18 @@ library, and this workspace's only callers are inside it. But the rule stands
 on its own: a box here is checked when the path from a person to the behaviour
 exists, not when the code that would implement it does.
 
-**Five boxes in M4 have since been unchecked for exactly this reason**, and the
-pattern is one `check-dead-config.mjs` cannot see: a TypeScript symbol exported
-from `packages/runtime`'s barrel that no shipped page imports. Presentation
-mode, the behind/ahead reading, the demo switch, the phone remote and the whole
-audience channel are all written, all tested, and all reachable by nobody. The
-equivalent check — an exported symbol with no consumer — does not exist, and its
+**Five boxes in M4 were unchecked for exactly this reason**, and the pattern is
+one `check-dead-config.mjs` cannot see: a module in `packages/runtime` that no
+shipped page imports. Presentation mode, the behind/ahead reading, the demo
+switch, the phone remote and the whole audience channel were all written, all
+tested, and all reachable by nobody. The equivalent check did not exist, and its
 absence is why five features could sit in that state at once.
+
+It exists now — `scripts/check-reachable.mjs`, which fails on a module no page
+can call and reads import statements out of the Rust string literals that are
+the runtime's real call sites. Its first run found four more nobody knew about,
+and everything it still carries is listed in `UNREACHABLE` against the issue
+that closes it. M7 is what came of that.
 
 ---
 
@@ -209,7 +214,9 @@ Everything between walking up and sitting down.
 - [ ] Remote control from a separate device — #13. `createPairing`,
       `pairingUrl` and `createRemoteTransport` exist and nothing constructs a
       `RemoteSocket` for them; there is no relay. `readPairing`'s one caller
-      is the _editor's_ collaboration gate, not slide control
+      is the _editor's_ collaboration gate, not slide control. The transport is
+      not what is missing — the answer to _who operates a server_ is, and the
+      non-goals refuse the obvious one — #280
 - [x] Presentation mode: wake lock, fullscreen, and a named DND checklist —
       #13, #278. `f` on any slide takes the whole screen and asks for the wake
       lock, bound where that gesture has to be. The checklist is on the
@@ -219,9 +226,12 @@ Everything between walking up and sitting down.
       The camera left `enterPresentation` for the window its tile is on — #296
 - [x] Rehearsal recording; actual per-slide dwell time diffed against budget — #17
 - [ ] **Demo fallback** as a declared construct: live target plus recorded
-      video — #14. Both sides ship in the markup, which is the hard half and
-      is done. Switching between them is one attribute write and nothing a
-      speaker can reach performs it: `createDemoSwitch` has no caller
+      video — #14. `d` performs the switch now, inline, on a slide that
+      declares a fallback — #292. What is left is the presenter knowing whether
+      a recording has buffered, and that is a design question rather than
+      wiring: the preview is deliberately inert, the presenter cannot measure
+      the projector's element, and the only reading that is not a guess would
+      come over the mirror. See #279
 - [ ] Audience channel — moderated Q&A and reactions on a Worker — #16.
       `@slidxjs/audience` is 1,983 lines with its own protocol, room state and
       rate limiting, no `package.json` in the workspace depends on it, and
@@ -376,7 +386,7 @@ paid for, connected to a hand.
 - [x] `check:reachable`: CI fails on a module no page can call — #276
 - [x] Pace reaches the presenter view — #277
 - [x] Presentation mode: the checklist a browser cannot perform — #278
-- [ ] Demo fallback: a key that performs the one attribute write — #279
+- [ ] Demo fallback: the presenter knowing what has buffered — #279, #292
 - [ ] Remote control: a pairing that reaches a slide — #280
 - [ ] Audience channel: deployable, or a stated non-goal — #281
 - [x] The editor's text controls, which nothing constructs — #283
@@ -387,7 +397,7 @@ paid for, connected to a hand.
 - [x] A declared camera that never opens — #296
 - [x] An audience downloads 57% of a runtime it cannot run — #291
 - [ ] Images and fonts: the artefact half of performance — #234
-- [ ] A toolchain that moves under the tree — #288
+- [x] A toolchain that moves under the tree — #288
 - [ ] First release to npm and crates.io — needs the maintainer's accounts
 
 **Done when** every promise the README makes is reachable by a person, measured
@@ -417,10 +427,31 @@ looking at what the check had proved: an audience downloads 57% of a runtime
 it cannot run, and a floating toolchain turns somebody else's pull request
 red.
 
-Two of the fourteen cannot be finished from here, and they are named rather
-than quietly carried. The registries need the maintainer signed in; #281 needs
-a decision about who operates a Worker, which is a question about what slidx
-_is_ rather than about what it does.
+What is left is not a list of unfinished features. Each of the five is waiting
+on something that is not code, and saying which is more useful than an estimate:
+
+**#280 and #281** both need an answer to _who operates a server_, and the
+non-goals already refuse the obvious one. A relay slidx ran would make this a
+service. That is a question about what slidx **is**.
+
+**#286 and #234** need the same dependency decision from two directions. A
+clip's level, an image's format and a font's subset are all properties of a
+file, measured once at build time — and each needs a codec that works offline,
+on three platforms, without adding a native build step to a deck. Worth
+deciding once rather than three times.
+
+**#279** is the one that is genuinely a design question rather than a
+dependency. `d` switches the demo; what is missing is the presenter knowing
+whether a recording has buffered, and the only reading that is not a guess
+comes from the projector over the mirror — a second message kind on a module
+the audience bundle carries.
+
+**The release** needs the maintainer signed in to two registries.
+`RELEASING.md` is the sequence.
+
+The milestone's own premise is closed either way. Nothing in the tree is
+written, tested and reachable by nobody except what is listed above with its
+reason, and there is now a check that fails when that stops being true.
 
 ---
 
