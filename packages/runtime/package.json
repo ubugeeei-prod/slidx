@@ -27,6 +27,10 @@
       "types": "./dist/presenter/presenter.d.mts",
       "default": "./dist/presenter/presenter.mjs"
     },
+    "./camera": {
+      "types": "./dist/camera/camera.d.mts",
+      "default": "./dist/camera/camera.mjs"
+    },
     "./effects.css": "./dist/effects.css"
   },
   "publishConfig": {
@@ -34,7 +38,7 @@
     "provenance": true
   },
   "scripts": {
-    "pack:lib": "vp pack src/index.ts --dts --out-dir dist && vp pack src/emitted.ts --dts --out-dir dist/emitted && vp pack src/presenter.ts --dts --out-dir dist/presenter && node ../../scripts/copy-assets.mjs src/effects.css dist/effects.css"
+    "pack:lib": "vp pack src/index.ts --dts --out-dir dist && vp pack src/emitted.ts --dts --out-dir dist/emitted && vp pack src/presenter.ts --dts --out-dir dist/presenter && vp pack src/camera.ts --dts --out-dir dist/camera && node ../../scripts/copy-assets.mjs src/effects.css dist/effects.css"
   },
   "devDependencies": {
     "@slidxjs/wasm": "workspace:*"

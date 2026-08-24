@@ -87,7 +87,14 @@ const CONTENT_TYPES: Record<string, string> = {
   ".svg": "image/svg+xml",
 };
 
-let server: Server | undefined;
+/**
+ * Every server started, so more than one deck can have an origin.
+ *
+ * Two do now: the staged deck, whose slide imports the runtime, and the camera
+ * deck, whose slide imports the device handling. Both are module imports and a
+ * module import from a `file://` page is refused whatever the path says.
+ */
+const servers: Server[] = [];
 
 /**
  * A static server for the one thing `file://` cannot do.
@@ -101,7 +108,7 @@ let server: Server | undefined;
  * would let a deck that fails off a USB stick pass.
  */
 async function serve(root: string): Promise<string> {
-  server = createServer((request, response) => {
+  const server = createServer((request, response) => {
     // Normalised and re-rooted: a test server is still a server, and `..` in a
     // request path should not reach the machine's filesystem.
     const path = decodeURIComponent(new URL(request.url ?? "/", "http://localhost").pathname);
@@ -126,7 +133,8 @@ async function serve(root: string): Promise<string> {
     );
   });
 
-  await new Promise<void>((resolve) => server?.listen(0, "127.0.0.1", resolve));
+  servers.push(server);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
 
   const address = server.address();
   const port = typeof address === "object" && address !== null ? address.port : 0;
@@ -135,7 +143,9 @@ async function serve(root: string): Promise<string> {
 }
 
 async function stopServing(): Promise<void> {
-  await new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve()));
+  await Promise.all(
+    servers.map((one) => new Promise<void>((resolve) => one.close(() => resolve()))),
+  );
 }
 
 /** A deck with a heading, built once and read by every engine. */
@@ -146,6 +156,16 @@ let served: string;
 
 /** A deck whose author placed a speaker camera on the slide. */
 let cameraPage: string;
+
+/**
+ * The same deck, with an origin.
+ *
+ * Filling the tile needs `camera.ts`, and a module import needs a server — so
+ * both addresses are kept and each answers a different half of the guarantee.
+ * `file://` says the page asks for nothing on its own even in the worst case a
+ * deck is ever opened in. The served one says the key works.
+ */
+let servedCamera: string;
 
 async function buildDeck(name: string, slides: Record<string, string>): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), `slidx-${name}-`));
@@ -187,6 +207,7 @@ beforeAll(async () => {
   page = pathToFileURL(join(plain, "slides", "index.html")).href;
   served = await serve(staged);
   cameraPage = pathToFileURL(join(camera, "slides", "index.html")).href;
+  servedCamera = `${await serve(camera)}/slides/`;
 }, 180_000);
 
 afterAll(async () => {
@@ -516,7 +537,7 @@ interface Counted extends Window {
  * page that prompts once is a page an audience closes, and "did it prompt" is
  * only answerable in a browser.
  */
-async function openDeclaringCamera(engine: Engine) {
+async function openDeclaringCamera(engine: Engine, address = cameraPage) {
   const playwright = await import("playwright");
   const browser = await playwright[engine].launch();
 
@@ -540,10 +561,21 @@ async function openDeclaringCamera(engine: Engine) {
     const errors: string[] = [];
     tab.on("pageerror", (error) => errors.push(error.message));
 
-    await tab.goto(cameraPage);
+    await tab.goto(address);
+
+    // What the page has done before anybody touches it, which is the question
+    // this whole helper exists to answer.
+    const onLoad = await tab.evaluate(() => (window as unknown as Counted).__cameraRequests);
+
+    // And what one key press does, which is the other half of the same
+    // question: the tile is fillable, and only deliberately.
+    await tab.keyboard.press("c");
+    const afterKey = await tab.evaluate(() => (window as unknown as Counted).__cameraRequests);
 
     return {
       errors,
+      onLoad,
+      afterKey,
       ...(await tab.evaluate(() => {
         const tile = document.querySelector("[data-slidx-camera]");
         const heading = document.querySelector("h1");
@@ -590,16 +622,41 @@ describe.each(ENGINES)("%s, on a slide that declares a camera", (engine) => {
   const runs = it.skipIf(!available[engine]);
 
   runs(
-    "never asks the reader for a webcam",
+    "never asks the reader for a webcam by itself",
     async () => {
-      const { requests, scripts, navigators, errors } = await openDeclaringCamera(engine);
+      const { onLoad, scripts, navigators, errors } = await openDeclaringCamera(engine);
 
-      expect(requests).toBe(0);
-      // The reason it cannot: the only thing on the page that runs is the
-      // navigator, which moves between two addresses the markup already names
-      // and touches no device.
-      expect(scripts).toBe(navigators);
+      // Nothing on this page asks for a device, on load or on the key, and
+      // this is the worst case a deck is ever opened in: a `file://` page
+      // cannot resolve the module that would fill the tile. The guarantee has
+      // to hold here before it is worth checking anywhere easier.
+      expect(onLoad).toBe(0);
+
+      // Two elements run: the navigator, and the key that fills the tile. A
+      // third script here would be something nobody has accounted for.
+      expect(scripts).toBe(2);
       expect(navigators).toBe(1);
+      expect(errors).toEqual([]);
+    },
+    120_000,
+  );
+
+  runs(
+    "fills the tile when a person asks, and not before",
+    async () => {
+      // The half that was missing for as long as the tile existed. `camera:`
+      // placed a rectangle that stayed empty forever, because the only thing
+      // that could fill it was called from the presenter view — a page with no
+      // tile on it, which reported `off` with a reason about a slide it was
+      // not looking at.
+      //
+      // Served rather than `file://`, because filling the tile is a module and
+      // a module needs an origin. The test above is the one that has to hold
+      // without one.
+      const { onLoad, afterKey, errors } = await openDeclaringCamera(engine, servedCamera);
+
+      expect(onLoad).toBe(0);
+      expect(afterKey).toBe(1);
       expect(errors).toEqual([]);
     },
     120_000,

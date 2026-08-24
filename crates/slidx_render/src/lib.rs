@@ -32,6 +32,7 @@
 #![deny(missing_debug_implementations)]
 #![warn(clippy::all)]
 
+pub mod camera_script;
 pub mod demo_switch;
 pub mod gestures;
 pub mod highlight;

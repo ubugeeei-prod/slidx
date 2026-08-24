@@ -80,6 +80,7 @@
  */
 export const EMITTED_BUNDLES = {
   "{runtime_src}": "@slidxjs/runtime/emitted",
+  "{camera_src}": "@slidxjs/runtime/camera",
   "{presenter_runtime_src}": "@slidxjs/runtime/presenter",
   "{rehearsal_src}": "@slidxjs/rehearsal",
   "${EDITOR_MODULE}": "@slidxjs/editor",
@@ -168,6 +169,20 @@ export const EMITTED_EXACTLY = {
   "@slidxjs/runtime/emitted": "{runtime_src}",
   "@slidxjs/runtime/presenter": "{presenter_runtime_src}",
 };
+
+/**
+ * Bundles that are a module rather than a list, so the equality rule cannot
+ * apply.
+ *
+ * `@slidxjs/runtime/camera` is `camera.ts` itself: it is emitted whole for a
+ * deck that places a camera, and its exports are what that module is, not a
+ * list somebody keeps in step with a page. Holding it to the two names a slide
+ * imports would mean deleting the types beside them, which erase anyway.
+ *
+ * Recorded rather than left out, so that "why is this one not checked" has an
+ * answer where the check is.
+ */
+export const EMITTED_WHOLE = ["@slidxjs/runtime/camera"];
 
 /** Barrel exports, split by what a page could actually import. */
 export function barrelExports(source) {

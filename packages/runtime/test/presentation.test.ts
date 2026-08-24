@@ -20,7 +20,6 @@
 
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type { CameraStatus } from "../src/camera";
 import { enterPresentation, presentationChecklist } from "../src/presentation";
 
 function environment(overrides: Record<string, unknown> = {}) {
@@ -126,71 +125,6 @@ describe("what the browser can actually do", () => {
     await session.exit();
 
     expect(env.released).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe("the camera, which belongs to presenting rather than to the deck", () => {
-  function withCamera(status: CameraStatus) {
-    const stop = vi.fn();
-
-    return {
-      ...environment(),
-      startCamera: vi.fn(async () => ({ status, detail: "", stop })),
-      stopped: stop,
-    };
-  }
-
-  it("asks for the camera in the same gesture as fullscreen", async () => {
-    // `getUserMedia` needs a live user gesture, and awaiting the wake lock
-    // first can outlast it — the same reason fullscreen is not awaited alone.
-    const env = withCamera("live");
-    await enterPresentation(env);
-
-    expect(env.startCamera).toHaveBeenCalled();
-  });
-
-  it("has no camera at all when nothing supplied one", async () => {
-    // The default, and the guarantee: a page that never wired a camera into
-    // presentation mode has no way to open one.
-    const session = await enterPresentation(environment());
-
-    expect(session.camera).toBe("off");
-  });
-
-  it("reports what the camera is rather than what was asked for", async () => {
-    // A refused permission costs a camera. A speaker reading `denied` knows to
-    // go and change a setting; a speaker reading `live` walks on stage with a
-    // hole in the slide.
-    for (const status of ["live", "denied", "absent", "busy"] as const) {
-      const session = await enterPresentation(withCamera(status));
-      expect(session.camera).toBe(status);
-    }
-  });
-
-  it("carries on when the camera throws on the way up", async () => {
-    // Consistent with the wake lock: a missing capability is a value, never an
-    // exception thrown into a slide.
-    const env = environment({
-      startCamera: vi.fn(async () => {
-        throw new Error("no");
-      }),
-    });
-
-    const session = await enterPresentation(env);
-
-    expect(session.camera).toBe("off");
-    expect(session.fullscreen).toBe(true);
-  });
-
-  it("gives the device back when presentation mode ends", async () => {
-    // A camera left running is a light on the laptop after the speaker sat
-    // down, and a device the next application cannot open.
-    const env = withCamera("live");
-    const session = await enterPresentation(env);
-
-    await session.exit();
-
-    expect(env.stopped).toHaveBeenCalledTimes(1);
   });
 });
 

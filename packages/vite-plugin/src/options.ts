@@ -285,6 +285,18 @@ export function presenterRuntimeFileName(options: ResolvedOptions): string {
   return options.base ? `${options.base}/presenter.js` : "presenter.js";
 }
 
+/**
+ * Where the device handling for a declared camera is written.
+ *
+ * Emitted only for a deck that places one. `camera.ts` is 224 lines of device
+ * handling and error classification, and folding it into the entry every deck
+ * downloads would put it in front of every audience for the sake of the few
+ * decks that use it.
+ */
+export function cameraFileName(options: ResolvedOptions): string {
+  return options.base ? `${options.base}/camera.js` : "camera.js";
+}
+
 /** Where the presenter-only rehearsal module is written, and imported from. */
 export function rehearsalFileName(options: ResolvedOptions): string {
   return options.base ? `${options.base}/rehearsal.js` : "rehearsal.js";
