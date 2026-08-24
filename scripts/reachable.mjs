@@ -120,12 +120,12 @@ export const PUBLIC_API = {
  * a feature that is written, tested, and shipped to nobody, and the number
  * beside it is where that gets fixed.
  *
- * All but two were already known when the check was written. The two that were
- * not are the argument for it:
- * `text-controls.ts` is a whole editor surface with no constructor call
- * anywhere in the workspace — not even in a test — and `trend.ts` is the
- * rehearsal comparison across runs, in a package whose single-run report does
- * reach the presenter view.
+ * Two of the seventeen it opened with were not known before it ran, and
+ * finding them is the argument for having built it: `text-controls.ts`, an
+ * editor surface with no constructor call anywhere in the workspace — not even
+ * in a test — and `trend.ts`, the rehearsal comparison across runs, in a
+ * package whose single-run report does reach the presenter view. The first is
+ * gone; a superseded surface was the answer that line was waiting for.
  */
 export const UNREACHABLE = {
   "packages/audience/src/backoff.ts": 281,
@@ -137,7 +137,6 @@ export const UNREACHABLE = {
   "packages/audience/src/room.ts": 281,
   "packages/audience/src/routes.ts": 281,
   "packages/audience/src/worker.ts": 281,
-  "packages/editor/src/text-controls.ts": 283,
   "packages/rehearsal/src/trend.ts": 284,
   "packages/runtime/src/camera.ts": 278,
   "packages/runtime/src/demo.ts": 279,
