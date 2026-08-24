@@ -1,0 +1,41 @@
+# Whether the next compiler will break the tree.
+#
+# `rust-toolchain.toml` pins the one everything is checked with, which is what
+# makes a local run and a CI run the same run. The cost of a pin is finding out
+# late, so this pays it here rather than in somebody's unrelated pull request:
+# it runs the same gates on `stable`, weekly, and its failure has exactly one
+# meaning.
+#
+# Only the two gates a new compiler actually moves. `cargo test` failing on a
+# new stable would be a real bug rather than a lint, and `ci.yml` runs the whole
+# graph on every push regardless — this job exists to be *cheap enough to leave
+# on*, not to be a second CI.
+name: Toolchain
+
+on:
+  schedule:
+    # Monday morning, so a new lint is found with a week in front of it rather
+    # than on the day somebody is trying to release.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stable:
+    name: the next compiler
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      # `rust-toolchain.toml` would otherwise win, which is the whole point of
+      # it everywhere except here.
+      - run: rustup override set stable
+
+      - run: cargo --version
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
