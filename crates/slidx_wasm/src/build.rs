@@ -105,6 +105,16 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
         })
         .collect();
 
+    // The same measurements, for a second reason. A browser that does not know
+    // an image's ratio reflows the slide when it lands, on the wifi a venue has
+    // rather than the one it advertises — and every image here has already been
+    // measured for the linter. See `slidx_render::intrinsic`.
+    let drawn: slidx_render::intrinsic::Sizes = sizes
+        .iter()
+        .filter(|(_, intrinsic)| intrinsic.format != ImageFormat::Svg)
+        .map(|(path, intrinsic)| (path.clone(), (intrinsic.width, intrinsic.height)))
+        .collect();
+
     let input = LintInput::new(&deck, &surfaces).with_padding(padding);
     let input = if sizes.is_empty() { input } else { input.with_asset_sizes(&sizes) };
 
@@ -154,6 +164,7 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
         runtime_src: runtime_src.clone(),
         camera_src,
         seo: seo.clone(),
+        asset_sizes: std::sync::Arc::new(drawn.clone()),
         ..ShellOptions::default()
     }
     .with_theme(theme.clone());
@@ -201,6 +212,7 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
                 theme: print_theme,
                 markdown,
                 inline_runtime: options.print_runtime.clone(),
+                asset_sizes: drawn,
                 ..PrintOptions::default()
             },
         )

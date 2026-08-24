@@ -31,6 +31,13 @@ pub struct ShellOptions {
     pub markdown: MarkdownOptions,
     /// Module URL a slide with steps imports the runtime from.
     pub runtime_src: String,
+    /// Every image the caller measured, keyed the way a slide writes the path.
+    ///
+    /// The same map the linter is given, and for a second reason: a browser
+    /// that does not know an image's ratio reflows the slide when it lands.
+    /// Behind an `Arc` so `ShellOptions` stays cheap to clone, which the
+    /// per-deck loop depends on. See `crate::intrinsic`.
+    pub asset_sizes: Arc<crate::intrinsic::Sizes>,
     /// Module URL a slide that declares a camera imports the device handling
     /// from.
     ///
@@ -83,6 +90,7 @@ impl Default for ShellOptions {
             markdown: MarkdownOptions::default(),
             runtime_src: "./runtime.js".to_string(),
             camera_src: "./camera.js".to_string(),
+            asset_sizes: Arc::default(),
             include_runtime: true,
             seo: SeoOptions::default(),
             theme_css: Arc::default(),
@@ -220,7 +228,15 @@ pub(crate) fn slide_frame(
     // definition and would otherwise offer a link out of itself.
     navigation: &str,
 ) -> String {
-    let body = region::body(deck, slide, slide_layout, &options.theme, &options.markdown, appended);
+    let body = region::body(
+        deck,
+        slide,
+        slide_layout,
+        &options.theme,
+        &options.markdown,
+        &options.asset_sizes,
+        appended,
+    );
     let (width, height) = deck.meta.aspect.dimensions();
 
     format!(
@@ -606,6 +622,35 @@ mod tests {
         let camera = html.split("startCamera").count() - 1;
         assert_eq!(camera, 2, "the camera is reached other than through the key:\n{html}");
         assert!(html.contains(r#"event.key !== "c""#), "nothing gates it:\n{html}");
+    }
+
+    #[test]
+    fn a_measured_image_reaches_the_page_with_its_own_size() {
+        // The build measures every image for the linter and was throwing the
+        // answer away. A browser that does not know an image's ratio reflows
+        // the slide when it lands, which on venue wifi happens while a room is
+        // reading.
+        let deck = parse_deck("# One\n\n![A chart](./chart.png)\n", &DeckParseOptions::default());
+        let options = ShellOptions {
+            asset_sizes: Arc::new(crate::intrinsic::Sizes::from([(
+                "chart.png".to_string(),
+                (1200, 900),
+            )])),
+            ..ShellOptions::default()
+        };
+        let html = render_slide(&deck, &deck.slides[0], &options);
+
+        assert!(html.contains(r#"width="1200" height="900""#), "{html}");
+    }
+
+    #[test]
+    fn an_unmeasured_image_is_left_exactly_as_it_was() {
+        // No measurement, no claim. A deck built without the plugin's readings
+        // is byte-identical to one built before this existed.
+        let deck = parse_deck("# One\n\n![A chart](./chart.png)\n", &DeckParseOptions::default());
+        let html = render_slide(&deck, &deck.slides[0], &ShellOptions::default());
+
+        assert!(html.contains(r#"<img src="./chart.png" alt="A chart">"#), "{html}");
     }
 
     #[test]
