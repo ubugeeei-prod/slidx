@@ -297,6 +297,26 @@ An audience slide with no steps **fetches no JavaScript at all**: no module, no
 bundle, no request. What it carries inline is a couple of kilobytes of
 navigation, itemised in the budget.
 
+## Getting around a deck
+
+`→` and a presentation remote's `PageDown` work on every slide, including the
+ones with nothing to reveal — and so does the presenter view, which is usually
+where a clicker's keys land. The two windows follow each other in **both**
+directions.
+
+Without a keyboard the footer's `‹ n / m ›` is the same navigation: real
+anchors between real documents, so a deck opened from a USB stick with
+scripting switched off is still a deck you can move through. On a phone, swipe
+— every length on a slide is a share of the slide, so those two glyphs measure
+about four pixels by three on a 375px screen, which makes the swipe the
+navigation there rather than a shortcut for it.
+
+`f` takes the whole screen and asks it to stay awake. `/overview/` is every
+slide at once, each a link to itself — the real slides drawn small rather than
+pictures of them, on a page that runs nothing at all, because a slide is
+already a size container and putting one in a small box is the whole of drawing
+a thumbnail.
+
 ## A deck written in Japanese
 
 Displaying Japanese and **setting** it are different jobs, and a browser left to
