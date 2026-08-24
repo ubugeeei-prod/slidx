@@ -55,6 +55,7 @@ import {{
   formatDelta,
   formatSpan,
   openRehearsalSession,
+  trackRehearsals,
 }} from "{rehearsal_src}";
 
 // Slide one's presenter lives at the deck root and the rest live one directory
@@ -104,6 +105,7 @@ const presentList = document.querySelector("[data-slidx-present-checklist]");
 const rehearsalStatus = document.querySelector("[data-slidx-rehearsal-status]");
 const rehearsalReport = document.querySelector("[data-slidx-rehearsal-report]");
 const rehearsalAdvice = document.querySelector("[data-slidx-rehearsal-advice]");
+const rehearsalTrend = document.querySelector("[data-slidx-rehearsal-trend]");
 const rehearsalTotal = document.querySelector("[data-slidx-rehearsal-total]");
 const rehearsalSlidesList = document.querySelector("[data-slidx-rehearsal-slides]");
 
@@ -238,7 +240,20 @@ function describeSlide(slide) {{
   );
 }}
 
+/**
+ * One rehearsal says where the time went; three say whether the changes are
+ * working. The history is every run that has ended, so the run being painted is
+ * already in it and the comparison is against the one before.
+ */
+function paintTrend() {{
+  const trend = trackRehearsals(rehearsal.history());
+  rehearsalTrend.textContent = trend.note;
+
+  return new Map(trend.slides.map((slide) => [slide.id, slide]));
+}}
+
 function paintReport(report) {{
+  const trend = paintTrend();
   rehearsalAdvice.textContent = report.advice;
   rehearsalTotal.textContent =
     report.totals.deltaMs === undefined
@@ -253,7 +268,18 @@ function paintReport(report) {{
     ...report.slides.map((slide) => {{
       const item = document.createElement("li");
       item.dataset.slidxVerdict = slide.verdict;
-      item.textContent = `Slide ${{slide.index}} — ${{describeSlide(slide)}}`;
+
+      // The direction is only added where there is one. A slide given for the
+      // first time has nothing to compare, and "steady" on every row of a
+      // twenty-slide deck is a column of noise around the two that moved.
+      const moved = trend.get(slide.id);
+      const direction =
+        moved === undefined || moved.direction === "new" || moved.direction === "steady"
+          ? ""
+          : ` · ${{formatSpan(Math.abs(moved.deltaMs))}} ${{moved.direction}} than last time`;
+
+      item.textContent = `Slide ${{slide.index}} — ${{describeSlide(slide)}}${{direction}}`;
+      if (moved !== undefined) item.dataset.slidxTrend = moved.direction;
       return item;
     }}),
   );

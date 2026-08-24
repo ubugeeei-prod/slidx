@@ -147,22 +147,25 @@ function noteFor(
 
   if (regressions.length > 0) return regressionNote(regressions);
 
-  // Nothing is slipping. Say whether that is because the deck is stable or
-  // because the speaker's cuts are landing, which are different pieces of news.
+  // Nothing is slipping *past its budget*, which is not the same as nothing
+  // getting slower and must not be said as though it were. A slide can grow by
+  // half a minute inside a budget with room, and the per-slide rows say so —
+  // a sentence above them claiming otherwise is the one thing here a speaker
+  // could catch being wrong, and then stop reading.
   const improved = slides.filter((slide) => slide.direction === "faster");
 
-  if (improved.length === 0) return "Nothing got slower since the last rehearsal.";
+  if (improved.length === 0) return "Nothing slipped past its budget since the last rehearsal.";
 
   const best = [...improved].sort((left, right) => left.deltaMs - right.deltaMs);
 
-  return `Nothing got slower, and ${namesOf(best)} came in ${formatSpan(Math.abs(best[0]?.deltaMs ?? 0))} faster than last time.`;
+  return `Nothing slipped past its budget, and ${namesOf(best)} came in ${formatSpan(Math.abs(best[0]?.deltaMs ?? 0))} faster than last time.`;
 }
 
 function regressionNote(regressions: readonly SlideTrend[]): string {
   const named = regressions.slice(0, MAX_NAMED);
   const worst = named[0];
 
-  if (!worst) return "Nothing got slower since the last rehearsal.";
+  if (!worst) return "Nothing slipped past its budget since the last rehearsal.";
 
   if (named.length === 1) {
     return `Slide ${worst.index} is ${formatSpan(worst.deltaMs)} slower than last time and still over budget.`;

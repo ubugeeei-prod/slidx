@@ -116,6 +116,18 @@ html, body {
   color: var(--slidx-color-muted);
 }
 
+/*
+ * What moved since last time, under the advice rather than beside it.
+ *
+ * Muted, because it is the second sentence: the advice is about this
+ * rehearsal, and this is about the direction of travel. A speaker reading the
+ * report after a run wants the first one first.
+ */
+.slidx-rehearsal-trend {
+  margin: 0;
+  color: var(--slidx-color-muted);
+}
+
 .slidx-present-checklist {
   display: grid;
   gap: 0.75rem;
@@ -141,6 +153,14 @@ html, body {
   color: var(--slidx-color-muted);
   font-size: 0.95rem;
 }
+
+/*
+ * A slide that is slipping is worth the one colour this report spends, and only
+ * when it is also over budget — which is the pairing `trackRehearsals` already
+ * makes for its own sentence. Faster is said in words and not in colour: it is
+ * good news, and good news that shouts is news a speaker learns to skip.
+ */
+[data-slidx-verdict="over"][data-slidx-trend="slower"] { color: #b42318; }
 
 .slidx-presenter-actions {
   display: flex;

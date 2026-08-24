@@ -122,11 +122,10 @@ export const PUBLIC_API = {
  * beside it is where that gets fixed.
  *
  * Two of the seventeen it opened with were not known before it ran, and
- * finding them is the argument for having built it: `text-controls.ts`, an
- * editor surface with no constructor call anywhere in the workspace — not even
- * in a test — and `trend.ts`, the rehearsal comparison across runs, in a
- * package whose single-run report does reach the presenter view. The first is
- * gone; a superseded surface was the answer that line was waiting for.
+ * finding them is the argument for having built it: an editor surface with no
+ * constructor call anywhere in the workspace — not even in a test — and the
+ * rehearsal comparison across runs, in a package whose single-run report did
+ * reach the presenter view. Both are gone.
  */
 export const UNREACHABLE = {
   "packages/audience/src/backoff.ts": 281,
@@ -138,7 +137,6 @@ export const UNREACHABLE = {
   "packages/audience/src/room.ts": 281,
   "packages/audience/src/routes.ts": 281,
   "packages/audience/src/worker.ts": 281,
-  "packages/rehearsal/src/trend.ts": 284,
   "packages/runtime/src/demo.ts": 279,
   "packages/runtime/src/keymap.ts": 285,
   "packages/runtime/src/media.ts": 286,

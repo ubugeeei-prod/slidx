@@ -452,14 +452,21 @@ describe.each(ENGINES)("%s, rehearsing from the presenter view", (engine) => {
         await tab.setViewportSize({ width: 390, height: 844 });
 
         const result = await tab.evaluate(() => {
-          const key = Object.keys(localStorage).find((entry) =>
+          // Two keys share the prefix now: the run in progress, and the runs
+          // that have ended for the trend to compare. `find` used to be exact
+          // because there was only ever one.
+          const entries = Object.keys(localStorage).filter((entry) =>
             entry.startsWith("slidx:rehearsal:"),
           );
+          const key = entries.find((entry) => !entry.endsWith(":history"));
+          const past = entries.find((entry) => entry.endsWith(":history"));
           if (!key) throw new Error("the rehearsal was not stored");
 
           return {
             clock: document.querySelector("[data-slidx-elapsed]")?.textContent,
             report: JSON.parse(localStorage.getItem(key) ?? "null"),
+            history: JSON.parse(localStorage.getItem(past ?? "") ?? "null"),
+            trend: document.querySelector("[data-slidx-rehearsal-trend]")?.textContent,
             rows: [...document.querySelectorAll("[data-slidx-rehearsal-slides] li")].map(
               (row) => row.textContent,
             ),
@@ -480,6 +487,10 @@ describe.each(ENGINES)("%s, rehearsing from the presenter view", (engine) => {
         });
         expect(result.report.slides[0].actualMs).toBeGreaterThan(0);
         expect(result.report.slides[1].actualMs).toBeGreaterThan(0);
+        // A finished run is filed for the next one to be compared against, and
+        // the note says so rather than inventing a direction from one run.
+        expect(result.history).toHaveLength(1);
+        expect(result.trend).toContain("First rehearsal recorded");
         expect(result.rows).toHaveLength(2);
         expect(result.rows.every((row) => row?.includes("/ 30s"))).toBe(true);
         expect(result.viewport.content).toBe(result.viewport.inner);

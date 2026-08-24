@@ -145,6 +145,7 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
       <button type="button" data-slidx-action="new-rehearsal">New rehearsal</button>
     </header>
     <p class="slidx-rehearsal-advice" data-slidx-rehearsal-advice></p>
+    <p class="slidx-rehearsal-trend" data-slidx-rehearsal-trend></p>
     <p class="slidx-rehearsal-total" data-slidx-rehearsal-total></p>
     <ol class="slidx-rehearsal-slides" data-slidx-rehearsal-slides></ol>
   </section>
