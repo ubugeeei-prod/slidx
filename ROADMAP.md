@@ -225,13 +225,12 @@ Everything between walking up and sitting down.
       the half no web API can do should not wait on the half one might refuse.
       The camera left `enterPresentation` for the window its tile is on — #296
 - [x] Rehearsal recording; actual per-slide dwell time diffed against budget — #17
-- [ ] **Demo fallback** as a declared construct: live target plus recorded
-      video — #14. `d` performs the switch now, inline, on a slide that
-      declares a fallback — #292. What is left is the presenter knowing whether
-      a recording has buffered, and that is a design question rather than
-      wiring: the preview is deliberately inert, the presenter cannot measure
-      the projector's element, and the only reading that is not a guess would
-      come over the mirror. See #279
+- [x] **Demo fallback** as a declared construct: live target plus recorded
+      video — #14, #279. Both sides ship in the markup, so switching is one
+      attribute write, and `d` performs it. The presenter says whether the
+      recording will play, which only the projector can answer — its own
+      preview is inert by design, and a page that fetched the same file would
+      be answering about the wrong machine
 - [ ] Audience channel — moderated Q&A and reactions on a Worker — #16.
       `@slidxjs/audience` is 1,983 lines with its own protocol, room state and
       rate limiting, no `package.json` in the workspace depends on it, and
@@ -386,7 +385,7 @@ paid for, connected to a hand.
 - [x] `check:reachable`: CI fails on a module no page can call — #276
 - [x] Pace reaches the presenter view — #277
 - [x] Presentation mode: the checklist a browser cannot perform — #278
-- [ ] Demo fallback: the presenter knowing what has buffered — #279, #292
+- [x] Demo fallback: the presenter knowing what has buffered — #279, #292
 - [ ] Remote control: a pairing that reaches a slide — #280
 - [ ] Audience channel: deployable, or a stated non-goal — #281
 - [x] The editor's text controls, which nothing constructs — #283
@@ -427,7 +426,7 @@ looking at what the check had proved: an audience downloads 57% of a runtime
 it cannot run, and a floating toolchain turns somebody else's pull request
 red.
 
-What is left is not a list of unfinished features. Each of the five is waiting
+What is left is not a list of unfinished features. Each of the four is waiting
 on something that is not code, and saying which is more useful than an estimate:
 
 **#280 and #281** both need an answer to _who operates a server_, and the
@@ -439,12 +438,6 @@ clip's level, an image's format and a font's subset are all properties of a
 file, measured once at build time — and each needs a codec that works offline,
 on three platforms, without adding a native build step to a deck. Worth
 deciding once rather than three times.
-
-**#279** is the one that is genuinely a design question rather than a
-dependency. `d` switches the demo; what is missing is the presenter knowing
-whether a recording has buffered, and the only reading that is not a guess
-comes from the projector over the mirror — a second message kind on a module
-the audience bundle carries.
 
 **The release** needs the maintainer signed in to two registries.
 `RELEASING.md` is the sequence.

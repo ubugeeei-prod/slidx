@@ -16,7 +16,12 @@
 
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { createMirror, type MirrorMessage, type MirrorTransport } from "../src/mirror";
+import {
+  createMirror,
+  type DemoReport,
+  type MirrorMessage,
+  type MirrorTransport,
+} from "../src/mirror";
 
 /** An in-memory transport standing in for BroadcastChannel. */
 function bus() {
@@ -354,5 +359,70 @@ describe("closing", () => {
 
     expect(staying).toHaveBeenCalled();
     expect(leaving).not.toHaveBeenCalled();
+  });
+});
+
+describe("what the projector says about its recording", () => {
+  it("reaches the other window", () => {
+    // The presenter view has no `<video>` to read: its next-slide preview is
+    // deliberately inert, and a page that fetched the same file would be
+    // proving something true about the wrong machine.
+    const wire = bus();
+    const projector = createMirror({ transport: wire.channel(), id: "projector" });
+    const presenter = createMirror({ transport: wire.channel(), id: "presenter" });
+
+    const seen: DemoReport[] = [];
+    presenter.subscribeDemo((report) => seen.push(report));
+
+    projector.reportDemo({ ready: false, side: "live" });
+    projector.reportDemo({ ready: true, side: "live" });
+
+    expect(seen).toEqual([
+      { ready: false, side: "live" },
+      { ready: true, side: "live" },
+    ]);
+  });
+
+  it("is not ordered, because the latest is always the truest", () => {
+    // A position needs ordering because two windows both move and a stale one
+    // must not win. A readiness report is a fact about one element in one
+    // document, and giving it a sequence would let a reload silence it — which
+    // is the bug #255 was.
+    const wire = bus();
+    const projector = createMirror({ transport: wire.channel(), id: "projector" });
+    const presenter = createMirror({ transport: wire.channel(), id: "presenter" });
+
+    const seen: DemoReport[] = [];
+    presenter.subscribeDemo((report) => seen.push(report));
+
+    projector.reportDemo({ ready: true, side: "live" });
+    projector.reportDemo({ ready: false, side: "live" });
+
+    expect(seen.at(-1)).toEqual({ ready: false, side: "live" });
+  });
+
+  it("does not disturb the position the deck is on", () => {
+    // Two kinds on one channel. A readiness report that moved a slide would be
+    // the worst possible way to learn this feature exists.
+    const wire = bus();
+    const projector = createMirror({ transport: wire.channel(), id: "projector" });
+    const presenter = createMirror({ transport: wire.channel(), id: "presenter" });
+
+    projector.send({ slide: 3, step: 0 });
+    projector.reportDemo({ ready: true, side: "fallback" });
+
+    expect(presenter.position()).toEqual({ slide: 3, step: 0 });
+  });
+
+  it("tells a window nothing about its own recording", () => {
+    const wire = bus();
+    const projector = createMirror({ transport: wire.channel(), id: "projector" });
+
+    const seen: DemoReport[] = [];
+    projector.subscribeDemo((report) => seen.push(report));
+
+    projector.reportDemo({ ready: true, side: "live" });
+
+    expect(seen).toEqual([]);
   });
 });
