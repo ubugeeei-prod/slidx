@@ -50,11 +50,29 @@ function tracked(root, pattern) {
     .filter((file) => pattern.test(file) && !TEST_FILE.test(file));
 }
 
+/**
+ * A tracked file's text, or nothing when it is not there.
+ *
+ * `git ls-files` answers about the index, and the index is not the disk: a file
+ * deleted and not yet staged is listed and unreadable. That is the ordinary
+ * state halfway through removing a module, which is one of the two things this
+ * check exists to prompt — so it reports on what remains rather than exiting
+ * with a stack trace at the moment somebody is taking its advice.
+ */
+function read(file) {
+  try {
+    return readFileSync(file, "utf8");
+  } catch {
+    return undefined;
+  }
+}
+
 /** Every package, by name, with where its barrel is. */
 const barrels = new Map();
 for (const manifest of tracked("packages", /^packages\/[^/]+\/package\.json$/)) {
   const directory = dirname(manifest);
-  const { name } = JSON.parse(readFileSync(manifest, "utf8"));
+  const source = read(manifest);
+  const name = source === undefined ? undefined : JSON.parse(source).name;
   if (name !== undefined) barrels.set(name, `${directory}/src/index.ts`);
 }
 
@@ -62,10 +80,10 @@ const modules = new Map();
 for (const file of tracked("packages", /\.(ts|mts)$/)) {
   if (file.endsWith(".d.ts")) continue;
 
-  modules.set(file, {
-    source: readFileSync(file, "utf8"),
-    barrel: [...barrels.values()].includes(file),
-  });
+  const source = read(file);
+  if (source === undefined) continue;
+
+  modules.set(file, { source, barrel: [...barrels.values()].includes(file) });
 }
 
 /** A specifier, from the file that wrote it, as a path this walk knows. */
@@ -87,9 +105,10 @@ function resolve(from, specifier) {
 const entries = [];
 
 for (const file of tracked("crates", /\.rs$/)) {
-  const source = implementation(readFileSync(file, "utf8")).text;
+  const rust = read(file);
+  if (rust === undefined) continue;
 
-  for (const { specifier, names } of importsIn(source)) {
+  for (const { specifier, names } of importsIn(implementation(rust).text)) {
     const path = resolve(file, specifier);
     if (path !== undefined) entries.push({ path, names });
   }
