@@ -236,12 +236,6 @@ addEventListener("keydown", (event) => {{
   if (typeof rel === "string") {{ event.preventDefault(); step(rel); }}
   else if (event.key === "Home") {{ event.preventDefault(); go(0, "{root}"); }}
   else if (event.key === "End") {{ event.preventDefault(); go({last}, "{end}"); }}
-  else if (event.key === "f") {{
-    event.preventDefault();
-    if (document.fullscreenElement) document.exitFullscreen();
-    else document.documentElement.requestFullscreen?.().then(() =>
-      navigator.wakeLock?.request("screen").catch(() => {{}}));
-  }}
 }});
 addEventListener("click", (event) => {{
   const link = event.target.closest?.(`${{nav}} a[rel]`);
@@ -249,22 +243,7 @@ addEventListener("click", (event) => {{
   event.preventDefault();
   step(link.rel);
 }});
-let from = null;
-addEventListener("touchstart", (event) => {{
-  from = event.touches.length === 1 && !event.target.closest?.("a,button,input,textarea,select")
-    ? {{ x: event.touches[0].clientX, y: event.touches[0].clientY, at: event.timeStamp }}
-    : null;
-}}, {{ passive: true }});
-addEventListener("touchend", (event) => {{
-  const start = from;
-  from = null;
-  if (!start || event.changedTouches.length !== 1) return;
-  const dx = event.changedTouches[0].clientX - start.x;
-  const dy = event.changedTouches[0].clientY - start.y;
-  if (event.timeStamp - start.at > 600 || Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 2) return;
-  step(dx < 0 ? "next" : "prev");
-}}, {{ passive: true }});
-
+{gestures}
 mirror?.addEventListener("message", (event) => {{
   const to = event.data?.position?.slide;
   if (typeof to !== "number" || to === here) return;
@@ -273,6 +252,7 @@ mirror?.addEventListener("message", (event) => {{
 }})();
 </script>
 "#,
+        gestures = crate::gestures::body(),
         index = slide.index,
         last = deck.slides.len().saturating_sub(1),
         up = if slide.index == 0 { "./" } else { "../" },
