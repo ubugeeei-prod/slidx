@@ -118,12 +118,19 @@ export const BUDGETS = [
     //    +160   fullscreen and the wake lock, on `f`. A deck presented in a
     //           browser window is presented with the browser's chrome around
     //           it, and there was no way to leave it
+    //    +182   one gesture layer instead of two. The swipe and `f` above
+    //           shipped on an unstaged slide and on no other, so a phone could
+    //           not advance a slide with steps and `f` did nothing on one —
+    //           two checked boxes that were true of half a deck. What this
+    //           slide pays for is a second keydown listener; what the deck buys
+    //           is `slidx_render::gestures` being the only place either rule
+    //           lives
     //
     // What is *not* in here is the shape worth defending: no import, no module
     // graph, no framework, and no request to anything. That is the half of the
     // old "no JavaScript" claim that was ever load-bearing, and the figure
     // above it still reads zero.
-    limit: 2_600,
+    limit: 2_800,
     protects:
       "the other half, which used to be zero. It was zero because such a slide could not be " +
       "advanced: no key, no link, and no listener for the presenter's mirror — see " +
@@ -141,7 +148,12 @@ export const BUDGETS = [
     // is a share of the slide, so the footer's links measure four pixels by
     // three on a 375px phone. A page that cannot be left is not lighter, it is
     // broken, and this is the cheapest way to make it leavable.
-    limit: 9_400,
+    //
+    // Raised to 9,600 by the same gesture layer: 9,244 to 9,386 measured. It is
+    // the per-page half of the figure below, and it is raised in the same
+    // change for the same reason — a slide with steps that a thumb cannot move
+    // is not a lighter slide, it is one a phone cannot read.
+    limit: 9_600,
     protects:
       "what a room downloads per slide, on the wifi a venue has rather than the one it advertises",
   },
@@ -166,7 +178,12 @@ export const BUDGETS = [
     // timer and the pacing model on top, because the presenter's page and the
     // projector's were handed the same file. A ceiling that stayed where it
     // was would have handed both savings straight back.
-    limit: 56_000,
+    //
+    // Raised to 57,000 by `slidx_render::gestures`: 55,434 to 56,001 measured.
+    // Every staged slide in the deck gains the swipe and `f` it never had, and
+    // 567 gzipped bytes across a whole deck is what a phone being able to
+    // advance an animated slide costs.
+    limit: 57_000,
     protects:
       "the whole of what a room fetches for this deck — every page, and every stylesheet, " +
       "script and image those pages actually reference",

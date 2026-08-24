@@ -147,7 +147,9 @@ fn script(deck: &Deck, slide: &Slide, options: &ShellOptions) -> String {
         staged => staged,
     };
 
-    movement + &crate::demo_switch::script(slide)
+    // `gestures` is empty for an unstaged slide, which took the same statements
+    // from `navigation::script`'s own closure. See `crate::gestures`.
+    movement + &crate::gestures::script(slide) + &crate::demo_switch::script(slide)
 }
 
 /// Renders the real slide frame into an isolated, inert document for previews.
@@ -713,6 +715,14 @@ mod tests {
         // A number rather than an adjective, because "tiny" is what every
         // bundle says about itself. If this ever needs raising, the raise is
         // the review.
+        //
+        // Raised from 2,600 to 2,800 for `crate::gestures`: 2,557 to 2,739
+        // measured. What it buys is not on this slide — an unstaged slide had
+        // `f` and a swipe already. It is that a *staged* slide now has them
+        // too, which it never did, and the price of one gesture layer for the
+        // whole deck is a second keydown listener on the half that was fine.
+        // Two emitters for one gesture is what let the other half ship without
+        // either for two releases.
         let html = shell("# Hello\n\n- one\n");
         let script = html
             .split("<script>")
@@ -720,7 +730,7 @@ mod tests {
             .and_then(|rest| rest.split("</script>").next())
             .expect("the navigator");
 
-        assert!(script.len() < 2600, "the navigator has grown to {} bytes", script.len());
+        assert!(script.len() < 2800, "the navigator has grown to {} bytes", script.len());
     }
 
     #[test]
