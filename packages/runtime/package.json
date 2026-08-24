@@ -23,6 +23,10 @@
       "types": "./dist/emitted/emitted.d.mts",
       "default": "./dist/emitted/emitted.mjs"
     },
+    "./presenter": {
+      "types": "./dist/presenter/presenter.d.mts",
+      "default": "./dist/presenter/presenter.mjs"
+    },
     "./effects.css": "./dist/effects.css"
   },
   "publishConfig": {
@@ -30,7 +34,7 @@
     "provenance": true
   },
   "scripts": {
-    "pack:lib": "vp pack src/index.ts --dts --out-dir dist && vp pack src/emitted.ts --dts --out-dir dist/emitted && node ../../scripts/copy-assets.mjs src/effects.css dist/effects.css"
+    "pack:lib": "vp pack src/index.ts --dts --out-dir dist && vp pack src/emitted.ts --dts --out-dir dist/emitted && vp pack src/presenter.ts --dts --out-dir dist/presenter && node ../../scripts/copy-assets.mjs src/effects.css dist/effects.css"
   },
   "devDependencies": {
     "@slidxjs/wasm": "workspace:*"

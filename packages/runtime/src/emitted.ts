@@ -1,9 +1,13 @@
 /**
- * The entry the Vite plugin emits beside a deck.
+ * The entry every page of a deck downloads.
  *
  * Not the package's API — `index.ts` is that, and a deck author importing
  * `@slidxjs/runtime` still gets all of it. This is the narrower question of
  * **what a room downloads**, and the two had been the same file.
+ *
+ * Narrower again since `presenter.ts`: what is left here is what a *slide*
+ * imports, plus `createStopCursor`, which only the presenter asks for and which
+ * lives in a module every staged slide already ships.
  *
  * That cost 47% of the bundle. `readRuntime()` reads the packed entry as a
  * file and the plugin emits it whole, so it is never an input to the deck's own
@@ -33,6 +37,4 @@ export { loadEffects } from "./effects";
 export { markScriptEnabled } from "./enabled";
 export { createMirror } from "./mirror";
 export { createNavigator, LAST_STEP } from "./navigate";
-export { assessPace, describePace } from "./pace";
 export { createStage, createStopCursor } from "./stage";
-export { createTimer, formatDuration } from "./timer";

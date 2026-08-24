@@ -31,6 +31,11 @@ pub struct PresenterOptions {
     /// Module URL of the runtime, imported for the clock and mirroring.
     pub runtime_src: String,
     /// Module URL of the presenter-only rehearsal recorder.
+    /// Where the presenter's own half of the runtime is imported from.
+    ///
+    /// Not `runtime_src`: that file is on every staged slide, and the timer and
+    /// the pacing model are on no slide at all.
+    pub presenter_runtime_src: String,
     pub rehearsal_src: String,
 }
 
@@ -40,6 +45,7 @@ impl Default for PresenterOptions {
             theme: slidx_theme::default_theme(),
             markdown: MarkdownOptions::default(),
             runtime_src: "./runtime.js".to_string(),
+            presenter_runtime_src: "./presenter.js".to_string(),
             rehearsal_src: "./rehearsal.js".to_string(),
         }
     }
@@ -147,8 +153,13 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
             .unwrap_or_default(),
         next_preview = next_preview(deck, next, options),
         stops = stop_label(1, slide.timeline.frames().len()),
-        script =
-            presenter_script::render(deck, slide, &options.runtime_src, &options.rehearsal_src),
+        script = presenter_script::render(
+            deck,
+            slide,
+            &options.runtime_src,
+            &options.presenter_runtime_src,
+            &options.rehearsal_src,
+        ),
     )
 }
 

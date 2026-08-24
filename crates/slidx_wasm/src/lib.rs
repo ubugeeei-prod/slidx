@@ -97,6 +97,13 @@ pub struct BuildOptions {
     pub deck_path: Option<String>,
     /// Module URL the presenter view imports the runtime from.
     pub runtime_src: Option<String>,
+    /// Module URL the presenter view imports its own half of the runtime from.
+    ///
+    /// Separate from `runtime_src` because that file is on every staged slide.
+    /// A projector and a lectern want different things, and one file for both
+    /// had an audience downloading the timer and the pacing model to run
+    /// neither.
+    pub presenter_runtime_src: Option<String>,
     /// Module URL the presenter view imports rehearsal recording from.
     pub rehearsal_src: Option<String>,
     /// Image sizes the caller already read, keyed by the path a slide writes.
