@@ -157,7 +157,14 @@ export const BUDGETS = [
     // every slide over again because the thumbnails are the real slides —
     // which is the whole reason the page needs no script and no second way of
     // rendering one. It fetches nothing the slides do not already reference.
-    limit: 66_600,
+    //
+    // **Lowered** to 59,000, which is the first time a figure here has gone
+    // down. 66,586 to 58,069 measured on a build, and the whole of it is the
+    // runtime below: the plugin used to emit the package's own barrel, so a
+    // room downloaded the presenter's camera, the media level meter, the key
+    // table and the demo switch in order to run none of them. A ceiling that
+    // stayed where it was would have handed the saving straight back.
+    limit: 59_000,
     protects:
       "the whole of what a room fetches for this deck — every page, and every stylesheet, " +
       "script and image those pages actually reference",
@@ -171,7 +178,18 @@ export const BUDGETS = [
   },
   {
     name: "the step runtime, gzipped",
-    limit: 24_000,
+    // Lowered from 24,000: 18,587 to 10,070 on a build, because the emitted
+    // entry is now `@slidxjs/runtime/emitted` — the eleven names
+    // `slidx_render` writes into its pages — rather than the package's whole
+    // barrel. `check:reachable` holds those two sets equal in both directions,
+    // so this figure cannot drift back up by an export nobody imports.
+    //
+    // It can still drift up by a *page* importing more, and the next two
+    // features that will do it are presentation mode and the media level
+    // meter — both presenter-side, on one bundle a slide also downloads. The
+    // second half of #291 is the split that stops that, and this ceiling is
+    // deliberately close enough to say when it is needed.
+    limit: 11_000,
     protects:
       "the one module a slide with steps waits for. It grows an import at a time, and nothing " +
       "else in the output is on the path between a keypress and the next stop",

@@ -19,6 +19,10 @@
       "types": "./dist/index.d.mts",
       "default": "./dist/index.mjs"
     },
+    "./emitted": {
+      "types": "./dist/emitted/emitted.d.mts",
+      "default": "./dist/emitted/emitted.mjs"
+    },
     "./effects.css": "./dist/effects.css"
   },
   "publishConfig": {
@@ -26,7 +30,7 @@
     "provenance": true
   },
   "scripts": {
-    "pack:lib": "vp pack src/index.ts --dts --out-dir dist && node ../../scripts/copy-assets.mjs src/effects.css dist/effects.css"
+    "pack:lib": "vp pack src/index.ts --dts --out-dir dist && vp pack src/emitted.ts --dts --out-dir dist/emitted && node ../../scripts/copy-assets.mjs src/effects.css dist/effects.css"
   },
   "devDependencies": {
     "@slidxjs/wasm": "workspace:*"
