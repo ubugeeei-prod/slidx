@@ -31,6 +31,13 @@ pub struct ShellOptions {
     pub markdown: MarkdownOptions,
     /// Module URL a slide with steps imports the runtime from.
     pub runtime_src: String,
+    /// Module URL a slide that declares a camera imports the device handling
+    /// from.
+    ///
+    /// Its own file rather than part of `runtime_src`, because that one is on
+    /// every staged slide of every deck and this is for the few that place a
+    /// camera. See `crate::camera_script`.
+    pub camera_src: String,
     /// Emitted into the page so the runtime can resolve steps. Omitted for
     /// slides with a single stop, which need no runtime at all.
     pub include_runtime: bool,
@@ -75,6 +82,7 @@ impl Default for ShellOptions {
             theme: slidx_theme::default_theme(),
             markdown: MarkdownOptions::default(),
             runtime_src: "./runtime.js".to_string(),
+            camera_src: "./camera.js".to_string(),
             include_runtime: true,
             seo: SeoOptions::default(),
             theme_css: Arc::default(),
@@ -149,7 +157,10 @@ fn script(deck: &Deck, slide: &Slide, options: &ShellOptions) -> String {
 
     // `gestures` is empty for an unstaged slide, which took the same statements
     // from `navigation::script`'s own closure. See `crate::gestures`.
-    movement + &crate::gestures::script(slide) + &crate::demo_switch::script(slide)
+    movement
+        + &crate::gestures::script(slide)
+        + &crate::demo_switch::script(slide)
+        + &crate::camera_script::script(slide, &options.camera_src)
 }
 
 /// Renders the real slide frame into an isolated, inert document for previews.
@@ -574,29 +585,39 @@ mod tests {
     }
 
     #[test]
-    fn a_page_with_a_camera_on_it_cannot_ask_for_one() {
-        // The constraint the whole feature is shaped around. A built deck is a
-        // static page anybody may open from a link, and a page that prompts for
-        // a webcam is a page people close. The tile ships; the means of filling
-        // it does not, and there is nothing in the document that could.
+    fn a_page_with_a_camera_on_it_never_asks_for_one_by_itself() {
+        // The constraint the whole feature is shaped around, restated for the
+        // change that made the tile fillable. A built deck is a static page
+        // anybody may open from a link, and a page that prompts for a webcam is
+        // a page people close.
+        //
+        // What ships now is a `keydown` listener. Nothing runs on load, nothing
+        // in the document names a device API — `camera.ts` is a module and is
+        // fetched, not inlined — and there is no `<video>` until somebody has
+        // pressed a key. Two opt-ins, which is exactly what
+        // `slidx_core::camera` asks for: the author declared a region, and a
+        // person at the keyboard asked for a device.
         let html = shell(CAMERA);
 
         for reach in ["getUserMedia", "mediaDevices", "<video"] {
             assert!(!html.contains(reach), "a published slide reaches for {reach}:\n{html}");
         }
 
-        // Counted the way the staging test counts it: the structured data in
-        // the head is a `<script>` element and is not code. `application/ld+json`
-        // is the container the JSON-LD specification chose for a block of JSON,
-        // and no browser executes it. Anything else here would be something that
-        // runs, and something that runs is the only thing that could open a
-        // camera.
-        // Something that runs is the only thing that could open a camera, so
-        // what runs is enumerated rather than counted at zero. The other one is
-        // the navigator, which the assertions above have just been run against.
-        assert_eq!(html.matches("<script").count(), 2, "something else is scripted:\n{html}");
-        assert!(html.contains("<script type=\"application/ld+json\">"));
-        assert!(html.contains(".slidx-slide-nav"), "and the second one is the navigator");
+        let camera = html.split("startCamera").count() - 1;
+        assert_eq!(camera, 2, "the camera is reached other than through the key:\n{html}");
+        assert!(html.contains(r#"event.key !== "c""#), "nothing gates it:\n{html}");
+    }
+
+    #[test]
+    fn a_slide_that_declares_no_camera_has_no_path_to_a_device() {
+        // The gate, and the half of it that has not moved. A deck that places
+        // no camera ships nothing that could open one, which is what makes a
+        // page opened from a link or an archive safe to open.
+        let html = shell("# Ordinary\n");
+
+        for reach in ["startCamera", "getUserMedia", "mediaDevices", "<video"] {
+            assert!(!html.contains(reach), "a slide with no camera reaches for {reach}:\n{html}");
+        }
     }
 
     #[test]

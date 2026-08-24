@@ -131,6 +131,7 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
         || theme_findings.has_blocking();
 
     let runtime_src = options.runtime_src.clone().unwrap_or_else(|| "./runtime.js".to_string());
+    let camera_src = options.camera_src.clone().unwrap_or_else(|| "./camera.js".to_string());
     let presenter_runtime_src =
         options.presenter_runtime_src.clone().unwrap_or_else(|| "./presenter.js".to_string());
     let rehearsal_src =
@@ -151,6 +152,7 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
     let shell = ShellOptions {
         markdown,
         runtime_src: runtime_src.clone(),
+        camera_src,
         seo: seo.clone(),
         ..ShellOptions::default()
     }

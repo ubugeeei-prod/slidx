@@ -216,8 +216,7 @@ Everything between walking up and sitting down.
       presenter view, which is the speaker's own screen and not the room's, and
       it opens the instant it is asked for rather than when a browser answers —
       the half no web API can do should not wait on the half one might refuse.
-      `enterPresentation` also arranges a camera and a camera still never
-      opens: the tile is on the slide and the ask is from the lectern — #296
+      The camera left `enterPresentation` for the window its tile is on — #296
 - [x] Rehearsal recording; actual per-slide dwell time diffed against budget — #17
 - [ ] **Demo fallback** as a declared construct: live target plus recorded
       video — #14. Both sides ship in the markup, which is the hard half and
@@ -385,7 +384,7 @@ paid for, connected to a hand.
 - [x] A staged slide answers neither a swipe nor `f` — #299
 - [x] Two key tables, and the one that ships cannot be shown — #285
 - [ ] A clip's level, measured and shown to nobody — #286
-- [ ] A declared camera that never opens — #296
+- [x] A declared camera that never opens — #296
 - [x] An audience downloads 57% of a runtime it cannot run — #291
 - [ ] Images and fonts: the artefact half of performance — #234
 - [ ] A toolchain that moves under the tree — #288

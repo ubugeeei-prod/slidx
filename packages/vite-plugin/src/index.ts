@@ -40,6 +40,7 @@ import {
   presenterFileName,
   overviewFileName,
   printFileName,
+  cameraFileName,
   presenterRuntimeFileName,
   rehearsalFileName,
   resolveOptions,
@@ -70,6 +71,7 @@ const RESOLVED_ENTRY_ID = `\0${ENTRY_ID}`;
 /** The runtime, resolved as a module rather than served as a file. */
 const RESOLVED_RUNTIME_ID = "\0virtual:slidx-runtime";
 /** Rehearsal is a separate module so audience slides never pay for it. */
+const RESOLVED_CAMERA_ID = "\0virtual:slidx-camera";
 const RESOLVED_PRESENTER_RUNTIME_ID = "\0virtual:slidx-presenter-runtime";
 const RESOLVED_REHEARSAL_ID = "\0virtual:slidx-rehearsal";
 
@@ -125,6 +127,7 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
         return RESOLVED_ISLAND_CLIENT_ID;
       }
       if (id === `/${runtimeFileName(options)}`) return RESOLVED_RUNTIME_ID;
+      if (id === `/${cameraFileName(options)}`) return RESOLVED_CAMERA_ID;
       if (id === `/${presenterRuntimeFileName(options)}`) return RESOLVED_PRESENTER_RUNTIME_ID;
       if (id === `/${rehearsalFileName(options)}`) return RESOLVED_REHEARSAL_ID;
       return undefined;
@@ -136,6 +139,7 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
         return islandClientModule(root, options.islands, dev);
       }
       if (id === RESOLVED_RUNTIME_ID) return readRuntime();
+      if (id === RESOLVED_CAMERA_ID) return readCamera();
       if (id === RESOLVED_PRESENTER_RUNTIME_ID) return readPresenterRuntime();
       if (id === RESOLVED_REHEARSAL_ID) return readRehearsal();
       return undefined;
@@ -413,6 +417,19 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
         });
       }
 
+      // The device handling, for a deck that places a camera. Asked of the
+      // pages rather than of the deck model: the file exists exactly when
+      // something imports it, so the two cannot disagree about whether a deck
+      // needs one. A deck with no `camera:` anywhere emits nothing.
+      const wantsCamera = `from "${cameraSrcFor(options)}"`;
+      if (built.slides.some((slide) => slide.html?.includes(wantsCamera))) {
+        this.emitFile({
+          type: "asset",
+          fileName: cameraFileName(options),
+          source: await readCamera(),
+        });
+      }
+
       // The presenter's own half of the runtime, and the rehearsal recorder.
       // Both are presenter-only, so a print-only build and every audience page
       // pay nothing for either.
@@ -522,6 +539,7 @@ async function renderDeck(
     // URL.
     deckPath: slideRoute(options, 0),
     runtimeSrc: runtimeSrcFor(options),
+    cameraSrc: cameraSrcFor(options),
     presenterRuntimeSrc: presenterRuntimeSrcFor(options),
     rehearsalSrc: rehearsalSrcFor(options),
     // The print shell carries the runtime rather than importing it, so the
@@ -556,6 +574,11 @@ function runtimeSrcFor(options: ReturnType<typeof resolveOptions>): string {
   return `/${runtimeFileName(options)}`;
 }
 
+/** The camera's own module sits beside the shared runtime. */
+function cameraSrcFor(options: ReturnType<typeof resolveOptions>): string {
+  return `/${cameraFileName(options)}`;
+}
+
 /** The presenter-only modules sit beside the shared runtime. */
 function presenterRuntimeSrcFor(options: ReturnType<typeof resolveOptions>): string {
   return `/${presenterRuntimeFileName(options)}`;
@@ -568,6 +591,7 @@ function rehearsalSrcFor(options: ReturnType<typeof resolveOptions>): string {
 /** The built runtime, read once. */
 let runtime: Promise<string> | undefined;
 let presenterRuntime: Promise<string> | undefined;
+let camera: Promise<string> | undefined;
 let rehearsal: Promise<string> | undefined;
 let effects: Promise<string> | undefined;
 
@@ -595,6 +619,19 @@ function readRuntime(): Promise<string> {
   })();
 
   return runtime;
+}
+
+/** The device handling a declared camera imports, read once. */
+function readCamera(): Promise<string> {
+  camera ??= (async () => {
+    const { createRequire } = await import("node:module");
+    const { readFile } = await import("node:fs/promises");
+    const require = createRequire(import.meta.url);
+
+    return readFile(require.resolve("@slidxjs/runtime/camera"), "utf8");
+  })();
+
+  return camera;
 }
 
 /** The presenter's own half of the runtime, read once. */

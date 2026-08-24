@@ -97,6 +97,12 @@ pub struct BuildOptions {
     pub deck_path: Option<String>,
     /// Module URL the presenter view imports the runtime from.
     pub runtime_src: Option<String>,
+    /// Module URL a slide that declares a camera imports device handling from.
+    ///
+    /// Its own file rather than part of `runtime_src`, because that one is on
+    /// every staged slide of every deck and this is for the few decks that
+    /// place a camera.
+    pub camera_src: Option<String>,
     /// Module URL the presenter view imports its own half of the runtime from.
     ///
     /// Separate from `runtime_src` because that file is on every staged slide.

@@ -173,7 +173,7 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
         // The notes are the deck's own language, and this page is mostly notes.
         lang = escape(deck.language()),
         deck_title = escape(deck.meta.title.as_deref().unwrap_or("slidx")),
-        keys = crate::keys::rows(),
+        keys = crate::keys::rows(deck),
         // Never indexed, whatever the deck says about being published. This page
         // holds the speaker's notes — the half of a talk written to be said and
         // not read — and it is one URL away from every audience slide.

@@ -28,6 +28,8 @@
 //! key that cannot be listed, and a list is the only reason to keep the table
 //! as data at all.
 
+use slidx_core::Deck;
+
 /// One row: what it does, the keys that do it, and how to say so.
 #[derive(Debug)]
 pub struct Binding {
@@ -64,6 +66,11 @@ pub const BINDINGS: &[Binding] = &[
         command: "toggleDemo",
         keys: &["d"],
         description: "Switch a live demo for its recording",
+    },
+    Binding {
+        command: "camera",
+        keys: &["c"],
+        description: "Start the camera this slide places, or give the device back",
     },
 ];
 
@@ -104,9 +111,16 @@ fn quoted(key: &str) -> String {
 /// A `<dl>` because that is what it is: a term and what it means. Alternatives
 /// are joined rather than listed, since a speaker glancing at this wants "any
 /// of these" and not four rows of the same sentence.
-pub fn rows() -> String {
+///
+/// **What this deck answers, not what slidx binds.** `d` and `c` are on the
+/// slides that declare a demo or a camera and nowhere else, so a deck with
+/// neither would be shown two keys that do nothing — and a speaker who presses
+/// one and watches nothing happen has learned that the panel is not to be
+/// trusted, on a stage, about the keys that do work.
+pub fn rows(deck: &Deck) -> String {
     BINDINGS
         .iter()
+        .filter(|binding| declared(deck, binding.command))
         .map(|binding| {
             let keys = binding
                 .keys
@@ -121,6 +135,21 @@ pub fn rows() -> String {
             )
         })
         .collect()
+}
+
+/// Whether this deck has anything for a command to act on.
+///
+/// Only the two that depend on a declaration. Moving between slides is what a
+/// deck is, so those four are never in question.
+fn declared(deck: &Deck, command: &str) -> bool {
+    match command {
+        "toggleDemo" => deck
+            .slides
+            .iter()
+            .any(|slide| slide.demo.as_ref().is_some_and(slidx_core::demo::Demo::has_fallback)),
+        "camera" => deck.slides.iter().any(|slide| slide.camera.is_some()),
+        _ => true,
+    }
 }
 
 /// What a key is called on a keycap rather than in an event.
@@ -160,10 +189,45 @@ mod tests {
         assert_eq!(quoted("f"), "f");
     }
 
+    fn deck_of(source: &str) -> Deck {
+        slidx_core::parse_deck(source, &slidx_core::DeckParseOptions::default())
+    }
+
     #[test]
     fn the_space_bar_is_listed_as_a_word() {
         // Nobody looking for the space bar finds it printed as a space.
-        assert!(rows().contains("<kbd>Space</kbd>"), "{}", rows());
+        let list = rows(&deck_of("# One\n"));
+
+        assert!(list.contains("<kbd>Space</kbd>"), "{list}");
+    }
+
+    #[test]
+    fn a_deck_with_no_demo_and_no_camera_is_not_offered_their_keys() {
+        // A speaker who presses one and watches nothing happen has learned
+        // that the panel is not to be trusted, on a stage, about the keys that
+        // do work.
+        let list = rows(&deck_of("# One\n"));
+
+        assert!(!list.contains("<kbd>d</kbd>"), "{list}");
+        assert!(!list.contains("<kbd>c</kbd>"), "{list}");
+    }
+
+    #[test]
+    fn a_deck_that_declares_them_is() {
+        let list = rows(&deck_of(
+            "---\nlayout: aside\ncamera: side\n---\n\n# Remote\n\n---\n\n---\ndemo:\n  live: https://app.example.com\n  fallback: ./demo.mp4\n---\n\n# Live\n",
+        ));
+
+        assert!(list.contains("<kbd>d</kbd>"), "{list}");
+        assert!(list.contains("<kbd>c</kbd>"), "{list}");
+    }
+
+    #[test]
+    fn a_demo_with_no_recording_offers_no_key_to_switch_to_it() {
+        // `demo_switch` binds nothing there, for the same reason.
+        let list = rows(&deck_of("---\ndemo: https://app.example.com\n---\n\n# Live\n"));
+
+        assert!(!list.contains("<kbd>d</kbd>"), "{list}");
     }
 
     #[test]
@@ -181,13 +245,12 @@ mod tests {
 
     #[test]
     fn the_keys_a_gesture_stands_in_for_are_in_the_list() {
-        // `gestures` dispatches `ArrowRight`, and `demo_switch` binds `d`.
-        // Both are bound elsewhere and both belong in the one list a speaker
-        // reads, which is the whole reason this table is not `navigation`'s.
-        let list = rows();
+        // `gestures` dispatches `ArrowRight` for a swipe and binds `f`. Both
+        // are bound elsewhere and both belong in the one list a speaker reads,
+        // which is the whole reason this table is not `navigation`'s.
+        let list = rows(&deck_of("# One\n"));
 
         assert!(list.contains("<kbd>→</kbd>"), "{list}");
-        assert!(list.contains("<kbd>d</kbd>"), "{list}");
         assert!(list.contains("<kbd>f</kbd>"), "{list}");
     }
 }
