@@ -26,6 +26,11 @@
 //! means absent from the tag, which is the same rule every other reading in
 //! this project follows: no measurement, no claim.
 //!
+//! **A reference that names no file under the deck.** A remote URL is a lint
+//! error under the offline guarantee and a `data:` URI carries its own bytes.
+//! `slidx_core::asset::key` decides which references have a name here, because
+//! the linter asks the same question of the same references.
+//!
 //! **The rendered box.** These are the file's own dimensions and not a
 //! placement — CSS still decides how large the image is drawn, and the
 //! attributes exist so the *ratio* is known early. Writing a layout number here
@@ -70,29 +75,13 @@ fn sized(tag: &str, sizes: &Sizes) -> String {
     }
 
     let Some(source) = attribute(tag, "src") else { return tag.to_string() };
-    let Some((width, height)) = sizes.get(&key(source)) else { return tag.to_string() };
+    // `slidx_core::asset::key` and not a normalisation of its own. The linter
+    // asks the same question of the same references, and the two answering it
+    // differently is what #307 was.
+    let Some(key) = slidx_core::asset::key(source) else { return tag.to_string() };
+    let Some((width, height)) = sizes.get(&key) else { return tag.to_string() };
 
     format!("{tag} width=\"{width}\" height=\"{height}\"")
-}
-
-/// A `src` as the map is keyed.
-///
-/// The caller measures files under the deck's directory and keys them the way a
-/// slide writes them, minus the parts that are not part of a name: `./` and a
-/// leading `/` both resolve against that same directory, and a query is a build
-/// instruction to a bundler rather than a file.
-///
-/// A reference this cannot key — a remote URL, a `data:` URI — simply misses,
-/// and missing is silence. The offline guarantee already makes the first a lint
-/// error and the second carries its own bytes.
-fn key(source: &str) -> String {
-    source
-        .split(['?', '#'])
-        .next()
-        .unwrap_or(source)
-        .trim_start_matches("./")
-        .trim_start_matches('/')
-        .to_string()
 }
 
 /// The value of a double-quoted attribute, which is the only form emitted here.

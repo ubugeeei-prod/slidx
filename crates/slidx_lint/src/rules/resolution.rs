@@ -291,21 +291,8 @@ fn positive(value: &f64) -> bool {
 fn intrinsic(assets: Assets<'_>, url: &str) -> Option<Intrinsic> {
     match assets {
         Assets::Directory(root) => image::probe(&header(&resolve_path(root, url)?)?),
-        Assets::Measured(sizes) => sizes.get(&key(url)?).copied(),
+        Assets::Measured(sizes) => sizes.get(&slidx_core::asset::key(url)?).copied(),
     }
-}
-
-/// The key a caller is expected to have used: the reference, minus the parts
-/// that are instructions to a bundler rather than part of a name.
-fn key(url: &str) -> Option<String> {
-    let url = url.trim();
-    if url.is_empty() || url.starts_with("//") || markup::scheme(url).is_some() {
-        return None;
-    }
-
-    // Vite carries build instructions in the query and a fragment selects
-    // part of an SVG; neither is part of the name a caller keyed on.
-    Some(url.split(['?', '#']).next()?.trim_start_matches('/').to_string())
 }
 
 /// The file a reference points at, or `None` when it does not point at one.
@@ -314,7 +301,7 @@ fn key(url: &str) -> Option<String> {
 /// rule, and a `data:` URI is the file rather than a name for one.
 fn resolve_path(root: &Path, url: &str) -> Option<PathBuf> {
     let url = url.trim();
-    if url.is_empty() || url.starts_with("//") || markup::scheme(url).is_some() {
+    if url.is_empty() || url.starts_with("//") || slidx_core::asset::scheme(url).is_some() {
         return None;
     }
 
@@ -363,6 +350,32 @@ mod tests {
         assert!(diagnostic.message.contains("400"), "got: {}", diagnostic.message);
         assert!(diagnostic.message.contains("960"), "got: {}", diagnostic.message);
         assert!(diagnostic.message.contains("2.4"), "got: {}", diagnostic.message);
+    }
+
+    #[test]
+    fn a_measured_image_is_found_however_the_slide_writes_its_path() {
+        // #307, and the reason this rule was silent in `vite build` while
+        // working from `slidx lint`. The measurer keys `slides/logo.png` as
+        // `logo.png` and a slide writes `./logo.png`; the normalisation here
+        // stripped a leading `/` and not a leading `.`, so the lookup missed —
+        // and a rule that never fires looks exactly like a deck with no
+        // problems.
+        let sizes = std::collections::BTreeMap::from([(
+            "logo.png".to_string(),
+            crate::image::Intrinsic { format: crate::image::Format::Png, width: 400, height: 200 },
+        )]);
+
+        for written in ["./logo.png", "logo.png", "/logo.png"] {
+            let source = format!("# Results\n\n<img src=\"{written}\" width=\"960\" alt=\"l\">\n");
+            let deck = slidx_core::parse_deck(&source, &slidx_core::DeckParseOptions::default());
+            let input = crate::LintInput::new(&deck, &[]).with_asset_sizes(&sizes);
+            let found = crate::lint(&input, &crate::LintOptions::default());
+
+            assert!(
+                found.iter().any(|finding| finding.code == "resolution/upscaled"),
+                "{written} was not measured"
+            );
+        }
     }
 
     #[test]
