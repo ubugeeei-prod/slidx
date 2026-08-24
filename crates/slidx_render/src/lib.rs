@@ -35,6 +35,7 @@
 pub mod demo_switch;
 pub mod gestures;
 pub mod highlight;
+pub mod keys;
 pub mod layout;
 pub mod markdown;
 mod mdx;

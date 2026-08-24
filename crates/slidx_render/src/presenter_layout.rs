@@ -23,8 +23,8 @@ html, body {
 .slidx-presenter {
   display: grid;
   grid-template-columns: 1fr minmax(280px, 34%);
-  grid-template-rows: auto auto 1fr auto;
-  grid-template-areas: "bar bar" "present present" "notes next" "report report";
+  grid-template-rows: auto auto auto 1fr auto;
+  grid-template-areas: "bar bar" "keys keys" "present present" "notes next" "report report";
   gap: 1.5rem;
   padding: 1.5rem;
   min-height: 100vh;
@@ -91,6 +91,67 @@ html, body {
 [data-slidx-status="nearly-done"] .slidx-clock-value { color: #b26a00; }
 [data-slidx-status="over"] .slidx-clock-value { color: #b42318; }
 [data-slidx-pace-state="behind"] { color: #b42318; }
+
+/*
+ * The keys, on the one screen an audience is not looking at.
+ *
+ * A speaker drives a deck with their hands off the screen, in the dark, so the
+ * binding list is something they need to *see* — and a list of keys on the
+ * projector is a list the room reads instead of the slide.
+ *
+ * Two columns, so the keycaps line up down the left and the eye finds the row
+ * it wants without reading any of the others.
+ */
+.slidx-keys {
+  grid-area: keys;
+  padding: 1rem 1.25rem;
+  border: var(--slidx-hairline) solid var(--slidx-color-border);
+  border-radius: var(--slidx-radius);
+}
+
+.slidx-keys[hidden] { display: none; }
+
+.slidx-keys-list {
+  display: grid;
+  gap: 0.5rem 1rem;
+  margin: 0;
+}
+
+.slidx-key {
+  display: grid;
+  grid-template-columns: minmax(0, 17rem) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.slidx-key dt,
+.slidx-key dd { margin: 0; }
+
+/*
+ * The alternatives wrap as a group rather than running off the column. Five
+ * keys mean the same thing, and a row where the fifth has fallen under the
+ * first is still one row a speaker reads in one glance.
+ */
+.slidx-key dt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.slidx-key dd { color: var(--slidx-color-muted); }
+
+/*
+ * A keycap without a border radius, because nothing slidx draws has one — the
+ * rule is a legibility decision rather than a taste one, and it does not stop
+ * applying on the page a speaker reads under stage lighting.
+ */
+.slidx-keys kbd {
+  padding: 0.1rem 0.4rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-family: var(--slidx-font-mono);
+  border: var(--slidx-hairline) solid var(--slidx-color-border);
+}
 
 /*
  * What the browser could not do, and where the speaker does it.
@@ -405,7 +466,7 @@ mod tests {
     #[test]
     fn the_rehearsal_report_has_its_own_grid_area() {
         assert!(STYLESHEET.contains(
-            r#"grid-template-areas: "bar bar" "present present" "notes next" "report report""#
+            r#"grid-template-areas: "bar bar" "keys keys" "present present" "notes next" "report report""#
         ));
         assert!(STYLESHEET.contains("grid-area: report"));
     }
