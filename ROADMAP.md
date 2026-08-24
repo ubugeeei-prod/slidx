@@ -201,10 +201,9 @@ Everything between walking up and sitting down.
 
 - [x] Presenter view: next slide, notes, position — #12
 - [x] Timer against the declared slot, with a warning before the end
-- [ ] Behind/ahead indicator, and hints naming the optional slides to drop.
-      `assessPace` and `describePace` are written and exported; the presenter
-      view does not call either, so the only per-slide reading a speaker gets
-      is the rehearsal report, after the fact
+- [x] Behind/ahead indicator, and hints naming the optional slides to drop —
+      #277. One line under the presenter's clock, and every word of it comes
+      from `describePace` rather than from a second opinion written beside it
 - [x] Mirroring across windows and screens — #13
 - [x] Navigation from the presenter view, which is where a clicker's keys go — #12
 - [ ] Remote control from a separate device — #13. `createPairing`,

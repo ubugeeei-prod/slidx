@@ -120,8 +120,8 @@ export const PUBLIC_API = {
  * a feature that is written, tested, and shipped to nobody, and the number
  * beside it is where that gets fixed.
  *
- * Fifteen of the seventeen were already known when the check was written. Two
- * were not, and finding them on the first run is the argument for the check:
+ * All but two were already known when the check was written. The two that were
+ * not are the argument for it:
  * `text-controls.ts` is a whole editor surface with no constructor call
  * anywhere in the workspace — not even in a test — and `trend.ts` is the
  * rehearsal comparison across runs, in a package whose single-run report does
@@ -143,7 +143,6 @@ export const UNREACHABLE = {
   "packages/runtime/src/demo.ts": 279,
   "packages/runtime/src/keymap.ts": 285,
   "packages/runtime/src/media.ts": 286,
-  "packages/runtime/src/pace.ts": 277,
   "packages/runtime/src/presentation.ts": 278,
 };
 

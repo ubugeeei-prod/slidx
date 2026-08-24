@@ -43,6 +43,7 @@ html, body {
 .slidx-clock {
   display: flex;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: 0.75rem;
 }
 
@@ -65,9 +66,31 @@ html, body {
   font-variant-numeric: tabular-nums;
 }
 
-/* The one place colour is used to say something. */
+/*
+ * Whether the talk will fit, on its own line under the clock.
+ *
+ * `flex-basis` rather than a second container: the line names the slides it
+ * would drop, so it is long, and it belongs to the clock rather than beside it.
+ * Empty until there is something true to say — a deck with no declared slot has
+ * no pace, only a running number, and a blank space is the honest reading.
+ */
+.slidx-pace {
+  flex-basis: 100%;
+  min-height: 1.4em;
+  color: var(--slidx-color-muted);
+  font-size: 0.95rem;
+}
+
+/*
+ * The one place colour is used to say something.
+ *
+ * Behind borrows the clock's overrun colour because it is the same instruction:
+ * act now. Ahead does not get one — it is worth knowing and there is nothing to
+ * do about it, and a display that coloured every state would colour none.
+ */
 [data-slidx-status="nearly-done"] .slidx-clock-value { color: #b26a00; }
 [data-slidx-status="over"] .slidx-clock-value { color: #b42318; }
+[data-slidx-pace-state="behind"] { color: #b42318; }
 
 .slidx-presenter-actions {
   display: flex;

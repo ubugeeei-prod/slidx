@@ -12,10 +12,10 @@
  * code is the consumer, and a type is not importable at runtime — are handled in
  * `reachable.mjs` rather than by being lenient here.
  *
- * What the seventeen already-unreachable modules do *not* get is a grace period.
- * They are in `UNREACHABLE` with the issue that closes each, which fails on
- * anything new and fails again when a recorded one becomes reachable — so the
- * list can only shrink, and it shrinks in the same commit that earns it.
+ * What the already-unreachable modules do *not* get is a grace period. They are
+ * in `UNREACHABLE` with the issue that closes each, which fails on anything new
+ * and fails again when a recorded one becomes reachable — so the list can only
+ * shrink, and it shrinks in the same commit that earns it.
  */
 
 import { execFileSync } from "node:child_process";
