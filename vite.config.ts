@@ -122,6 +122,7 @@ export default defineConfig({
         "check:version",
         "check:borrowed",
         "check:dead-config",
+        "check:reachable",
         "check:flat",
         "check:licensed",
         "check:pages",
@@ -142,6 +143,7 @@ export default defineConfig({
         "check:conventions",
         "check:borrowed",
         "check:dead-config",
+        "check:reachable",
         "check:flat",
         "check:licensed",
         "check:pages",
@@ -382,6 +384,12 @@ export default defineConfig({
 
       "check:conventions": task("node scripts/check-conventions.mjs"),
       "check:dead-config": task("node scripts/check-dead-config.mjs"),
+
+      // A module no page can call. `check:dead-config` is the same question
+      // asked of a Rust field; this is the half that has to read import
+      // statements out of string literals, because that is where the runtime's
+      // real call sites are.
+      "check:reachable": task("node scripts/check-reachable.mjs"),
 
       // No shadows, no gradients, anywhere slidx draws. A gate rather than a
       // warning: the size guideline is a judgement call about how much a file is
