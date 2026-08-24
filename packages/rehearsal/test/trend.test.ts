@@ -195,3 +195,20 @@ describe("naming what is getting worse", () => {
     expect(trend.note.match(/Slide|slide/g)?.length ?? 0).toBeLessThanOrEqual(2);
   });
 });
+
+describe("what the note claims", () => {
+  it("does not say nothing got slower when something did", () => {
+    // A slide can grow by half a minute inside a budget with room. The rows
+    // report that, and a sentence above them claiming otherwise is the one
+    // thing in this report a speaker could catch being wrong — after which
+    // they stop reading the rest of it.
+    const trend = trackRehearsals([
+      recording([slide("intro", 5_000, minutes(2))]),
+      recording([slide("intro", 40_000, minutes(2))]),
+    ]);
+
+    expect(trend.slides[0]?.direction).toBe("slower");
+    expect(trend.note).not.toContain("Nothing got slower");
+    expect(trend.note).toContain("Nothing slipped past its budget");
+  });
+});

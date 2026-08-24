@@ -19,17 +19,34 @@ function clock(): { now: () => number; advance: (ms: number) => void } {
   };
 }
 
+/**
+ * A real key-value store, because the session uses two keys.
+ *
+ * It used to hold one value and ignore the key, which was true of a session
+ * that wrote one thing. Once finished runs are filed beside the live one, a
+ * store that ignored the key would let the history overwrite the recording —
+ * and the test that caught it was the one asserting a finished rehearsal does
+ * not reopen on reload, which is precisely the failure a stub like that hides.
+ *
+ * `value` stays, and stays meaning the live recording: that is what every
+ * assertion using it is about.
+ */
 function storage(initial?: string): RehearsalStorage & { value: string | null } {
+  const items = new Map<string, string>();
+  if (initial !== undefined) items.set("deck", initial);
+
   return {
-    value: initial ?? null,
-    getItem() {
-      return this.value;
+    get value(): string | null {
+      return items.get("deck") ?? null;
     },
-    setItem(_key, value) {
-      this.value = value;
+    getItem(key) {
+      return items.get(key) ?? null;
     },
-    removeItem() {
-      this.value = null;
+    setItem(key, value) {
+      items.set(key, value);
+    },
+    removeItem(key) {
+      items.delete(key);
     },
   };
 }
@@ -256,5 +273,126 @@ describe("controlling a run", () => {
     session.reset();
     expect(session.state().status).toBe("idle");
     expect(saved.value).toBeNull();
+  });
+});
+
+describe("the history a trend is read from", () => {
+  it("keeps a finished run so the next one has something to compare against", () => {
+    const time = clock();
+    const saved = storage();
+    const session = openRehearsalSession({
+      key: "deck",
+      slideId: "intro",
+      slides,
+      storage: saved,
+      now: time.now,
+    });
+
+    session.start();
+    time.advance(30_000);
+    session.finish();
+
+    expect(session.history()).toHaveLength(1);
+    expect(session.history()[0]?.status).toBe("finished");
+  });
+
+  it("keeps an abandoned run too", () => {
+    // A talk the speaker stopped halfway is still where the time went for the
+    // slides they reached. Dropping it would make the next comparison silently
+    // span two rehearsals rather than one.
+    const time = clock();
+    const saved = storage();
+    const session = openRehearsalSession({
+      key: "deck",
+      slideId: "intro",
+      slides,
+      storage: saved,
+      now: time.now,
+    });
+
+    session.start();
+    time.advance(10_000);
+    session.abandon();
+
+    expect(session.history().map((run) => run.status)).toEqual(["abandoned"]);
+  });
+
+  it("does not file a run that is still going", () => {
+    const time = clock();
+    const saved = storage();
+    const session = openRehearsalSession({
+      key: "deck",
+      slideId: "intro",
+      slides,
+      storage: saved,
+      now: time.now,
+    });
+
+    session.start();
+    time.advance(30_000);
+
+    expect(session.history()).toEqual([]);
+  });
+
+  it("does not file the same run twice when the page reloads after it ended", () => {
+    // `finish` is a user action and a reload is not, which is what makes the
+    // filing once per run rather than once per page.
+    const time = clock();
+    const saved = storage();
+    const first = openRehearsalSession({
+      key: "deck",
+      slideId: "intro",
+      slides,
+      storage: saved,
+      now: time.now,
+    });
+
+    first.start();
+    time.advance(30_000);
+    first.finish();
+
+    const reloaded = openRehearsalSession({
+      key: "deck",
+      slideId: "details",
+      slides,
+      storage: saved,
+      now: time.now,
+    });
+
+    expect(reloaded.history()).toHaveLength(1);
+  });
+
+  it("keeps the history when the speaker starts again", () => {
+    const time = clock();
+    const saved = storage();
+    const session = openRehearsalSession({
+      key: "deck",
+      slideId: "intro",
+      slides,
+      storage: saved,
+      now: time.now,
+    });
+
+    session.start();
+    time.advance(30_000);
+    session.finish();
+    session.reset();
+
+    expect(session.history()).toHaveLength(1);
+  });
+
+  it("reports no history rather than throwing on a value it cannot parse", () => {
+    const saved = storage();
+    saved.setItem("deck:history", "{ not an array");
+
+    const session = openRehearsalSession({ key: "deck", slideId: "intro", slides, storage: saved });
+
+    expect(session.history()).toEqual([]);
+  });
+
+  it("has no history at all without storage", () => {
+    const session = openRehearsalSession({ key: "deck", slideId: "intro", slides });
+
+    expect(session.history()).toEqual([]);
   });
 });
