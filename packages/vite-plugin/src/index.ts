@@ -556,13 +556,27 @@ let runtime: Promise<string> | undefined;
 let rehearsal: Promise<string> | undefined;
 let effects: Promise<string> | undefined;
 
+/**
+ * Resolves `@slidxjs/runtime/emitted` rather than the package itself.
+ *
+ * The two used to be the same file, and emitting the package's own barrel put
+ * the presenter's camera, the media level meter, the key table and the demo
+ * switch in front of every audience that loaded a staged slide — 8.7KB gzipped
+ * of code no page could call. `emitted.ts` exports the eleven names
+ * `slidx_render` actually writes into its pages, and nothing else.
+ *
+ * Read whole rather than bundled, which is the reason the split had to be made
+ * in the package: this file is never an input to the deck's own Rollup graph,
+ * so no bundler was ever in a position to notice. Reading it whole is also what
+ * makes it byte-identical across every page, so a room fetches it once.
+ */
 function readRuntime(): Promise<string> {
   runtime ??= (async () => {
     const { createRequire } = await import("node:module");
     const { readFile } = await import("node:fs/promises");
     const require = createRequire(import.meta.url);
 
-    return readFile(require.resolve("@slidxjs/runtime"), "utf8");
+    return readFile(require.resolve("@slidxjs/runtime/emitted"), "utf8");
   })();
 
   return runtime;

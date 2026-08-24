@@ -79,7 +79,7 @@
  * whole package — a failure nobody can miss, unlike the reverse.
  */
 export const EMITTED_BUNDLES = {
-  "{runtime_src}": "@slidxjs/runtime",
+  "{runtime_src}": "@slidxjs/runtime/emitted",
   "{rehearsal_src}": "@slidxjs/rehearsal",
   "${EDITOR_MODULE}": "@slidxjs/editor",
 };
@@ -143,6 +143,27 @@ export const UNREACHABLE = {
   "packages/runtime/src/keymap.ts": 285,
   "packages/runtime/src/media.ts": 286,
   "packages/runtime/src/presentation.ts": 278,
+};
+
+/**
+ * A bundle a page downloads whole, and the names it may therefore carry.
+ *
+ * `readRuntime()` reads the packed entry as a file and the plugin emits it
+ * without ever putting it through the deck's own bundler, so nothing shakes an
+ * export nobody imports out of it. That made the runtime 47% larger than the
+ * eleven names a page asks for.
+ *
+ * The rule is equality rather than "at least": a name a page imports and the
+ * bundle does not export is a deck that breaks on load, and a name the bundle
+ * exports and no page imports is the 47% again. Both directions are reported.
+ *
+ * Only the runtime is listed. The editor's bundle is served from
+ * `configureServer` and reaches nobody but its author, and the rehearsal
+ * bundle is on the presenter's own screen — neither is what a room downloads,
+ * which is the cost this rule exists to hold down.
+ */
+export const EMITTED_EXACTLY = {
+  "@slidxjs/runtime/emitted": "{runtime_src}",
 };
 
 /** Barrel exports, split by what a page could actually import. */
