@@ -68,6 +68,8 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
     <div class="slidx-clock" data-slidx-clock data-slidx-status="untimed">
       <span class="slidx-clock-value" data-slidx-elapsed>0:00</span>
       <span class="slidx-clock-budget" data-slidx-remaining>{budget_label}</span>
+      <span class="slidx-pace" data-slidx-pace data-slidx-pace-state="unknown" aria-live="polite"
+        ></span>
     </div>
     <div class="slidx-presenter-actions">
       <button type="button" data-slidx-action="toggle" aria-label="Start or pause the timer">
@@ -446,9 +448,52 @@ mod tests {
 
         assert!(
             html.contains(
-                r#"const rehearsalSlides = [{"id":"one","budgetMs":30000},{"id":"two"}]"#
+                r#"const deckSlides = [{"id":"one","title":"One","budgetMs":30000},{"id":"two","title":"Two"}]"#
             ),
             "deck plan is absent:\n{html}"
+        );
+    }
+
+    #[test]
+    fn an_optional_slide_says_so_where_pacing_can_read_it() {
+        // Pacing only ever offers optional slides to drop, so this flag is the
+        // difference between advice and a suggestion to cut the argument.
+        let html = presenter("# One\n\n---\n\n---\noptional: true\n---\n\n# Two\n", 0);
+
+        assert!(html.contains(r#"{"id":"two","title":"Two","optional":true}"#), "{html}");
+    }
+
+    #[test]
+    fn a_slide_that_is_not_optional_carries_no_flag_for_it() {
+        // Absence is what pacing reads as "not optional", so a `false` on every
+        // slide would be bytes that say nothing.
+        let html = presenter("# One\n", 0);
+
+        assert!(html.contains(r#"const deckSlides = [{"id":"one","title":"One"}]"#), "{html}");
+    }
+
+    #[test]
+    fn the_bar_holds_a_line_for_whether_the_talk_will_fit() {
+        let html = presenter("---\nduration: 20m\n---\n\n# One\n", 0);
+
+        assert!(html.contains("data-slidx-pace"), "no pace line:\n{html}");
+        assert!(html.contains("assessPace"), "nothing computes it:\n{html}");
+        assert!(html.contains("describePace"), "nothing words it:\n{html}");
+    }
+
+    #[test]
+    fn the_pace_line_starts_empty_rather_than_claiming_a_reading() {
+        // The page is rendered before a timer has run, and a talk that has not
+        // started is not behind. `describePace` fills this in.
+        let html = presenter("---\nduration: 20m\n---\n\n# One\n", 0);
+
+        assert!(html.contains(r#"data-slidx-pace-state="unknown""#), "{html}");
+        assert!(
+            html.contains(
+                r#"aria-live="polite"
+        ></span>"#
+            ) || html.contains("></span>"),
+            "{html}"
         );
     }
 

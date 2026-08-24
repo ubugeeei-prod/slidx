@@ -8,18 +8,33 @@
 use serde::Serialize;
 use slidx_core::{Deck, Slide};
 
+/// One slide, as the two readers on this page need it.
+///
+/// One array rather than two. Both the rehearsal session and pacing want a
+/// slide's budget, and two payloads carrying it would be two answers to the
+/// same question about the same slide — the drift this project spends its
+/// architecture avoiding. Each reader takes the fields it knows and ignores
+/// the rest.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct RehearsalSlide<'a> {
+struct PresenterSlide<'a> {
     id: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
+    title: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     budget_ms: Option<u64>,
+    /// Left out unless true, because pacing reads its absence as "not optional"
+    /// and a `false` on every slide is bytes that say nothing.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    optional: bool,
 }
 
 pub(crate) fn render(deck: &Deck, slide: &Slide, runtime_src: &str, rehearsal_src: &str) -> String {
     format!(
         r#"import {{
+  assessPace,
   createTimer,
+  describePace,
   formatDuration,
   createMirror,
   createNavigator,
@@ -35,8 +50,12 @@ import {{
 // down. Resolving that root produces one stable storage key across every page.
 const root = {index} === 0 ? "../" : "../../";
 const budgetMs = {budget};
-const rehearsalSlides = {rehearsal_slides};
+const deckSlides = {presenter_slides};
 const rehearsalSlideId = {slide_id};
+
+// Pacing addresses a slide by position and the rehearsal session by id, so the
+// index is added here rather than serialised twice.
+const paceSlides = deckSlides.map((slide, index) => ({{ ...slide, index }}));
 
 let browserStorage;
 try {{
@@ -49,7 +68,7 @@ try {{
 const rehearsal = openRehearsalSession({{
   key: `slidx:rehearsal:${{new URL(root, location.href).pathname}}`,
   slideId: rehearsalSlideId,
-  slides: rehearsalSlides,
+  slides: deckSlides,
   storage: browserStorage,
 }});
 const openingRehearsal = rehearsal.state();
@@ -66,6 +85,7 @@ const rehearse = document.querySelector('[data-slidx-action="rehearse"]');
 const finishRehearsal = document.querySelector('[data-slidx-action="finish-rehearsal"]');
 const abandonRehearsal = document.querySelector('[data-slidx-action="abandon-rehearsal"]');
 const newRehearsal = document.querySelector('[data-slidx-action="new-rehearsal"]');
+const pace = document.querySelector("[data-slidx-pace]");
 const rehearsalStatus = document.querySelector("[data-slidx-rehearsal-status]");
 const rehearsalReport = document.querySelector("[data-slidx-rehearsal-report]");
 const rehearsalAdvice = document.querySelector("[data-slidx-rehearsal-advice]");
@@ -82,6 +102,20 @@ function paint() {{
       ? `${{formatDuration(state.remainingMs)}} over`
       : `${{formatDuration(state.remainingMs)}} left`;
   }}
+
+  // The clock answers how long the speaker has been talking. This answers
+  // whether the time left is enough for the slides left, which is the question
+  // they actually have — and `describePace` returns "" when there is no slot to
+  // measure against, so a deck without one shows a blank rather than a guess.
+  const reading = assessPace({{
+    slides: paceSlides,
+    position: {index},
+    elapsedMs: state.elapsedMs,
+    budgetMs,
+    running: state.running,
+  }});
+  pace.dataset.slidxPaceState = reading.pace;
+  pace.textContent = describePace(reading);
 }}
 
 const ended = (status) => status === "finished" || status === "abandoned";
@@ -251,7 +285,7 @@ paintStop();
 "#,
         runtime_src = runtime_src,
         rehearsal_src = rehearsal_src,
-        rehearsal_slides = rehearsal_slides(deck),
+        presenter_slides = presenter_slides(deck),
         slide_id = serde_json::to_string(&slide.id).expect("slide ids are JSON strings"),
         budget = deck
             .meta
@@ -264,15 +298,17 @@ paintStop();
     )
 }
 
-fn rehearsal_slides(deck: &Deck) -> String {
+fn presenter_slides(deck: &Deck) -> String {
     let slides = deck
         .slides
         .iter()
-        .map(|slide| RehearsalSlide {
+        .map(|slide| PresenterSlide {
             id: &slide.id,
+            title: slide.title.as_deref(),
             budget_ms: slide.budget_seconds.map(|seconds| u64::from(seconds) * 1000),
+            optional: slide.optional,
         })
         .collect::<Vec<_>>();
 
-    serde_json::to_string(&slides).expect("rehearsal slides are JSON")
+    serde_json::to_string(&slides).expect("presenter slides are JSON")
 }
