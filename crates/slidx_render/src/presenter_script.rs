@@ -46,7 +46,10 @@ import {{
   assessPace,
   createTimer,
   describePace,
+  detectPlatform,
+  enterPresentation,
   formatDuration,
+  presentationChecklist,
 }} from "{presenter_runtime_src}";
 import {{
   formatDelta,
@@ -94,6 +97,10 @@ const finishRehearsal = document.querySelector('[data-slidx-action="finish-rehea
 const abandonRehearsal = document.querySelector('[data-slidx-action="abandon-rehearsal"]');
 const newRehearsal = document.querySelector('[data-slidx-action="new-rehearsal"]');
 const pace = document.querySelector("[data-slidx-pace]");
+const present = document.querySelector('[data-slidx-action="present"]');
+const presentPanel = document.querySelector("[data-slidx-present]");
+const presentState = document.querySelector("[data-slidx-present-state]");
+const presentList = document.querySelector("[data-slidx-present-checklist]");
 const rehearsalStatus = document.querySelector("[data-slidx-rehearsal-status]");
 const rehearsalReport = document.querySelector("[data-slidx-rehearsal-report]");
 const rehearsalAdvice = document.querySelector("[data-slidx-rehearsal-advice]");
@@ -125,6 +132,98 @@ function paint() {{
   pace.dataset.slidxPaceState = reading.pace;
   pace.textContent = describePace(reading);
 }}
+
+// Two states rather than one, because they answer to different things. The
+// panel is open because the speaker asked; the session exists once a browser
+// has answered. A browser that neither grants fullscreen nor refuses it — and
+// there are several — would otherwise leave the button inert, which is the
+// worst thing this control could be two minutes before a talk.
+let presenting = false;
+let presentation;
+
+function paintPresentation() {{
+  present.textContent = presenting ? "Stop presenting" : "Present";
+  present.setAttribute("aria-expanded", String(presenting));
+  presentPanel.hidden = !presenting;
+  if (!presenting) return;
+
+  presentState.textContent = presentation === undefined ? asking() : reporting(presentation);
+
+  presentList.replaceChildren(
+    ...presentationChecklist(detectPlatform(navigator.userAgent)).map((step) => {{
+      const item = document.createElement("li");
+      const title = document.createElement("span");
+      title.className = "slidx-present-item";
+      title.textContent = step.title;
+      const where = document.createElement("span");
+      where.className = "slidx-present-where";
+      where.textContent = step.where;
+      item.append(title, where);
+      return item;
+    }}),
+  );
+}}
+
+const asking = () => "Asking this browser for the screen. What is below is yours either way.";
+
+// What it gave and what it refused, read from the session rather than from what
+// was asked for: a wake lock a browser declined is a screen that will dim, and
+// a speaker who was told otherwise has stopped checking.
+function reporting(session) {{
+  const got = [];
+  const refused = [];
+  (session.fullscreen ? got : refused).push("the whole screen");
+  (session.wakeLock ? got : refused).push("the screen kept awake");
+
+  // Assembled from the halves that are there rather than one sentence with a
+  // hole in it. A browser that refused everything is the case a speaker most
+  // needs to read, and it is the case a template would word worst.
+  const gave = got.length === 0 ? "" : `gave ${{got.join(" and ")}}`;
+  const denied = refused.length === 0 ? "" : `refused ${{refused.join(" and ")}}`;
+
+  return refused.length === 0
+    ? `This browser ${{gave}}. What is left is below, because no web API can do it.`
+    : `This browser ${{[gave, denied].filter(Boolean).join(" and ")}} — so that is yours too, along with what is below.`;
+}}
+
+present.addEventListener("click", async () => {{
+  if (presenting) {{
+    const leaving = presentation;
+    presenting = false;
+    presentation = undefined;
+    paintPresentation();
+    await leaving?.exit();
+    return;
+  }}
+
+  presenting = true;
+  paintPresentation();
+
+  // Asked for on the gesture that is still live. `enterPresentation` never
+  // rejects: a browser that refuses everything still leaves the checklist,
+  // which is the half no browser could have done anyway.
+  const session = await enterPresentation();
+
+  // The speaker may have pressed it again while a permission prompt was up.
+  if (!presenting) {{
+    await session.exit();
+    return;
+  }}
+
+  presentation = session;
+  paintPresentation();
+}});
+
+// Escape leaves fullscreen without telling anyone. The session already
+// releases the wake lock when that happens, so what is left is to stop saying
+// on screen that the talk is still in presentation mode.
+document.addEventListener("fullscreenchange", () => {{
+  if (document.fullscreenElement === null && presentation?.fullscreen) {{
+    presenting = false;
+    presentation = undefined;
+    paintPresentation();
+  }}
+}});
 
 const ended = (status) => status === "finished" || status === "abandoned";
 

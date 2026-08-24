@@ -85,6 +85,15 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
       <span class="slidx-presenter-divider" aria-hidden="true"></span>
       <button
         type="button"
+        data-slidx-action="present"
+        aria-expanded="false"
+        aria-controls="slidx-present"
+      >
+        Present
+      </button>
+      <span class="slidx-presenter-divider" aria-hidden="true"></span>
+      <button
+        type="button"
         data-slidx-action="rehearse"
         aria-label="Start or pause rehearsal recording"
       >
@@ -101,6 +110,17 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
       <span class="slidx-presenter-stop" data-slidx-stop>{stops}</span>
     </div>
   </header>
+
+  <section
+    class="slidx-present"
+    id="slidx-present"
+    data-slidx-present
+    aria-label="Presentation mode"
+    hidden
+  >
+    <p class="slidx-present-state" data-slidx-present-state aria-live="polite"></p>
+    <ul class="slidx-present-checklist" data-slidx-present-checklist></ul>
+  </section>
 
   <section class="slidx-presenter-notes" aria-label="Speaker notes">
 {notes}

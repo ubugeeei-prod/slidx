@@ -210,12 +210,14 @@ Everything between walking up and sitting down.
       `pairingUrl` and `createRemoteTransport` exist and nothing constructs a
       `RemoteSocket` for them; there is no relay. `readPairing`'s one caller
       is the _editor's_ collaboration gate, not slide control
-- [ ] Presentation mode: wake lock, fullscreen, and a named DND checklist — #13.
-      Two of the three now reach a speaker: `f` on any slide takes the whole
-      screen and asks for the wake lock, bound where the gesture has to be —
-      the audience window is the one on the projector, and it has no module.
-      The checklist is still unreachable, and `enterPresentation` — which also
-      arranges a camera — is still called by no shipped page
+- [x] Presentation mode: wake lock, fullscreen, and a named DND checklist —
+      #13, #278. `f` on any slide takes the whole screen and asks for the wake
+      lock, bound where that gesture has to be. The checklist is on the
+      presenter view, which is the speaker's own screen and not the room's, and
+      it opens the instant it is asked for rather than when a browser answers —
+      the half no web API can do should not wait on the half one might refuse.
+      `enterPresentation` also arranges a camera and a camera still never
+      opens: the tile is on the slide and the ask is from the lectern — #296
 - [x] Rehearsal recording; actual per-slide dwell time diffed against budget — #17
 - [ ] **Demo fallback** as a declared construct: live target plus recorded
       video — #14. Both sides ship in the markup, which is the hard half and
@@ -373,16 +375,17 @@ person can reach it. v1.0 closes that — not more features, the ones already
 paid for, connected to a hand.
 
 - [x] `check:reachable`: CI fails on a module no page can call — #276
-- [ ] Pace reaches the presenter view — #277
-- [ ] Presentation mode: the checklist a browser cannot perform — #278
+- [x] Pace reaches the presenter view — #277
+- [x] Presentation mode: the checklist a browser cannot perform — #278
 - [ ] Demo fallback: a key that performs the one attribute write — #279
 - [ ] Remote control: a pairing that reaches a slide — #280
 - [ ] Audience channel: deployable, or a stated non-goal — #281
-- [ ] The editor's text controls, which nothing constructs — #283
+- [x] The editor's text controls, which nothing constructs — #283
 - [ ] The rehearsal trend across runs, which reaches no screen — #284
 - [ ] Two key tables, and the one that ships cannot be shown — #285
 - [ ] A clip's level, measured and shown to nobody — #286
-- [ ] An audience downloads 57% of a runtime it cannot run — #291
+- [ ] A declared camera that never opens — #296
+- [x] An audience downloads 57% of a runtime it cannot run — #291
 - [ ] Images and fonts: the artefact half of performance — #234
 - [ ] A toolchain that moves under the tree — #288
 - [ ] First release to npm and crates.io — needs the maintainer's accounts

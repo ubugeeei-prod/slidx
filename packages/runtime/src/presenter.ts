@@ -10,9 +10,10 @@
  * that needs it — but both pages were handed the same file, so an audience
  * downloaded the timer and the pacing model to run neither.
  *
- * Small today and deliberately so. It is where presentation mode and the media
- * level meter belong when they land, and having somewhere for them is the point:
- * without it, the next presenter-side feature is one a room pays for.
+ * Presentation mode is here for exactly that reason. It arrives with the wake
+ * lock, the fullscreen request and a checklist naming the settings a browser
+ * cannot touch — none of which a slide has any use for, and all of which a room
+ * would have downloaded a week ago.
  *
  * # What is *not* here
  *
@@ -27,4 +28,5 @@
  */
 
 export { assessPace, describePace } from "./pace";
+export { detectPlatform, enterPresentation, presentationChecklist } from "./presentation";
 export { createTimer, formatDuration } from "./timer";
