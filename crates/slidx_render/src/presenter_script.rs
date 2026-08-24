@@ -104,6 +104,7 @@ const present = document.querySelector('[data-slidx-action="present"]');
 const presentPanel = document.querySelector("[data-slidx-present]");
 const presentState = document.querySelector("[data-slidx-present-state]");
 const presentList = document.querySelector("[data-slidx-present-checklist]");
+const demoState = document.querySelector("[data-slidx-demo-state]");
 const rehearsalStatus = document.querySelector("[data-slidx-rehearsal-status]");
 const rehearsalReport = document.querySelector("[data-slidx-rehearsal-report]");
 const rehearsalAdvice = document.querySelector("[data-slidx-rehearsal-advice]");
@@ -421,6 +422,24 @@ deck.subscribe((position) => {{
 }});
 
 // And follow the projector when it is driven from there instead.
+// What the projector says about the recording on the slide it is showing. It
+// is the only window that can: the preview beside these notes is inert by
+// design, and a page that fetched the same file would be answering about the
+// wrong machine.
+//
+// A blank rather than "ready" until it has spoken. Saying a fallback is loaded
+// when nothing has said so is the one thing this line must never do — a
+// speaker who stops checking is worse off than one who never had the line.
+mirror.subscribeDemo((demo) => {{
+  demoState.textContent =
+    demo.side === "fallback"
+      ? "showing the recording"
+      : demo.ready
+        ? "fallback ready"
+        : "fallback not loaded";
+  demoState.dataset.slidxDemoReady = String(demo.ready);
+}});
+
 mirror.subscribe((position) => {{
   if (position.slide !== {index}) {{
     location.href = hrefFor(position.slide, position.step === 0 ? undefined : position.step);

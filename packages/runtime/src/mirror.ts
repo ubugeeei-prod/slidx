@@ -21,9 +21,31 @@ export interface Position {
 }
 
 /** What crosses the channel. */
+/**
+ * What the projector knows about the recording on the slide it is showing.
+ *
+ * A fact about an element in *that* document, which is the whole reason it
+ * travels: the presenter view's next-slide preview is deliberately inert and
+ * has no `<video>` to read, and a presenter page that fetched the same file
+ * would be proving something true about the wrong machine.
+ *
+ * Only ever about the slide on screen. A projector has one slide loaded, so
+ * "the fallback for slide 7" is a question nothing can answer until slide 7 is
+ * up — which is still before the demo dies, and that is the whole window this
+ * reading is useful in.
+ */
+export interface DemoReport {
+  /** Whether the recording holds enough data to start playing now. */
+  ready: boolean;
+  /** Which side is painted, so the presenter says "switched" rather than "ready". */
+  side: "live" | "fallback";
+}
+
 export interface MirrorMessage {
-  type: "position" | "request";
+  type: "position" | "request" | "demo";
   position?: Position;
+  /** Present on a `demo` message and on no other. */
+  demo?: DemoReport;
   /** Monotonic per sender. Higher wins. */
   sequence: number;
   /**
@@ -65,6 +87,17 @@ export interface Mirror {
   requestPosition(): void;
   position(): Position | null;
   subscribe(handler: (position: Position) => void): () => void;
+  /**
+   * Says what this window's recording is doing.
+   *
+   * Unsequenced, deliberately. A position needs ordering because two windows
+   * both move and a stale one must not win; a readiness report is a fact about
+   * one element in one document and the latest is always the truest. Giving it
+   * a sequence would mean a reload could silence it, which is the bug #255
+   * was.
+   */
+  reportDemo(report: DemoReport): void;
+  subscribeDemo(handler: (report: DemoReport) => void): () => void;
   close(): void;
 }
 
@@ -94,6 +127,7 @@ export function createMirror(options: MirrorOptions = {}): Mirror {
     options.transport === undefined ? broadcastChannel(options.name ?? "slidx") : options.transport;
 
   const handlers = new Set<(position: Position) => void>();
+  const demoHandlers = new Set<(report: DemoReport) => void>();
   const me = options.id ?? identity();
   /**
    * The highest sequence seen from each sender.
@@ -113,6 +147,11 @@ export function createMirror(options: MirrorOptions = {}): Mirror {
     // a delayed local position drag the deck back. This window's own sequence
     // is deliberately not in `seen`.
     if (message.from === me) return;
+
+    if (message.type === "demo") {
+      if (message.demo) for (const handler of demoHandlers) handler(message.demo);
+      return;
+    }
 
     if (message.type === "request") {
       // Answer only if there is something to answer with; a window that has
@@ -162,8 +201,18 @@ export function createMirror(options: MirrorOptions = {}): Mirror {
       return () => handlers.delete(handler);
     },
 
+    reportDemo(report) {
+      post({ type: "demo", demo: report, sequence: ++sequence });
+    },
+
+    subscribeDemo(handler) {
+      demoHandlers.add(handler);
+      return () => demoHandlers.delete(handler);
+    },
+
     close() {
       handlers.clear();
+      demoHandlers.clear();
       stop?.();
       transport?.close();
     },

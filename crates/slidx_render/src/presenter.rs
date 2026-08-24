@@ -115,6 +115,7 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
         End early
       </button>
       <span class="slidx-rehearsal-status" data-slidx-rehearsal-status aria-live="polite"></span>
+      <span class="slidx-demo-state" data-slidx-demo-state aria-live="polite"></span>
       <span class="slidx-presenter-position">{number} / {count}</span>
       <span class="slidx-presenter-stop" data-slidx-stop>{stops}</span>
     </div>

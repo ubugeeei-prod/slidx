@@ -20,6 +20,25 @@
 //! there is the presenter's — it asks whether a recording has buffered, which
 //! is a different question asked from a different window.
 //!
+//! # What the projector says about it
+//!
+//! `ready()` in the runtime's module reports what the browser actually buffered
+//! rather than what the markup asked for, and that is worth knowing *before* a
+//! demo dies — after it, the speaker presses the key and finds out. But the
+//! element is in this document and the presenter view is another one: its
+//! next-slide preview is deliberately inert, and a presenter page that fetched
+//! the same file would be proving something true about the wrong machine.
+//!
+//! So the projector says, on the channel the two windows already share. One
+//! more message kind, unsequenced — a position needs ordering because two
+//! windows both move and a stale one must not win, and a readiness report is a
+//! fact about one element where the latest is always the truest.
+//!
+//! Only ever about the slide on screen, because a projector has one slide
+//! loaded. "The fallback for slide 7" is a question nothing can answer until
+//! slide 7 is up — which is still before the demo dies, and that is the whole
+//! window this reading is useful in.
+//!
 //! # What it costs a deck without a demo
 //!
 //! Nothing. The script is emitted only for a slide that declares a fallback,
@@ -56,9 +75,24 @@ pub fn script(slide: &Slide) -> String {
 const figure = document.querySelector("[{DEMO_ATTRIBUTE}]");
 const video = figure && figure.querySelector("video");
 if (!video) return;
+// The presenter view cannot read this element: its preview is inert, and a
+// page that fetched the same file would be proving something true about the
+// wrong machine. So the projector says.
+const mirror = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel("slidx:slidx");
+const me = "" + Math.random();
+const tell = () => mirror?.postMessage({{
+  type: "demo",
+  demo: {{ ready: video.readyState >= 2, side: figure.getAttribute("{DEMO_ATTRIBUTE}") }},
+  sequence: 1,
+  from: me,
+}});
 // `preload="auto"` is advisory, and this is the one asset in a deck where a
 // browser's judgement about whether the fetch is worth it is wrong.
 if (video.readyState === 0) video.load();
+// On load, and again the moment the browser has enough to play. A speaker
+// arriving at the slide learns the answer without waiting for it.
+tell();
+video.addEventListener("loadeddata", tell);
 const show = (side) => {{
   // Re-showing the side already on screen would rewind the recording to a
   // frame the speaker has talked past.
@@ -70,6 +104,7 @@ const show = (side) => {{
   if (side === "fallback") Promise.resolve(video.play()).catch(() => {{}});
   // Left running, a hidden recording keeps decoding behind the live demo.
   else video.pause();
+  tell();
 }};
 addEventListener("keydown", (event) => {{
   if (event.key !== "d" || event.defaultPrevented) return;
@@ -145,6 +180,38 @@ mod tests {
         let emitted = script(&slide_with(Some(demo)));
 
         assert!(emitted.contains("video.load()"), "{emitted}");
+    }
+
+    #[test]
+    fn the_projector_says_whether_the_recording_will_play() {
+        // The presenter view cannot read this element — its preview is inert by
+        // design — so the window that has it says. Before the demo dies, which
+        // is the only window the answer is useful in.
+        let demo = Demo {
+            live: "https://example.test".into(),
+            fallback: Some("./demo.mp4".into()),
+            poster: None,
+        };
+        let emitted = script(&slide_with(Some(demo)));
+
+        assert!(emitted.contains(r#"type: "demo""#), "{emitted}");
+        assert!(emitted.contains("video.readyState >= 2"), "{emitted}");
+        assert!(emitted.contains(r#"video.addEventListener("loadeddata", tell)"#), "{emitted}");
+    }
+
+    #[test]
+    fn it_says_again_when_the_side_changes() {
+        // "Ready" and "showing the recording" are different sentences, and the
+        // presenter has no other way to learn which one is true.
+        let demo = Demo {
+            live: "https://example.test".into(),
+            fallback: Some("./demo.mp4".into()),
+            poster: None,
+        };
+        let emitted = script(&slide_with(Some(demo)));
+        let switch = emitted.split("const show").nth(1).expect("no switch");
+
+        assert!(switch.contains("tell();"), "the switch says nothing:\n{switch}");
     }
 
     #[test]

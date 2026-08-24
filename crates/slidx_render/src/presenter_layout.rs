@@ -257,6 +257,20 @@ html, body {
   outline-offset: 2px;
 }
 
+/*
+ * Whether the recording on the projector will play if the demo dies.
+ *
+ * Blank until the projector has said, which is the only honest state before
+ * then: a line that read "ready" because nothing had spoken is a line a
+ * speaker stops checking, and then it is worse than not having one.
+ *
+ * Coloured only when the answer is no, and in the warning rather than the
+ * overrun colour — a fallback that has not buffered yet is a thing to watch,
+ * not a thing to act on. There is nothing to do about it but wait.
+ */
+.slidx-demo-state { color: var(--slidx-color-muted); }
+[data-slidx-demo-ready="false"] { color: #b26a00; }
+
 .slidx-presenter-divider {
   align-self: stretch;
   border-left: var(--slidx-hairline) solid var(--slidx-color-border);
