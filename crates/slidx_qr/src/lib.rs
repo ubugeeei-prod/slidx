@@ -142,8 +142,12 @@ mod tests {
         let code = code("https://slidx.dev/deck");
 
         for position in 8..code.size() - 8 {
-            assert_eq!(code.module(6, position), position % 2 == 0, "row 6 at {position}");
-            assert_eq!(code.module(position, 6), position % 2 == 0, "column 6 at {position}");
+            assert_eq!(code.module(6, position), position.is_multiple_of(2), "row 6 at {position}");
+            assert_eq!(
+                code.module(position, 6),
+                position.is_multiple_of(2),
+                "column 6 at {position}"
+            );
         }
     }
 
