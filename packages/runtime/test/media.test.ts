@@ -183,14 +183,14 @@ describe("the numbers themselves", () => {
 
 describe("measuring a file the presenter page does not render", () => {
   it("says unknown when this browser cannot decode", async () => {
-    const host = globalThis as typeof globalThis & {
+    const host = globalThis as unknown as {
       OfflineAudioContext?: unknown;
       webkitOfflineAudioContext?: unknown;
     };
     const offline = host.OfflineAudioContext;
     const webkit = host.webkitOfflineAudioContext;
-    host.OfflineAudioContext = undefined;
-    host.webkitOfflineAudioContext = undefined;
+    delete host.OfflineAudioContext;
+    delete host.webkitOfflineAudioContext;
 
     try {
       const report = await measureClip("./clip.mp4");
