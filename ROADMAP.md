@@ -513,8 +513,8 @@ A checked box still means a person can reach the thing.
       page for a feature that has no reachable path yet (FrameScript, BGM).
 - [ ] **Japanese documentation.** Ox Content's locale map, same pages, not a
       second site with a second set of facts. The English site is the one a
-      reader can start from (#312). This is that locale map, not a second
-      set of pages.
+      reader can start from (#312). The locale map is not wired yet — Ox
+      Content already has `i18n.locales`; this site does not pass it.
 
 ### Publish and audience
 
