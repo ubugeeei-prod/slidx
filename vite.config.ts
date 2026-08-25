@@ -303,7 +303,7 @@ export default defineConfig({
       // Only the wasm types are needed to emit the declarations; the runtime
       // and the editor are read off disk at run time, not imported.
       "build:plugin": uncached("vp run --filter @slidxjs/vite-plugin pack:lib", {
-        dependsOn: ["build:wasm"],
+        dependsOn: ["build:wasm", "build:audience"],
       }),
 
       // The VS Code extension. It is `private`, so it is never published and
@@ -317,10 +317,11 @@ export default defineConfig({
       // that is `"type": "module"` like every other one here.
       "build:vscode": uncached("vp run --filter slidx-vscode pack:lib"),
 
-      // The four nothing in this repository imports. They are published all the
-      // same, and each declares `files: ["dist"]`, so leaving them unbuilt does
-      // not fail anything here — it publishes a tarball holding one
-      // `package.json` and calls it a package.
+      // Packages published even when nothing in this workspace used to import
+      // them. Audience is now imported by the plugin; islands and publish
+      // remain a public API whose consumer is a deck author. Each still
+      // declares `files` that include `dist/`, so leaving one unbuilt ships a
+      // tarball holding one `package.json`.
       "build:audience": uncached("vp run --filter @slidxjs/audience pack:lib"),
       "build:islands": uncached("vp run --filter @slidxjs/islands pack:lib"),
       "build:rehearsal": uncached("vp run --filter @slidxjs/rehearsal pack:lib"),

@@ -231,10 +231,13 @@ Everything between walking up and sitting down.
       recording will play, which only the projector can answer — its own
       preview is inert by design, and a page that fetched the same file would
       be answering about the wrong machine
-- [ ] Audience channel — moderated Q&A and reactions on a Worker — #16.
-      `@slidxjs/audience` is 1,983 lines with its own protocol, room state and
-      rate limiting, no `package.json` in the workspace depends on it, and
-      there is no wrangler configuration to deploy the Worker anywhere
+- [x] Audience channel — moderated Q&A and reactions on a Worker — #16, #281.
+      The Vite plugin always imports `@slidxjs/audience` (opt-in injects it; a
+      barrel is not a door). `packages/audience/wrangler.toml` names
+      `src/worker.ts` as `main`, which is a root `check-reachable` can see.
+      A deck that leaves the option out still fetches nothing. The operator
+      is the author's Cloudflare account; slidx holds no token and runs no
+      relay
 - [x] Live code sharing: a highlighted snippet page, and its QR on the slide — #15
 - [x] Snippet pages written by the build, so a scanned QR reaches a page
       rather than a 404 — #15
@@ -387,7 +390,7 @@ paid for, connected to a hand.
 - [x] Presentation mode: the checklist a browser cannot perform — #278
 - [x] Demo fallback: the presenter knowing what has buffered — #279, #292
 - [ ] Remote control: a pairing that reaches a slide — #280
-- [ ] Audience channel: deployable, or a stated non-goal — #281
+- [x] Audience channel: deployable, or a stated non-goal — #281
 - [x] The editor's text controls, which nothing constructs — #283
 - [x] The rehearsal trend across runs, which reaches no screen — #284
 - [x] A staged slide answers neither a swipe nor `f` — #299
@@ -434,12 +437,15 @@ Every one of those is the same failure wearing a different coat: something
 that cannot report is indistinguishable from something with nothing to
 report.
 
-What is left is not a list of unfinished features. Each of the four is waiting
-on something that is not code, and saying which is more useful than an estimate:
+What is left is not a list of unfinished features. Each of what remains is
+waiting on something that is not code, and saying which is more useful than
+an estimate:
 
-**#280 and #281** both need an answer to _who operates a server_, and the
-non-goals already refuse the obvious one. A relay slidx ran would make this a
-service. That is a question about what slidx **is**.
+**#281** has its answer: the author deploys the Worker from their Cloudflare
+account. slidx writes the `wrangler.toml` and the client; it does not log in
+and does not run a relay. **#280** (a pairing that reaches a slide) is the
+same answer, not yet wired to a slide — slidx still does not hold the
+session.
 
 **#286 and #234** need the same dependency decision from two directions. A
 clip's level, an image's format and a font's subset are all properties of a
@@ -468,11 +474,11 @@ reason, and there is now a check that fails when that stops being true.
 
 M7 closed the class of failure where a feature is written, tested, and
 reachable by nobody. What is left of M7 is waiting on something that is not a
-diff: who operates a server (#280, #281), a codec decision (#286, #234), and
-two registry logins. This milestone is the work that _is_ a diff — the
-documentation a new reader can actually start from, a Cloudflare path that
-does not turn slidx into a service, motion an author can pick rather than
-only declare, and a theme they can add after the fact.
+diff: wiring the remote (#280) to the author's Worker, a codec decision
+(#286, #234), and two registry logins. This milestone is the work that _is_
+a diff — the documentation a new reader can actually start from, a Cloudflare
+path that does not turn slidx into a service, motion an author can pick
+rather than only declare, and a theme they can add after the fact.
 
 GitHub issues for the new work belong here as closed-form tickets (why, done
 when, the reachable path, what it will not do). They are written in this
@@ -495,39 +501,36 @@ A checked box still means a person can reach the thing.
       `--octc-*`; radius stays 0; Ox Content's decorative skins are not used.
       _Won't:_ move the dead-link check into Vite; load Google fonts; generate
       an API reference nobody asked for.
-- [ ] **The front page says what it is, in sixty seconds.** One sentence:
+- [x] **The front page says what it is, in sixty seconds.** One sentence:
       Markdown you write, a visual editor over the same file, static HTML a
       room can open with the network off. Sixty seconds is the install that
       will exist (`vp add -D @slidxjs/vite-plugin` → `plugins: [slidx()]` →
       `vp dev` / `/__slidx/`), labelled as unreleased so it does not pretend
       the package is on npm. The twenty-minute clone walkthrough is a
       separate page. Doors by need: write, look, present, hand out, islands,
-      CLI. _Won't:_ a fake `npm i` that 404s; a stub page for a feature that
-      has no reachable path yet (FrameScript, audience, audio).
+      questions from the room, CLI. _Won't:_ a fake `npm i` that 404s; a stub
+      page for a feature that has no reachable path yet (FrameScript, audio).
 - [ ] **Japanese documentation.** Ox Content's locale map, same pages, not a
       second site with a second set of facts. After the English site is the
       one a reader can start from.
 
 ### Publish and audience
 
-- [ ] **Cloudflare Pages, with no credential in slidx.** `slidx publish`
+- [x] **Cloudflare Pages, with no credential in slidx.** `slidx publish`
       grows a seventh destination. It writes the `wrangler.toml` / Pages
       fragment that belongs on disk and prints `wrangler pages deploy`. The
       author is logged into _their_ Cloudflare account; slidx still has no
       HTTP client and no token store. _Won't:_ slidx posting as you; a
       Pages project slidx owns; a CDN in front of the deck.
-- [ ] **Audience channel that a person can deploy — #281.** The Worker
-      (`AudienceRoom` Durable Object, `handleFetch`) is written. Nothing a
-      person can open imports it, and `scripts/check-reachable.mjs` lists
-      the whole package in `UNREACHABLE` for that reason. Done when the Vite
-      plugin always imports the audience module (opt-in injects it; a barrel
-      is not a door), a `wrangler.toml` whose `main` is a root the check can
-      see sits in the package, and a documentation page that exists only
-      after that path is green. The operator is the author's Cloudflare
-      account. _Won't:_ a relay slidx runs. That would make this a service,
-      which is a question about what slidx is, and the non-goals already
-      refuse it. #280 (a pairing that reaches a slide) gets the same answer
-      once the author's Worker is the server: slidx does not hold the
+- [x] **Audience channel that a person can deploy — #281.** The Vite plugin
+      always imports `@slidxjs/audience` (opt-in injects the client; a barrel
+      is not a door). `packages/audience/wrangler.toml` names `src/worker.ts`
+      as `main`, which is a root the reachable check can see. The docs page
+      exists only because that path is green. The operator is the author's
+      Cloudflare account. _Won't:_ a relay slidx runs. That would make this
+      a service, which is a question about what slidx is, and the non-goals
+      already refuse it. #280 (a pairing that reaches a slide) gets the same
+      answer once the author's Worker is the server: slidx does not hold the
       session.
 
 ### Motion an author can actually pick
@@ -535,11 +538,10 @@ A checked box still means a person can reach the thing.
 Twenty effect presets already compile (`fade`, `fly-in`, `wipe`, `zoom`,
 `split`, `grow`, `float`, `typewriter`, `draw`, `pulse`, `shake`, `spin`,
 and the rest) and the CSS for them already ships. The timeline writes
-intent (`reveal` / `hide` / `emphasize`) and empty `StepOptions`. The gap
-is not "add more animations". It is that an author cannot choose one from
-the surface they are looking at.
+intent (`reveal` / `hide` / `emphasize`) and a named preset when the author
+picks one. Timing and easing stay on the theme.
 
-- [ ] **The timeline cell offers the presets the compiler already has.**
+- [x] **The timeline cell offers the presets the compiler already has.**
       `StepPlacement` carries an optional preset. Selecting a cell, then a
       preset, writes a `SetStep` whose options name that preset and nothing
       else — timing and easing stay on the theme, which is the contract the

@@ -123,6 +123,9 @@ importers:
 
   packages/vite-plugin:
     dependencies:
+      '@slidxjs/audience':
+        specifier: workspace:*
+        version: link:../audience
       '@slidxjs/editor':
         specifier: workspace:*
         version: link:../editor

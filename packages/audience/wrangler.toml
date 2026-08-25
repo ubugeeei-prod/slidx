@@ -1,0 +1,19 @@
+# The audience channel Worker. Deploy with:
+#
+#     wrangler deploy
+#
+# slidx does not log in and does not hold a credential. `wrangler login` is yours.
+# The Durable Object name is the room slug from the deck. Nothing here is a
+# token, an account id, or a host slidx runs.
+
+name = "slidx-audience"
+main = "src/worker.ts"
+compatibility_date = "2026-08-25"
+
+[[durable_objects.bindings]]
+name = "AUDIENCE_ROOM"
+class_name = "AudienceRoom"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["AudienceRoom"]
