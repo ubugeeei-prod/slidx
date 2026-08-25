@@ -469,7 +469,7 @@ reason, and there is now a check that fails when that stops being true.
 M7 closed the class of failure where a feature is written, tested, and
 reachable by nobody. What is left of M7 is waiting on something that is not a
 diff: who operates a server (#280, #281), a codec decision (#286, #234), and
-two registry logins. This milestone is the work that *is* a diff — the
+two registry logins. This milestone is the work that _is_ a diff — the
 documentation a new reader can actually start from, a Cloudflare path that
 does not turn slidx into a service, motion an author can pick rather than
 only declare, and a theme they can add after the fact.
@@ -493,7 +493,7 @@ A checked box still means a person can reach the thing.
       Void still deploys `docs/dist`. The in-crate HTML shell remains for
       inspection and is not the published site. Brand tokens map onto
       `--octc-*`; radius stays 0; Ox Content's decorative skins are not used.
-      *Won't:* move the dead-link check into Vite; load Google fonts; generate
+      _Won't:_ move the dead-link check into Vite; load Google fonts; generate
       an API reference nobody asked for.
 - [ ] **The front page says what it is, in sixty seconds.** One sentence:
       Markdown you write, a visual editor over the same file, static HTML a
@@ -502,7 +502,7 @@ A checked box still means a person can reach the thing.
       `vp dev` / `/__slidx/`), labelled as unreleased so it does not pretend
       the package is on npm. The twenty-minute clone walkthrough is a
       separate page. Doors by need: write, look, present, hand out, islands,
-      CLI. *Won't:* a fake `npm i` that 404s; a stub page for a feature that
+      CLI. _Won't:_ a fake `npm i` that 404s; a stub page for a feature that
       has no reachable path yet (FrameScript, audience, audio).
 - [ ] **Japanese documentation.** Ox Content's locale map, same pages, not a
       second site with a second set of facts. After the English site is the
@@ -513,8 +513,8 @@ A checked box still means a person can reach the thing.
 - [ ] **Cloudflare Pages, with no credential in slidx.** `slidx publish`
       grows a seventh destination. It writes the `wrangler.toml` / Pages
       fragment that belongs on disk and prints `wrangler pages deploy`. The
-      author is logged into *their* Cloudflare account; slidx still has no
-      HTTP client and no token store. *Won't:* slidx posting as you; a
+      author is logged into _their_ Cloudflare account; slidx still has no
+      HTTP client and no token store. _Won't:_ slidx posting as you; a
       Pages project slidx owns; a CDN in front of the deck.
 - [ ] **Audience channel that a person can deploy — #281.** The Worker
       (`AudienceRoom` Durable Object, `handleFetch`) is written. Nothing a
@@ -524,7 +524,7 @@ A checked box still means a person can reach the thing.
       is not a door), a `wrangler.toml` whose `main` is a root the check can
       see sits in the package, and a documentation page that exists only
       after that path is green. The operator is the author's Cloudflare
-      account. *Won't:* a relay slidx runs. That would make this a service,
+      account. _Won't:_ a relay slidx runs. That would make this a service,
       which is a question about what slidx is, and the non-goals already
       refuse it. #280 (a pairing that reaches a slide) gets the same answer
       once the author's Worker is the server: slidx does not hold the
@@ -544,23 +544,23 @@ the surface they are looking at.
       preset, writes a `SetStep` whose options name that preset and nothing
       else — timing and easing stay on the theme, which is the contract the
       timeline was compiled for. `vp run generate:types` updates the
-      committed `deck.d.ts`. *Won't:* a duration or an easing on the cell;
+      committed `deck.d.ts`. _Won't:_ a duration or an easing on the cell;
       a second motion model beside `EffectPreset`.
 - [ ] **Slide-to-slide motion stays four verbs, plus what MPA can do.**
       `none` / `fade` / `slide` / `push` are the ones a projector and
       `prefers-reduced-motion` can both survive. A wipe or a vertical push
       can join them if they degrade to a cut. Named view-transition elements
-      for a figure that should keep its place across two documents. *Won't:*
+      for a figure that should keep its place across two documents. _Won't:_
       a client-side router; a spin or a zoom of the whole viewport; a
       promise that every browser plays the transition.
 - [ ] **FrameScript.** A motion DSL the step compiler can read, that does
       not invade the easing the theme owns. Done when a timeline row and a
-      Markdown fence name the same thing and both compile. *Won't:* a page
+      Markdown fence name the same thing and both compile. _Won't:_ a page
       that describes a language nothing parses — that is a reachable-path
       failure wearing documentation's coat.
 - [ ] **Three.js across two slides.** The island adapter already owns the
       loop and the GL context. A continuous scene is an extension of that
-      ownership, not a second runtime that steals the canvas. *Won't:* a
+      ownership, not a second runtime that steals the canvas. _Won't:_ a
       WebGL context per slide that has to be thrown away and recreated as
       the browser follows a link.
 
@@ -572,7 +572,7 @@ the surface they are looking at.
       it does not fetch. `slidx theme` remains a leaf that lists builtins
       or audits a path — a positional `add` is a branch, not a subcommand
       that would steal a directory named `add`. The editor's theme picker
-      reads installed packages, not a catalogue slidx hosts. *Won't:* a
+      reads installed packages, not a catalogue slidx hosts. _Won't:_ a
       network call from the binary; a fifth builtin.
 - [ ] **`minimal` is the default people actually want, and extras are
       packages.** Stronger tokens on `minimal` (still radius 0, still no
@@ -584,7 +584,7 @@ the surface they are looking at.
 - [ ] **BGM and SFX bound to a step, offline.** A clip is a file in the
       deck. Ducking and a doctor reading of the output level. The clip's
       own level is already measured and shown to nobody — #286 is the same
-      work from the other direction. *Won't:* a stream from another origin;
+      work from the other direction. _Won't:_ a stream from another origin;
       a deck that is silent until a CDN answers.
 
 **Done when** a person who has never heard of slidx can tell what it is in
