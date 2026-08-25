@@ -301,8 +301,14 @@ build judges a theme in the room the deck is being built for; a published theme
 is shown in all of them, so this runs every room slidx models. It exits
 non-zero when it found something, which is the form for CI.
 
+A positional `add` names a package, not a theme and not a path. If this
+directory has a package.json, the name is written into `devDependencies` as
+`*` — slidx does not fetch, and it does not invent a version. Without a
+manifest the line to run is printed instead. `./add` is still a path.
+
     slidx theme               # the theme document beside you
-    slidx theme ./my-theme    # one somewhere else",
+    slidx theme ./my-theme    # one somewhere else
+    slidx theme add @slidxjs/theme-workshop",
         &[],
     ),
     leaf(
