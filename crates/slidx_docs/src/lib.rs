@@ -1,12 +1,14 @@
 //! # slidx docs
 //!
-//! The documentation site, rendered by the engine slidx renders decks with.
+//! The documentation site: authored Markdown, checked here, published by
+//! [Ox Content] 3.
 //!
-//! Every page is Markdown parsed by [Ox Content] through
-//! [`slidx_render::render_markdown`], drawn with the tokens
-//! [`slidx_brand`] generates, and emitted as one static HTML document per page
-//! with no script and nothing remote. A site built any other way would be a
-//! strange advertisement for the thing it documents.
+//! Every page is parsed by the same Ox Content engine
+//! [`slidx_render::render_markdown`] uses, so a placeholder, a dead link, or a
+//! page in no section still fails `cargo test -p slidx_docs` rather than a
+//! deploy. The HTML a reader sees is built by `@ox-content/vite-plugin`, from
+//! the generated tree [`prepare`] writes — filled tables, media at `/media/`,
+//! and repository links that resolve off GitHub.
 //!
 //! [Ox Content]: https://github.com/ubugeeei-prod/ox-content
 //!
@@ -37,6 +39,7 @@
 pub mod generated;
 pub mod nav;
 pub mod page;
+pub mod prepare;
 pub mod shell;
 pub mod style;
 
@@ -48,11 +51,12 @@ use std::path::{Path, PathBuf};
 
 pub use nav::Section;
 pub use page::Page;
+pub use prepare::{prepare, prepare_workspace};
 
 /// Where the pages are written, relative to the workspace root.
 pub const CONTENT_DIR: &str = "docs/content";
 
-/// Where the built site goes, relative to the workspace root.
+/// Where Ox Content writes the published site, relative to the workspace root.
 pub const OUTPUT_DIR: &str = "docs/dist";
 
 /// Pictures and recordings, relative to the workspace root.
@@ -220,7 +224,7 @@ impl Site {
 /// One level is all there is: `docs/media` holds pictures and recordings and
 /// nothing else, and a recursive copy would be machinery for a case that does
 /// not exist.
-fn copy_into(from: &Path, to: &Path) -> std::io::Result<Vec<PathBuf>> {
+pub(crate) fn copy_into(from: &Path, to: &Path) -> std::io::Result<Vec<PathBuf>> {
     fs::create_dir_all(to)?;
     let mut copied = Vec::new();
 

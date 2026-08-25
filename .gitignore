@@ -11,6 +11,9 @@ playwright-report/
 .wrangler/
 .void/
 .slidx/
+docs/.generated/
+docs/public/media/
+docs/.shell/
 packages/*/dist/
 packages/wasm/dist/
 packages/wasm/LICENSE
