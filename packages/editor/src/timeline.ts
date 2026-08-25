@@ -12,7 +12,8 @@
  * A cell holds the author's *intent* — reveal, hide, emphasize, set — and never
  * a duration or an easing. Motion belongs to the theme, so an editor that wrote
  * timing onto every action it touched would move that decision into the deck one
- * click at a time.
+ * click at a time. A named preset is the one motion word that *does* belong
+ * here: it is a vocabulary the theme already owns, not a time.
  *
  * # The one-way door
  *
@@ -32,10 +33,12 @@ import { createPlayhead, type Playhead, type PlayheadOptions } from "./playhead"
 import type { EditorState } from "./session";
 import {
   NO_STEPS,
+  PRESETS,
   actionAt,
   isGenerated,
   moveCell,
   setKind,
+  setPreset,
   toggleCell,
   type CellKind,
 } from "./timeline-cells";
@@ -233,10 +236,28 @@ export function createTimeline(handlers: TimelineHandlers, options: TimelineOpti
       return button;
     });
 
+    const picker = element(
+      "select",
+      {
+        class: "slidx-timeline-preset",
+        "aria-label": "Motion preset",
+        disabled: found === undefined,
+      },
+      [
+        element("option", { value: "" }, ["theme default"]),
+        ...PRESETS.map((token) => element("option", { value: token }, [token])),
+      ],
+    );
+    picker.value = found?.preset ?? "";
+    picker.addEventListener("change", () => {
+      if (entry) act(setPreset(grid, slide, entry, playhead.stop, picker.value));
+    });
+
     return element("div", { class: "slidx-timeline-actions" }, [
       element("span", { class: "slidx-timeline-what" }, [found?.source ?? "No stop selected."]),
       ...buttons,
       ...shift,
+      picker,
     ]);
   }
 
@@ -253,6 +274,10 @@ export function createTimeline(handlers: TimelineHandlers, options: TimelineOpti
    */
   function onKey(event: KeyboardEvent): void {
     if (event.metaKey || event.ctrlKey) return;
+    // The preset picker is a native select: its own arrow keys have to reach
+    // it, and a timeline that stole them would make choosing fly-in a fight
+    // with the playhead.
+    if (event.target instanceof HTMLSelectElement) return;
 
     const entry = selected();
     const stop = playhead.stop;

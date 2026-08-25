@@ -148,7 +148,18 @@ export const TIMELINE_STYLESHEET = `
   color: var(--slidx-e-accent);
 }
 
-.slidx-timeline-actions button:disabled { opacity: 0.45; cursor: default; }
+.slidx-timeline-actions button:disabled,
+.slidx-timeline-actions select:disabled { opacity: 0.45; cursor: default; }
+
+.slidx-timeline-preset {
+  min-height: var(--slidx-e-hit);
+  padding: 0 var(--slidx-e-snug);
+  border: var(--slidx-e-hairline) solid var(--slidx-e-line);
+  background: var(--slidx-e-canvas);
+  color: var(--slidx-e-text);
+  font: inherit;
+  cursor: pointer;
+}
 `;
 
 /** Puts the timeline's stylesheet into a document, once. */

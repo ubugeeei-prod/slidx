@@ -85,6 +85,14 @@ pub struct StepPlacement {
     pub timed: bool,
     /// Canonical `steps:` source, without the leading `- `.
     pub source: String,
+    /// The named animation, when the author wrote one.
+    ///
+    /// Absent when the theme should pick. A timeline that cannot see this has
+    /// to offer every preset as if none were chosen, and choosing one would
+    /// look like a no-op on a cell that already had it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub preset: Option<String>,
 }
 
 /// A slide's steps, as a timeline shows them.
@@ -153,6 +161,7 @@ pub fn step_grid(slide: &Slide) -> StepGrid {
             targets,
             timed,
             source: action.to_source(),
+            preset: action.options().preset.map(|preset| preset.as_token().to_string()),
         });
     }
 
@@ -353,6 +362,25 @@ mod tests {
         // Stop zero is the resting frame, so the first action lands on one.
         assert_eq!(grid.actions.iter().map(|action| action.stop).collect::<Vec<_>>(), [1, 2]);
         assert_eq!(grid.stops, 3);
+    }
+
+    #[test]
+    fn an_authored_preset_is_on_the_placement_the_timeline_reads() {
+        // The editor offers presets from this field. If it were missing, every
+        // cell would look unset and picking fly-in on a cell that already had
+        // it would write the same line again.
+        let source =
+            "---\nsteps:\n  - reveal: { target: \"#a\", preset: fly-in }\n---\n\n[a]{#a}\n";
+        let grid = grid(source);
+
+        assert_eq!(grid.actions[0].preset.as_deref(), Some("fly-in"));
+    }
+
+    #[test]
+    fn a_step_that_names_no_preset_does_not_invent_one() {
+        let source = "---\nsteps:\n  - reveal: \"#a\"\n---\n\n[a]{#a}\n";
+
+        assert_eq!(grid(source).actions[0].preset, None);
     }
 
     #[test]

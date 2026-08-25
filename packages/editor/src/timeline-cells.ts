@@ -14,6 +14,37 @@
 import type { StepGrid, StepPlacement, StepRow } from "./client";
 import type { EditOp, SlideRef, StepAction, StepOptions } from "./operations";
 
+/**
+ * Every named animation the compiler accepts, in the order `EffectPreset::ALL`
+ * lists them. Completing from this constant is what makes a preset added to
+ * the enum reachable from the timeline without a second list here — keep the
+ * two in step; the rust side is the definition.
+ */
+export const PRESETS = [
+  "none",
+  "fade",
+  "fly-in",
+  "wipe",
+  "zoom",
+  "split",
+  "grow",
+  "float",
+  "typewriter",
+  "draw",
+  "pulse",
+  "shake",
+  "spin",
+  "color-pulse",
+  "underline",
+  "fade-out",
+  "fly-out",
+  "wipe-out",
+  "zoom-out",
+  "shrink",
+] as const;
+
+export type PresetName = (typeof PRESETS)[number];
+
 /** A slide with nothing staged, so a surface has a grid before one exists. */
 export const NO_STEPS: StepGrid = { rows: [], actions: [], stops: 1, declared: false };
 
@@ -87,7 +118,12 @@ export function setKind(
   const found = actionAt(grid, row.target, stop);
   if (!found || isGenerated(grid)) return undefined;
 
-  return { op: "setStep", slide, index: found.index, action: actionOf(kind, row.target) };
+  return {
+    op: "setStep",
+    slide,
+    index: found.index,
+    action: actionOf(kind, row.target, found.preset),
+  };
 }
 
 /**
@@ -126,14 +162,47 @@ function intentFor(row: StepRow, stop: number): StepAction {
 }
 
 /**
+ * The operation that names an animation on one cell.
+ *
+ * Empty string means the theme should pick, which is written by *omitting*
+ * `preset` rather than by writing `none` — `none` is a real preset that turns
+ * motion off.
+ */
+export function setPreset(
+  grid: StepGrid,
+  slide: SlideRef,
+  row: StepRow,
+  stop: number,
+  preset: string,
+): EditOp | undefined {
+  const found = actionAt(grid, row.target, stop);
+  const kind = found ? cellKindOf(found.kind) : undefined;
+  if (!found || kind === undefined || isGenerated(grid)) return undefined;
+
+  return {
+    op: "setStep",
+    slide,
+    index: found.index,
+    action: actionOf(kind, row.target, preset === "" ? undefined : preset),
+  };
+}
+
+function cellKindOf(kind: StepPlacement["kind"]): CellKind | undefined {
+  if (kind === "reveal" || kind === "hide" || kind === "emphasize") return kind;
+  return undefined;
+}
+
+/**
  * One intent, with no timing said out loud.
  *
- * Empty options on purpose: the theme owns motion, and an editor that wrote a
- * duration and an easing onto every action it touched would turn a one-word
- * change into a diff across the slide.
+ * Empty options on purpose when the author has not named a preset: the theme
+ * owns motion, and an editor that wrote a duration and an easing onto every
+ * action it touched would turn a one-word change into a diff across the slide.
+ * A preset the author *did* pick is the one thing that belongs here.
  */
-function actionOf(kind: CellKind, target: string): StepAction {
+function actionOf(kind: CellKind, target: string, preset?: string): StepAction {
   const options: StepOptions = {};
+  if (preset !== undefined) options.preset = preset;
 
   if (kind === "hide") return { hide: { target, options } };
   if (kind === "emphasize") return { emphasize: { target, options } };

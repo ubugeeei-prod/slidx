@@ -14,7 +14,16 @@ import type { StepGrid } from "../src/client";
 import type { EditOp } from "../src/operations";
 import { createPlayhead, withStop } from "../src/playhead";
 import { createTimeline } from "../src/timeline";
-import { NO_STEPS, actionAt, isGenerated, positionFor, toggleCell } from "../src/timeline-cells";
+import {
+  NO_STEPS,
+  PRESETS,
+  actionAt,
+  isGenerated,
+  positionFor,
+  setKind,
+  setPreset,
+  toggleCell,
+} from "../src/timeline-cells";
 import type { EditorState } from "../src/session";
 
 /** A slide with three reveals, which is the shape an author builds first. */
@@ -152,6 +161,53 @@ describe("a cell of the grid", () => {
     expect(isGenerated(build())).toBe(false);
     expect(isGenerated({ ...generated(), declared: true })).toBe(false);
     expect(isGenerated(NO_STEPS)).toBe(false);
+  });
+
+  it("names every animation the renderer ships", () => {
+    // Twenty tokens, same order as `EffectPreset::ALL`. A picker that drifted
+    // would offer a name the CSS does not know, or hide one the CSS does.
+    expect(PRESETS).toHaveLength(20);
+    expect(PRESETS).toContain("none");
+    expect(PRESETS).toContain("fly-in");
+    expect(PRESETS).toContain("typewriter");
+  });
+
+  it("writes the named animation onto the existing step", () => {
+    const op = setPreset(build(), 0, build().rows[0]!, 1, "fly-in");
+
+    expect(op).toEqual({
+      op: "setStep",
+      slide: 0,
+      index: 0,
+      action: { reveal: { target: "#a", options: { preset: "fly-in" } } },
+    } satisfies EditOp);
+  });
+
+  it("omits the preset when the author hands the choice back to the theme", () => {
+    const op = setPreset(build(), 0, build().rows[0]!, 1, "");
+
+    expect(op).toEqual({
+      op: "setStep",
+      slide: 0,
+      index: 0,
+      action: { reveal: { target: "#a", options: {} } },
+    } satisfies EditOp);
+  });
+
+  it("keeps an authored preset when only the kind changes", () => {
+    const grid = build();
+    grid.actions[0]!.preset = "pulse";
+
+    expect(setKind(grid, 0, grid.rows[0]!, 1, "emphasize")).toEqual({
+      op: "setStep",
+      slide: 0,
+      index: 0,
+      action: { emphasize: { target: "#a", options: { preset: "pulse" } } },
+    } satisfies EditOp);
+  });
+
+  it("cannot name an animation on a generated cell", () => {
+    expect(setPreset(generated(), 0, generated().rows[0]!, 1, "fly-in")).toBeUndefined();
   });
 });
 
@@ -316,6 +372,39 @@ describe("the timeline panel", () => {
         action: { emphasize: { target: "#a", options: {} } },
       },
     ]);
+  });
+
+  it("names a motion preset from the action bar as one operation", () => {
+    const ops: EditOp[] = [];
+    const timeline = createTimeline({ run: (op) => ops.push(op) }, { transport: null });
+    timeline.render(stateOf(build()));
+
+    press(timeline.root, "ArrowRight");
+    const picker = timeline.root.querySelector<HTMLSelectElement>(".slidx-timeline-preset")!;
+    picker.value = "fly-in";
+    picker.dispatchEvent(new Event("change"));
+
+    expect(ops).toEqual([
+      {
+        op: "setStep",
+        slide: 0,
+        index: 0,
+        action: { reveal: { target: "#a", options: { preset: "fly-in" } } },
+      },
+    ]);
+  });
+
+  it("shows the preset the cell already has rather than looking unset", () => {
+    const grid = build();
+    grid.actions[0]!.preset = "pulse";
+    const timeline = createTimeline({ run: () => {} }, { transport: null });
+    timeline.render(stateOf(grid));
+
+    press(timeline.root, "ArrowRight");
+
+    expect(timeline.root.querySelector<HTMLSelectElement>(".slidx-timeline-preset")!.value).toBe(
+      "pulse",
+    );
   });
 
   it("says the stop again when the canvas reloads under it", () => {

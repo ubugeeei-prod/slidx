@@ -38,6 +38,13 @@ export interface StepPlacement {
   timed: boolean;
   /** Canonical `steps:` source, without the leading `- `. */
   source: string;
+  /**
+   * The named animation, when the author wrote one.
+   *
+   * Absent when the theme should pick. The timeline reads this so a picker
+   * can show what is already chosen rather than looking unset.
+   */
+  preset?: string;
 }
 
 /**
