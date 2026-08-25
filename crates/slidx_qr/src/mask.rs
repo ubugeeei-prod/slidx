@@ -24,14 +24,14 @@ pub(crate) const MASK_COUNT: u8 = 8;
 /// diagonals — so that whatever regularity the data has, some mask breaks it.
 pub(crate) fn inverts(pattern: u8, row: usize, column: usize) -> bool {
     match pattern {
-        0 => (row + column) % 2 == 0,
-        1 => row % 2 == 0,
-        2 => column % 3 == 0,
-        3 => (row + column) % 3 == 0,
-        4 => (row / 2 + column / 3) % 2 == 0,
+        0 => (row + column).is_multiple_of(2),
+        1 => row.is_multiple_of(2),
+        2 => column.is_multiple_of(3),
+        3 => (row + column).is_multiple_of(3),
+        4 => (row / 2 + column / 3).is_multiple_of(2),
         5 => (row * column) % 2 + (row * column) % 3 == 0,
-        6 => ((row * column) % 2 + (row * column) % 3) % 2 == 0,
-        _ => ((row + column) % 2 + (row * column) % 3) % 2 == 0,
+        6 => ((row * column) % 2 + (row * column) % 3).is_multiple_of(2),
+        _ => ((row + column) % 2 + (row * column) % 3).is_multiple_of(2),
     }
 }
 
@@ -294,7 +294,7 @@ mod tests {
         let size = matrix.size();
         for row in 0..size {
             for column in 0..size {
-                matrix.set(row, column, (row * size + column) % 2 == 0);
+                matrix.set(row, column, (row * size + column).is_multiple_of(2));
             }
         }
 

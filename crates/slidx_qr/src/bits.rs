@@ -29,7 +29,7 @@ impl BitBuffer {
 
     /// Pads with zero bits until the stream ends on a byte boundary.
     pub(crate) fn pad_to_byte(&mut self) {
-        while self.bits.len() % 8 != 0 {
+        while !self.bits.len().is_multiple_of(8) {
             self.bits.push(false);
         }
     }

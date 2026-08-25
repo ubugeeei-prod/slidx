@@ -137,7 +137,11 @@ mod tests {
         for (index, rows) in rows_by_pair.iter().enumerate() {
             let descending = rows.first() > rows.last();
 
-            assert_eq!(descending, index % 2 == 0, "column pair {index} runs the wrong way");
+            assert_eq!(
+                descending,
+                index.is_multiple_of(2),
+                "column pair {index} runs the wrong way"
+            );
         }
     }
 
@@ -150,7 +154,7 @@ mod tests {
 
         assert!(positions(&grid(2)).iter().all(|&(_, column)| column != 6));
         for row in 8..matrix.size() - 8 {
-            assert_eq!(matrix.get(row, 6), row % 2 == 0, "timing survived placement");
+            assert_eq!(matrix.get(row, 6), row.is_multiple_of(2), "timing survived placement");
         }
     }
 

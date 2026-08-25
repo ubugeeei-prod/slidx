@@ -113,7 +113,7 @@ impl Matrix {
     /// way across the symbol.
     fn draw_timing(&mut self) {
         for position in 8..self.size - 8 {
-            let dark = position % 2 == 0;
+            let dark = position.is_multiple_of(2);
             self.set_function(6, position, dark);
             self.set_function(position, 6, dark);
         }
@@ -255,8 +255,8 @@ mod tests {
         let matrix = matrix(7);
 
         for position in 8..matrix.size() - 8 {
-            assert_eq!(matrix.get(6, position), position % 2 == 0);
-            assert_eq!(matrix.get(position, 6), position % 2 == 0);
+            assert_eq!(matrix.get(6, position), position.is_multiple_of(2));
+            assert_eq!(matrix.get(position, 6), position.is_multiple_of(2));
         }
     }
 
@@ -314,7 +314,7 @@ mod tests {
         let matrix = matrix(7);
 
         for column in 20..=24 {
-            assert_eq!(matrix.get(6, column), column % 2 == 0);
+            assert_eq!(matrix.get(6, column), column.is_multiple_of(2));
         }
     }
 

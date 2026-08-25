@@ -445,7 +445,7 @@ fn quoted(text: &str) -> String {
 fn length(seconds: Option<u32>) -> String {
     match seconds {
         None => "none".to_string(),
-        Some(seconds) if seconds % 60 == 0 => format!("{}m", seconds / 60),
+        Some(seconds) if seconds.is_multiple_of(60) => format!("{}m", seconds / 60),
         Some(seconds) if seconds < 60 => format!("{seconds}s"),
         Some(seconds) => format!("{}m{}s", seconds / 60, seconds % 60),
     }
