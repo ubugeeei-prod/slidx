@@ -628,6 +628,14 @@ export type StepPlacement = {
    * Canonical `steps:` source, without the leading `- `.
    */
   source: string;
+  /**
+   * The named animation, when the author wrote one.
+   *
+   * Absent when the theme should pick. A timeline that cannot see this has
+   * to offer every preset as if none were chosen, and choosing one would
+   * look like a no-op on a cell that already had it.
+   */
+  preset?: string;
 };
 
 /**
