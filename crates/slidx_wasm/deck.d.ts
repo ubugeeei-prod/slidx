@@ -90,6 +90,14 @@ export type BuildOptions = {
    */
   cameraSrc: string | null;
   /**
+   * Module URL a slide that has a clip imports level metering from.
+   *
+   * Its own file rather than part of `runtime_src`, because that one is on
+   * every staged slide of every deck and this is for the few decks that
+   * place a clip.
+   */
+  mediaSrc: string | null;
+  /**
    * Module URL the presenter view imports its own half of the runtime from.
    *
    * Separate from `runtime_src` because that file is on every staged slide.

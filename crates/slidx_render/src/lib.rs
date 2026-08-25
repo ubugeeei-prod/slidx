@@ -41,6 +41,7 @@ pub mod keys;
 pub mod layout;
 pub mod markdown;
 mod mdx;
+pub mod media_script;
 pub mod navigation;
 pub mod og;
 pub mod overview;

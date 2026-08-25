@@ -103,6 +103,12 @@ pub struct BuildOptions {
     /// every staged slide of every deck and this is for the few decks that
     /// place a camera.
     pub camera_src: Option<String>,
+    /// Module URL a slide that has a clip imports level metering from.
+    ///
+    /// Its own file rather than part of `runtime_src`, because that one is on
+    /// every staged slide of every deck and this is for the few decks that
+    /// place a clip.
+    pub media_src: Option<String>,
     /// Module URL the presenter view imports its own half of the runtime from.
     ///
     /// Separate from `runtime_src` because that file is on every staged slide.
@@ -657,6 +663,27 @@ mod tests {
 
         assert!(presenter.contains("out loud"));
         assert!(!body.contains("out loud"), "the notes reached the slide:\n{body}");
+    }
+
+    #[test]
+    fn a_clip_reaches_the_presenter_from_the_address_supplied() {
+        let options = BuildOptions {
+            presenter: true,
+            media_src: Some("/deck/media.js".into()),
+            ..BuildOptions::default()
+        };
+        let result = build(
+            "# One\n\n---\n\n# Two\n\n<video src=\"./loud.mp4\" controls></video>\n",
+            &options,
+        );
+
+        let presenter = result.slides[0].presenter_html.as_ref().unwrap();
+        let slide = result.slides[1].html.as_ref().unwrap();
+
+        assert!(presenter.contains(r#"from "/deck/media.js""#), "{presenter}");
+        assert!(presenter.contains("./loud.mp4"), "{presenter}");
+        assert!(slide.contains(r#"from "/deck/media.js""#), "{slide}");
+        assert!(slide.contains("createMediaController"), "{slide}");
     }
 
     #[test]

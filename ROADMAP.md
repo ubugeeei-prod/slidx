@@ -380,10 +380,9 @@ directories, and it parses a deck only once something in it has already matched
 
 Tracking issue: #275
 
-Everything above is checked except six boxes, and five of those six are the
-same defect wearing five faces: the code is written, the tests pass, and no
-person can reach it. v1.0 closes that — not more features, the ones already
-paid for, connected to a hand.
+Everything above is checked except three boxes: a pairing that reaches a
+slide, a codec for images and fonts, and the registry logins. v1.0 closes
+that — not more features, the ones already paid for, connected to a hand.
 
 - [x] `check:reachable`: CI fails on a module no page can call — #276
 - [x] Pace reaches the presenter view — #277
@@ -395,7 +394,8 @@ paid for, connected to a hand.
 - [x] The rehearsal trend across runs, which reaches no screen — #284
 - [x] A staged slide answers neither a swipe nor `f` — #299
 - [x] Two key tables, and the one that ships cannot be shown — #285
-- [ ] A clip's level, measured and shown to nobody — #286
+- [x] A clip's level, measured and shown to the presenter before the room
+      hears it — #286
 - [x] A declared camera that never opens — #296
 - [x] An audience downloads 57% of a runtime it cannot run — #291
 - [x] An image that does not move the slide, from a measurement already taken —
@@ -447,11 +447,12 @@ and does not run a relay. **#280** (a pairing that reaches a slide) is the
 same answer, not yet wired to a slide — slidx still does not hold the
 session.
 
-**#286 and #234** need the same dependency decision from two directions. A
-clip's level, an image's format and a font's subset are all properties of a
-file, measured once at build time — and each needs a codec that works offline,
-on three platforms, without adding a native build step to a deck. Worth
-deciding once rather than three times.
+**#286** is done without a build-time codec. The presenter page fetches the
+next slide's file, `OfflineAudioContext.decodeAudioData` measures it, and
+the audience slide writes the element's `volume` — Web Audio at presentation
+time, not a native decoder in the build. **#234** (image formats and font
+subsets) is still a file property that wants a codec that works offline, on
+three platforms, without adding a native build step to a deck.
 
 The half of #234 that needed no codec is done. Every image the plugin measures
 now reaches the page with its own dimensions, so a browser reserves the box
@@ -475,7 +476,7 @@ reason, and there is now a check that fails when that stops being true.
 M7 closed the class of failure where a feature is written, tested, and
 reachable by nobody. What is left of M7 is waiting on something that is not a
 diff: wiring the remote (#280) to the author's Worker, a codec decision
-(#286, #234), and two registry logins. This milestone is the work that _is_
+(#234), and two registry logins. This milestone is the work that _is_
 a diff — the documentation a new reader can actually start from, a Cloudflare
 path that does not turn slidx into a service, motion an author can pick
 rather than only declare, and a theme they can add after the fact.
@@ -484,7 +485,7 @@ GitHub issues for the new work belong here as closed-form tickets (why, done
 when, the reachable path, what it will not do). They are written in this
 file rather than only in the tracker, because a box that points at an issue
 that does not exist is the same shape M7 was built to refuse. Existing open
-issues are not duplicated: #1, #234, #275, #280, #281, #286.
+issues are not duplicated: #1, #234, #275, #280, #281.
 
 A checked box still means a person can reach the thing.
 
@@ -509,7 +510,7 @@ A checked box still means a person can reach the thing.
       the package is on npm. The twenty-minute clone walkthrough is a
       separate page. Doors by need: write, look, present, hand out, islands,
       questions from the room, CLI. _Won't:_ a fake `npm i` that 404s; a stub
-      page for a feature that has no reachable path yet (FrameScript, audio).
+      page for a feature that has no reachable path yet (FrameScript, BGM).
 - [ ] **Japanese documentation.** Ox Content's locale map, same pages, not a
       second site with a second set of facts. After the English site is the
       one a reader can start from.
@@ -585,9 +586,10 @@ picks one. Timing and easing stay on the theme.
 
 - [ ] **BGM and SFX bound to a step, offline.** A clip is a file in the
       deck. Ducking and a doctor reading of the output level. The clip's
-      own level is already measured and shown to nobody — #286 is the same
-      work from the other direction. _Won't:_ a stream from another origin;
-      a deck that is silent until a CDN answers.
+      own level now reaches the presenter before the room hears it — #286
+      closed that half. Binding a clip to a step is the work that remains.
+      _Won't:_ a stream from another origin; a deck that is silent until a
+      CDN answers.
 
 **Done when** a person who has never heard of slidx can tell what it is in
 one page, start from a clone without being lied to about npm, publish a

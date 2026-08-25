@@ -37,6 +37,12 @@ pub struct PresenterOptions {
     /// the pacing model are on no slide at all.
     pub presenter_runtime_src: String,
     pub rehearsal_src: String,
+    /// Module URL a clip's level is measured from.
+    ///
+    /// Its own file rather than part of `runtime_src`, because that one is on
+    /// every staged slide and this is for the few decks that place a clip.
+    /// See `crate::media_script`.
+    pub media_src: String,
 }
 
 impl Default for PresenterOptions {
@@ -47,6 +53,7 @@ impl Default for PresenterOptions {
             runtime_src: "./runtime.js".to_string(),
             presenter_runtime_src: "./presenter.js".to_string(),
             rehearsal_src: "./rehearsal.js".to_string(),
+            media_src: "./media.js".to_string(),
         }
     }
 }
@@ -116,6 +123,7 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
       </button>
       <span class="slidx-rehearsal-status" data-slidx-rehearsal-status aria-live="polite"></span>
       <span class="slidx-demo-state" data-slidx-demo-state aria-live="polite"></span>
+      <span class="slidx-clip-level" data-slidx-clip-level aria-live="polite"></span>
       <span class="slidx-presenter-position">{number} / {count}</span>
       <span class="slidx-presenter-stop" data-slidx-stop>{stops}</span>
     </div>
@@ -168,6 +176,7 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
 <script type="module">
 {script}
 </script>
+{media}
 </body>
 </html>
 "#,
@@ -196,6 +205,12 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
             &options.runtime_src,
             &options.presenter_runtime_src,
             &options.rehearsal_src,
+        ),
+        media = crate::media_script::presenter_script(
+            deck,
+            slide,
+            &options.media_src,
+            &options.markdown,
         ),
     )
 }
@@ -596,6 +611,40 @@ mod tests {
 
         assert!(staged.contains("stop 1 of 3"), "no stop counter on a staged slide:\n{staged}");
         assert!(plain.contains("data-slidx-stop></span>"), "a stop counter for one stop:\n{plain}");
+    }
+
+    #[test]
+    fn a_clip_on_the_next_slide_is_named_on_this_one() {
+        let html =
+            presenter("# One\n\n---\n\n# Two\n\n<video src=\"./loud.mp4\" controls></video>\n", 0);
+
+        assert!(html.contains("data-slidx-clip-level"), "no clip line:\n{html}");
+        assert!(html.contains("measureClip"), "nothing measures it:\n{html}");
+        assert!(html.contains("./loud.mp4"), "the file is unnamed:\n{html}");
+        assert!(html.contains(r#"from "./media.js""#), "{html}");
+    }
+
+    #[test]
+    fn a_deck_with_no_clip_does_not_import_the_decoder() {
+        let html = presenter("# One\n", 0);
+
+        assert!(!html.contains("measureClip"), "{html}");
+        assert!(!html.contains("media.js"), "{html}");
+    }
+
+    #[test]
+    fn media_import_uses_the_source_the_builder_supplies() {
+        let deck = parse_deck(
+            "# One\n\n---\n\n# Two\n\n<audio src=\"./a.mp3\"></audio>\n",
+            &DeckParseOptions::default(),
+        );
+        let options = PresenterOptions {
+            media_src: "/assets/media.js".to_string(),
+            ..PresenterOptions::default()
+        };
+        let html = render_presenter(&deck, &deck.slides[0], &options);
+
+        assert!(html.contains(r#"from "/assets/media.js""#));
     }
 
     #[test]

@@ -395,3 +395,40 @@ describe("image sizes", () => {
     expect(output).not.toContain("resolution/");
   }, 60_000);
 });
+
+/**
+ * A clip's level, on the pages that can act on it.
+ *
+ * The module existed and nothing called it, so a `<video>` played at whatever
+ * level the file had. The presenter view has to name the clip *before* that
+ * slide, and the audience slide has to write `volume` — and a deck with no
+ * clip must not download a byte of the decoder. The last of those is the
+ * default-deck assertion above; this is the first two.
+ */
+describe("a deck with a clip", () => {
+  it("emits the decoder only for a deck that places one", async () => {
+    const withClip = await buildDeck({
+      "0001.md": "# One\n",
+      "0002.md": '# Two\n\n<video src="./loud.mp4" controls></video>\n',
+    });
+    const without = await buildDeck({ "0001.md": "# One\n" });
+
+    expect(withClip.files).toContain("slides/media.js");
+    expect(without.files).not.toContain("slides/media.js");
+
+    const presenter = await readFile(
+      join(withClip.root, "dist/slides/presenter/index.html"),
+      "utf8",
+    );
+    const slide = await readFile(join(withClip.root, "dist/slides/2/index.html"), "utf8");
+    const media = await readFile(join(withClip.root, "dist/slides/media.js"), "utf8");
+
+    expect(presenter).toContain('from "/slides/media.js"');
+    expect(presenter).toContain("./loud.mp4");
+    expect(presenter).toContain("measureClip");
+    expect(slide).toContain('from "/slides/media.js"');
+    expect(slide).toContain("createMediaController");
+    expect(media).toContain("createMediaController");
+    expect(media).not.toMatch(/from\s+["']@slidxjs\//);
+  }, 60_000);
+});

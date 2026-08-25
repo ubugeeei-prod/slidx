@@ -142,6 +142,7 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
 
     let runtime_src = options.runtime_src.clone().unwrap_or_else(|| "./runtime.js".to_string());
     let camera_src = options.camera_src.clone().unwrap_or_else(|| "./camera.js".to_string());
+    let media_src = options.media_src.clone().unwrap_or_else(|| "./media.js".to_string());
     let presenter_runtime_src =
         options.presenter_runtime_src.clone().unwrap_or_else(|| "./presenter.js".to_string());
     let rehearsal_src =
@@ -163,6 +164,7 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
         markdown,
         runtime_src: runtime_src.clone(),
         camera_src,
+        media_src: media_src.clone(),
         seo: seo.clone(),
         asset_sizes: std::sync::Arc::new(drawn.clone()),
         ..ShellOptions::default()
@@ -177,6 +179,7 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
         runtime_src: runtime_src.clone(),
         presenter_runtime_src,
         rehearsal_src,
+        media_src,
     };
 
     let render = !options.parse_only;

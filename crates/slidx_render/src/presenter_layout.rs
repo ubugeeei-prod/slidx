@@ -271,6 +271,20 @@ html, body {
 .slidx-demo-state { color: var(--slidx-color-muted); }
 [data-slidx-demo-ready="false"] { color: #b26a00; }
 
+/*
+ * The clip on this slide or the next, in words, before anyone hears it.
+ *
+ * Empty until there is a clip to talk about — `:empty` hides the line so a
+ * deck with no media does not leave a hole in the bar. Coloured only when
+ * the file will startle the room or vanish into it, and in the warning
+ * rather than the overrun colour: this is a thing to fix in the file, not
+ * a thing the clock can recover.
+ */
+.slidx-clip-level { color: var(--slidx-color-muted); }
+.slidx-clip-level:empty { display: none; }
+[data-slidx-clip-status="too-loud"],
+[data-slidx-clip-status="too-quiet"] { color: #b26a00; }
+
 .slidx-presenter-divider {
   align-self: stretch;
   border-left: var(--slidx-hairline) solid var(--slidx-color-border);
