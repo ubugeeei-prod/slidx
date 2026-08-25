@@ -20,6 +20,8 @@ export { composeArchive, describeArchive } from "./targets/archive";
 export type { ArchiveRecord } from "./targets/archive";
 export { composeBlog, describeBlog } from "./targets/blog";
 export type { BlogScaffold, BlogSection } from "./targets/blog";
+export { composeCloudflare, describeCloudflare } from "./targets/cloudflare";
+export type { CloudflarePages } from "./targets/cloudflare";
 export { composeDocswell, describeDocswell } from "./targets/docswell";
 export type { DocswellUpload } from "./targets/docswell";
 export { composeResources, describeResources } from "./targets/resources";

@@ -156,6 +156,7 @@ export type PublishTarget =
   | "social"
   | "blog"
   | "resources"
+  | "cloudflare"
   | "archive";
 
 /**
@@ -167,6 +168,7 @@ export type ReadyPayload =
   | SocialPost
   | BlogScaffold
   | ResourcesPage
+  | CloudflarePages
   | ArchiveRecord;
 
 /**
@@ -284,6 +286,28 @@ export type ResourcesPage = {
 };
 
 /**
+ * What slidx writes, and the command the author still has to run.
+ */
+export type CloudflarePages = {
+  /**
+   * Pages project name. Alphanumeric and dashes only.
+   */
+  name: string;
+  /**
+   * Always [`PATH`].
+   */
+  path: string;
+  /**
+   * The file, comments included.
+   */
+  toml: string;
+  /**
+   * What the author runs after slidx writes the file. Never executed here.
+   */
+  command: string;
+};
+
+/**
  * A talk, as it will be remembered.
  */
 export type ArchiveRecord = {
@@ -377,12 +401,14 @@ export type PublishCall =
   | { op: "composeSocial"; source: DeckSource; options: SocialOptions }
   | ({ op: "composeBlog" } & DeckSource)
   | ({ op: "composeResources" } & DeckSource)
+  | ({ op: "composeCloudflare" } & DeckSource)
   | ({ op: "composeArchive" } & DeckSource)
   | { op: "describeSpeakerDeck"; upload: SpeakerDeckUpload }
   | { op: "describeDocswell"; upload: DocswellUpload }
   | { op: "describeSocial"; post: SocialPost }
   | { op: "describeBlog"; scaffold: BlogScaffold }
   | { op: "describeResources"; page: ResourcesPage }
+  | { op: "describeCloudflare"; pages: CloudflarePages }
   | { op: "describeArchive"; record: ArchiveRecord }
   | ({ op: "collectLinks" } & DeckSource)
   | { op: "buildTalkIndex"; records: Array<ArchiveRecord>; options: TalkIndexOptions }
@@ -399,8 +425,8 @@ export type PublishCall =
  * A composed payload, or the reasons there is none.
  *
  * Targets answer with this rather than failing. A plan is most useful when the
- * deck is least ready, so one missing field must not stop the other four
- * targets from being planned and printed.
+ * deck is least ready, so one missing field must not stop the other
+ * destinations from being planned and printed.
  */
 export type Composed<T> = { ok: true; value: T } | { ok: false; reasons: BlockedReason[] };
 
@@ -417,5 +443,6 @@ export type PublishStep =
   | { status: "ready"; target: "social"; summary: string; payload: SocialPost }
   | { status: "ready"; target: "blog"; summary: string; payload: BlogScaffold }
   | { status: "ready"; target: "resources"; summary: string; payload: ResourcesPage }
+  | { status: "ready"; target: "cloudflare"; summary: string; payload: CloudflarePages }
   | { status: "ready"; target: "archive"; summary: string; payload: ArchiveRecord }
   | { status: "blocked"; target: PublishTarget; summary: string; reasons: BlockedReason[] };

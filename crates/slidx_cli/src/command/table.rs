@@ -644,10 +644,12 @@ otherwise.
         "do the half of publishing that needs no account",
         "publish [path] [options]",
         "\
-Plans all six destinations from frontmatter the author already wrote, and then
-performs the four that are files on their own disk: the blog scaffold assembled
+Plans all seven destinations from frontmatter the author already wrote, and then
+performs the five that are files on their own disk: the blog scaffold assembled
 from the speaker notes, the resources page built from every link in the deck,
-the talk's archive record, and the index over every record beside it.
+the talk's archive record, the index over every record beside it, and the
+wrangler.toml Cloudflare Pages deploys from. The last of those is yours to run:
+`wrangler pages deploy`. slidx still has no HTTP client and no token store.
 
 Speaker Deck and Docswell need an account. slidx composes what to send them,
 prints it as fields to paste, and names the page to paste it into — it stores

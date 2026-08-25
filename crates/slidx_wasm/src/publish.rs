@@ -25,9 +25,9 @@
 use serde::Serialize;
 use slidx_publish::{
     ArchiveRecord, Artifact, ArtifactKind, BlockedReason, BlogScaffold, BlogSection, Call,
-    DeckLink, DeckMetadata, DeckSlide, DeckSource, DocswellUpload, PlanOptions, PublishPlan,
-    PublishTarget, ReadyPayload, ResourcesPage, SocialOptions, SocialPost, SpeakerDeckUpload,
-    TalkIndex, TalkIndexOptions,
+    CloudflarePages, DeckLink, DeckMetadata, DeckSlide, DeckSource, DocswellUpload, PlanOptions,
+    PublishPlan, PublishTarget, ReadyPayload, ResourcesPage, SocialOptions, SocialPost,
+    SpeakerDeckUpload, TalkIndex, TalkIndexOptions,
 };
 use ts_rs::Config;
 use wasm_bindgen::prelude::*;
@@ -95,8 +95,8 @@ const FOOTER: &str = r#"
  * A composed payload, or the reasons there is none.
  *
  * Targets answer with this rather than failing. A plan is most useful when the
- * deck is least ready, so one missing field must not stop the other four
- * targets from being planned and printed.
+ * deck is least ready, so one missing field must not stop the other
+ * destinations from being planned and printed.
  */
 export type Composed<T> = { ok: true; value: T } | { ok: false; reasons: BlockedReason[] };
 
@@ -113,6 +113,7 @@ export type PublishStep =
   | { status: "ready"; target: "social"; summary: string; payload: SocialPost }
   | { status: "ready"; target: "blog"; summary: string; payload: BlogScaffold }
   | { status: "ready"; target: "resources"; summary: string; payload: ResourcesPage }
+  | { status: "ready"; target: "cloudflare"; summary: string; payload: CloudflarePages }
   | { status: "ready"; target: "archive"; summary: string; payload: ArchiveRecord }
   | { status: "blocked"; target: PublishTarget; summary: string; reasons: BlockedReason[] };
 "#;
@@ -144,6 +145,7 @@ pub fn generate() -> String {
     push::<BlogScaffold>(&mut file, &cfg);
     push::<BlogSection>(&mut file, &cfg);
     push::<ResourcesPage>(&mut file, &cfg);
+    push::<CloudflarePages>(&mut file, &cfg);
     push::<ArchiveRecord>(&mut file, &cfg);
 
     // The resources page's input, and the index built from many records.

@@ -54,6 +54,7 @@ export const PUBLISH_TARGETS = [
   "social",
   "blog",
   "resources",
+  "cloudflare",
   "archive",
 ] as const satisfies readonly PublishTarget[];
 

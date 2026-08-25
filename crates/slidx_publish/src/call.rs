@@ -19,10 +19,11 @@ use crate::links::{collect_links, DeckLink};
 use crate::plan::{format_plan, is_ready, plan_publish, PlanOptions, PublishPlan};
 use crate::talks::{build_talk_index, TalkIndex, TalkIndexOptions};
 use crate::targets::{
-    compose_archive, compose_blog, compose_docswell, compose_resources, compose_social,
-    compose_speaker_deck, describe_archive, describe_blog, describe_docswell, describe_resources,
-    describe_social, describe_speaker_deck, ArchiveRecord, BlogScaffold, DocswellUpload,
-    ResourcesPage, SocialOptions, SocialPost, SpeakerDeckUpload,
+    compose_archive, compose_blog, compose_cloudflare, compose_docswell, compose_resources,
+    compose_social, compose_speaker_deck, describe_archive, describe_blog, describe_cloudflare,
+    describe_docswell, describe_resources, describe_social, describe_speaker_deck, ArchiveRecord,
+    BlogScaffold, CloudflarePages, DocswellUpload, ResourcesPage, SocialOptions, SocialPost,
+    SpeakerDeckUpload,
 };
 use crate::text;
 use crate::types::{Composed, DeckSource};
@@ -44,6 +45,7 @@ pub enum Call {
     ComposeSocial { source: DeckSource, options: SocialOptions },
     ComposeBlog(DeckSource),
     ComposeResources(DeckSource),
+    ComposeCloudflare(DeckSource),
     ComposeArchive(DeckSource),
 
     DescribeSpeakerDeck { upload: SpeakerDeckUpload },
@@ -51,6 +53,7 @@ pub enum Call {
     DescribeSocial { post: SocialPost },
     DescribeBlog { scaffold: BlogScaffold },
     DescribeResources { page: ResourcesPage },
+    DescribeCloudflare { pages: CloudflarePages },
     DescribeArchive { record: ArchiveRecord },
 
     CollectLinks(DeckSource),
@@ -86,6 +89,7 @@ pub enum Answer {
     Social(Composed<SocialPost>),
     Blog(Composed<BlogScaffold>),
     Resources(Composed<ResourcesPage>),
+    Cloudflare(Composed<CloudflarePages>),
     Archive(Composed<ArchiveRecord>),
 }
 
@@ -104,6 +108,7 @@ impl Call {
             }
             Self::ComposeBlog(source) => Answer::Blog(compose_blog(&source)),
             Self::ComposeResources(source) => Answer::Resources(compose_resources(&source)),
+            Self::ComposeCloudflare(source) => Answer::Cloudflare(compose_cloudflare(&source)),
             Self::ComposeArchive(source) => Answer::Archive(compose_archive(&source)),
 
             Self::DescribeSpeakerDeck { upload } => Answer::Text(describe_speaker_deck(&upload)),
@@ -111,6 +116,7 @@ impl Call {
             Self::DescribeSocial { post } => Answer::Text(describe_social(&post)),
             Self::DescribeBlog { scaffold } => Answer::Text(describe_blog(&scaffold)),
             Self::DescribeResources { page } => Answer::Text(describe_resources(&page)),
+            Self::DescribeCloudflare { pages } => Answer::Text(describe_cloudflare(&pages)),
             Self::DescribeArchive { record } => Answer::Text(describe_archive(&record)),
 
             Self::CollectLinks(source) => Answer::Links(collect_links(&source)),
@@ -185,6 +191,18 @@ mod tests {
 
         assert_eq!(blocked["ok"], false);
         assert_eq!(blocked["reasons"][0]["field"], "title");
+    }
+
+    #[test]
+    fn a_pages_project_crosses_as_a_file_rather_than_a_login() {
+        let ready = answer(json!({ "op": "composeCloudflare", "meta": { "title": "A talk" } }));
+
+        assert_eq!(ready["ok"], true);
+        assert_eq!(ready["value"]["command"], "wrangler pages deploy");
+        assert!(
+            ready["value"]["toml"].as_str().expect("toml").contains("pages_build_output_dir"),
+            "{ready}"
+        );
     }
 
     #[test]

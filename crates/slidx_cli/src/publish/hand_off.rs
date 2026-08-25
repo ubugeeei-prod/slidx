@@ -1,6 +1,6 @@
 //! The half slidx will not do for you.
 //!
-//! Two of the six destinations need an account. slidx composes what to send
+//! Two of the seven destinations need an account. slidx composes what to send
 //! them and stops there — deliberately, and this module is where the decision
 //! is visible rather than implied.
 //!
@@ -75,7 +75,10 @@ pub fn hand_off(step: &PublishStep) -> Option<HandOff> {
                 ("image", post.image.clone().unwrap_or_default()),
             ],
         }),
-        ReadyPayload::Blog(_) | ReadyPayload::Resources(_) | ReadyPayload::Archive(_) => None,
+        ReadyPayload::Blog(_)
+        | ReadyPayload::Resources(_)
+        | ReadyPayload::Cloudflare(_)
+        | ReadyPayload::Archive(_) => None,
     }
 }
 
@@ -186,7 +189,8 @@ mod tests {
 
     #[test]
     fn a_page_slidx_writes_itself_is_not_handed_over() {
-        for target in [PublishTarget::Resources, PublishTarget::Archive] {
+        for target in [PublishTarget::Resources, PublishTarget::Archive, PublishTarget::Cloudflare]
+        {
             assert_eq!(hand_off(&steps(vec![target])[0]), None);
         }
     }

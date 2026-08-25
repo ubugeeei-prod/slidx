@@ -16,6 +16,7 @@
 
 pub mod archive;
 pub mod blog;
+pub mod cloudflare;
 pub mod docswell;
 pub mod resources;
 pub mod social;
@@ -25,6 +26,7 @@ pub use archive::{
     compose_archive, describe_archive, is_orderable_date, read_record, ArchiveRecord,
 };
 pub use blog::{compose_blog, describe_blog, BlogScaffold, BlogSection};
+pub use cloudflare::{compose_cloudflare, describe_cloudflare, CloudflarePages};
 pub use docswell::{compose_docswell, describe_docswell, DocswellUpload};
 pub use resources::{compose_resources, describe_resources, ResourcesPage};
 pub use social::{compose_social, describe_social, SocialOptions, SocialPost, DEFAULT_POST_LIMIT};

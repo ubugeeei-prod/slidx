@@ -62,6 +62,7 @@ export type {
 export {
   composeArchive,
   composeBlog,
+  composeCloudflare,
   composeDocswell,
   composeResources,
   composeSocial,
@@ -72,6 +73,7 @@ export type {
   ArchiveRecord,
   BlogScaffold,
   BlogSection,
+  CloudflarePages,
   DocswellUpload,
   ResourcesPage,
   SocialOptions,
