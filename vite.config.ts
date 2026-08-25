@@ -430,13 +430,22 @@ export default defineConfig({
       "check:borrowed": task("node scripts/check-borrowed.mjs"),
       "check:version": task("node scripts/check-version.mjs"),
 
-      // The documentation site. Nothing depends on this and CI does not run
-      // it, because building is not what keeps the site honest: `test:rust`
-      // reads the real pages, renders every one, and fails on a dead link or a
-      // page in a section that does not exist. This task is for looking at the
-      // result — the pages are self-contained, so opening `docs/dist/index.html`
-      // needs no server.
-      "docs:build": uncached("cargo run -p slidx_docs --example build"),
+      // The documentation site. Building is not what keeps the pages honest:
+      // `test:rust` reads them, fills every generated table, and fails on a
+      // dead link or a page in a section that does not exist. These tasks are
+      // for looking at the result Ox Content publishes.
+      "docs:prepare": uncached("cargo run -p slidx_docs --example prepare"),
+      // Prepare still runs once before Vite starts. A save under `docs/content`
+      // or `docs/media` while the server is up is watched from
+      // `docs/vite.config.ts`: this task *is* the server, so `dependsOn` has
+      // already finished and cannot see the next keystroke.
+      "docs:dev": uncached("vp exec --filter slidx-docs-site -- vite", {
+        dependsOn: ["docs:prepare"],
+      }),
+      "docs:build": uncached("vp exec --filter slidx-docs-site -- vite build", {
+        dependsOn: ["docs:prepare"],
+      }),
+      "docs:shell": uncached("cargo run -p slidx_docs --example build"),
 
       // The README images are output of the pipeline, not artwork. Kept as a
       // task so regenerating them is one command and never a manual crop.

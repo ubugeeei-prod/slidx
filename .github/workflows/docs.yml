@@ -7,6 +7,9 @@ on:
       - "docs/**"
       - "crates/slidx_docs/**"
       - "assets/brand/**"
+      - "vite.config.ts"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
       - ".github/workflows/docs.yml"
   # A page that says what a command does is generated from that command's own
   # table, so anything is a documentation change. This is the button for the

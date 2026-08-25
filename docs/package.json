@@ -1,0 +1,11 @@
+{
+  "name": "slidx-docs-site",
+  "version": "0.0.0",
+  "private": true,
+  "description": "slidx documentation, built with Ox Content 3",
+  "type": "module",
+  "dependencies": {
+    "@ox-content/vite-plugin": "3.0.0-alpha.8",
+    "vite": "8.2.2"
+  }
+}

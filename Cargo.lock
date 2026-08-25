@@ -443,6 +443,7 @@ dependencies = [
 name = "slidx_docs"
 version = "0.6.0"
 dependencies = [
+ "serde",
  "serde_json",
  "slidx_brand",
  "slidx_cli",
