@@ -7,7 +7,7 @@ order: 2
 
 # Build a deck, and present it
 
-What slidx *is* is on [Start](index.md). This page is the path that actually
+What slidx _is_ is on [Start](index.md). This page is the path that actually
 runs today: a clone, because nothing is on npm yet. At the end of it you will
 have a deck you wrote, a linter that caught something you could not have seen,
 a presenter view with a clock in it, and a directory of HTML files that open
