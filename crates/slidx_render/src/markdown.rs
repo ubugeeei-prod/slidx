@@ -74,7 +74,8 @@ fn render_markdown(source: &str, options: &MarkdownOptions) -> String {
         return String::new();
     };
 
-    let html = HtmlRenderer::with_options(HtmlRendererOptions::new()).render(&document);
+    let mut renderer = HtmlRenderer::with_options(HtmlRendererOptions::new());
+    let html = renderer.render(&document);
 
     if options.highlight {
         crate::highlight::highlight_code_blocks(&html)
@@ -99,6 +100,28 @@ mod tests {
         assert!(output.contains("<h1"));
         assert!(output.contains("<strong>strong</strong>"));
         assert!(output.contains("<li>one</li>"));
+    }
+
+    #[test]
+    fn a_fenced_block_is_the_shape_the_highlighter_reads_back() {
+        // slidx_highlight rewrites this exact opening. If Ox Content 3 emits
+        // `ox-highlight` or `--octc-syntax-*` instead, the colour never reaches
+        // a slide and every test that looks at a rendered deck still passes
+        // because they look for `language-rust` on the wrapper, which would
+        // still be there.
+        let output = render(
+            "```unknown-on-purpose\nhello\n```\n",
+            &MarkdownOptions { highlight: false, ..MarkdownOptions::default() },
+        );
+
+        assert!(
+            output.contains("<pre><code class=\"language-unknown-on-purpose\">"),
+            "highlighter seam moved: {output}"
+        );
+        assert!(
+            !output.contains("ox-highlight"),
+            "Ox Content coloured a block slidx owns: {output}"
+        );
     }
 
     #[test]
