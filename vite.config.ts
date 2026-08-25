@@ -435,6 +435,10 @@ export default defineConfig({
       // dead link or a page in a section that does not exist. These tasks are
       // for looking at the result Ox Content publishes.
       "docs:prepare": uncached("cargo run -p slidx_docs --example prepare"),
+      // Prepare still runs once before Vite starts. A save under `docs/content`
+      // or `docs/media` while the server is up is watched from
+      // `docs/vite.config.ts`: this task *is* the server, so `dependsOn` has
+      // already finished and cannot see the next keystroke.
       "docs:dev": uncached("vp exec --filter slidx-docs-site -- vite", {
         dependsOn: ["docs:prepare"],
       }),

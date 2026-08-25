@@ -36,7 +36,9 @@ const REPOSITORY_BLOB: &str = "https://github.com/ubugeeei-prod/slidx/blob/main/
 ///
 /// `content` is the authored directory. `generated` receives one Markdown file
 /// per page plus [`NAVIGATION_FILE`]. `media` is copied into `public_media`
-/// when it exists.
+/// when it exists. The destination is emptied first — including when there is
+/// no source — so a file that left `docs/media` cannot sit in
+/// `docs/public/media` and ride Vite's `publicDir` into the published site.
 pub fn prepare(
     content: &Path,
     generated: &Path,
@@ -77,6 +79,10 @@ pub fn prepare(
     fs::write(&navigation, format!("{json}\n"))
         .map_err(|error| format!("{}: {error}", navigation.display()))?;
     written.push(navigation);
+
+    if public_media.exists() {
+        fs::remove_dir_all(public_media).map_err(|error| format!("media: {error}"))?;
+    }
 
     if media.is_dir() {
         written.extend(copy_into(media, public_media).map_err(|error| format!("media: {error}"))?);
@@ -204,6 +210,66 @@ mod tests {
     fn a_sibling_page_is_left_for_ox_content_to_resolve() {
         let source = "See [the night before](tonight.md).";
         assert_eq!(rewrite_for_site(source), source);
+    }
+
+    fn page(title: &str, section: &str, order: u32, body: &str) -> String {
+        format!(
+            "---\ntitle: {title}\nsummary: One sentence.\nsection: {section}\norder: {order}\n---\n\n{body}"
+        )
+    }
+
+    fn scratch(label: &str) -> PathBuf {
+        let directory = std::env::temp_dir().join(format!(
+            "slidx-docs-{label}-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = fs::remove_dir_all(&directory);
+        directory
+    }
+
+    #[test]
+    fn a_picture_removed_from_media_is_not_left_in_the_public_copy() {
+        // Vite's `publicDir` copies whatever is under `docs/public`. A file
+        // that left `docs/media` but stayed in `docs/public/media` would
+        // publish as if it were still part of the site.
+        let root = scratch("stale-media");
+        let content = root.join("content");
+        let media = root.join("media");
+        let public_media = root.join("public");
+        fs::create_dir_all(&content).expect("content");
+        fs::create_dir_all(&media).expect("media");
+        fs::create_dir_all(&public_media).expect("public");
+        fs::write(content.join("index.md"), page("Start", "start", 1, "# S\n")).expect("index");
+        fs::write(media.join("kept.png"), [1, 2, 3]).expect("kept");
+        fs::write(public_media.join("kept.png"), [9, 9, 9]).expect("old kept");
+        fs::write(public_media.join("gone.png"), [0]).expect("stale");
+
+        prepare(&content, &root.join("generated"), &media, &public_media).expect("prepares");
+
+        assert!(public_media.join("kept.png").is_file());
+        assert_eq!(fs::read(public_media.join("kept.png")).expect("kept bytes"), [1, 2, 3]);
+        assert!(!public_media.join("gone.png").exists());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn no_media_directory_clears_the_public_copy() {
+        let root = scratch("no-media");
+        let content = root.join("content");
+        let public_media = root.join("public");
+        fs::create_dir_all(&content).expect("content");
+        fs::create_dir_all(&public_media).expect("public");
+        fs::write(content.join("index.md"), page("Start", "start", 1, "# S\n")).expect("index");
+        fs::write(public_media.join("stale.png"), [0]).expect("stale");
+
+        prepare(&content, &root.join("generated"), &root.join("media"), &public_media)
+            .expect("prepares");
+
+        assert!(!public_media.exists());
+
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
