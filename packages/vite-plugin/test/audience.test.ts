@@ -13,9 +13,8 @@ import { join } from "node:path";
 import { build } from "vite";
 import { describe, expect, it } from "vite-plus/test";
 
-import { slidx } from "../src";
 import { audienceClientSource, withAudienceClient } from "../src/audience";
-import { resolveOptions } from "../src/options";
+import { resolveOptions, type SlidxOptions } from "../src/options";
 
 const CHANNEL = {
   endpoint: "https://audience.example.workers.dev",
@@ -78,8 +77,12 @@ describe("a built deck", () => {
     const opted = await buildDeck({ "0001.md": "# One\n" }, { audience: CHANNEL });
     const off = await buildDeck({ "0001.md": "# One\n" });
 
-    expect(opted.files.some((file) => file.endsWith("audience.js"))).toBe(true);
-    expect(off.files.some((file) => file.endsWith("audience.js"))).toBe(false);
+    expect(opted.files.some((file) => file.startsWith("assets/") && file.endsWith(".js"))).toBe(
+      true,
+    );
+    expect(off.files.some((file) => file.startsWith("assets/") && file.endsWith(".js"))).toBe(
+      false,
+    );
 
     const slide = await readFile(join(opted.root, "dist/slides/index.html"), "utf8");
     expect(slide).toContain("data-slidx-audience=");
@@ -115,8 +118,9 @@ describe("a built deck", () => {
 
 async function buildDeck(
   slides: Record<string, string>,
-  options: Parameters<typeof slidx>[0] = {},
+  options: SlidxOptions = {},
 ): Promise<{ root: string; files: string[] }> {
+  const { slidx } = await import("../src");
   const root = await mkdtemp(join(tmpdir(), "slidx-audience-"));
   await mkdir(join(root, "slides"), { recursive: true });
 
