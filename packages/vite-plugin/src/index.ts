@@ -35,6 +35,14 @@ import {
   withIslandClient,
 } from "./islands";
 import {
+  AUDIENCE_CLIENT_ID,
+  AUDIENCE_CLIENT_PATH,
+  RESOLVED_AUDIENCE_CLIENT_ID,
+  audienceClientModule,
+  audienceClientSource,
+  withAudienceClient,
+} from "./audience";
+import {
   ogFileBase,
   effectsFileName,
   presenterFileName,
@@ -108,8 +116,12 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
      */
     config(_config, env) {
       if (env.command !== "build") return undefined;
+      const inputs = [
+        ...(options.islands ? [ISLAND_CLIENT_ID] : []),
+        ...(options.audience ? [AUDIENCE_CLIENT_ID] : []),
+      ];
       return {
-        build: { rollupOptions: { input: options.islands ? ISLAND_CLIENT_ID : ENTRY_ID } },
+        build: { rollupOptions: { input: inputs.length === 0 ? ENTRY_ID : inputs } },
       };
     },
 
@@ -126,6 +138,13 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
       if (id === ISLAND_CLIENT_ID || id === ISLAND_CLIENT_PATH || id.endsWith(ISLAND_CLIENT_PATH)) {
         return RESOLVED_ISLAND_CLIENT_ID;
       }
+      if (
+        id === AUDIENCE_CLIENT_ID ||
+        id === AUDIENCE_CLIENT_PATH ||
+        id.endsWith(AUDIENCE_CLIENT_PATH)
+      ) {
+        return RESOLVED_AUDIENCE_CLIENT_ID;
+      }
       if (id === `/${runtimeFileName(options)}`) return RESOLVED_RUNTIME_ID;
       if (id === `/${cameraFileName(options)}`) return RESOLVED_CAMERA_ID;
       if (id === `/${presenterRuntimeFileName(options)}`) return RESOLVED_PRESENTER_RUNTIME_ID;
@@ -137,6 +156,9 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
       if (id === RESOLVED_ENTRY_ID) return "export default null;";
       if (id === RESOLVED_ISLAND_CLIENT_ID && options.islands) {
         return islandClientModule(root, options.islands, dev);
+      }
+      if (id === RESOLVED_AUDIENCE_CLIENT_ID && options.audience) {
+        return audienceClientModule(dev);
       }
       if (id === RESOLVED_RUNTIME_ID) return readRuntime();
       if (id === RESOLVED_CAMERA_ID) return readCamera();
@@ -214,6 +236,21 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
           return;
         }
 
+        if (url.split("?")[0] === AUDIENCE_CLIENT_PATH && options.audience) {
+          try {
+            const client = await server.transformRequest(AUDIENCE_CLIENT_ID);
+            if (!client) throw new Error("Vite did not transform the audience client.");
+
+            response.statusCode = 200;
+            response.setHeader("content-type", "text/javascript; charset=utf-8");
+            response.setHeader("cache-control", "no-store");
+            response.end(client.code);
+          } catch (error) {
+            next(error);
+          }
+          return;
+        }
+
         if (url.split("?")[0] === `/${effectsFileName(options)}`) {
           response.statusCode = 200;
           response.setHeader("content-type", "text/css; charset=utf-8");
@@ -280,7 +317,17 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
           // not change when its file does.
           response.setHeader("cache-control", "no-store");
           const page = options.islands ? withIslandClient(html, ISLAND_CLIENT_PATH) : html;
-          response.end(await server.transformIndexHtml(url, page));
+          const withChannel =
+            options.audience && !asked.overview && !asked.print
+              ? withAudienceClient(page, AUDIENCE_CLIENT_PATH, {
+                  endpoint: options.audience.endpoint,
+                  room: options.audience.room,
+                  ...(asked.presenter && options.audience.hostKey
+                    ? { hostKey: options.audience.hostKey }
+                    : {}),
+                })
+              : page;
+          response.end(await server.transformIndexHtml(url, withChannel));
         } catch (error) {
           next(error);
         }
@@ -289,6 +336,7 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
 
     async generateBundle(_output, bundle) {
       let islandClientFile: string | undefined;
+      let audienceClientFile: string | undefined;
 
       // The virtual entry existed only to give rollup something to start
       // from. Leaving it emits an empty chunk into a deck that otherwise
@@ -299,6 +347,9 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
         }
         if (chunk.type === "chunk" && chunk.facadeModuleId === RESOLVED_ISLAND_CLIENT_ID) {
           islandClientFile = fileName;
+        }
+        if (chunk.type === "chunk" && chunk.facadeModuleId === RESOLVED_AUDIENCE_CLIENT_ID) {
+          audienceClientFile = fileName;
         }
       }
 
@@ -335,25 +386,34 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
       for (const [index, slide] of built.slides.entries()) {
         if (slide.html) {
           const fileName = slideFileName(options, index);
-          this.emitFile({
-            type: "asset",
-            fileName,
-            source: islandClientFile
-              ? withIslandClient(slide.html, islandClientSource(fileName, islandClientFile))
-              : slide.html,
-          });
+          let html = slide.html;
+          if (islandClientFile) {
+            html = withIslandClient(html, islandClientSource(fileName, islandClientFile));
+          }
+          if (audienceClientFile && options.audience) {
+            html = withAudienceClient(html, audienceClientSource(fileName, audienceClientFile), {
+              endpoint: options.audience.endpoint,
+              room: options.audience.room,
+            });
+          }
+          this.emitFile({ type: "asset", fileName, source: html });
         }
 
         if (slide.presenterHtml) {
-          this.emitFile({
-            type: "asset",
-            fileName: presenterFileName(options, index),
-            // The presenter holds a static preview of the next slide, not the
-            // live current slide. Hydrating that preview would start a hidden
-            // component one slide early and make it consume resources for
-            // something the audience cannot see.
-            source: slide.presenterHtml,
-          });
+          const fileName = presenterFileName(options, index);
+          let html = slide.presenterHtml;
+          // The presenter holds a static preview of the next slide, not the
+          // live current slide. Hydrating that preview would start a hidden
+          // component one slide early and make it consume resources for
+          // something the audience cannot see.
+          if (audienceClientFile && options.audience) {
+            html = withAudienceClient(html, audienceClientSource(fileName, audienceClientFile), {
+              endpoint: options.audience.endpoint,
+              room: options.audience.room,
+              ...(options.audience.hostKey ? { hostKey: options.audience.hostKey } : {}),
+            });
+          }
+          this.emitFile({ type: "asset", fileName, source: html });
         }
       }
 

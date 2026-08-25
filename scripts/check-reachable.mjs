@@ -31,6 +31,7 @@ import {
   PUBLIC_API,
   UNREACHABLE,
   walk,
+  wranglerMain,
 } from "./reachable.mjs";
 
 /**
@@ -125,7 +126,7 @@ function resolve(from, specifier) {
   return undefined;
 }
 
-/** What the roots ask for: the crates' emitted imports, and the plugin's barrel. */
+/** What the roots ask for: the crates' emitted imports, the plugin's barrel, and wrangler `main`. */
 const entries = [];
 
 /** Every name a page asks of each emitted specifier, for the equality rule. */
@@ -150,6 +151,22 @@ if (pluginBarrel !== undefined && modules.has(pluginBarrel)) {
   entries.push({
     path: pluginBarrel,
     names: [...barrelExports(modules.get(pluginBarrel).source).values],
+  });
+}
+
+for (const file of tracked("packages", /\/wrangler\.toml$/)) {
+  const source = read(file);
+  if (source === undefined) continue;
+
+  const main = wranglerMain(source);
+  if (main === undefined) continue;
+
+  const path = join(dirname(file), main);
+  if (!modules.has(path)) continue;
+
+  entries.push({
+    path,
+    names: [...barrelExports(modules.get(path).source).values],
   });
 }
 

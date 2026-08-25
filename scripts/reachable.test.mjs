@@ -1,6 +1,15 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vite-plus/test";
 
-import { barrelExports, importsIn, PUBLIC_API, UNREACHABLE, walk } from "./reachable.mjs";
+import {
+  barrelExports,
+  importsIn,
+  PUBLIC_API,
+  UNREACHABLE,
+  walk,
+  wranglerMain,
+} from "./reachable.mjs";
 
 describe("importsIn", () => {
   it("reads an import written into a page by Rust, where every brace is doubled", () => {
@@ -157,6 +166,41 @@ describe("walk", () => {
     });
 
     expect(reached.size).toBe(2);
+  });
+});
+
+describe("wranglerMain", () => {
+  it("reads the entry wrangler will compile, ignoring commented examples", () => {
+    expect(
+      wranglerMain(`
+# main = "src/fake.ts"
+name = "slidx-audience"
+main = "src/worker.ts"
+`),
+    ).toBe("src/worker.ts");
+  });
+
+  it("accepts single quotes, which wrangler also does", () => {
+    expect(wranglerMain("main = 'src/worker.ts'\n")).toBe("src/worker.ts");
+  });
+
+  it("names nothing when the file has no main", () => {
+    expect(wranglerMain('name = "pages"\n')).toBeUndefined();
+  });
+
+  it("reads the audience Worker's actual toml", () => {
+    expect(wranglerMain(readFileSync("packages/audience/wrangler.toml", "utf8"))).toBe(
+      "src/worker.ts",
+    );
+  });
+});
+
+describe("the plugin as a door", () => {
+  it("names the audience package, which a barrel re-export would not", () => {
+    // A barrel is not a door. The plugin has to *ask* for a name or the
+    // client graph stays in UNREACHABLE however many tests it has.
+    const source = readFileSync("packages/vite-plugin/src/audience.ts", "utf8");
+    expect(source).toMatch(/from ["']@slidxjs\/audience["']/);
   });
 });
 

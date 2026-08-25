@@ -56,6 +56,7 @@ same commands this repository's own CI runs.
 - You want to **present** → [the night before](tonight.md), indexed by symptom
 - You want to **hand it out** → [the CLI](cli.md) (`export`, `publish`)
 - You want a **framework component** on one slide → [islands](islands.md)
+- You want **questions from the room** → [the audience channel](audience.md)
 - You want last year's deck **found** → [the CLI](cli.md) (`list`, `grep`, `cd`)
 
 ## Two other people

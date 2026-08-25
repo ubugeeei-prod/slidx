@@ -9,7 +9,9 @@
     "directory": "packages/audience"
   },
   "files": [
-    "dist"
+    "dist",
+    "src",
+    "wrangler.toml"
   ],
   "type": "module",
   "sideEffects": false,

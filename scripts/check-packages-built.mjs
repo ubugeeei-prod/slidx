@@ -23,11 +23,12 @@
  * The list is derived, and the rule is about **publishing** rather than about
  * this repository. It was "a package TypeScript outside its own directory
  * imports", which is the invariant that keeps a check honest and the wrong one
- * for a registry: `@slidxjs/audience`, `@slidxjs/islands`, `@slidxjs/rehearsal` and
- * `@slidxjs/publish` are imported by nobody here, were built by nothing, and a
- * publish dry run found all four would ship a tarball holding one
- * `package.json` — a permanently broken version, fixable only by publishing
- * another.
+ * for a registry: `@slidxjs/islands`, `@slidxjs/rehearsal` and `@slidxjs/publish`
+ * are a public API whose consumer is a deck author or a CI script, were once
+ * built by nothing, and a publish dry run found they would ship a tarball
+ * holding one `package.json` — a permanently broken version, fixable only by
+ * publishing another. `@slidxjs/audience` is imported by the plugin now; it
+ * stays on this list because it still declares `dist/` in `files`.
  *
  * So a package counts when it is publishable and says its contents live in
  * `dist/`. Being imported here is no longer part of it: the people that rule

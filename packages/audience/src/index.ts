@@ -1,10 +1,11 @@
 /**
  * The audience channel: questions and reactions from the room, opt in.
  *
- * Two halves that share one protocol. A deck that does not enable the channel
- * imports nothing from here, ships nothing extra, and makes no requests — the
- * feature is a Worker somebody chose to deploy and a client somebody chose to
- * load, not a default that quietly phones home.
+ * Two halves that share one protocol. The Vite plugin always names this
+ * package so a reachable check can see the client; nothing is emitted onto a
+ * page unless the deck opted in. A default deck still ships nothing extra and
+ * makes no requests — the feature is a Worker somebody chose to deploy and a
+ * client somebody chose to load, not a default that quietly phones home.
  *
  * The whole entry point is here so a deployment can pull the Worker and a deck
  * can pull the client from the same package, and neither can drift away from

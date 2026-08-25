@@ -29,6 +29,7 @@
     "pack:lib": "vp pack src/index.ts --dts --out-dir dist"
   },
   "dependencies": {
+    "@slidxjs/audience": "workspace:*",
     "@slidxjs/editor": "workspace:*",
     "@slidxjs/islands": "workspace:*",
     "@slidxjs/rehearsal": "workspace:*",

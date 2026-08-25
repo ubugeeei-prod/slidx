@@ -109,6 +109,23 @@ export interface SlidxOptions {
    * from the stage, and a build is the last place it is cheap to catch.
    */
   failOnDiagnostics?: boolean;
+  /**
+   * Open the audience channel against a Worker the author deployed.
+   *
+   * Off by default: a deck that did not name a Worker must not open a socket.
+   * Both `endpoint` and `room` are required — inventing either would phone a
+   * host the author did not name, or join a room they did not open.
+   *
+   * `hostKey` is the speaker's and is injected only into presenter pages.
+   */
+  audience?: {
+    /** Worker origin, e.g. `https://slidx-audience.example.workers.dev`. */
+    endpoint: string;
+    /** Room slug. Same string the Worker uses as the Durable Object name. */
+    room: string;
+    /** Presenter-only. Never written onto an audience page. */
+    hostKey?: string;
+  };
 }
 
 /** Options with every default filled in. */
@@ -127,6 +144,7 @@ export interface ResolvedOptions {
   pdf: false | { fileName: string };
   overflow: boolean;
   failOnDiagnostics: boolean;
+  audience: { endpoint: string; room: string; hostKey?: string } | undefined;
 }
 
 export function resolveOptions(options: SlidxOptions = {}): ResolvedOptions {
@@ -147,7 +165,20 @@ export function resolveOptions(options: SlidxOptions = {}): ResolvedOptions {
     pdf: resolvePdf(options.pdf),
     overflow: options.overflow ?? true,
     failOnDiagnostics: options.failOnDiagnostics ?? true,
+    audience: resolveAudience(options.audience),
   };
+}
+
+function resolveAudience(audience: SlidxOptions["audience"]): ResolvedOptions["audience"] {
+  if (!audience) return undefined;
+
+  const endpoint = audience.endpoint.trim();
+  const room = audience.room.trim();
+  const hostKey = audience.hostKey?.trim() || undefined;
+
+  if (!endpoint || !room) return undefined;
+
+  return hostKey ? { endpoint, room, hostKey } : { endpoint, room };
 }
 
 /**

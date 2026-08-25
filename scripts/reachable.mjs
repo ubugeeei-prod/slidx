@@ -129,15 +129,6 @@ export const PUBLIC_API = {
  * reach the presenter view. Both are gone.
  */
 export const UNREACHABLE = {
-  "packages/audience/src/backoff.ts": 281,
-  "packages/audience/src/client.ts": 281,
-  "packages/audience/src/index.ts": 281,
-  "packages/audience/src/participant.ts": 281,
-  "packages/audience/src/protocol.ts": 281,
-  "packages/audience/src/questions.ts": 281,
-  "packages/audience/src/room.ts": 281,
-  "packages/audience/src/routes.ts": 281,
-  "packages/audience/src/worker.ts": 281,
   "packages/runtime/src/demo.ts": 279,
   "packages/runtime/src/media.ts": 286,
 };
@@ -206,6 +197,24 @@ export function barrelExports(source) {
   for (const name of types) values.delete(name);
 
   return { values, types };
+}
+
+/**
+ * The `main` a wrangler.toml names, or nothing.
+ *
+ * Comments are skipped so a documented example does not become a root. Quotes
+ * may be single or double; wrangler accepts both.
+ */
+export function wranglerMain(source) {
+  for (const line of source.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("#")) continue;
+
+    const match = /^main\s*=\s*(["'])([^"']+)\1/.exec(trimmed);
+    if (match) return match[2];
+  }
+
+  return undefined;
 }
 
 /**
