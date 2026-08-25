@@ -360,8 +360,9 @@ theme resolves to, and which of it every browser does.
 
 ## More
 
-**[Documentation](./docs)** — a walkthrough that ends with a deck you built, a
-page for deciding, and one indexed by symptom for the night before you speak.
+**[Documentation](./docs)** — what it is, sixty seconds, a walkthrough that
+ends with a deck you built, a page for deciding, and one indexed by symptom
+for the night before you speak.
 
 **[ROADMAP.md](./ROADMAP.md)** — every unchecked line says _why_, and it opens
 with what a checked box is allowed to mean. This project keeps finding features

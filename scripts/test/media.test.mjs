@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
 const ROOT = join(import.meta.dirname, "../..");
-const DOCS = readFileSync(join(ROOT, "docs/content/index.md"), "utf8");
+const DOCS = readFileSync(join(ROOT, "docs/content/start.md"), "utf8");
 const CLI = readFileSync(join(ROOT, "docs/content/cli.md"), "utf8");
 const EDITOR_RECORDER = readFileSync(join(ROOT, "scripts/record-editor-tour.mjs"), "utf8");
 const MEDIA_RECORDER = readFileSync(join(ROOT, "scripts/record.mjs"), "utf8");

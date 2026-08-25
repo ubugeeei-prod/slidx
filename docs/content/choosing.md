@@ -11,8 +11,9 @@ You have a slot in a few weeks and you are deciding what to write it in. This
 page is the argument and the caveats, in that order, and it does not hide the
 second half.
 
-If you would rather see it than read about it, [Start](index.md) gets you to a
-built deck in twenty minutes.
+If you would rather see it than read about it, [the walkthrough](start.md) gets
+you to a built deck in twenty minutes. [Start](index.md) is the one-page
+account of what it is.
 
 ## What it is for
 
@@ -68,7 +69,7 @@ tool that can post as you is a tool that has to be trusted with a credential.
 
 **Pre-alpha, and unreleased.** Nothing is on npm or crates.io. There is no
 tagged release and no published binary. Running it means cloning the repository,
-which [Start](index.md) walks through.
+which [the walkthrough](start.md) walks through.
 
 Everything the README marks as shipped is built and tested and reachable by a
 person — that last clause is doing real work, and
@@ -95,19 +96,9 @@ slide and the whole design leans on that.
 theme. Arbitrary free-form layout is not what it is for, and a deck that is
 really a set of drawings will fight it the whole way.
 
-**You need it to control the machine.** A deck is a page, and the page does not
-yet reach for fullscreen or hold a wake lock — the code for both is written and
-nothing on a slide calls it, which is a gap rather than a decision. Use your
-browser's own fullscreen for now.
-
-It will not turn on Do Not Disturb or set your volume even then, because no
-browser API does and none should — a page that could mute your machine could
-hide a phishing alert. Those are a checklist naming the setting and where it
-lives on your platform.
-
 ## Three weeks out, concretely
 
-**Today, twenty minutes.** Work through [Start](index.md). You will know by the
+**Today, twenty minutes.** Work through [the walkthrough](start.md). You will know by the
 end whether the format suits how you write.
 
 **While you write.** Keep `vite dev` running. The linter is in the build, so the

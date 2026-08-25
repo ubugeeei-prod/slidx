@@ -7,8 +7,8 @@
 //!
 //! People arrive in one of four states, and each of those is a section here:
 //!
-//! - They have never heard of slidx, and want to see it rather than read about
-//!   it. → [`Section::Start`], one page that ends with a built deck.
+//! - They have never heard of slidx. → [`Section::Start`], a front page that
+//!   says what it is and a walkthrough that ends with a built deck.
 //! - They have a talk in a few weeks and are deciding. → [`Section::Choosing`],
 //!   which has to be honest about what is not there.
 //! - They are speaking tomorrow and something is wrong. → [`Section::Tonight`],
