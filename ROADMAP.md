@@ -566,7 +566,7 @@ the surface they are looking at.
 
 ### Themes after the fact
 
-- [ ] **`slidx theme add <pkg>`.** The four builtins stay four, because the
+- [x] **`slidx theme add <pkg>`.** The four builtins stay four, because the
       projector audit is a closed set. `@slidxjs/theme-*` packages already
       exist. The command writes a `devDependency` or prints `vp add -D`;
       it does not fetch. `slidx theme` remains a leaf that lists builtins

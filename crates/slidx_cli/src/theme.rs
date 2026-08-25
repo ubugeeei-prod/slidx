@@ -15,7 +15,7 @@
 //! that only holds up in a dark hall is a theme somebody finds out about on
 //! stage.
 //!
-//! # Why it takes a path rather than a package name
+//! # Checking a theme takes a path; adding one takes a package name
 //!
 //! Resolving `@example/theme-x` to a directory means resolving `node_modules`,
 //! and `@slidxjs/vite-plugin` is where that is done — once, in the place with
@@ -23,11 +23,15 @@
 //! answer to which theme a name refers to, which is the one thing this feature
 //! must not have two of.
 //!
-//! So this reads a file. A theme's author has the file open; a deck's author
-//! who wants to look at one has a path their package manager already printed.
+//! So checking a theme reads a file. A theme's author has the file open; a
+//! deck's author who wants to look at one has a path their package manager
+//! already printed. `add` is the other direction: it writes a package name
+//! into `package.json` and never resolves it. Installing is the author's
+//! package manager.
 
+use std::env;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use slidx_core::Diagnostics;
 use slidx_theme::package::{Catalogue, Published};
@@ -38,8 +42,14 @@ use crate::report;
 use crate::style::{Ink, Style};
 use crate::{Outcome, FOUND, OK};
 
+mod add;
+
 pub fn run(matches: &Matches, style: &Style) -> Outcome {
     match matches.first_positional() {
+        Some("add") => {
+            let from = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+            add::run(matches.positional().get(1).map(String::as_str), &from, style)
+        }
         Some(path) => document(Path::new(path), style),
         None => builtins(style),
     }
@@ -80,7 +90,8 @@ fn builtins(style: &Style) -> Outcome {
         style.paint(
             Ink::Faint,
             "  A theme package adds a name here for the project that installed it.\n  \
-             Pass a path to a theme document to check one:  slidx theme ./theme.json",
+             Pass a path to check one:  slidx theme ./theme.json\n  \
+             Add a package without fetching it:  slidx theme add @slidxjs/theme-workshop",
         )
     ));
 
@@ -264,5 +275,25 @@ mod tests {
         let outcome = run_on("");
 
         assert!(outcome.stdout.contains("theme package"), "{}", outcome.stdout);
+        assert!(outcome.stdout.contains("theme add"), "{}", outcome.stdout);
+    }
+
+    #[test]
+    fn add_without_a_package_is_a_misuse_rather_than_a_missing_file() {
+        // `add` is a branch, not a path. Treating it as a document named add
+        // would print "Could not read add" and hide the command that exists.
+        let outcome = run_on("add");
+
+        assert_eq!(outcome.code, crate::MISUSE);
+        assert!(outcome.stderr.contains("package name"), "{}", outcome.stderr);
+        assert!(!outcome.stderr.contains("Could not read"), "{}", outcome.stderr);
+    }
+
+    #[test]
+    fn a_path_named_add_is_still_a_document() {
+        let outcome = run_on("./add");
+
+        assert_eq!(outcome.code, crate::MISUSE);
+        assert!(outcome.stderr.contains("Could not read"), "{}", outcome.stderr);
     }
 }
