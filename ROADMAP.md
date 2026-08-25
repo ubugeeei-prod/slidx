@@ -464,6 +464,143 @@ reason, and there is now a check that fails when that stops being true.
 
 ---
 
+## M8 — Keep making it, don't stop at the check
+
+M7 closed the class of failure where a feature is written, tested, and
+reachable by nobody. What is left of M7 is waiting on something that is not a
+diff: who operates a server (#280, #281), a codec decision (#286, #234), and
+two registry logins. This milestone is the work that *is* a diff — the
+documentation a new reader can actually start from, a Cloudflare path that
+does not turn slidx into a service, motion an author can pick rather than
+only declare, and a theme they can add after the fact.
+
+GitHub issues for the new work belong here as closed-form tickets (why, done
+when, the reachable path, what it will not do). They are written in this
+file rather than only in the tracker, because a box that points at an issue
+that does not exist is the same shape M7 was built to refuse. Existing open
+issues are not duplicated: #1, #234, #275, #280, #281, #286.
+
+A checked box still means a person can reach the thing.
+
+### Documentation
+
+- [ ] **The published docs site is Ox Content 3.** Authored pages stay
+      Markdown on GitHub. A prepare step fills the generated tables and
+      rewrites the two link shapes that only work in the repository, then
+      `@ox-content/vite-plugin` (3.0 alpha, pinned; `latest` is still 2.x)
+      builds the HTML. `cargo test -p slidx_docs` still fails a dead link, a
+      page in no section, or a placeholder naming a table nothing generates.
+      Void still deploys `docs/dist`. The in-crate HTML shell remains for
+      inspection and is not the published site. Brand tokens map onto
+      `--octc-*`; radius stays 0; Ox Content's decorative skins are not used.
+      *Won't:* move the dead-link check into Vite; load Google fonts; generate
+      an API reference nobody asked for.
+- [ ] **The front page says what it is, in sixty seconds.** One sentence:
+      Markdown you write, a visual editor over the same file, static HTML a
+      room can open with the network off. Sixty seconds is the install that
+      will exist (`vp add -D @slidxjs/vite-plugin` → `plugins: [slidx()]` →
+      `vp dev` / `/__slidx/`), labelled as unreleased so it does not pretend
+      the package is on npm. The twenty-minute clone walkthrough is a
+      separate page. Doors by need: write, look, present, hand out, islands,
+      CLI. *Won't:* a fake `npm i` that 404s; a stub page for a feature that
+      has no reachable path yet (FrameScript, audience, audio).
+- [ ] **Japanese documentation.** Ox Content's locale map, same pages, not a
+      second site with a second set of facts. After the English site is the
+      one a reader can start from.
+
+### Publish and audience
+
+- [ ] **Cloudflare Pages, with no credential in slidx.** `slidx publish`
+      grows a seventh destination. It writes the `wrangler.toml` / Pages
+      fragment that belongs on disk and prints `wrangler pages deploy`. The
+      author is logged into *their* Cloudflare account; slidx still has no
+      HTTP client and no token store. *Won't:* slidx posting as you; a
+      Pages project slidx owns; a CDN in front of the deck.
+- [ ] **Audience channel that a person can deploy — #281.** The Worker
+      (`AudienceRoom` Durable Object, `handleFetch`) is written. Nothing a
+      person can open imports it, and `scripts/check-reachable.mjs` lists
+      the whole package in `UNREACHABLE` for that reason. Done when the Vite
+      plugin always imports the audience module (opt-in injects it; a barrel
+      is not a door), a `wrangler.toml` whose `main` is a root the check can
+      see sits in the package, and a documentation page that exists only
+      after that path is green. The operator is the author's Cloudflare
+      account. *Won't:* a relay slidx runs. That would make this a service,
+      which is a question about what slidx is, and the non-goals already
+      refuse it. #280 (a pairing that reaches a slide) gets the same answer
+      once the author's Worker is the server: slidx does not hold the
+      session.
+
+### Motion an author can actually pick
+
+Twenty effect presets already compile (`fade`, `fly-in`, `wipe`, `zoom`,
+`split`, `grow`, `float`, `typewriter`, `draw`, `pulse`, `shake`, `spin`,
+and the rest) and the CSS for them already ships. The timeline writes
+intent (`reveal` / `hide` / `emphasize`) and empty `StepOptions`. The gap
+is not "add more animations". It is that an author cannot choose one from
+the surface they are looking at.
+
+- [ ] **The timeline cell offers the presets the compiler already has.**
+      `StepPlacement` carries an optional preset. Selecting a cell, then a
+      preset, writes a `SetStep` whose options name that preset and nothing
+      else — timing and easing stay on the theme, which is the contract the
+      timeline was compiled for. `vp run generate:types` updates the
+      committed `deck.d.ts`. *Won't:* a duration or an easing on the cell;
+      a second motion model beside `EffectPreset`.
+- [ ] **Slide-to-slide motion stays four verbs, plus what MPA can do.**
+      `none` / `fade` / `slide` / `push` are the ones a projector and
+      `prefers-reduced-motion` can both survive. A wipe or a vertical push
+      can join them if they degrade to a cut. Named view-transition elements
+      for a figure that should keep its place across two documents. *Won't:*
+      a client-side router; a spin or a zoom of the whole viewport; a
+      promise that every browser plays the transition.
+- [ ] **FrameScript.** A motion DSL the step compiler can read, that does
+      not invade the easing the theme owns. Done when a timeline row and a
+      Markdown fence name the same thing and both compile. *Won't:* a page
+      that describes a language nothing parses — that is a reachable-path
+      failure wearing documentation's coat.
+- [ ] **Three.js across two slides.** The island adapter already owns the
+      loop and the GL context. A continuous scene is an extension of that
+      ownership, not a second runtime that steals the canvas. *Won't:* a
+      WebGL context per slide that has to be thrown away and recreated as
+      the browser follows a link.
+
+### Themes after the fact
+
+- [ ] **`slidx theme add <pkg>`.** The four builtins stay four, because the
+      projector audit is a closed set. `@slidxjs/theme-*` packages already
+      exist. The command writes a `devDependency` or prints `vp add -D`;
+      it does not fetch. `slidx theme` remains a leaf that lists builtins
+      or audits a path — a positional `add` is a branch, not a subcommand
+      that would steal a directory named `add`. The editor's theme picker
+      reads installed packages, not a catalogue slidx hosts. *Won't:* a
+      network call from the binary; a fifth builtin.
+- [ ] **`minimal` is the default people actually want, and extras are
+      packages.** Stronger tokens on `minimal` (still radius 0, still no
+      shadow, still no gradient). Gallery of `@slidxjs/theme-*` rather than
+      a growing builtin list.
+
+### Sound
+
+- [ ] **BGM and SFX bound to a step, offline.** A clip is a file in the
+      deck. Ducking and a doctor reading of the output level. The clip's
+      own level is already measured and shown to nobody — #286 is the same
+      work from the other direction. *Won't:* a stream from another origin;
+      a deck that is silent until a CDN answers.
+
+**Done when** a person who has never heard of slidx can tell what it is in
+one page, start from a clone without being lied to about npm, publish a
+deck to their own Cloudflare account, pick an effect from the timeline
+they are looking at, and add a theme package without slidx growing a
+network stack. Each of those is a path, not a module.
+
+The order is the same one M7 learned: the documentation and the Cloudflare
+handoff first (they are how a person reaches anything), then the timeline
+preset (the surface that already exists and does not offer what it
+compiles), then theme add, then FrameScript / named transitions / Three /
+audio once each has a path that is not a stub.
+
+---
+
 ## Where this stands
 
 Everything checked above is merged, tested, and — where a browser can tell the
@@ -522,9 +659,10 @@ has the reasoning; `scripts/budget.mjs` holds the size and keeps the half of the
 old claim that was ever load-bearing — a finished slide still **fetches**
 nothing.
 
-The unchecked items are the work, not a wish list. Each is an open issue with a
-stated shape, and each unchecked line above says _why_ it is not done rather
-than only that it is not.
+The unchecked items are the work, not a wish list. Each M7 line is an open
+issue with a stated shape. Each M8 line is the same shape written here, so a
+box cannot point at a tracker entry that does not exist. Every unchecked line
+above says _why_ it is not done rather than only that it is not.
 
 ## Non-goals
 
