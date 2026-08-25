@@ -485,13 +485,13 @@ GitHub issues for the new work belong here as closed-form tickets (why, done
 when, the reachable path, what it will not do). They are written in this
 file rather than only in the tracker, because a box that points at an issue
 that does not exist is the same shape M7 was built to refuse. Existing open
-issues are not duplicated: #1, #234, #275, #280, #281.
+issues are not duplicated: #1, #234, #275, #280.
 
 A checked box still means a person can reach the thing.
 
 ### Documentation
 
-- [ ] **The published docs site is Ox Content 3.** Authored pages stay
+- [x] **The published docs site is Ox Content 3 — #312.** Authored pages stay
       Markdown on GitHub. A prepare step fills the generated tables and
       rewrites the two link shapes that only work in the repository, then
       `@ox-content/vite-plugin` (3.0 alpha, pinned; `latest` is still 2.x)
@@ -512,8 +512,9 @@ A checked box still means a person can reach the thing.
       questions from the room, CLI. _Won't:_ a fake `npm i` that 404s; a stub
       page for a feature that has no reachable path yet (FrameScript, BGM).
 - [ ] **Japanese documentation.** Ox Content's locale map, same pages, not a
-      second site with a second set of facts. After the English site is the
-      one a reader can start from.
+      second site with a second set of facts. The English site is the one a
+      reader can start from (#312). This is that locale map, not a second
+      set of pages.
 
 ### Publish and audience
 
@@ -613,8 +614,8 @@ measure of that:
 
 |                                          |                           |
 | ---------------------------------------- | ------------------------- |
-| Rust tests                               | 4006                      |
-| TypeScript tests                         | 2088                      |
+| Rust tests                               | 4054                      |
+| TypeScript tests                         | 2118                      |
 | Crates                                   | 19                        |
 | Publishable npm packages                 | 10                        |
 | Platforms in CI                          | Linux, macOS, Windows     |
