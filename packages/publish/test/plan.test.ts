@@ -104,6 +104,18 @@ describe("ready steps", () => {
     expect(step?.summary).toContain("character post");
   });
 
+  it("hands Cloudflare Pages a file rather than a login", () => {
+    const step = complete().steps.find((entry) => entry.target === "cloudflare");
+
+    expect(step?.status).toBe("ready");
+    expect(
+      step?.status === "ready" &&
+        step.target === "cloudflare" &&
+        step.payload.command === "wrangler pages deploy" &&
+        step.payload.toml.includes("pages_build_output_dir"),
+    ).toBe(true);
+  });
+
   it("is ready only when every step is", () => {
     expect(isReady(complete())).toBe(true);
   });
@@ -125,6 +137,7 @@ describe("blocked steps", () => {
       "social",
       "blog",
       "resources",
+      "cloudflare",
       "archive",
     ]);
   });
@@ -203,13 +216,13 @@ describe("printing", () => {
     const lines = formatPlan(complete()).split("\n");
 
     expect(lines[0]).toBe("publish plan: Zero-JavaScript Slides");
-    expect(lines.at(-1)).toBe("6 ready, 0 blocked");
+    expect(lines.at(-1)).toBe("7 ready, 0 blocked");
   });
 
   it("counts what is blocked", () => {
     const plan = planPublish({ meta: TALK, slides: SLIDES, artifacts: [] });
 
-    expect(formatPlan(plan).split("\n").at(-1)).toBe("4 ready, 2 blocked");
+    expect(formatPlan(plan).split("\n").at(-1)).toBe("5 ready, 2 blocked");
   });
 
   it("prints a blocked step's reasons under it", () => {
@@ -251,6 +264,7 @@ describe("options", () => {
       "social",
       "blog",
       "resources",
+      "cloudflare",
       "archive",
     ]);
   });

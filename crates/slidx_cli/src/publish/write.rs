@@ -1,11 +1,12 @@
 //! The half of publishing that needs no account.
 //!
-//! Four of the six destinations are files on the author's own disk: the blog
-//! scaffold, the resources page, the archive record, and the index built from
-//! every record beside it. Nothing about them needs a credential, so slidx does
-//! them rather than describing them — a plan that only ever prints is a plan
-//! somebody has to carry out by hand at the end of a long day, which is the
-//! chore this whole milestone exists to remove.
+//! Five of the seven destinations are files on the author's own disk: the blog
+//! scaffold, the resources page, the archive record, the index built from
+//! every record beside it, and the `wrangler.toml` Cloudflare Pages deploys
+//! from. Nothing about them needs a credential, so slidx does them rather than
+//! describing them — a plan that only ever prints is a plan somebody has to
+//! carry out by hand at the end of a long day, which is the chore this whole
+//! milestone exists to remove.
 //!
 //! The other two need an account, and slidx does not have one. See
 //! [`super::hand_off`] for what happens to those.
@@ -13,11 +14,11 @@
 //! ## Writing is not the same as overwriting
 //!
 //! Every path here is stable by construction — a blog draft is named for its
-//! date and title, a record for its slug — so running the command twice writes
-//! the same four files rather than four more. That is deliberate: the archive
-//! target is *meant* to be run again months later when the recording appears,
-//! and a second run that piled up `talk-1.md` would make the thing it exists
-//! for unusable.
+//! date and title, a record for its slug, a wrangler.toml for its project —
+//! so running the command twice writes the same files rather than more. That
+//! is deliberate: the archive target is *meant* to be run again months later
+//! when the recording appears, and a second run that piled up `talk-1.md`
+//! would make the thing it exists for unusable.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -46,6 +47,7 @@ pub fn perform(step: &PublishStep, out: &Path) -> Option<Result<Vec<Written>, St
     match payload {
         ReadyPayload::Blog(scaffold) => Some(write(out, &scaffold.path, &scaffold.markdown)),
         ReadyPayload::Resources(page) => Some(write(out, &page.path, &page.markdown)),
+        ReadyPayload::Cloudflare(pages) => Some(write(out, &pages.path, &pages.toml)),
         // The record and the index are one write: an index that did not include
         // the record just written would be stale the moment it was produced.
         ReadyPayload::Archive(record) => Some(archive(out, record)),
@@ -200,6 +202,23 @@ mod tests {
             .contains("A deck is a document."));
         assert!(scratch.read("resources.md").contains("https://slidx.dev/docs"));
         assert!(scratch.read("talks/zero-javascript-slides.md").contains("title:"));
+    }
+
+    #[test]
+    fn a_cloudflare_pages_project_is_a_file_on_disk_not_a_login() {
+        let scratch = Scratch::new("pages-project");
+        let steps =
+            plan(meta("Zero-JavaScript Slides", "2026-07-29"), vec![PublishTarget::Cloudflare]);
+
+        perform_all(&steps, scratch.path());
+
+        let toml = scratch.read("wrangler.toml");
+        assert!(toml.contains("name = \"zero-javascript-slides\""));
+        assert!(toml.contains("pages_build_output_dir = \"./dist\""));
+        assert!(toml.contains("wrangler pages deploy"));
+        let keys =
+            toml.lines().filter(|line| !line.trim_start().starts_with('#')).collect::<String>();
+        assert!(!keys.to_ascii_uppercase().contains("TOKEN"));
     }
 
     #[test]

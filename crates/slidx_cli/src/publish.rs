@@ -11,9 +11,10 @@
 //!
 //! ## What it performs, and what it refuses to
 //!
-//! It writes the four destinations that are files on the author's own disk: the
-//! blog scaffold, the resources page, the archive record, and the talk index
-//! built from every record beside it.
+//! It writes the destinations that are files on the author's own disk: the
+//! blog scaffold, the resources page, the archive record, the talk index
+//! built from every record beside it, and the `wrangler.toml` Cloudflare Pages
+//! deploys from.
 //!
 //! It will not upload, post, or authenticate. **There is no token store and no
 //! HTTP client anywhere under this command.** A tool that can post as you is a
@@ -306,6 +307,7 @@ mod tests {
         assert!(project.exists("resources.md"));
         assert!(project.exists("talks/zero-javascript-slides.md"));
         assert!(project.exists("talks/index.md"));
+        assert!(project.read("wrangler.toml").contains("pages_build_output_dir"));
     }
 
     #[test]
@@ -316,6 +318,7 @@ mod tests {
 
         assert!(!project.exists("resources.md"), "{}", outcome.stdout);
         assert!(!project.exists("talks"), "{}", outcome.stdout);
+        assert!(!project.exists("wrangler.toml"), "{}", outcome.stdout);
         assert!(outcome.stdout.contains("planned"), "{}", outcome.stdout);
     }
 

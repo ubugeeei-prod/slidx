@@ -21,10 +21,11 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::targets::{
-    compose_archive, compose_blog, compose_docswell, compose_resources, compose_social,
-    compose_speaker_deck, describe_archive, describe_blog, describe_docswell, describe_resources,
-    describe_social, describe_speaker_deck, ArchiveRecord, BlogScaffold, DocswellUpload,
-    ResourcesPage, SocialOptions, SocialPost, SpeakerDeckUpload,
+    compose_archive, compose_blog, compose_cloudflare, compose_docswell, compose_resources,
+    compose_social, compose_speaker_deck, describe_archive, describe_blog, describe_cloudflare,
+    describe_docswell, describe_resources, describe_social, describe_speaker_deck, ArchiveRecord,
+    BlogScaffold, CloudflarePages, DocswellUpload, ResourcesPage, SocialOptions, SocialPost,
+    SpeakerDeckUpload,
 };
 use crate::types::{Artifact, BlockedReason, Composed, DeckMetadata, DeckSlide, DeckSource};
 
@@ -37,6 +38,7 @@ pub enum PublishTarget {
     Social,
     Blog,
     Resources,
+    Cloudflare,
     Archive,
 }
 
@@ -49,6 +51,7 @@ impl PublishTarget {
             Self::Social => "social",
             Self::Blog => "blog",
             Self::Resources => "resources",
+            Self::Cloudflare => "cloudflare",
             Self::Archive => "archive",
         }
     }
@@ -68,12 +71,13 @@ impl PublishTarget {
 /// `archive` is last because it is the only one that will be run again. It
 /// records what the others produced, and it is re-run months later when the
 /// conference finally publishes the video.
-pub const PUBLISH_TARGETS: [PublishTarget; 6] = [
+pub const PUBLISH_TARGETS: [PublishTarget; 7] = [
     PublishTarget::Speakerdeck,
     PublishTarget::Docswell,
     PublishTarget::Social,
     PublishTarget::Blog,
     PublishTarget::Resources,
+    PublishTarget::Cloudflare,
     PublishTarget::Archive,
 ];
 
@@ -86,6 +90,7 @@ pub enum ReadyPayload {
     Social(SocialPost),
     Blog(BlogScaffold),
     Resources(ResourcesPage),
+    Cloudflare(CloudflarePages),
     Archive(ArchiveRecord),
 }
 
@@ -223,6 +228,9 @@ fn plan_step(target: PublishTarget, source: &DeckSource, options: &PlanOptions) 
         }
         PublishTarget::Resources => {
             step(target, compose_resources(source), describe_resources, ReadyPayload::Resources)
+        }
+        PublishTarget::Cloudflare => {
+            step(target, compose_cloudflare(source), describe_cloudflare, ReadyPayload::Cloudflare)
         }
         PublishTarget::Archive => {
             step(target, compose_archive(source), describe_archive, ReadyPayload::Archive)
@@ -370,7 +378,7 @@ mod tests {
         // The uploads first: the URL they produce is what the post links to.
         assert_eq!(
             targets_of(&complete()),
-            ["speakerdeck", "docswell", "social", "blog", "resources", "archive"]
+            ["speakerdeck", "docswell", "social", "blog", "resources", "cloudflare", "archive"]
         );
     }
 
@@ -437,7 +445,7 @@ mod tests {
         );
         assert_eq!(
             ready_steps(&plan).iter().map(|s| s.target().as_token()).collect::<Vec<_>>(),
-            ["social", "blog", "resources", "archive"]
+            ["social", "blog", "resources", "cloudflare", "archive"]
         );
         assert!(!is_ready(&plan));
     }
@@ -538,7 +546,9 @@ mod tests {
         let lines: Vec<&str> = text.lines().collect();
 
         assert_eq!(lines[0], "publish plan: Zero-JavaScript Slides");
-        assert_eq!(*lines.last().unwrap(), "6 ready, 0 blocked");
+        assert_eq!(*lines.last().unwrap(), "7 ready, 0 blocked");
+        assert!(text.contains("cloudflare"), "{text}");
+        assert!(text.contains("wrangler.toml"), "{text}");
     }
 
     #[test]
@@ -554,7 +564,7 @@ mod tests {
     }
 
     #[test]
-    fn the_columns_of_a_two_step_plan_line_up_against_a_six_step_one() {
+    fn the_columns_of_a_two_step_plan_line_up_against_a_full_one() {
         // Or a diff shows what moved instead of what changed.
         let whole = format_plan(&complete());
         let part = format_plan(&plan_publish(&PlanOptions {

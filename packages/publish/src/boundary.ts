@@ -83,6 +83,7 @@ export type {
   BlockedReason,
   BlogScaffold,
   BlogSection,
+  CloudflarePages,
   Composed,
   DeckLink,
   DeckMetadata,
