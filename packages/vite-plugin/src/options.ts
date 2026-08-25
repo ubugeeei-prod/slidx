@@ -328,6 +328,17 @@ export function cameraFileName(options: ResolvedOptions): string {
   return options.base ? `${options.base}/camera.js` : "camera.js";
 }
 
+/**
+ * Where the clip-level module is written, and imported from.
+ *
+ * Emitted only for a deck that places a clip. Folding it into the entry every
+ * deck downloads would put a decoder in front of every audience for the sake
+ * of the few decks that use one.
+ */
+export function mediaFileName(options: ResolvedOptions): string {
+  return options.base ? `${options.base}/media.js` : "media.js";
+}
+
 /** Where the presenter-only rehearsal module is written, and imported from. */
 export function rehearsalFileName(options: ResolvedOptions): string {
   return options.base ? `${options.base}/rehearsal.js` : "rehearsal.js";

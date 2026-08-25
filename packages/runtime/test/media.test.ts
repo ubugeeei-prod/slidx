@@ -23,7 +23,9 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import {
   createMediaController,
   describeLevel,
+  levelsFromSamples,
   LOUDNESS_TARGET_DB,
+  measureClip,
   type MediaElementLike,
 } from "../src/media";
 
@@ -101,11 +103,14 @@ describe("playing it", () => {
     // One loud clip in a deck of quiet ones is the common case, and it is the
     // one that makes a room flinch.
     const media = element();
-    const controller = createMediaController({ measure: meter(-3) });
+    const peakDb = -3;
+    const controller = createMediaController({ measure: meter(peakDb) });
 
     await controller.prepare(media);
 
-    expect(media.volume).toBeLessThan(1);
+    // The element's volume, not the call: a mocked `prepare` that never wrote
+    // `volume` would still pass an assertion about the method being invoked.
+    expect(media.volume).toBeCloseTo(10 ** ((LOUDNESS_TARGET_DB - peakDb) / 20), 5);
   });
 
   it("leaves a quiet clip alone rather than amplifying it", async () => {
@@ -159,5 +164,41 @@ describe("saying it to a person", () => {
 
   it("still gives the number, for anyone who wants it", () => {
     expect(describeLevel(-0.5)).toContain("-0.5");
+  });
+});
+
+describe("the numbers themselves", () => {
+  it("reads a full-scale sample as 0 dBFS", () => {
+    expect(levelsFromSamples([1, -1, 0.5]).peakDb).toBeCloseTo(0, 5);
+  });
+
+  it("reads half scale as about -6 dBFS", () => {
+    expect(levelsFromSamples([0.5, -0.5]).peakDb).toBeCloseTo(20 * Math.log10(0.5), 5);
+  });
+
+  it("reads silence as −∞ rather than guessing a level", () => {
+    expect(levelsFromSamples([0, 0, 0]).peakDb).toBe(Number.NEGATIVE_INFINITY);
+  });
+});
+
+describe("measuring a file the presenter page does not render", () => {
+  it("says unknown when this browser cannot decode", async () => {
+    const host = globalThis as typeof globalThis & {
+      OfflineAudioContext?: unknown;
+      webkitOfflineAudioContext?: unknown;
+    };
+    const offline = host.OfflineAudioContext;
+    const webkit = host.webkitOfflineAudioContext;
+    host.OfflineAudioContext = undefined;
+    host.webkitOfflineAudioContext = undefined;
+
+    try {
+      const report = await measureClip("./clip.mp4");
+      expect(report.status).toBe("unknown");
+      expect(report.remedy).toMatch(/play it once/i);
+    } finally {
+      host.OfflineAudioContext = offline;
+      host.webkitOfflineAudioContext = webkit;
+    }
   });
 });

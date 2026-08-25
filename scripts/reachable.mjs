@@ -81,6 +81,7 @@
 export const EMITTED_BUNDLES = {
   "{runtime_src}": "@slidxjs/runtime/emitted",
   "{camera_src}": "@slidxjs/runtime/camera",
+  "{media_src}": "@slidxjs/runtime/media",
   "{presenter_runtime_src}": "@slidxjs/runtime/presenter",
   "{rehearsal_src}": "@slidxjs/rehearsal",
   "${EDITOR_MODULE}": "@slidxjs/editor",
@@ -130,7 +131,6 @@ export const PUBLIC_API = {
  */
 export const UNREACHABLE = {
   "packages/runtime/src/demo.ts": 279,
-  "packages/runtime/src/media.ts": 286,
 };
 
 /**
@@ -170,10 +170,14 @@ export const EMITTED_EXACTLY = {
  * list somebody keeps in step with a page. Holding it to the two names a slide
  * imports would mean deleting the types beside them, which erase anyway.
  *
+ * `@slidxjs/runtime/media` is the same shape for a clip: the slide asks for
+ * `createMediaController` and the presenter asks for `measureClip`, and the
+ * file is the module, not a list.
+ *
  * Recorded rather than left out, so that "why is this one not checked" has an
  * answer where the check is.
  */
-export const EMITTED_WHOLE = ["@slidxjs/runtime/camera"];
+export const EMITTED_WHOLE = ["@slidxjs/runtime/camera", "@slidxjs/runtime/media"];
 
 /** Barrel exports, split by what a page could actually import. */
 export function barrelExports(source) {

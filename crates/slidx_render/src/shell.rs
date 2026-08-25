@@ -45,6 +45,12 @@ pub struct ShellOptions {
     /// every staged slide of every deck and this is for the few that place a
     /// camera. See `crate::camera_script`.
     pub camera_src: String,
+    /// Module URL a slide that has a clip imports level metering from.
+    ///
+    /// Its own file rather than part of `runtime_src`, for the same reason as
+    /// `camera_src`: the decoder is for the few decks that place a clip, and
+    /// the entry every staged slide downloads is not. See `crate::media_script`.
+    pub media_src: String,
     /// Emitted into the page so the runtime can resolve steps. Omitted for
     /// slides with a single stop, which need no runtime at all.
     pub include_runtime: bool,
@@ -90,6 +96,7 @@ impl Default for ShellOptions {
             markdown: MarkdownOptions::default(),
             runtime_src: "./runtime.js".to_string(),
             camera_src: "./camera.js".to_string(),
+            media_src: "./media.js".to_string(),
             asset_sizes: Arc::default(),
             include_runtime: true,
             seo: SeoOptions::default(),
@@ -143,7 +150,7 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
         shell_css = layout::STYLESHEET,
         layout_css = slidx_theme::layout::stylesheet(),
         transition_css = transition_css(deck, slide, &options.theme),
-        script = script(deck, slide, options),
+        script = script(deck, slide, options, &frame),
     )
 }
 
@@ -157,7 +164,7 @@ pub fn render_slide(deck: &Deck, slide: &Slide, options: &ShellOptions) -> Strin
 /// written into both: it belongs to a slide that declares a fallback and not to
 /// a slide that has steps, and those are different slides. See
 /// `crate::demo_switch` for why it cannot be an import.
-fn script(deck: &Deck, slide: &Slide, options: &ShellOptions) -> String {
+fn script(deck: &Deck, slide: &Slide, options: &ShellOptions, frame: &str) -> String {
     let movement = match stage_script(deck, slide, options) {
         staged if staged.is_empty() => crate::navigation::script(deck, slide),
         staged => staged,
@@ -169,6 +176,7 @@ fn script(deck: &Deck, slide: &Slide, options: &ShellOptions) -> String {
         + &crate::gestures::script(slide)
         + &crate::demo_switch::script(slide)
         + &crate::camera_script::script(slide, &options.camera_src)
+        + &crate::media_script::slide_script(frame, &options.media_src)
 }
 
 /// Renders the real slide frame into an isolated, inert document for previews.
@@ -566,6 +574,34 @@ mod tests {
         // Asserted on the element, not the attribute: the inlined stylesheet
         // names the attribute on every page whether or not a demo exists.
         assert!(!shell("# Ordinary\n").contains("<figure class=\"slidx-demo\""));
+    }
+
+    #[test]
+    fn a_clip_on_the_slide_imports_the_decoder() {
+        let html = shell("# Demo\n\n<video src=\"./clip.mp4\" controls></video>\n");
+
+        assert!(html.contains("createMediaController"), "{html}");
+        assert!(html.contains(r#"from "./media.js""#), "{html}");
+        assert!(html.contains("controller.prepare(clip)"), "{html}");
+    }
+
+    #[test]
+    fn a_slide_with_no_clip_does_not_import_the_decoder() {
+        let html = shell("# Ordinary\n");
+
+        assert!(!html.contains("createMediaController"));
+        assert!(!html.contains("media.js"));
+    }
+
+    #[test]
+    fn a_demo_fallback_does_not_import_the_decoder() {
+        // The recording is muted and is not the clip the speaker pressed play
+        // on. Paying for a decoder on every demo slide would be the budget
+        // the feature promised not to spend.
+        let html = shell(DEMO);
+
+        assert!(!html.contains("createMediaController"), "{html}");
+        assert!(!html.contains("media.js"), "{html}");
     }
 
     #[test]

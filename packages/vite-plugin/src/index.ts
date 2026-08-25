@@ -49,6 +49,7 @@ import {
   overviewFileName,
   printFileName,
   cameraFileName,
+  mediaFileName,
   presenterRuntimeFileName,
   rehearsalFileName,
   resolveOptions,
@@ -80,6 +81,7 @@ const RESOLVED_ENTRY_ID = `\0${ENTRY_ID}`;
 const RESOLVED_RUNTIME_ID = "\0virtual:slidx-runtime";
 /** Rehearsal is a separate module so audience slides never pay for it. */
 const RESOLVED_CAMERA_ID = "\0virtual:slidx-camera";
+const RESOLVED_MEDIA_ID = "\0virtual:slidx-media";
 const RESOLVED_PRESENTER_RUNTIME_ID = "\0virtual:slidx-presenter-runtime";
 const RESOLVED_REHEARSAL_ID = "\0virtual:slidx-rehearsal";
 
@@ -147,6 +149,7 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
       }
       if (id === `/${runtimeFileName(options)}`) return RESOLVED_RUNTIME_ID;
       if (id === `/${cameraFileName(options)}`) return RESOLVED_CAMERA_ID;
+      if (id === `/${mediaFileName(options)}`) return RESOLVED_MEDIA_ID;
       if (id === `/${presenterRuntimeFileName(options)}`) return RESOLVED_PRESENTER_RUNTIME_ID;
       if (id === `/${rehearsalFileName(options)}`) return RESOLVED_REHEARSAL_ID;
       return undefined;
@@ -162,6 +165,7 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
       }
       if (id === RESOLVED_RUNTIME_ID) return readRuntime();
       if (id === RESOLVED_CAMERA_ID) return readCamera();
+      if (id === RESOLVED_MEDIA_ID) return readMedia();
       if (id === RESOLVED_PRESENTER_RUNTIME_ID) return readPresenterRuntime();
       if (id === RESOLVED_REHEARSAL_ID) return readRehearsal();
       return undefined;
@@ -490,6 +494,22 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
         });
       }
 
+      // The decoder, for a deck that places a clip. Asked of the pages rather
+      // than of the deck model: the file exists exactly when something imports
+      // it. A deck with no `<video>` and no `<audio>` emits nothing.
+      const wantsMedia = `from "${mediaSrcFor(options)}"`;
+      if (
+        built.slides.some(
+          (slide) => slide.html?.includes(wantsMedia) || slide.presenterHtml?.includes(wantsMedia),
+        )
+      ) {
+        this.emitFile({
+          type: "asset",
+          fileName: mediaFileName(options),
+          source: await readMedia(),
+        });
+      }
+
       // The presenter's own half of the runtime, and the rehearsal recorder.
       // Both are presenter-only, so a print-only build and every audience page
       // pay nothing for either.
@@ -600,6 +620,7 @@ async function renderDeck(
     deckPath: slideRoute(options, 0),
     runtimeSrc: runtimeSrcFor(options),
     cameraSrc: cameraSrcFor(options),
+    mediaSrc: mediaSrcFor(options),
     presenterRuntimeSrc: presenterRuntimeSrcFor(options),
     rehearsalSrc: rehearsalSrcFor(options),
     // The print shell carries the runtime rather than importing it, so the
@@ -639,6 +660,11 @@ function cameraSrcFor(options: ReturnType<typeof resolveOptions>): string {
   return `/${cameraFileName(options)}`;
 }
 
+/** The clip-level module sits beside the shared runtime. */
+function mediaSrcFor(options: ReturnType<typeof resolveOptions>): string {
+  return `/${mediaFileName(options)}`;
+}
+
 /** The presenter-only modules sit beside the shared runtime. */
 function presenterRuntimeSrcFor(options: ReturnType<typeof resolveOptions>): string {
   return `/${presenterRuntimeFileName(options)}`;
@@ -652,6 +678,7 @@ function rehearsalSrcFor(options: ReturnType<typeof resolveOptions>): string {
 let runtime: Promise<string> | undefined;
 let presenterRuntime: Promise<string> | undefined;
 let camera: Promise<string> | undefined;
+let media: Promise<string> | undefined;
 let rehearsal: Promise<string> | undefined;
 let effects: Promise<string> | undefined;
 
@@ -692,6 +719,19 @@ function readCamera(): Promise<string> {
   })();
 
   return camera;
+}
+
+/** The decoder a clip imports, read once. */
+function readMedia(): Promise<string> {
+  media ??= (async () => {
+    const { createRequire } = await import("node:module");
+    const { readFile } = await import("node:fs/promises");
+    const require = createRequire(import.meta.url);
+
+    return readFile(require.resolve("@slidxjs/runtime/media"), "utf8");
+  })();
+
+  return media;
 }
 
 /** The presenter's own half of the runtime, read once. */

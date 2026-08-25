@@ -154,3 +154,112 @@ export function describeLevel(peakDb: number): string {
 
   return `Fine for a room (${measured})`;
 }
+
+/**
+ * Peak and RMS of a buffer of samples, in dBFS.
+ *
+ * The decoder hands this a mix-down. Tests hand it a buffer they wrote, which
+ * is how the numbers stay honest without an AudioContext.
+ */
+export function levelsFromSamples(samples: ArrayLike<number>): Levels {
+  let peak = 0;
+  let sumSq = 0;
+  const n = samples.length;
+
+  for (let i = 0; i < n; i++) {
+    const sample = samples[i] ?? 0;
+    const magnitude = Math.abs(sample);
+    if (magnitude > peak) peak = magnitude;
+    sumSq += sample * sample;
+  }
+
+  return {
+    peakDb: db(peak),
+    integratedDb: db(n === 0 ? 0 : Math.sqrt(sumSq / n)),
+  };
+}
+
+function db(linear: number): number {
+  if (!(linear > 0)) return Number.NEGATIVE_INFINITY;
+  return 20 * Math.log10(linear);
+}
+
+type DecodedBuffer = {
+  readonly numberOfChannels: number;
+  readonly length: number;
+  getChannelData(channel: number): Float32Array;
+};
+
+type OfflineAudioContextLike = {
+  decodeAudioData(data: ArrayBuffer): Promise<DecodedBuffer>;
+};
+
+type OfflineAudioContextCtor = new (
+  channels: number,
+  length: number,
+  sampleRate: number,
+) => OfflineAudioContextLike;
+
+/**
+ * Decode a clip's audio without playing it.
+ *
+ * Throws when the browser will not decode the file, when the fetch fails, or
+ * when there is no AudioContext — which is what `inspect` turns into
+ * `unknown` rather than a guessed "ok".
+ */
+export async function decodeLevels(url: string): Promise<Levels> {
+  const host = globalThis as typeof globalThis & {
+    OfflineAudioContext?: OfflineAudioContextCtor;
+    webkitOfflineAudioContext?: OfflineAudioContextCtor;
+  };
+  const Ctor = host.OfflineAudioContext ?? host.webkitOfflineAudioContext;
+  if (typeof Ctor !== "function") throw new Error("no audio context");
+  if (typeof fetch !== "function") throw new Error("no fetch");
+
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`fetch ${String(response.status)}`);
+
+  const bytes = await response.arrayBuffer();
+  const ctx = new Ctor(1, 1, 44_100);
+  const decoded = await ctx.decodeAudioData(bytes.slice(0));
+  return levelsFromDecoded(decoded);
+}
+
+function levelsFromDecoded(buffer: DecodedBuffer): Levels {
+  const channels = buffer.numberOfChannels;
+  const length = buffer.length;
+  if (channels === 0 || length === 0) {
+    return { peakDb: Number.NEGATIVE_INFINITY, integratedDb: Number.NEGATIVE_INFINITY };
+  }
+
+  const mixed = new Float32Array(length);
+  for (let c = 0; c < channels; c++) {
+    const data = buffer.getChannelData(c);
+    for (let i = 0; i < length; i++) {
+      mixed[i] = (mixed[i] ?? 0) + (data[i] ?? 0) / channels;
+    }
+  }
+
+  return levelsFromSamples(mixed);
+}
+
+/**
+ * Measure a clip at a URL, without playing it.
+ *
+ * The presenter page uses this against the *next* slide's files, which that
+ * page does not render — so there is no `<video>` to hand `inspect`. A
+ * relative `src` is resolved by the caller.
+ */
+export async function measureClip(url: string): Promise<LevelReport> {
+  return createMediaController({
+    measure: () => decodeLevels(url),
+  }).inspect({
+    src: url,
+    volume: 1,
+    muted: false,
+    paused: true,
+    duration: 0,
+    play: async () => undefined,
+    pause: () => undefined,
+  });
+}
