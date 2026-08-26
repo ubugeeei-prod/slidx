@@ -327,11 +327,15 @@ describe("renderQrSvg", () => {
   it("draws a code rather than fetching one", () => {
     const svg = renderQrSvg("https://example.com/remote/#s=ab.cd");
 
+    // `xmlns` is exempt and only that: it is an identifier the SVG spec
+    // requires, never dereferenced by anything. Excluding it by name
+    // rather than loosening the check keeps the next stray URL caught.
+    const drawn = svg.replace('xmlns="http://www.w3.org/2000/svg"', "");
     expect(svg).toContain("<svg");
     expect(svg).toContain("currentColor");
-    expect(svg).not.toContain("<img");
-    expect(svg).not.toContain("http://");
-    expect(svg).not.toContain("https://");
+    expect(drawn).not.toContain("<img");
+    expect(drawn).not.toContain("http://");
+    expect(drawn).not.toContain("https://");
   });
 
   it("refuses an empty payload rather than drawing a mark that cannot scan", () => {

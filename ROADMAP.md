@@ -211,12 +211,11 @@ Everything between walking up and sitting down.
       from `describePace` rather than from a second opinion written beside it
 - [x] Mirroring across windows and screens — #13
 - [x] Navigation from the presenter view, which is where a clicker's keys go — #12
-- [ ] Remote control from a separate device — #13. `createPairing`,
-      `pairingUrl` and `createRemoteTransport` exist and nothing constructs a
-      `RemoteSocket` for them; there is no relay. `readPairing`'s one caller
-      is the _editor's_ collaboration gate, not slide control. The transport is
-      not what is missing — the answer to _who operates a server_ is, and the
-      non-goals refuse the obvious one — #280
+- [x] Remote control from a separate device — #13, #280. The author's
+      Worker hosts a pairing session on `/sessions/<id>/socket`. The
+      presenter mints the secret in the URL fragment, draws a QR, and the
+      phone page sends positions. A deck that leaves the option out still
+      fetches nothing. slidx does not hold the session.
 - [x] Presentation mode: wake lock, fullscreen, and a named DND checklist —
       #13, #278. `f` on any slide takes the whole screen and asks for the wake
       lock, bound where that gesture has to be. The checklist is on the
@@ -380,9 +379,9 @@ directories, and it parses a deck only once something in it has already matched
 
 Tracking issue: #275
 
-Everything above is checked except three boxes: a pairing that reaches a
-slide, a codec for images and fonts, and the registry logins. v1.0 closes
-that — not more features, the ones already paid for, connected to a hand.
+Everything above is checked except two boxes: a codec for images and fonts,
+and the registry logins. v1.0 closes that — not more features, the ones
+already paid for, connected to a hand. The pairing now reaches a slide.
 
 - [x] `check:reachable`: CI fails on a module no page can call — #276
 - [x] Pace reaches the presenter view — #277
@@ -517,7 +516,9 @@ A checked box still means a person can reach the thing.
       second site with a second set of facts. The English site is the one a
       reader can start from (#312). `docs/content/ja/` is the same slugs;
       `cargo test -p slidx_docs` fails when a page exists in one locale and
-      not the other. `i18n.locales` names `root` and `ja`.
+      not the other. `i18n.enabled` names `en` and `ja`; `/` is English and
+      `/ja/` is Japanese. Sidebar labels are locale maps. The header
+      switcher is `ssg.localeSwitcher`.
 
 ### Publish and audience
 
