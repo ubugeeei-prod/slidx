@@ -65,7 +65,7 @@ const LOG = new Uint8Array(256);
 
 function gfMul(a: number, b: number): number {
   if (a === 0 || b === 0) return 0;
-  return EXP[(LOG[a] + LOG[b]) % 255] ?? 0;
+  return EXP[((LOG[a] ?? 0) + (LOG[b] ?? 0)) % 255] ?? 0;
 }
 
 function rsGenerator(degree: number): Uint8Array {
@@ -74,7 +74,7 @@ function rsGenerator(degree: number): Uint8Array {
   for (let i = 0; i < degree; i += 1) {
     const next = EXP[i] ?? 0;
     for (let j = i; j >= 0; j -= 1) {
-      generator[j + 1] ^= gfMul(generator[j] ?? 0, next);
+      generator[j + 1] = (generator[j + 1] ?? 0) ^ gfMul(generator[j] ?? 0, next);
     }
   }
   return generator;
@@ -88,7 +88,7 @@ function rsEncode(data: Uint8Array, eccCount: number): Uint8Array {
     ecc.copyWithin(0, 1);
     ecc[eccCount - 1] = 0;
     for (let i = 0; i < eccCount; i += 1) {
-      ecc[i] ^= gfMul(generator[i + 1] ?? 0, factor);
+      ecc[i] = (ecc[i] ?? 0) ^ gfMul(generator[i + 1] ?? 0, factor);
     }
   }
   return ecc;
@@ -188,7 +188,12 @@ function matrixOf(version: number): Module[][] {
         const rr = row + r;
         const cc = column + c;
         if (rr < 0 || cc < 0 || rr >= size || cc >= size) continue;
-        const on = r >= 0 && r <= 6 && c >= 0 && c <= 6 && (r === 0 || r === 6 || c === 0 || c === 6 || (r >= 2 && r <= 4 && c >= 2 && c <= 4));
+        const on =
+          r >= 0 &&
+          r <= 6 &&
+          c >= 0 &&
+          c <= 6 &&
+          (r === 0 || r === 6 || c === 0 || c === 6 || (r >= 2 && r <= 4 && c >= 2 && c <= 4));
         const cell = grid[rr];
         if (cell) cell[cc] = on;
       }
@@ -209,7 +214,11 @@ function matrixOf(version: number): Module[][] {
   const centers = ALIGNMENT[version] ?? [];
   for (const row of centers) {
     for (const column of centers) {
-      if ((row === 6 && column === 6) || (row === 6 && column === size - 7) || (row === size - 7 && column === 6)) {
+      if (
+        (row === 6 && column === 6) ||
+        (row === 6 && column === size - 7) ||
+        (row === size - 7 && column === 6)
+      ) {
         continue;
       }
       for (let r = -2; r <= 2; r += 1) {
@@ -256,7 +265,7 @@ function formatBits(mask: number): number {
   for (let i = 14; i >= 10; i -= 1) {
     if (bits & (1 << i)) bits ^= generator << (i - 10);
   }
-  return (data << 10 | bits) ^ 0b101010000010010;
+  return ((data << 10) | bits) ^ 0b101010000010010;
 }
 
 function writeFormat(grid: Module[][], mask: number): void {
@@ -328,7 +337,7 @@ function place(grid: Module[][], codewords: Uint8Array, mask: number): boolean[]
         if (reserved[row]?.[c]) continue;
         const bit = bits[index] ?? 0;
         index += 1;
-        const dark = bit === 1 !== maskBit(mask, row, c);
+        const dark = (bit === 1) !== maskBit(mask, row, c);
         const cell = grid[row];
         if (cell) cell[c] = dark;
       }
@@ -373,7 +382,11 @@ function penalty(grid: boolean[][]): number {
   for (let row = 0; row < size - 1; row += 1) {
     for (let column = 0; column < size - 1; column += 1) {
       const a = grid[row]?.[column];
-      if (a === grid[row]?.[column + 1] && a === grid[row + 1]?.[column] && a === grid[row + 1]?.[column + 1]) {
+      if (
+        a === grid[row]?.[column + 1] &&
+        a === grid[row + 1]?.[column] &&
+        a === grid[row + 1]?.[column + 1]
+      ) {
         score += 3;
       }
     }

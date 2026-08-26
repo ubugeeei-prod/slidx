@@ -29,12 +29,7 @@ import {
   readPairing,
   type RemoteSocket,
 } from "../src/remote";
-import {
-  composeTransports,
-  joinRemote,
-  relaySocketUrl,
-  rememberPairing,
-} from "../src/remote-link";
+import { composeTransports, joinRemote, relaySocketUrl, rememberPairing } from "../src/remote-link";
 import { renderQrSvg } from "../src/qr";
 
 /** A socket that records what was sent and can be fed what arrives. */
@@ -281,9 +276,7 @@ describe("relaySocketUrl", () => {
   it("opens a session socket and never puts the secret in the URL", () => {
     const url = relaySocketUrl("https://slidx-audience.example.workers.dev/", PAIRING.session);
 
-    expect(url).toBe(
-      `wss://slidx-audience.example.workers.dev/sessions/${PAIRING.session}/socket`,
-    );
+    expect(url).toBe(`wss://slidx-audience.example.workers.dev/sessions/${PAIRING.session}/socket`);
     expect(url).not.toContain(PAIRING.secret);
     expect(url).not.toContain("#");
     expect(url).not.toContain("?");
@@ -326,6 +319,8 @@ describe("joinRemote", () => {
 describe("renderQrSvg", () => {
   it("draws a code rather than fetching one", () => {
     const svg = renderQrSvg("https://example.com/remote/#s=ab.cd");
+    expect(svg).not.toBeNull();
+    if (svg == null) return;
 
     // `xmlns` is exempt and only that: it is an identifier the SVG spec
     // requires, never dereferenced by anything. Excluding it by name
@@ -345,6 +340,7 @@ describe("renderQrSvg", () => {
   it("puts finder patterns in three corners", () => {
     const svg = renderQrSvg("https://slidx.dev/remote");
     expect(svg).toContain("M4 4h7v1h-7z");
+    expect(svg).not.toBeNull();
   });
 });
 

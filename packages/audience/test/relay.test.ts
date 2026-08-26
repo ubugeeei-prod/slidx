@@ -15,12 +15,7 @@
 
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  createRelayHub,
-  isSessionId,
-  readRelayFrame,
-  SESSION_HEX_LENGTH,
-} from "../src/relay";
+import { createRelayHub, isSessionId, readRelayFrame, SESSION_HEX_LENGTH } from "../src/relay";
 import { routeSessionRequest, splitSessionPath } from "../src/relay-routes";
 import { handleFetch, type AudienceEnv, type DurableObjectNamespaceLike } from "../src/worker";
 import type { Sink } from "../src/worker";
@@ -71,17 +66,19 @@ describe("routeSessionRequest", () => {
   const origin = "https://audience.example.workers.dev";
 
   it("upgrades only the socket path", async () => {
-    const upgraded = await routeSessionRequest(new Request(`${origin}/sessions/${SESSION}/socket`), {
-      upgrade: () => new Response(null, { status: 101 }),
-    });
+    const upgraded = await routeSessionRequest(
+      new Request(`${origin}/sessions/${SESSION}/socket`),
+      {
+        upgrade: () => new Response(null, { status: 101 }),
+      },
+    );
     expect(upgraded.status).toBe(101);
   });
 
   it("answers 404 for a session that is not a pairing id", async () => {
-    const response = await routeSessionRequest(
-      new Request(`${origin}/sessions/zero-js/socket`),
-      { upgrade: () => new Response(null, { status: 101 }) },
-    );
+    const response = await routeSessionRequest(new Request(`${origin}/sessions/zero-js/socket`), {
+      upgrade: () => new Response(null, { status: 101 }),
+    });
     expect(response.status).toBe(404);
   });
 
@@ -94,10 +91,9 @@ describe("routeSessionRequest", () => {
   });
 
   it("does not treat the session itself as a resource that can be read", async () => {
-    const response = await routeSessionRequest(
-      new Request(`${origin}/sessions/${SESSION}`),
-      { upgrade: () => new Response(null, { status: 101 }) },
-    );
+    const response = await routeSessionRequest(new Request(`${origin}/sessions/${SESSION}`), {
+      upgrade: () => new Response(null, { status: 101 }),
+    });
     expect(response.status).toBe(404);
   });
 });
@@ -209,12 +205,12 @@ function fakeNamespace(): { names: string[]; namespace: DurableObjectNamespaceLi
 
 describe("readRelayFrame", () => {
   it("reads a join and a relay and nothing else", () => {
-    expect(readRelayFrame(JSON.stringify({ type: "join", session: SESSION, secret: SECRET }))).toEqual(
-      { type: "join", session: SESSION, secret: SECRET },
-    );
-    expect(readRelayFrame(JSON.stringify({ type: "relay", session: SESSION, message: { a: 1 } }))).toEqual(
-      { type: "relay", session: SESSION, message: { a: 1 } },
-    );
+    expect(
+      readRelayFrame(JSON.stringify({ type: "join", session: SESSION, secret: SECRET })),
+    ).toEqual({ type: "join", session: SESSION, secret: SECRET });
+    expect(
+      readRelayFrame(JSON.stringify({ type: "relay", session: SESSION, message: { a: 1 } })),
+    ).toEqual({ type: "relay", session: SESSION, message: { a: 1 } });
     expect(readRelayFrame("not json")).toBeNull();
     expect(readRelayFrame(JSON.stringify({ type: "state", session: SESSION }))).toBeNull();
     expect(readRelayFrame(new Uint8Array([1, 2]))).toBeNull();

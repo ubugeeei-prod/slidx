@@ -127,6 +127,18 @@ function stateOf(over: Partial<EditorState> = {}): EditorState {
         description: "Move both slides together to show progression.",
         moves: true,
       },
+      {
+        id: "wipe",
+        name: "Wipe",
+        description: "Reveal the next slide behind a moving edge.",
+        moves: true,
+      },
+      {
+        id: "rise",
+        name: "Rise",
+        description: "Raise the next slide from below, pushing the current one up.",
+        moves: true,
+      },
     ],
     slides: [
       { ...timing, id: "one", index: 0, title: "One", frontmatter: { title: "A" } },
@@ -900,6 +912,8 @@ describe("the inspector", () => {
       "fade",
       "slide",
       "push",
+      "wipe",
+      "rise",
     ]);
     expect(choices[0]!.textContent).toContain("Deck default · Fade");
     expect(choices[0]!.getAttribute("aria-pressed")).toBe("true");

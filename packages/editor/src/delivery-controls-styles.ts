@@ -117,6 +117,9 @@ export const DELIVERY_CONTROL_STYLESHEET = `
 .slidx-transition-preview[data-transition-preview="slide"] .slidx-transition-preview-to { left: 14px; }
 .slidx-transition-preview[data-transition-preview="push"] .slidx-transition-preview-from { right: 19px; }
 .slidx-transition-preview[data-transition-preview="push"] .slidx-transition-preview-to { left: 19px; }
+.slidx-transition-preview[data-transition-preview="wipe"] .slidx-transition-preview-to { clip-path: inset(0 40% 0 0); }
+.slidx-transition-preview[data-transition-preview="rise"] .slidx-transition-preview-from { bottom: 19px; }
+.slidx-transition-preview[data-transition-preview="rise"] .slidx-transition-preview-to { top: 19px; }
 .slidx-transition-preview[data-transition-preview="inherit"] .slidx-transition-preview-to {
   inset: 8px 4px 4px 12px;
   border-style: dashed;

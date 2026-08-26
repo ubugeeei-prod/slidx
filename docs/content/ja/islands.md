@@ -55,13 +55,13 @@ export default createRegistry([
 その Vue カウンタの隣に React のチャートを登録でき、どちらかの登録を外すとそのアダプタと
 コンポーネントが Vite のグラフから消えます。
 
-| 選択    | アダプタの入口                 | ファクトリ        | デッキへのインストール                         |
-| ------- | ------------------------------ | ----------------- | ---------------------------------------------- |
-| Vue     | `@slidxjs/islands/vue`         | `vueIsland`       | `vue` と Vue の Vite プラグイン                |
-| React   | `@slidxjs/islands/react`       | `reactIsland`     | `react`、`react-dom`、React プラグイン         |
-| Svelte  | `@slidxjs/islands/svelte`      | `svelteIsland`    | `svelte` と Svelte の Vite プラグイン          |
-| Solid   | `@slidxjs/islands/solid`       | `solidIsland`     | `solid-js` と Solid の Vite プラグイン         |
-| Angular | `@slidxjs/islands/angular`     | `angularIsland`   | Angular 20+ とそのコンパイラプラグイン         |
+| 選択    | アダプタの入口             | ファクトリ      | デッキへのインストール                 |
+| ------- | -------------------------- | --------------- | -------------------------------------- |
+| Vue     | `@slidxjs/islands/vue`     | `vueIsland`     | `vue` と Vue の Vite プラグイン        |
+| React   | `@slidxjs/islands/react`   | `reactIsland`   | `react`、`react-dom`、React プラグイン |
+| Svelte  | `@slidxjs/islands/svelte`  | `svelteIsland`  | `svelte` と Svelte の Vite プラグイン  |
+| Solid   | `@slidxjs/islands/solid`   | `solidIsland`   | `solid-js` と Solid の Vite プラグイン |
+| Angular | `@slidxjs/islands/angular` | `angularIsland` | Angular 20+ とそのコンパイラプラグイン |
 
 Angular のコンポーネントと公開パッケージは、デッキの Vite 設定に Angular 自身のコンパイラと
 リンカが要ります。アダプタは zoneless で動くので、一つの island がすべてのスライドの
