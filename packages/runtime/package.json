@@ -35,6 +35,10 @@
       "types": "./dist/media/media.d.mts",
       "default": "./dist/media/media.mjs"
     },
+    "./remote": {
+      "types": "./dist/remote/remote-entry.d.mts",
+      "default": "./dist/remote/remote-entry.mjs"
+    },
     "./effects.css": "./dist/effects.css"
   },
   "publishConfig": {
@@ -42,7 +46,7 @@
     "provenance": true
   },
   "scripts": {
-    "pack:lib": "vp pack src/index.ts --dts --out-dir dist && vp pack src/emitted.ts --dts --out-dir dist/emitted && vp pack src/presenter.ts --dts --out-dir dist/presenter && vp pack src/camera.ts --dts --out-dir dist/camera && vp pack src/media.ts --dts --out-dir dist/media && node ../../scripts/copy-assets.mjs src/effects.css dist/effects.css"
+    "pack:lib": "vp pack src/index.ts --dts --out-dir dist && vp pack src/emitted.ts --dts --out-dir dist/emitted && vp pack src/presenter.ts --dts --out-dir dist/presenter && vp pack src/camera.ts --dts --out-dir dist/camera && vp pack src/media.ts --dts --out-dir dist/media && vp pack src/remote-entry.ts --dts --out-dir dist/remote && node ../../scripts/copy-assets.mjs src/effects.css dist/effects.css"
   },
   "devDependencies": {
     "@slidxjs/wasm": "workspace:*"

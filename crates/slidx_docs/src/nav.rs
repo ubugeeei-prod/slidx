@@ -52,11 +52,27 @@ impl Section {
     /// reader picks the door that describes their situation, and "Guides" does
     /// not describe anybody's situation.
     pub fn label(self) -> &'static str {
-        match self {
-            Self::Start => "Start",
-            Self::Choosing => "Choosing slidx",
-            Self::Tonight => "The night before",
-            Self::Reference => "Reference",
+        self.label_for("en")
+    }
+
+    /// The same door, in the locale the page was written in.
+    ///
+    /// The English labels stay the ones a new reader can start from. Japanese
+    /// is the same four doors, not a second information architecture.
+    pub fn label_for(self, locale: &str) -> &'static str {
+        match locale {
+            "ja" => match self {
+                Self::Start => "はじめる",
+                Self::Choosing => "slidx を選ぶ",
+                Self::Tonight => "前夜",
+                Self::Reference => "リファレンス",
+            },
+            _ => match self {
+                Self::Start => "Start",
+                Self::Choosing => "Choosing slidx",
+                Self::Tonight => "The night before",
+                Self::Reference => "Reference",
+            },
         }
     }
 
@@ -102,6 +118,7 @@ mod tests {
             for other in Section::ALL.into_iter().skip(index + 1) {
                 assert_ne!(section.as_token(), other.as_token());
                 assert_ne!(section.label(), other.label());
+                assert_ne!(section.label_for("ja"), other.label_for("ja"));
             }
         }
     }

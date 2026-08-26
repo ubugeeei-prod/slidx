@@ -331,7 +331,11 @@ mod tests {
 
     #[test]
     fn transition_names_come_from_the_transitions_that_exist() {
-        assert_eq!(labels(&at_cursor("---\ntransition: |\n---\n\n# One\n")).len(), 4);
+        let items = at_cursor("---\ntransition: |\n---\n\n# One\n");
+        assert_eq!(
+            labels(&items),
+            slidx_theme::Transition::ALL.iter().map(|kind| kind.as_token()).collect::<Vec<_>>()
+        );
     }
 
     #[test]

@@ -122,9 +122,19 @@ function identity(): string {
   return globalThis.crypto?.randomUUID?.() ?? `w${Math.random().toString(36).slice(2)}`;
 }
 
+/**
+ * Same-machine windows, when the browser has a channel for them.
+ *
+ * A phone remote rides a different transport. Composing the two is how a
+ * projector and a lectern keep following each other after the relay dies.
+ */
+export function localTransport(name = "slidx"): MirrorTransport | null {
+  return broadcastChannel(name);
+}
+
 export function createMirror(options: MirrorOptions = {}): Mirror {
   const transport =
-    options.transport === undefined ? broadcastChannel(options.name ?? "slidx") : options.transport;
+    options.transport === undefined ? localTransport(options.name ?? "slidx") : options.transport;
 
   const handlers = new Set<(position: Position) => void>();
   const demoHandlers = new Set<(report: DemoReport) => void>();

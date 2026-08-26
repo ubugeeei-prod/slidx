@@ -60,6 +60,11 @@ else.
 Leave `audience` out and no client is emitted. The default deck still fetches
 nothing.
 
+The same Worker also hosts the [phone remote](remote.md). That is a second
+Durable Object class on a second route — `/sessions/<id>/socket` — so a Q&A
+room and a pairing never share a secret. Point `remote.endpoint` at the same
+origin; slidx still does not hold the session.
+
 ## What slidx will not do
 
 It will not run the Worker for you. A relay slidx operated would make this a

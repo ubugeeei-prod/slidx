@@ -247,6 +247,8 @@ focused, and at a venue that is usually the projector.
 - `→` `PageDown` and the rest of what a remote sends, on **every** slide
 - `f` takes the whole screen and asks it to stay awake
 - **Swipe** on a phone; real `‹ ›` anchors with scripting switched off
+- A **phone remote** when the deck names the author's Worker — pairing secret
+  in the URL fragment, never in a query, never on an audience slide
 - `slidx doctor` reads power, clock skew, fonts, capture and mirroring before you
   walk on
 

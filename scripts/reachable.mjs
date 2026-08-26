@@ -82,6 +82,7 @@ export const EMITTED_BUNDLES = {
   "{runtime_src}": "@slidxjs/runtime/emitted",
   "{camera_src}": "@slidxjs/runtime/camera",
   "{media_src}": "@slidxjs/runtime/media",
+  "{remote_src}": "@slidxjs/runtime/remote",
   "{presenter_runtime_src}": "@slidxjs/runtime/presenter",
   "{rehearsal_src}": "@slidxjs/rehearsal",
   "${EDITOR_MODULE}": "@slidxjs/editor",
@@ -159,6 +160,7 @@ export const UNREACHABLE = {
 export const EMITTED_EXACTLY = {
   "@slidxjs/runtime/emitted": "{runtime_src}",
   "@slidxjs/runtime/presenter": "{presenter_runtime_src}",
+  "@slidxjs/runtime/remote": "{remote_src}",
 };
 
 /**

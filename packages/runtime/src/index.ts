@@ -41,9 +41,18 @@ export {
   LOUDNESS_TARGET_DB,
 } from "./media";
 export type { LevelReport, Levels, LevelStatus, MediaController, MediaElementLike } from "./media";
-export { createMirror } from "./mirror";
+export { createMirror, localTransport } from "./mirror";
 export { createPairing, createRemoteTransport, pairingUrl, readPairing } from "./remote";
 export type { Pairing, PairingOptions, RemoteOptions, RemoteSocket } from "./remote";
+export {
+  composeTransports,
+  connectRelay,
+  joinRemote,
+  relaySocketUrl,
+  rememberPairing,
+} from "./remote-link";
+export type { JoinRemoteOptions } from "./remote-link";
+export { renderQrSvg } from "./qr";
 export { createNavigator, LAST_STEP } from "./navigate";
 export { assessPace, describePace } from "./pace";
 export type {

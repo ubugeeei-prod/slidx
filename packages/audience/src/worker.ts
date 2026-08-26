@@ -18,6 +18,8 @@
 
 import { createParticipant, type Participant } from "./participant";
 import type { RoomEndReason, RoomSnapshot, ServerMessage } from "./protocol";
+import { createRelayHub, readRelayFrame, type RelayHub } from "./relay";
+import { routeSessionRequest, splitSessionPath } from "./relay-routes";
 import { createRoom, type Room, type RoomStorage } from "./room";
 import { routeRoomRequest, splitRoomPath } from "./routes";
 import { receiveFrame } from "./session";
@@ -53,6 +55,8 @@ export interface DurableObjectNamespaceLike {
 
 export interface AudienceEnv {
   AUDIENCE_ROOM: DurableObjectNamespaceLike;
+  /** Pairing sessions. A different binding so a room slug can never name one. */
+  REMOTE_SESSION: DurableObjectNamespaceLike;
 }
 
 /**
@@ -267,6 +271,90 @@ export class AudienceRoom {
 }
 
 /**
+ * One pairing session, alive for as long as a socket is attached.
+ *
+ * A different Durable Object class from the audience room, on purpose. The
+ * two protocols must not share storage, members, or a secret — bolting an
+ * authenticated speaker path onto an anonymous Q&A channel would compromise
+ * the thing that makes that channel safe to open to a room.
+ *
+ * It stores nothing. The first join sets the secret in memory; the last
+ * leave forgets it. A Durable Object that hibernated mid-talk loses the
+ * session, and the presenter joins again with the same pairing.
+ */
+export class RemoteSession {
+  #hub: RelayHub | null = null;
+
+  constructor(_state: DurableObjectStateLike) {}
+
+  async fetch(request: Request): Promise<Response> {
+    const path = splitSessionPath(new URL(request.url).pathname);
+    if (!path) return new Response("no such session", { status: 404 });
+
+    return routeSessionRequest(request, {
+      upgrade: (upgradeRequest) => this.#upgrade(upgradeRequest, path.id),
+    });
+  }
+
+  #hubFor(session: string): RelayHub {
+    this.#hub ??= createRelayHub(session);
+    return this.#hub;
+  }
+
+  #upgrade(request: Request, session: string): Response {
+    if (request.headers.get("upgrade") !== "websocket") {
+      return new Response("expected a websocket", { status: 426 });
+    }
+
+    const pair = new WebSocketPair();
+    const client = pair[0];
+    const server = pair[1];
+    const hub = this.#hubFor(session);
+
+    server.accept();
+
+    const sink: Sink = {
+      send: (data) => server.send(data),
+      close: (code, reason) => server.close(code, reason),
+    };
+
+    server.addEventListener("message", (event) => {
+      receiveRelay(hub, sink, session, event.data);
+    });
+    server.addEventListener("close", () => hub.leave(sink));
+    server.addEventListener("error", () => hub.leave(sink));
+
+    const init: SocketResponseInit = { status: 101, webSocket: client };
+    return new Response(null, init);
+  }
+}
+
+/**
+ * One inbound frame on a pairing socket.
+ *
+ * A wrong secret closes the socket. Anything else that is not a join or a
+ * relay is ignored — a talk is not the place to throw.
+ */
+export function receiveRelay(hub: RelayHub, sink: Sink, session: string, raw: unknown): void {
+  const frame = readRelayFrame(raw);
+  if (frame === null || frame.session !== session) return;
+
+  if (frame.type === "join") {
+    const outcome = hub.join(sink, frame.session, frame.secret);
+    if (!outcome.ok) {
+      try {
+        sink.close(1008, outcome.reason);
+      } catch {
+        // Already gone.
+      }
+    }
+    return;
+  }
+
+  hub.relay(sink, frame.session, frame.message);
+}
+
+/**
  * The Worker in front of the objects.
  *
  * It does one thing: turn a slug into the object that owns it. The slug is
@@ -274,7 +362,15 @@ export class AudienceRoom {
  * is an unbounded namespace anybody can allocate in.
  */
 export async function handleFetch(request: Request, env: AudienceEnv): Promise<Response> {
-  const path = splitRoomPath(new URL(request.url).pathname);
+  const pathname = new URL(request.url).pathname;
+
+  const session = splitSessionPath(pathname);
+  if (session) {
+    const stub = env.REMOTE_SESSION.get(env.REMOTE_SESSION.idFromName(session.id));
+    return stub.fetch(request);
+  }
+
+  const path = splitRoomPath(pathname);
   if (!path) return new Response("not found", { status: 404 });
 
   const stub = env.AUDIENCE_ROOM.get(env.AUDIENCE_ROOM.idFromName(path.slug));

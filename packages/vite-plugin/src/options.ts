@@ -126,6 +126,18 @@ export interface SlidxOptions {
     /** Presenter-only. Never written onto an audience page. */
     hostKey?: string;
   };
+  /**
+   * Open a phone remote against a Worker the author deployed.
+   *
+   * Off by default: a deck that did not name a Worker must not open a
+   * socket. The same Worker as the audience channel, a second route —
+   * `/sessions/<id>/socket` — so a Q&A room and a pairing never share a
+   * secret. slidx still has no HTTP client and no token store.
+   */
+  remote?: {
+    /** Worker origin, e.g. `https://slidx-audience.example.workers.dev`. */
+    endpoint: string;
+  };
 }
 
 /** Options with every default filled in. */
@@ -145,6 +157,7 @@ export interface ResolvedOptions {
   overflow: boolean;
   failOnDiagnostics: boolean;
   audience: { endpoint: string; room: string; hostKey?: string } | undefined;
+  remote: { endpoint: string } | undefined;
 }
 
 export function resolveOptions(options: SlidxOptions = {}): ResolvedOptions {
@@ -166,6 +179,7 @@ export function resolveOptions(options: SlidxOptions = {}): ResolvedOptions {
     overflow: options.overflow ?? true,
     failOnDiagnostics: options.failOnDiagnostics ?? true,
     audience: resolveAudience(options.audience),
+    remote: resolveRemote(options.remote),
   };
 }
 
@@ -179,6 +193,13 @@ function resolveAudience(audience: SlidxOptions["audience"]): ResolvedOptions["a
   if (!endpoint || !room) return undefined;
 
   return hostKey ? { endpoint, room, hostKey } : { endpoint, room };
+}
+
+function resolveRemote(remote: SlidxOptions["remote"]): ResolvedOptions["remote"] {
+  if (!remote) return undefined;
+
+  const endpoint = remote.endpoint.trim();
+  return endpoint ? { endpoint } : undefined;
 }
 
 /**
@@ -342,6 +363,22 @@ export function mediaFileName(options: ResolvedOptions): string {
 /** Where the presenter-only rehearsal module is written, and imported from. */
 export function rehearsalFileName(options: ResolvedOptions): string {
   return options.base ? `${options.base}/rehearsal.js` : "rehearsal.js";
+}
+
+/**
+ * Where the pairing bundle is written, and imported from.
+ *
+ * Emitted only for a deck that named a relay. Folding it into the entry
+ * every deck downloads would put a WebSocket client in front of every
+ * audience for the sake of the few talks that pair a phone.
+ */
+export function remoteFileName(options: ResolvedOptions): string {
+  return options.base ? `${options.base}/remote.js` : "remote.js";
+}
+
+/** Where the phone page is written. */
+export function remotePageFileName(options: ResolvedOptions): string {
+  return options.base ? `${options.base}/remote/index.html` : "remote/index.html";
 }
 
 /** Where the runtime's one shared effect stylesheet is written. */

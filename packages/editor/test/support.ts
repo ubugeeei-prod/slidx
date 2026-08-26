@@ -96,6 +96,18 @@ export function deckOf(...titles: string[]): DeckState {
           description: "Move both slides together to show progression.",
           moves: true,
         },
+        {
+          id: "wipe",
+          name: "Wipe",
+          description: "Reveal the next slide behind a moving edge.",
+          moves: true,
+        },
+        {
+          id: "rise",
+          name: "Rise",
+          description: "Raise the next slide from below, pushing the current one up.",
+          moves: true,
+        },
       ],
       layouts: [
         {

@@ -28,7 +28,7 @@ const REPOSITORY_BLOB: &str = "https://github.com/ubugeeei-prod/slidx/blob/main/
 /// this prefix is the one thing a page spells differently in the two places it
 /// is read. Rewritten for `src` as well as `href`, because a `<video>` is
 /// neither a Markdown link nor a Markdown image.
-const MEDIA: (&str, &str) = ("\"../media/", "\"media/");
+const MEDIA: &[(&str, &str)] = &[("\"../../media/", "\"media/"), ("\"../media/", "\"media/")];
 
 /// Rewrites every relative Markdown link in a rendered page.
 ///
@@ -36,7 +36,11 @@ const MEDIA: (&str, &str) = ("\"../media/", "\"media/");
 /// which of the several link spellings CommonMark accepts produced the `href`.
 /// Ox Content has already collapsed them all into one attribute by this point.
 pub fn rewrite(html: &str) -> String {
-    replace_hrefs(&html.replace(MEDIA.0, MEDIA.1), rewrite_href)
+    let mut rewritten = html.to_string();
+    for (from, to) in MEDIA {
+        rewritten = rewritten.replace(from, to);
+    }
+    replace_hrefs(&rewritten, rewrite_href)
 }
 
 /// One `href`, as the site should spell it.
@@ -126,6 +130,10 @@ mod tests {
         // relative path to it from a published page reaches nothing.
         assert_eq!(
             rewrite(r#"<a href="../../ROADMAP.md">"#),
+            r#"<a href="https://github.com/ubugeeei-prod/slidx/blob/main/ROADMAP.md">"#
+        );
+        assert_eq!(
+            rewrite(r#"<a href="../../../ROADMAP.md">"#),
             r#"<a href="https://github.com/ubugeeei-prod/slidx/blob/main/ROADMAP.md">"#
         );
     }

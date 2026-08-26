@@ -15,6 +15,8 @@ export interface SlideRequest {
   print?: boolean;
   /** Every slide at once, as a page of links. */
   overview?: boolean;
+  /** The phone remote. One page per deck. */
+  remote?: boolean;
 }
 
 /**
@@ -37,6 +39,7 @@ export function slideRequestFor(url: string, base: string): SlideRequest | null 
 
   if (rest === "print") return { index: 0, presenter: false, print: true };
   if (rest === "overview") return { index: 0, presenter: false, overview: true };
+  if (rest === "remote") return { index: 0, presenter: false, remote: true };
 
   const presenter = rest === "presenter" || rest.endsWith("/presenter");
   if (presenter) rest = rest.replace(/\/?presenter$/, "");

@@ -23,13 +23,40 @@ const tokens = JSON.parse(readFileSync(join(here, "../assets/brand/tokens.json")
   typography: { fontSans: string; fontMono: string };
 };
 
+type NavGroup = { title: string; items: { title: string; path: string }[] };
+
 const navigationPath = join(here, ".generated/navigation.json");
-let navigation: { title: string; items: { title: string; path: string }[] }[] = [];
+const navigationJaPath = join(here, ".generated/ja/navigation.json");
+let navigation: NavGroup[] = [];
+let navigationJa: NavGroup[] = [];
 try {
-  navigation = JSON.parse(readFileSync(navigationPath, "utf8")) as typeof navigation;
+  navigation = JSON.parse(readFileSync(navigationPath, "utf8")) as NavGroup[];
+  navigationJa = JSON.parse(readFileSync(navigationJaPath, "utf8")) as NavGroup[];
 } catch {
   // `docs:dev` and `docs:build` run prepare first. Opening this file alone
   // should not crash; the sidebar is empty until the generated tree exists.
+}
+
+/**
+ * One sidebar, two labels. Ox Content rewrites the English paths onto
+ * `/ja/…` when that sibling exists. A second `navigation` object named
+ * `localeNavigation` is not a field it has, so the Japanese titles have
+ * to travel as locale maps on this tree.
+ */
+function sidebarFromLocales(english: NavGroup[], japanese: NavGroup[]) {
+  return english.map((group, index) => {
+    const other = japanese[index];
+    return {
+      text: { en: group.title, ja: other?.title ?? group.title },
+      items: group.items.map((item, itemIndex) => {
+        const translated = other?.items[itemIndex];
+        return {
+          text: { en: item.title, ja: translated?.title ?? item.title },
+          link: item.path,
+        };
+      }),
+    };
+  });
 }
 
 const light = tokens.color.light;
@@ -127,15 +154,28 @@ export default defineConfig({
       headingPermalinks: true,
       docs: false,
       embeds: false,
+      // Pages are translated Markdown, not ICU dictionaries. `check` looks
+      // for the latter and would fail a tree that has none.
+      i18n: {
+        enabled: true,
+        defaultLocale: "en",
+        hideDefaultLocale: true,
+        check: false,
+        locales: [
+          { code: "en", name: "English" },
+          { code: "ja", name: "日本語" },
+        ],
+      },
       ssg: {
         siteName: "slidx",
         pagination: true,
-        navigation,
+        localeSwitcher: true,
         theme: defineTheme({
           extends: defaultTheme,
           aside: true,
           headingPermalink: "hover",
           entryPage: { mode: "subtle" },
+          sidebar: sidebarFromLocales(navigation, navigationJa),
           colors: {
             primary: light.signal,
             primaryHover: light.signal,

@@ -211,12 +211,11 @@ Everything between walking up and sitting down.
       from `describePace` rather than from a second opinion written beside it
 - [x] Mirroring across windows and screens — #13
 - [x] Navigation from the presenter view, which is where a clicker's keys go — #12
-- [ ] Remote control from a separate device — #13. `createPairing`,
-      `pairingUrl` and `createRemoteTransport` exist and nothing constructs a
-      `RemoteSocket` for them; there is no relay. `readPairing`'s one caller
-      is the _editor's_ collaboration gate, not slide control. The transport is
-      not what is missing — the answer to _who operates a server_ is, and the
-      non-goals refuse the obvious one — #280
+- [x] Remote control from a separate device — #13, #280. The author's
+      Worker hosts a pairing session on `/sessions/<id>/socket`. The
+      presenter mints the secret in the URL fragment, draws a QR, and the
+      phone page sends positions. A deck that leaves the option out still
+      fetches nothing. slidx does not hold the session.
 - [x] Presentation mode: wake lock, fullscreen, and a named DND checklist —
       #13, #278. `f` on any slide takes the whole screen and asks for the wake
       lock, bound where that gesture has to be. The checklist is on the
@@ -380,15 +379,15 @@ directories, and it parses a deck only once something in it has already matched
 
 Tracking issue: #275
 
-Everything above is checked except three boxes: a pairing that reaches a
-slide, a codec for images and fonts, and the registry logins. v1.0 closes
-that — not more features, the ones already paid for, connected to a hand.
+Everything above is checked except two boxes: a codec for images and fonts,
+and the registry logins. v1.0 closes that — not more features, the ones
+already paid for, connected to a hand. The pairing now reaches a slide.
 
 - [x] `check:reachable`: CI fails on a module no page can call — #276
 - [x] Pace reaches the presenter view — #277
 - [x] Presentation mode: the checklist a browser cannot perform — #278
 - [x] Demo fallback: the presenter knowing what has buffered — #279, #292
-- [ ] Remote control: a pairing that reaches a slide — #280
+- [x] Remote control: a pairing that reaches a slide — #280
 - [x] Audience channel: deployable, or a stated non-goal — #281
 - [x] The editor's text controls, which nothing constructs — #283
 - [x] The rehearsal trend across runs, which reaches no screen — #284
@@ -444,8 +443,10 @@ an estimate:
 **#281** has its answer: the author deploys the Worker from their Cloudflare
 account. slidx writes the `wrangler.toml` and the client; it does not log in
 and does not run a relay. **#280** (a pairing that reaches a slide) is the
-same answer, not yet wired to a slide — slidx still does not hold the
-session.
+same answer, now wired: the author's Worker hosts a second Durable Object
+on `/sessions/<id>/socket`, the presenter mints a pairing in the URL
+fragment, and the phone page sends positions. slidx still does not hold
+the session.
 
 **#286** is done without a build-time codec. The presenter page fetches the
 next slide's file, `OfflineAudioContext.decodeAudioData` measures it, and
@@ -475,8 +476,8 @@ reason, and there is now a check that fails when that stops being true.
 
 M7 closed the class of failure where a feature is written, tested, and
 reachable by nobody. What is left of M7 is waiting on something that is not a
-diff: wiring the remote (#280) to the author's Worker, a codec decision
-(#234), and two registry logins. This milestone is the work that _is_
+diff: a codec decision (#234), and two registry logins. #280 is wired:
+the author's Worker is the relay. This milestone is the work that _is_
 a diff — the documentation a new reader can actually start from, a Cloudflare
 path that does not turn slidx into a service, motion an author can pick
 rather than only declare, and a theme they can add after the fact.
@@ -511,10 +512,13 @@ A checked box still means a person can reach the thing.
       separate page. Doors by need: write, look, present, hand out, islands,
       questions from the room, CLI. _Won't:_ a fake `npm i` that 404s; a stub
       page for a feature that has no reachable path yet (FrameScript, BGM).
-- [ ] **Japanese documentation.** Ox Content's locale map, same pages, not a
+- [x] **Japanese documentation.** Ox Content's locale map, same pages, not a
       second site with a second set of facts. The English site is the one a
-      reader can start from (#312). The locale map is not wired yet — Ox
-      Content already has `i18n.locales`; this site does not pass it.
+      reader can start from (#312). `docs/content/ja/` is the same slugs;
+      `cargo test -p slidx_docs` fails when a page exists in one locale and
+      not the other. `i18n.enabled` names `en` and `ja`; `/` is English and
+      `/ja/` is Japanese. Sidebar labels are locale maps. The header
+      switcher is `ssg.localeSwitcher`.
 
 ### Publish and audience
 
@@ -531,9 +535,8 @@ A checked box still means a person can reach the thing.
       exists only because that path is green. The operator is the author's
       Cloudflare account. _Won't:_ a relay slidx runs. That would make this
       a service, which is a question about what slidx is, and the non-goals
-      already refuse it. #280 (a pairing that reaches a slide) gets the same
-      answer once the author's Worker is the server: slidx does not hold the
-      session.
+      already refuse it. #280 is the same answer, now wired: the author's
+      Worker hosts the pairing session. slidx does not hold it.
 
 ### Motion an author can actually pick
 
@@ -550,13 +553,15 @@ picks one. Timing and easing stay on the theme.
       timeline was compiled for. `vp run generate:types` updates the
       committed `deck.d.ts`. _Won't:_ a duration or an easing on the cell;
       a second motion model beside `EffectPreset`.
-- [ ] **Slide-to-slide motion stays four verbs, plus what MPA can do.**
-      `none` / `fade` / `slide` / `push` are the ones a projector and
-      `prefers-reduced-motion` can both survive. A wipe or a vertical push
-      can join them if they degrade to a cut. Named view-transition elements
-      for a figure that should keep its place across two documents. _Won't:_
-      a client-side router; a spin or a zoom of the whole viewport; a
-      promise that every browser plays the transition.
+- [x] **Slide-to-slide motion stays the verbs MPA can do.**
+      `none` / `fade` / `slide` / `push` / `wipe` / `rise` (`push-up`) are
+      the ones a projector and `prefers-reduced-motion` can both survive.
+      Wipe and rise degrade to a cross-fade under reduced motion, and to a
+      cut in a browser that does not implement view transitions. Named
+      view-transition elements for a figure that should keep its place
+      across two documents are still ahead. _Won't:_ a client-side router;
+      a spin or a zoom of the whole viewport; a promise that every browser
+      plays the transition.
 - [ ] **FrameScript.** A motion DSL the step compiler can read, that does
       not invade the easing the theme owns. Done when a timeline row and a
       Markdown fence name the same thing and both compile. _Won't:_ a page

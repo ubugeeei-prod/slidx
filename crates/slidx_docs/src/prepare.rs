@@ -54,31 +54,13 @@ pub fn prepare(
     }
     fs::create_dir_all(generated).map_err(|error| format!("{}: {error}", generated.display()))?;
 
-    for page in site.pages() {
-        let source = fs::read_to_string(content.join(format!("{}.md", page.slug)))
-            .map_err(|error| format!("{}.md: {error}", page.slug))?;
-        let (filled, missing) = generated::fill(&source);
-        if let Some(name) = missing.first() {
-            return Err(format!(
-                "{}.md asks for a generated block called {name:?}, which nothing \
-                 generates — the ones that exist are {}",
-                page.slug,
-                generated::NAMES.join(", "),
-            ));
-        }
+    written.extend(write_locale(content, generated, &site, "en")?);
 
-        let path = generated.join(format!("{}.md", page.slug));
-        fs::write(&path, rewrite_for_site(&filled))
-            .map_err(|error| format!("{}: {error}", path.display()))?;
-        written.push(path);
+    let japanese = content.join("ja");
+    if japanese.is_dir() {
+        let site = Site::read(&japanese)?;
+        written.extend(write_locale(&japanese, &generated.join("ja"), &site, "ja")?);
     }
-
-    let navigation = generated.join(NAVIGATION_FILE);
-    let json = serde_json::to_string_pretty(&navigation_of(&site))
-        .map_err(|error| format!("navigation: {error}"))?;
-    fs::write(&navigation, format!("{json}\n"))
-        .map_err(|error| format!("{}: {error}", navigation.display()))?;
-    written.push(navigation);
 
     if public_media.exists() {
         fs::remove_dir_all(public_media).map_err(|error| format!("media: {error}"))?;
@@ -114,7 +96,49 @@ struct NavigationItem {
     path: String,
 }
 
-fn navigation_of(site: &Site) -> Vec<NavigationGroup> {
+fn write_locale(
+    source: &Path,
+    destination: &Path,
+    site: &Site,
+    locale: &str,
+) -> Result<Vec<PathBuf>, String> {
+    fs::create_dir_all(destination)
+        .map_err(|error| format!("{}: {error}", destination.display()))?;
+
+    let mut written = Vec::new();
+
+    for page in site.pages() {
+        let source = fs::read_to_string(source.join(format!("{}.md", page.slug)))
+            .map_err(|error| format!("{locale}/{}.md: {error}", page.slug))?;
+        let (filled, missing) = generated::fill(&source);
+        if let Some(name) = missing.first() {
+            return Err(format!(
+                "{locale}/{}.md asks for a generated block called {name:?}, which nothing \
+                 generates — the ones that exist are {}",
+                page.slug,
+                generated::NAMES.join(", "),
+            ));
+        }
+
+        let path = destination.join(format!("{}.md", page.slug));
+        fs::write(&path, rewrite_for_site(&filled))
+            .map_err(|error| format!("{}: {error}", path.display()))?;
+        written.push(path);
+    }
+
+    let navigation = destination.join(NAVIGATION_FILE);
+    let json = serde_json::to_string_pretty(&navigation_of(site, locale))
+        .map_err(|error| format!("{locale} navigation: {error}"))?;
+    fs::write(&navigation, format!("{json}\n"))
+        .map_err(|error| format!("{}: {error}", navigation.display()))?;
+    written.push(navigation);
+
+    Ok(written)
+}
+
+fn navigation_of(site: &Site, locale: &str) -> Vec<NavigationGroup> {
+    let prefix = if locale == "en" { String::new() } else { format!("/{locale}") };
+
     Section::ALL
         .into_iter()
         .filter_map(|section| {
@@ -125,15 +149,19 @@ fn navigation_of(site: &Site) -> Vec<NavigationGroup> {
             }
             pages.sort_by_key(|page| page.order);
             Some(NavigationGroup {
-                title: section.label().to_string(),
+                title: section.label_for(locale).to_string(),
                 items: pages
                     .into_iter()
                     .map(|page| NavigationItem {
                         title: page.title.clone(),
                         path: if page.slug == "index" {
-                            "/".to_string()
+                            if prefix.is_empty() {
+                                "/".to_string()
+                            } else {
+                                format!("{prefix}/")
+                            }
                         } else {
-                            format!("/{}", page.slug)
+                            format!("{prefix}/{}", page.slug)
                         },
                     })
                     .collect(),
@@ -144,32 +172,51 @@ fn navigation_of(site: &Site) -> Vec<NavigationGroup> {
 
 /// Rewrites the two link shapes that work on GitHub and nowhere on the site.
 fn rewrite_for_site(source: &str) -> String {
-    let with_media = source.replace("../media/", "/media/");
+    // A Japanese page sits one directory deeper, so its pictures are two
+    // levels up. Rewrite the longer prefix first.
+    let with_media = source.replace("../../media/", "/media/").replace("../media/", "/media/");
     rewrite_repository_links(&with_media)
 }
 
+/// Rewrites a link that leaves `docs/` for a file in the repository.
+///
+/// English pages write `../../README.md`. Japanese pages write
+/// `../../../README.md`. Both are the same file once the `../` prefixes
+/// are stripped, and both are a 404 on the published site unless they
+/// become a blob URL.
 fn rewrite_repository_links(source: &str) -> String {
-    const MARK: &str = "](../../";
+    const OPEN: &str = "](";
 
     let mut out = String::with_capacity(source.len());
     let mut rest = source;
 
-    while let Some(start) = rest.find(MARK) {
-        let (before, after) = rest.split_at(start);
-        out.push_str(before);
-        out.push_str("](");
-        out.push_str(REPOSITORY_BLOB);
+    while let Some(start) = rest.find(OPEN) {
+        let after_open = &rest[start + OPEN.len()..];
+        if !after_open.starts_with("../") {
+            out.push_str(&rest[..start + OPEN.len()]);
+            rest = after_open;
+            continue;
+        }
 
-        let path = &after[MARK.len()..];
+        let mut path = after_open;
+        let mut ups = 0usize;
+        while path.starts_with("../") {
+            path = &path[3..];
+            ups += 1;
+        }
+
         match path.split_once(')') {
-            Some((target, remainder)) => {
+            Some((target, remainder)) if ups >= 2 => {
+                out.push_str(&rest[..start]);
+                out.push_str(OPEN);
+                out.push_str(REPOSITORY_BLOB);
                 out.push_str(target);
                 out.push(')');
                 rest = remainder;
             }
-            None => {
-                rest = path;
-                break;
+            _ => {
+                out.push_str(&rest[..start + OPEN.len()]);
+                rest = after_open;
             }
         }
     }
@@ -195,6 +242,18 @@ mod tests {
         assert_eq!(
             rewrite_for_site("[the roadmap](../../ROADMAP.md)"),
             "[the roadmap](https://github.com/ubugeeei-prod/slidx/blob/main/ROADMAP.md)"
+        );
+    }
+
+    #[test]
+    fn a_japanese_page_reaches_the_same_repository_file() {
+        assert_eq!(
+            rewrite_for_site("[the roadmap](../../../ROADMAP.md)"),
+            "[the roadmap](https://github.com/ubugeeei-prod/slidx/blob/main/ROADMAP.md)"
+        );
+        assert_eq!(
+            rewrite_for_site("![lint](../../media/terminal-lint-light.png)"),
+            "![lint](/media/terminal-lint-light.png)"
         );
     }
 
@@ -293,6 +352,11 @@ mod tests {
 
         assert!(generated.join("index.md").is_file());
         assert!(generated.join(NAVIGATION_FILE).is_file());
+        assert!(
+            generated.join("ja/index.md").is_file(),
+            "the locale map has no Japanese front page"
+        );
+        assert!(generated.join("ja").join(NAVIGATION_FILE).is_file());
         let index = fs::read_to_string(generated.join("index.md")).expect("index");
         assert!(!index.contains("<!-- slidx-docs:"), "a placeholder survived: {index}");
 
