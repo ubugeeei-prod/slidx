@@ -29,7 +29,11 @@ function sink() {
   const closed: Array<{ code?: number; reason?: string }> = [];
   const target: Sink = {
     send: (data) => sent.push(data),
-    close: (code, reason) => closed.push({ code, reason }),
+    close: (code, reason) =>
+      closed.push({
+        ...(code === undefined ? {} : { code }),
+        ...(reason === undefined ? {} : { reason }),
+      }),
   };
   return { target, sent, closed };
 }
