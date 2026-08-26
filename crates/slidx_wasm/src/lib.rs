@@ -751,7 +751,10 @@ mod tests {
             .transitions
             .iter()
             .all(|choice| !choice.name.is_empty() && !choice.description.is_empty()));
-        assert_eq!(result.transitions.iter().filter(|choice| choice.moves).count(), 2);
+        assert_eq!(
+            result.transitions.iter().filter(|choice| choice.moves).count(),
+            Transition::ALL.iter().filter(|transition| transition.moves()).count()
+        );
     }
 
     #[test]

@@ -23,7 +23,7 @@ html, body {
 .slidx-presenter {
   display: grid;
   grid-template-columns: 1fr minmax(280px, 34%);
-  grid-template-rows: auto auto auto 1fr auto;
+  grid-template-rows: auto auto auto auto 1fr auto;
   grid-template-areas: "bar bar" "keys keys" "present present" "remote remote" "notes next" "report report";
   gap: 1.5rem;
   padding: 1.5rem;
@@ -495,8 +495,8 @@ html, body {
 @media (max-width: 720px) {
   .slidx-presenter {
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto auto;
-    grid-template-areas: "bar" "next" "notes" "report";
+    grid-template-rows: auto auto auto auto auto;
+    grid-template-areas: "bar" "next" "notes" "remote" "report";
     align-content: start;
   }
 
@@ -538,7 +538,7 @@ mod tests {
     #[test]
     fn the_rehearsal_report_has_its_own_grid_area() {
         assert!(STYLESHEET.contains(
-            r#"grid-template-areas: "bar bar" "keys keys" "present present" "notes next" "report report""#
+            r#"grid-template-areas: "bar bar" "keys keys" "present present" "remote remote" "notes next" "report report""#
         ));
         assert!(STYLESHEET.contains("grid-area: report"));
     }
@@ -546,7 +546,7 @@ mod tests {
     #[test]
     fn it_collapses_to_one_column_on_a_phone() {
         assert!(STYLESHEET.contains("@media (max-width: 720px)"));
-        assert!(STYLESHEET.contains("grid-template-rows: auto auto auto auto"));
+        assert!(STYLESHEET.contains("grid-template-rows: auto auto auto auto auto"));
     }
 
     #[test]
