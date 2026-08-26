@@ -11,9 +11,9 @@ use std::collections::BTreeMap;
 use slidx_core::parse_deck;
 use slidx_lint::{lint, ImageFormat, Intrinsic, LintInput, LintOptions};
 use slidx_render::{
-    render_deck_card, render_presenter, render_print, render_robots, render_sitemap, render_slide,
-    render_snippets, validate_mdx, MarkdownOptions, OgOptions, PresenterOptions, PrintOptions,
-    SeoOptions, ShellOptions, SnippetOptions,
+    render_deck_card, render_presenter, render_print, render_remote, render_robots, render_sitemap,
+    render_slide, render_snippets, validate_mdx, MarkdownOptions, OgOptions, PresenterOptions,
+    PrintOptions, RemoteOptions, SeoOptions, ShellOptions, SnippetOptions,
 };
 use slidx_theme::{Catalogue, Published, Resolved};
 
@@ -147,6 +147,7 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
         options.presenter_runtime_src.clone().unwrap_or_else(|| "./presenter.js".to_string());
     let rehearsal_src =
         options.rehearsal_src.clone().unwrap_or_else(|| "./rehearsal.js".to_string());
+    let remote_src = options.remote_src.clone();
 
     // An address the caller states wins over the deck's own, for the same reason
     // an explicit theme does: the file describes the deck, and the build knows
@@ -174,12 +175,13 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
     let snippet_theme = theme.clone();
     let og_theme = theme.clone();
     let presenter = PresenterOptions {
-        theme,
+        theme: theme.clone(),
         markdown,
         runtime_src: runtime_src.clone(),
         presenter_runtime_src,
         rehearsal_src,
         media_src,
+        remote_src: remote_src.clone(),
     };
 
     let render = !options.parse_only;
@@ -227,6 +229,16 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
     // would leave `/overview/` a 404 on exactly the decks long enough to want
     // one.
     let overview_html = render.then(|| slidx_render::overview::render_overview(&deck, &shell));
+
+    let remote_html = (render && remote_src.is_some()).then(|| {
+        render_remote(
+            &deck,
+            &RemoteOptions {
+                theme: theme.clone(),
+                remote_src: remote_src.unwrap_or_else(|| "./remote.js".to_string()),
+            },
+        )
+    });
 
     // Rendered whenever the deck is rendered rather than behind a flag: a
     // slide that asks for a snippet already shows a QR pointing at its page,
@@ -278,6 +290,7 @@ pub(crate) fn build(source: &str, options: &BuildOptions) -> BuildResult {
         has_blocking,
         print_html,
         overview_html,
+        remote_html,
     }
 }
 

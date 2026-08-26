@@ -90,6 +90,19 @@ describe("what is not a slide", () => {
     });
   });
 
+  it("routes the phone remote, which is one page for the whole deck", () => {
+    expect(slideRequestFor("/remote", "")).toEqual({
+      index: 0,
+      presenter: false,
+      remote: true,
+    });
+    expect(slideRequestFor("/slides/remote/", "slides")).toEqual({
+      index: 0,
+      presenter: false,
+      remote: true,
+    });
+  });
+
   it("does not mistake a slide called overview for the overview", () => {
     // A deck's slides are numbered, so nothing else can claim the name — but
     // the check is cheap and the alternative is a route that shadows a slide.

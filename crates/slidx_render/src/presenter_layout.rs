@@ -24,7 +24,7 @@ html, body {
   display: grid;
   grid-template-columns: 1fr minmax(280px, 34%);
   grid-template-rows: auto auto auto 1fr auto;
-  grid-template-areas: "bar bar" "keys keys" "present present" "notes next" "report report";
+  grid-template-areas: "bar bar" "keys keys" "present present" "remote remote" "notes next" "report report";
   gap: 1.5rem;
   padding: 1.5rem;
   min-height: 100vh;
@@ -171,6 +171,30 @@ html, body {
 }
 
 .slidx-present[hidden] { display: none; }
+
+.slidx-remote {
+  grid-area: remote;
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border: var(--slidx-hairline) solid var(--slidx-color-border);
+}
+
+.slidx-remote[hidden] { display: none; }
+
+.slidx-remote-copy { margin: 0; color: var(--slidx-color-muted); }
+
+.slidx-remote-qr {
+  margin: 0;
+  width: min(12rem, 100%);
+  background: var(--slidx-color-surface);
+  color: var(--slidx-color-text);
+}
+
+.slidx-remote-qr svg { display: block; width: 100%; height: auto; }
+
+.slidx-remote-url { color: inherit; }
 
 .slidx-present-state {
   margin: 0;

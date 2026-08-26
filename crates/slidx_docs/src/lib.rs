@@ -293,6 +293,30 @@ mod tests {
     }
 
     #[test]
+    fn the_japanese_pages_are_the_same_pages() {
+        // Same facts, not a second site. A page that exists in English and
+        // not in Japanese is a reader who followed the locale switch and
+        // landed on a 404.
+        let english = Site::read(&content_directory()).expect("the site");
+        let japanese = Site::read(&content_directory().join("ja")).expect("the japanese site");
+
+        let english_slugs: Vec<&str> =
+            english.pages().iter().map(|page| page.slug.as_str()).collect();
+        let japanese_slugs: Vec<&str> =
+            japanese.pages().iter().map(|page| page.slug.as_str()).collect();
+
+        assert_eq!(english_slugs, japanese_slugs);
+
+        for page in japanese.pages() {
+            assert!(
+                page.summary.trim().ends_with('。'),
+                "{}: a Japanese summary is a sentence and ends with a full stop",
+                page.slug
+            );
+        }
+    }
+
+    #[test]
     fn every_page_on_the_real_site_belongs_to_a_reader_and_says_what_it_is_for() {
         for page in Site::read(&content_directory()).expect("the site").pages() {
             assert!(!page.title.trim().is_empty(), "{} has no title", page.slug);

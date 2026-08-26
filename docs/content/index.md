@@ -5,6 +5,8 @@ section: start
 order: 1
 ---
 
+[日本語](/ja/)
+
 # Write Markdown. Get a website.
 
 slidx compiles a Markdown deck into ordinary static HTML — one URL per slide,
@@ -57,6 +59,7 @@ same commands this repository's own CI runs.
 - You want to **hand it out** → [the CLI](cli.md) (`export`, `publish`)
 - You want a **framework component** on one slide → [islands](islands.md)
 - You want **questions from the room** → [the audience channel](audience.md)
+- You want to drive the deck from a **phone** → [the phone remote](remote.md)
 - You want last year's deck **found** → [the CLI](cli.md) (`list`, `grep`, `cd`)
 
 ## Two other people

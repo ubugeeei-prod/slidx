@@ -82,6 +82,10 @@ fn describe_transition(transition: Transition) -> &'static str {
              the deck."
         }
         Transition::Push => "Both slides move in lockstep, the arriving one pushing the other off.",
+        Transition::Wipe => {
+            "The arriving slide is revealed behind a moving edge. The outgoing slide stays put."
+        }
+        Transition::Rise => "Both slides move vertically, the arriving one rising from below.",
     }
 }
 

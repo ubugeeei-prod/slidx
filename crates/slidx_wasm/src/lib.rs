@@ -118,6 +118,12 @@ pub struct BuildOptions {
     pub presenter_runtime_src: Option<String>,
     /// Module URL the presenter view imports rehearsal recording from.
     pub rehearsal_src: Option<String>,
+    /// Module URL of the pairing bundle, when a relay was named.
+    ///
+    /// Absent by default. Setting it is what makes the presenter import
+    /// `joinRemote` and what writes the phone page; a deck that never pairs
+    /// still ships nothing extra.
+    pub remote_src: Option<String>,
     /// Image sizes the caller already read, keyed by the path a slide writes.
     ///
     /// There is no filesystem on this side of the boundary, so the resolution
@@ -256,6 +262,10 @@ pub struct BuildResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub overview_html: Option<String>,
+    /// The phone remote, one page per deck. Absent unless `remote_src` was set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub remote_html: Option<String>,
     /// The deck's own social card, as SVG. Absent unless `og` was set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]

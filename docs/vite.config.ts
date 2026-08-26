@@ -24,9 +24,12 @@ const tokens = JSON.parse(readFileSync(join(here, "../assets/brand/tokens.json")
 };
 
 const navigationPath = join(here, ".generated/navigation.json");
+const navigationJaPath = join(here, ".generated/ja/navigation.json");
 let navigation: { title: string; items: { title: string; path: string }[] }[] = [];
+let navigationJa: typeof navigation = [];
 try {
   navigation = JSON.parse(readFileSync(navigationPath, "utf8")) as typeof navigation;
+  navigationJa = JSON.parse(readFileSync(navigationJaPath, "utf8")) as typeof navigation;
 } catch {
   // `docs:dev` and `docs:build` run prepare first. Opening this file alone
   // should not crash; the sidebar is empty until the generated tree exists.
@@ -127,10 +130,17 @@ export default defineConfig({
       headingPermalinks: true,
       docs: false,
       embeds: false,
+      i18n: {
+        locales: {
+          root: { lang: "en", label: "English" },
+          ja: { lang: "ja", label: "日本語" },
+        },
+      },
       ssg: {
         siteName: "slidx",
         pagination: true,
         navigation,
+        localeNavigation: { ja: navigationJa },
         theme: defineTheme({
           extends: defaultTheme,
           aside: true,

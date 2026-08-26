@@ -42,6 +42,7 @@ import {
   audienceClientSource,
   withAudienceClient,
 } from "./audience";
+import { remoteConstructors, withRemoteClient } from "./remote";
 import {
   ogFileBase,
   effectsFileName,
@@ -52,6 +53,8 @@ import {
   mediaFileName,
   presenterRuntimeFileName,
   rehearsalFileName,
+  remoteFileName,
+  remotePageFileName,
   resolveOptions,
   runtimeFileName,
   slideFileName,
@@ -84,8 +87,13 @@ const RESOLVED_CAMERA_ID = "\0virtual:slidx-camera";
 const RESOLVED_MEDIA_ID = "\0virtual:slidx-media";
 const RESOLVED_PRESENTER_RUNTIME_ID = "\0virtual:slidx-presenter-runtime";
 const RESOLVED_REHEARSAL_ID = "\0virtual:slidx-rehearsal";
+const RESOLVED_REMOTE_ID = "\0virtual:slidx-remote";
 
 export function slidx(userOptions: SlidxOptions = {}): Plugin {
+  // Touched so the pairing constructors stay a real import the reachable
+  // check can see. Nothing is emitted unless the author named a Worker.
+  void remoteConstructors();
+
   const options = resolveOptions(userOptions);
   let root = process.cwd();
   let dev = false;
@@ -152,6 +160,7 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
       if (id === `/${mediaFileName(options)}`) return RESOLVED_MEDIA_ID;
       if (id === `/${presenterRuntimeFileName(options)}`) return RESOLVED_PRESENTER_RUNTIME_ID;
       if (id === `/${rehearsalFileName(options)}`) return RESOLVED_REHEARSAL_ID;
+      if (id === `/${remoteFileName(options)}`) return RESOLVED_REMOTE_ID;
       return undefined;
     },
 
@@ -168,6 +177,7 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
       if (id === RESOLVED_MEDIA_ID) return readMedia();
       if (id === RESOLVED_PRESENTER_RUNTIME_ID) return readPresenterRuntime();
       if (id === RESOLVED_REHEARSAL_ID) return readRehearsal();
+      if (id === RESOLVED_REMOTE_ID) return readRemoteRuntime();
       return undefined;
     },
 
@@ -300,9 +310,11 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
             ? built.overviewHtml
             : asked.print
               ? built.printHtml
-              : asked.presenter
-                ? slide?.presenterHtml
-                : slide?.html;
+              : asked.remote
+                ? built.remoteHtml
+                : asked.presenter
+                  ? slide?.presenterHtml
+                  : slide?.html;
 
           if (!html) {
             response.statusCode = 404;
@@ -322,7 +334,7 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
           response.setHeader("cache-control", "no-store");
           const page = options.islands ? withIslandClient(html, ISLAND_CLIENT_PATH) : html;
           const withChannel =
-            options.audience && !asked.overview && !asked.print
+            options.audience && !asked.overview && !asked.print && !asked.remote
               ? withAudienceClient(page, AUDIENCE_CLIENT_PATH, {
                   endpoint: options.audience.endpoint,
                   room: options.audience.room,
@@ -331,7 +343,11 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
                     : {}),
                 })
               : page;
-          response.end(await server.transformIndexHtml(url, withChannel));
+          const withRemote =
+            options.remote && (asked.presenter || asked.remote)
+              ? withRemoteClient(withChannel, options.remote)
+              : withChannel;
+          response.end(await server.transformIndexHtml(url, withRemote));
         } catch (error) {
           next(error);
         }
@@ -417,6 +433,9 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
               ...(options.audience.hostKey ? { hostKey: options.audience.hostKey } : {}),
             });
           }
+          if (options.remote) {
+            html = withRemoteClient(html, options.remote);
+          }
           this.emitFile({ type: "asset", fileName, source: html });
         }
       }
@@ -470,6 +489,14 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
         });
       }
 
+      if (options.remote && built.remoteHtml) {
+        this.emitFile({
+          type: "asset",
+          fileName: remotePageFileName(options),
+          source: withRemoteClient(built.remoteHtml, options.remote),
+        });
+      }
+
       // The runtime is emitted once and shared by the presenter and print
       // pages. Audience slides still stay at zero JavaScript unless they have
       // staged content.
@@ -478,6 +505,17 @@ export function slidx(userOptions: SlidxOptions = {}): Plugin {
           type: "asset",
           fileName: runtimeFileName(options),
           source: await readRuntime(),
+        });
+      }
+
+      // Pairing constructors, for a deck that named a relay. Asked of the
+      // option rather than of the pages: the file exists exactly when the
+      // author opted in, so a default deck still ships nothing extra.
+      if (options.remote) {
+        this.emitFile({
+          type: "asset",
+          fileName: remoteFileName(options),
+          source: await readRemoteRuntime(),
         });
       }
 
@@ -623,6 +661,7 @@ async function renderDeck(
     mediaSrc: mediaSrcFor(options),
     presenterRuntimeSrc: presenterRuntimeSrcFor(options),
     rehearsalSrc: rehearsalSrcFor(options),
+    remoteSrc: options.remote ? remoteSrcFor(options) : undefined,
     // The print shell carries the runtime rather than importing it, so the
     // one document a speaker falls back to opens from anywhere.
     printRuntime: print ? await readRuntime() : undefined,
@@ -674,12 +713,18 @@ function rehearsalSrcFor(options: ReturnType<typeof resolveOptions>): string {
   return `/${rehearsalFileName(options)}`;
 }
 
+/** The pairing bundle sits beside the shared runtime. */
+function remoteSrcFor(options: ReturnType<typeof resolveOptions>): string {
+  return `/${remoteFileName(options)}`;
+}
+
 /** The built runtime, read once. */
 let runtime: Promise<string> | undefined;
 let presenterRuntime: Promise<string> | undefined;
 let camera: Promise<string> | undefined;
 let media: Promise<string> | undefined;
 let rehearsal: Promise<string> | undefined;
+let remoteRuntime: Promise<string> | undefined;
 let effects: Promise<string> | undefined;
 
 /**
@@ -745,6 +790,19 @@ function readPresenterRuntime(): Promise<string> {
   })();
 
   return presenterRuntime;
+}
+
+/** The pairing bundle a presenter and a phone import, read once. */
+function readRemoteRuntime(): Promise<string> {
+  remoteRuntime ??= (async () => {
+    const { createRequire } = await import("node:module");
+    const { readFile } = await import("node:fs/promises");
+    const require = createRequire(import.meta.url);
+
+    return readFile(require.resolve("@slidxjs/runtime/remote"), "utf8");
+  })();
+
+  return remoteRuntime;
 }
 
 /** The built presenter-only rehearsal runtime, read once. */

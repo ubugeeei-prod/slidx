@@ -97,6 +97,16 @@ opposite answers and only one of them means the deck is fine.
 vp exec playwright install chromium
 ```
 
+## I want to drive the deck from my phone
+
+The presenter view's **Phone** button is there when the deck named a Worker.
+Scan the QR. The secret stays in the URL fragment and is never sent with the
+request. If the button is missing, the deck did not opt in — see
+[the phone remote](remote.md).
+
+The phone page is `/slides/remote/`. It does not navigate. If the relay is
+down, the keyboard on the lectern still drives the projector.
+
 ## The presenter view will not open, or the projector forces mirroring
 
 The presenter view is its own URL, not a window slidx has to be allowed to

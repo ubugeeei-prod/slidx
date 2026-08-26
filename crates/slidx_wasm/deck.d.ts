@@ -111,6 +111,14 @@ export type BuildOptions = {
    */
   rehearsalSrc: string | null;
   /**
+   * Module URL of the pairing bundle, when a relay was named.
+   *
+   * Absent by default. Setting it is what makes the presenter import
+   * `joinRemote` and what writes the phone page; a deck that never pairs
+   * still ships nothing extra.
+   */
+  remoteSrc: string | null;
+  /**
    * Image sizes the caller already read, keyed by the path a slide writes.
    *
    * There is no filesystem on this side of the boundary, so the resolution
@@ -234,6 +242,10 @@ export type BuildResult = {
    * rendered.
    */
   overviewHtml?: string;
+  /**
+   * The phone remote, one page per deck. Absent unless `remote_src` was set.
+   */
+  remoteHtml?: string;
   /**
    * The deck's own social card, as SVG. Absent unless `og` was set.
    */

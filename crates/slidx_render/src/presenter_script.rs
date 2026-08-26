@@ -35,9 +35,10 @@ pub(crate) fn render(
     runtime_src: &str,
     presenter_runtime_src: &str,
     rehearsal_src: &str,
+    remote_src: Option<&str>,
 ) -> String {
     format!(
-        r#"import {{
+        r#"{remote_import}import {{
   createMirror,
   createNavigator,
   createStopCursor,
@@ -86,7 +87,7 @@ const rehearsal = openRehearsalSession({{
 const openingRehearsal = rehearsal.state();
 const timer = createTimer({{ budgetMs, initialElapsedMs: openingRehearsal.elapsedMs }});
 if (openingRehearsal.status === "recording") timer.start();
-const mirror = createMirror();
+__SLIDX_MIRROR_BOOT__
 
 const clock = document.querySelector("[data-slidx-clock]");
 const elapsed = document.querySelector("[data-slidx-elapsed]");
@@ -452,6 +453,7 @@ mirror.subscribe((position) => {{
 mirror.send({{ slide: {index}, step: deck.step }});
 paintStop();
 "#,
+        remote_import = remote_src.map(crate::presenter_remote::import).unwrap_or_default(),
         runtime_src = runtime_src,
         presenter_runtime_src = presenter_runtime_src,
         rehearsal_src = rehearsal_src,
@@ -465,6 +467,14 @@ paintStop();
         index = slide.index,
         count = deck.slides.len(),
         stops = slide.timeline.frames().len(),
+    )
+    .replace(
+        "__SLIDX_MIRROR_BOOT__",
+        if remote_src.is_some() {
+            crate::presenter_remote::BOOT
+        } else {
+            "const mirror = createMirror();\n"
+        },
     )
 }
 

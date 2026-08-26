@@ -61,6 +61,9 @@ A slide that names a transition decides for itself, including when it says
 `none`; only silence inherits the deck's. `transition: false` is accepted as a
 spelling of `none`, because YAML reads it as a boolean and a slide switching a
 deck-wide transition off would otherwise read as a slide that said nothing.
+`push-up` is accepted as a spelling of `rise`. Every moving kind degrades to a
+cross-fade under `prefers-reduced-motion`; a browser that does not implement
+view transitions navigates instantly.
 
 <!-- slidx-docs: transitions -->
 

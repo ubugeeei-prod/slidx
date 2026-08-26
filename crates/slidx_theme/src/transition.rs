@@ -34,10 +34,12 @@ use crate::theme::Theme;
 
 /// How one slide gives way to the next.
 ///
-/// Four, and deliberately not a menu. Every entry here has to hold frame rate
-/// on venue hardware and survive [`Transition::moves`] being cancelled for a
-/// viewer who asked for less motion — which rules out anything that spins,
-/// zooms, or flips.
+/// A closed set, and deliberately not a menu. Every entry here has to hold
+/// frame rate on venue hardware and survive [`Transition::moves`] being
+/// cancelled for a viewer who asked for less motion — which rules out
+/// anything that spins, zooms, or flips. A wipe and a vertical push join
+/// the original four because both degrade to a cut when the browser will
+/// not run the animation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Transition {
@@ -51,11 +53,17 @@ pub enum Transition {
     Slide,
     /// Both slides move in lockstep, the arriving one pushing the other off.
     Push,
+    /// The arriving slide is revealed behind a moving edge. The outgoing
+    /// slide stays put.
+    Wipe,
+    /// Both slides move vertically, the arriving one rising from below.
+    Rise,
 }
 
 impl Transition {
     /// Every transition, in the order they are offered to an author.
-    pub const ALL: [Self; 4] = [Self::None, Self::Fade, Self::Slide, Self::Push];
+    pub const ALL: [Self; 6] =
+        [Self::None, Self::Fade, Self::Slide, Self::Push, Self::Wipe, Self::Rise];
 
     /// Reads a `transition:` token.
     ///
@@ -71,6 +79,9 @@ impl Transition {
             "fade" => Some(Self::Fade),
             "slide" => Some(Self::Slide),
             "push" => Some(Self::Push),
+            "wipe" => Some(Self::Wipe),
+            // `push-up` is what people write when they mean a vertical push.
+            "rise" | "push-up" => Some(Self::Rise),
             _ => None,
         }
     }
@@ -82,6 +93,8 @@ impl Transition {
             Self::Fade => "fade",
             Self::Slide => "slide",
             Self::Push => "push",
+            Self::Wipe => "wipe",
+            Self::Rise => "rise",
         }
     }
 
@@ -92,6 +105,8 @@ impl Transition {
             Self::Fade => "Fade",
             Self::Slide => "Slide",
             Self::Push => "Push",
+            Self::Wipe => "Wipe",
+            Self::Rise => "Rise",
         }
     }
 
@@ -102,6 +117,8 @@ impl Transition {
             Self::Fade => "Blend softly between the two slides.",
             Self::Slide => "Bring the next slide over the current one.",
             Self::Push => "Move both slides together to show progression.",
+            Self::Wipe => "Reveal the next slide behind a moving edge.",
+            Self::Rise => "Raise the next slide from below, pushing the current one up.",
         }
     }
 
@@ -111,7 +128,7 @@ impl Transition {
     /// symptoms — nausea and vertigo, not annoyance. These are the transitions
     /// [`render`] has to cancel under `prefers-reduced-motion`.
     pub fn moves(self) -> bool {
-        matches!(self, Self::Slide | Self::Push)
+        matches!(self, Self::Slide | Self::Push | Self::Wipe | Self::Rise)
     }
 }
 
@@ -209,6 +226,32 @@ fn animations(css: &mut String, transition: Transition) {
             keyframes(css, "slidx-transition-push-out", "to", "transform: translateX(-100%);");
             keyframes(css, "slidx-transition-push-in", "from", "transform: translateX(100%);");
         }
+
+        Transition::Wipe => {
+            // The outgoing slide stays put. Only the arriving snapshot is
+            // clipped, so the edge that reveals it is the only thing that
+            // moves — a wipe rather than a push.
+            let _ = writeln!(css, "::view-transition-old(root) {{");
+            let _ = writeln!(css, "  animation: none;");
+            let _ = writeln!(css, "  mix-blend-mode: normal;");
+            let _ = writeln!(css, "}}\n");
+            let _ = writeln!(css, "::view-transition-new(root) {{");
+            let _ = writeln!(css, "  animation: {};", shorthand("slidx-transition-wipe-in"));
+            let _ = writeln!(css, "  mix-blend-mode: normal;");
+            let _ = writeln!(css, "}}\n");
+            keyframes(css, "slidx-transition-wipe-in", "from", "clip-path: inset(0 100% 0 0);");
+        }
+
+        Transition::Rise => {
+            pair(
+                css,
+                "slidx-transition-rise-out",
+                "slidx-transition-rise-in",
+                Some("mix-blend-mode: normal;"),
+            );
+            keyframes(css, "slidx-transition-rise-out", "to", "transform: translateY(-100%);");
+            keyframes(css, "slidx-transition-rise-in", "from", "transform: translateY(100%);");
+        }
     }
 }
 
@@ -291,6 +334,10 @@ mod tests {
         render(&builtin::minimal(), transition)
     }
 
+    fn animated() -> impl Iterator<Item = Transition> {
+        Transition::ALL.into_iter().filter(|&kind| kind != Transition::None)
+    }
+
     /// The `prefers-reduced-motion` block, brace-matched out of the stylesheet.
     fn reduced_block(css: &str) -> String {
         let start = css.find("@media (prefers-reduced-motion: reduce)").expect("no reduce block");
@@ -344,6 +391,8 @@ mod tests {
         // transition to one.
         assert_eq!(Transition::parse("  Fade "), Some(Transition::Fade));
         assert_eq!(Transition::parse("PUSH"), Some(Transition::Push));
+        assert_eq!(Transition::parse("push-up"), Some(Transition::Rise));
+        assert_eq!(Transition::parse("WIPE"), Some(Transition::Wipe));
     }
 
     #[test]
@@ -383,6 +432,8 @@ mod tests {
     fn moving_kinds_are_the_ones_reduced_motion_has_to_cancel() {
         assert!(Transition::Slide.moves());
         assert!(Transition::Push.moves());
+        assert!(Transition::Wipe.moves(), "a sweeping edge is still full-screen motion");
+        assert!(Transition::Rise.moves());
         assert!(!Transition::Fade.moves(), "opacity is not a vestibular trigger");
         assert!(!Transition::None.moves());
     }
@@ -396,7 +447,7 @@ mod tests {
 
     #[test]
     fn every_animated_kind_opts_in_to_cross_document_navigation() {
-        for kind in [Transition::Fade, Transition::Slide, Transition::Push] {
+        for kind in animated() {
             let css = css(kind);
             assert!(css.contains("@view-transition"), "{} does not opt in", kind.as_token());
             assert!(css.contains("navigation: auto;"), "{} does not opt in", kind.as_token());
@@ -406,8 +457,7 @@ mod tests {
     #[test]
     fn each_kind_produces_a_distinct_animation() {
         // Three names for one effect would be a worse offer than one name.
-        let rendered: Vec<String> =
-            [Transition::Fade, Transition::Slide, Transition::Push].map(css).to_vec();
+        let rendered: Vec<String> = animated().map(css).collect();
 
         for (index, one) in rendered.iter().enumerate() {
             for other in &rendered[index + 1..] {
@@ -442,11 +492,29 @@ mod tests {
     }
 
     #[test]
+    fn a_wipe_holds_the_outgoing_slide_and_clips_the_arriving_one() {
+        let css = css(Transition::Wipe);
+
+        assert!(css.contains("animation: none;"), "the outgoing slide stays put");
+        assert!(css.contains("clip-path: inset(0 100% 0 0);"));
+        assert!(!css.contains("translate"), "a wipe that translates is a slide");
+    }
+
+    #[test]
+    fn a_rise_moves_both_pages_vertically() {
+        let css = css(Transition::Rise);
+
+        assert!(css.contains("translateY(-100%)"), "the outgoing slide leaves upward");
+        assert!(css.contains("translateY(100%)"), "the arriving slide enters from below");
+        assert!(!css.contains("translateX"), "a rise that moves sideways is a push");
+    }
+
+    #[test]
     fn overlapping_slides_composite_opaquely() {
         // The browser blends the two snapshots additively by default, which is
         // right for a cross-fade and turns the overlap of two opaque slides
         // white.
-        for kind in [Transition::Slide, Transition::Push] {
+        for kind in [Transition::Slide, Transition::Push, Transition::Wipe, Transition::Rise] {
             assert!(
                 css(kind).contains("mix-blend-mode: normal;"),
                 "{} would blow out where the slides overlap",
@@ -457,11 +525,12 @@ mod tests {
 
     #[test]
     fn reduced_motion_cancels_every_movement() {
-        for kind in [Transition::Fade, Transition::Slide, Transition::Push] {
+        for kind in animated() {
             let block = reduced_block(&css(kind));
 
             assert!(!block.contains("translate"), "{} still moves under reduce", kind.as_token());
             assert!(!block.contains("scale"), "{} still scales under reduce", kind.as_token());
+            assert!(!block.contains("clip-path"), "{} still wipes under reduce", kind.as_token());
         }
     }
 
@@ -475,7 +544,7 @@ mod tests {
 
     #[test]
     fn reduced_motion_is_honoured_by_every_kind_that_renders() {
-        for kind in [Transition::Fade, Transition::Slide, Transition::Push] {
+        for kind in animated() {
             assert!(
                 css(kind).contains("@media (prefers-reduced-motion: reduce)"),
                 "{} ignores the preference",
@@ -511,7 +580,7 @@ mod tests {
     fn every_duration_in_the_stylesheet_is_a_variable() {
         // One literal survives per block — the token definition itself. Any
         // other `ms` is a duration a theme cannot reach.
-        for kind in [Transition::Fade, Transition::Slide, Transition::Push] {
+        for kind in animated() {
             let css = css(kind);
             assert_eq!(
                 css.matches("ms;").count(),
@@ -538,7 +607,7 @@ mod tests {
         // browser is holding two documents. Opening a deck has one. An
         // animation on a real selector would run on load, which is the bug
         // this excludes.
-        for kind in [Transition::Fade, Transition::Slide, Transition::Push] {
+        for kind in animated() {
             let mut selector = String::new();
 
             for line in css(kind).lines().map(str::trim) {
@@ -559,7 +628,7 @@ mod tests {
     fn every_animation_named_is_a_keyframe_that_exists() {
         // A misspelt animation name is silently inert in CSS: the slide simply
         // appears, and nothing reports why.
-        for kind in [Transition::Fade, Transition::Slide, Transition::Push] {
+        for kind in animated() {
             let css = css(kind);
             let defined: Vec<&str> = css
                 .match_indices("@keyframes ")
@@ -581,7 +650,7 @@ mod tests {
     #[test]
     fn animation_names_are_namespaced_to_slidx() {
         // A deck embeds third-party CSS; an unprefixed `fade-in` collides.
-        for kind in [Transition::Fade, Transition::Slide, Transition::Push] {
+        for kind in animated() {
             let css = css(kind);
             for (at, _) in css.match_indices("@keyframes ") {
                 let name = css[at + 11..].split_whitespace().next().unwrap();
@@ -609,7 +678,7 @@ mod tests {
     #[test]
     fn every_built_in_theme_renders_every_kind() {
         for theme in builtin::all() {
-            for kind in [Transition::Fade, Transition::Slide, Transition::Push] {
+            for kind in animated() {
                 assert!(
                     !render(&theme, kind).is_empty(),
                     "{} rendered nothing for {}",

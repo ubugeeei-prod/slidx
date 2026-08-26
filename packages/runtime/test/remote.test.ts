@@ -21,7 +21,7 @@
 
 import { describe, expect, it } from "vite-plus/test";
 
-import { createMirror } from "../src/mirror";
+import { createMirror, type MirrorTransport } from "../src/mirror";
 import {
   createPairing,
   createRemoteTransport,
@@ -29,6 +29,13 @@ import {
   readPairing,
   type RemoteSocket,
 } from "../src/remote";
+import {
+  composeTransports,
+  joinRemote,
+  relaySocketUrl,
+  rememberPairing,
+} from "../src/remote-link";
+import { renderQrSvg } from "../src/qr";
 
 /** A socket that records what was sent and can be fed what arrives. */
 function fakeSocket() {
@@ -255,3 +262,108 @@ describe("as a mirror transport", () => {
     expect(sent).toHaveLength(1);
   });
 });
+
+describe("rememberPairing", () => {
+  it("reuses the pairing it wrote, so every presenter page joins the same session", () => {
+    const store = memoryStore();
+    const first = rememberPairing(store, { random: fixedRandom(0xab) });
+    const second = rememberPairing(store, { random: fixedRandom(0xcd) });
+
+    expect(second).toEqual(first);
+  });
+
+  it("mints a pairing when storage is missing, rather than throwing", () => {
+    expect(rememberPairing(null).secret.length).toBeGreaterThanOrEqual(32);
+  });
+});
+
+describe("relaySocketUrl", () => {
+  it("opens a session socket and never puts the secret in the URL", () => {
+    const url = relaySocketUrl("https://slidx-audience.example.workers.dev/", PAIRING.session);
+
+    expect(url).toBe(
+      `wss://slidx-audience.example.workers.dev/sessions/${PAIRING.session}/socket`,
+    );
+    expect(url).not.toContain(PAIRING.secret);
+    expect(url).not.toContain("#");
+    expect(url).not.toContain("?");
+  });
+});
+
+describe("composeTransports", () => {
+  it("posts to every live transport so a dead relay does not silence the lectern", () => {
+    const local = recordingTransport();
+    const remote = recordingTransport();
+    const composed = composeTransports(local.transport, null, remote.transport);
+    const message = { type: "request" as const, sequence: 1 };
+
+    composed.post(message);
+
+    expect(local.posted).toEqual([message]);
+    expect(remote.posted).toEqual([message]);
+  });
+});
+
+describe("joinRemote", () => {
+  it("drives the deck from a phone without the local channel", () => {
+    const { socket, deliver } = fakeSocket();
+    const mirror = joinRemote({ pairing: PAIRING, socket, local: false });
+    const seen: unknown[] = [];
+    mirror.subscribe((position) => seen.push(position));
+
+    deliver(
+      JSON.stringify({
+        type: "relay",
+        session: PAIRING.session,
+        message: { type: "position", position: { slide: 4, step: 1 }, sequence: 3 },
+      }),
+    );
+
+    expect(seen).toEqual([{ slide: 4, step: 1 }]);
+  });
+});
+
+describe("renderQrSvg", () => {
+  it("draws a code rather than fetching one", () => {
+    const svg = renderQrSvg("https://example.com/remote/#s=ab.cd");
+
+    expect(svg).toContain("<svg");
+    expect(svg).toContain("currentColor");
+    expect(svg).not.toContain("<img");
+    expect(svg).not.toContain("http://");
+    expect(svg).not.toContain("https://");
+  });
+
+  it("refuses an empty payload rather than drawing a mark that cannot scan", () => {
+    expect(renderQrSvg("")).toBeNull();
+  });
+
+  it("puts finder patterns in three corners", () => {
+    const svg = renderQrSvg("https://slidx.dev/remote");
+    expect(svg).toContain("M4 4h7v1h-7z");
+  });
+});
+
+function memoryStore(): Storage {
+  const values = new Map<string, string>();
+  return {
+    get length() {
+      return values.size;
+    },
+    clear: () => values.clear(),
+    getItem: (key) => values.get(key) ?? null,
+    key: (index) => [...values.keys()][index] ?? null,
+    removeItem: (key) => void values.delete(key),
+    setItem: (key, value) => void values.set(key, value),
+  };
+}
+
+function recordingTransport() {
+  const posted: unknown[] = [];
+  const transport: MirrorTransport = {
+    post: (message) => void posted.push(message),
+    listen: () => () => {},
+    close: () => {},
+  };
+  return { transport, posted };
+}

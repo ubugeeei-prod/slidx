@@ -43,6 +43,12 @@ pub struct PresenterOptions {
     /// every staged slide and this is for the few decks that place a clip.
     /// See `crate::media_script`.
     pub media_src: String,
+    /// Module URL of the pairing bundle, when a relay was named.
+    ///
+    /// Absent on a default deck: a presenter that imported it unconditionally
+    /// would fetch a module no page can call, and a deck that never pairs
+    /// must ship no additional bytes.
+    pub remote_src: Option<String>,
 }
 
 impl Default for PresenterOptions {
@@ -54,6 +60,7 @@ impl Default for PresenterOptions {
             presenter_runtime_src: "./presenter.js".to_string(),
             rehearsal_src: "./rehearsal.js".to_string(),
             media_src: "./media.js".to_string(),
+            remote_src: None,
         }
     }
 }
@@ -107,7 +114,7 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
       >
         Present
       </button>
-      <span class="slidx-presenter-divider" aria-hidden="true"></span>
+{remote_chrome}      <span class="slidx-presenter-divider" aria-hidden="true"></span>
       <button
         type="button"
         data-slidx-action="rehearse"
@@ -144,7 +151,7 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
     <p class="slidx-present-state" data-slidx-present-state aria-live="polite"></p>
     <ul class="slidx-present-checklist" data-slidx-present-checklist></ul>
   </section>
-
+{remote_panel}
   <section class="slidx-presenter-notes" aria-label="Speaker notes">
 {notes}
   </section>
@@ -199,12 +206,23 @@ pub fn render_presenter(deck: &Deck, slide: &Slide, options: &PresenterOptions) 
             .unwrap_or_default(),
         next_preview = next_preview(deck, next, options),
         stops = stop_label(1, slide.timeline.frames().len()),
+        remote_chrome = options
+            .remote_src
+            .as_ref()
+            .map(|_| crate::presenter_remote::chrome())
+            .unwrap_or_default(),
+        remote_panel = options
+            .remote_src
+            .as_ref()
+            .map(|_| crate::presenter_remote::panel())
+            .unwrap_or_default(),
         script = presenter_script::render(
             deck,
             slide,
             &options.runtime_src,
             &options.presenter_runtime_src,
             &options.rehearsal_src,
+            options.remote_src.as_deref(),
         ),
         media = crate::media_script::presenter_script(
             deck,
@@ -666,6 +684,27 @@ mod tests {
         for marker in ["http://", "https://", "//cdn"] {
             assert!(!html.contains(marker), "presenter reaches for {marker}");
         }
+        assert!(!html.contains("joinRemote"), "{html}");
+        assert!(!html.contains("data-slidx-action=\"remote\""), "{html}");
+    }
+
+    #[test]
+    fn a_named_relay_reaches_the_pairing_constructors() {
+        let deck = parse_deck("# One\n", &DeckParseOptions::default());
+        let options = PresenterOptions {
+            remote_src: Some("./remote.js".to_string()),
+            ..PresenterOptions::default()
+        };
+        let html = render_presenter(&deck, &deck.slides[0], &options);
+
+        assert!(html.contains("rememberPairing"), "{html}");
+        assert!(html.contains("pairingUrl"), "{html}");
+        assert!(html.contains("joinRemote"), "{html}");
+        assert!(html.contains("renderQrSvg"), "{html}");
+        assert!(html.contains(r#"from "./remote.js""#), "{html}");
+        assert!(html.contains("data-slidx-action=\"remote\""), "{html}");
+        assert!(!html.contains("http://"), "{html}");
+        assert!(!html.contains("https://"), "{html}");
     }
 
     #[test]

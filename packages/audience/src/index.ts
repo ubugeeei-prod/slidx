@@ -78,13 +78,26 @@ export type {
   SubmitOutcome,
 } from "./room";
 
+export { createRelayHub, isSessionId, readRelayFrame, SESSION_HEX_LENGTH } from "./relay";
+export type { HubOutcome, JoinFrame, RelayFrame, RelayHub } from "./relay";
+
+export { routeSessionRequest, splitSessionPath } from "./relay-routes";
+export type { SessionRouteContext } from "./relay-routes";
+
 export { routeRoomRequest, splitRoomPath } from "./routes";
 export type { RouteContext } from "./routes";
 
 export { receiveFrame } from "./session";
 export type { Session } from "./session";
 
-export { audienceWorker, AudienceRoom, createRoomHub, handleFetch } from "./worker";
+export {
+  audienceWorker,
+  AudienceRoom,
+  RemoteSession,
+  createRoomHub,
+  handleFetch,
+  receiveRelay,
+} from "./worker";
 export type {
   AudienceEnv,
   DurableObjectNamespaceLike,

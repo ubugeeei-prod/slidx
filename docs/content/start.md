@@ -79,6 +79,7 @@ opened on a phone, and indexed. Four more addresses exist for the same deck:
 | `/slides/`           | the deck, from slide one                                    |
 | `/slides/2/`         | slide two, on its own                                       |
 | `/slides/presenter/` | the presenter view: clock, notes, next slide                |
+| `/slides/remote/`    | the phone remote, when the deck named a Worker              |
 | `/slides/print/`     | the whole deck as one document, one page per animation stop |
 | `/__slidx/`          | the visual editor, in dev only                              |
 
